@@ -2,10 +2,16 @@ const TOKEN_KEY = "asraa_jwt";
 const ROLE_KEY = "asraa_role";
 const COOKIE_TOKEN = "asraa_token";
 const COOKIE_ROLE = "asraa_role_c";
+/** Default cookie lifetime when the JWT carries no `exp` claim (7 days). */
+const DEFAULT_COOKIE_MAX_AGE_SEC = 7 * 86400;
 
 // ── Cookie helpers (client-side only) ────────────────────────────────────────
 
-function setCookie(name: string, value: string, maxAgeSec = 7 * 86400): void {
+function setCookie(
+  name: string,
+  value: string,
+  maxAgeSec = DEFAULT_COOKIE_MAX_AGE_SEC
+): void {
   if (typeof document === "undefined") return;
   const secure =
     typeof location !== "undefined" && location.protocol === "https:"
@@ -99,7 +105,7 @@ export function setAuth(token: string, role: string): void {
   const payload = parseTokenPayload(token);
   const maxAge = payload?.exp
     ? Math.max(0, payload.exp - Math.floor(Date.now() / 1000))
-    : 7 * 86400;
+    : DEFAULT_COOKIE_MAX_AGE_SEC;
   setCookie(COOKIE_TOKEN, token, maxAge);
   setCookie(COOKIE_ROLE, role, maxAge);
 }
