@@ -133,7 +133,10 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
   // with a "username" field (not "email") and "password". This diverges from the
   // JSON-based `request()` helper intentionally — the login endpoint has a
   // different content-type requirement than all other API calls.
+  // OAuth2PasswordRequestForm requires grant_type="password" in addition to
+  // username and password.
   const body = new URLSearchParams();
+  body.append("grant_type", "password");
   body.append("username", payload.email);
   body.append("password", payload.password);
 
@@ -150,10 +153,16 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
     );
   }
 
+  // DEBUG: log status and raw body to help diagnose 403 issues.
+  // TODO: remove these logs once login is confirmed working.
+  const rawText = await response.clone().text();
+  console.debug("[login] response.status:", response.status);
+  console.debug("[login] response body:", rawText);
+
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
     try {
-      const data = await response.json();
+      const data = JSON.parse(rawText);
       message = data?.detail ?? data?.message ?? message;
     } catch {
       // ignore JSON parse errors on error bodies
