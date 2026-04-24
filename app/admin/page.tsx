@@ -34,8 +34,11 @@ export default function AdminPage() {
     ])
       .then(([usersRes, clientsRes, portfolioRes]) => {
         if (usersRes.status === "fulfilled") setUsers(usersRes.value);
+        else console.error("Failed to load users:", usersRes.reason);
         if (clientsRes.status === "fulfilled") setClients(clientsRes.value);
+        else console.error("Failed to load clients:", clientsRes.reason);
         if (portfolioRes.status === "fulfilled") setPortfolio(portfolioRes.value);
+        else console.error("Failed to load portfolio:", portfolioRes.reason);
 
         const allFailed = [usersRes, clientsRes, portfolioRes].every(
           (r) => r.status === "rejected"
