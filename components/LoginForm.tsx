@@ -3,8 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { login } from "@/lib/api";
-import { setAuth } from "@/lib/auth";
+import { login, getMe } from "@/lib/api";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -19,9 +18,11 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      const data = await login({ email, password });
-      setAuth(data.access_token, data.role);
-      router.replace(data.role === "admin" ? "/admin" : "/dashboard");
+      await login({ email, password });
+      // Backend sets HTTP-only cookies; call /auth/me to retrieve the role
+      // without ever exposing the token to JavaScript.
+      const me = await getMe();
+      router.replace(me.role === "admin" ? "/admin" : "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { clearAuth, isAuthenticated, msUntilExpiry } from "@/lib/auth";
 import {
   fetchPortfolio,
+  logout,
   type Client,
   type PortfolioSummary,
   type StockQuote,
@@ -82,9 +82,13 @@ export default function Dashboard() {
     return () => controller.abort();
   }, [selectedClient, loadPortfolio]);
 
-  function handleLogout() {
-    clearAuth();
-    router.replace("/login");
+  async function handleLogout() {
+    try {
+      await logout();
+    } finally {
+      // Always redirect to login, even if the API call fails.
+      router.replace("/login");
+    }
   }
 
   function handleClientChange(client: Client) {

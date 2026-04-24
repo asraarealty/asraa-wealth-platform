@@ -1,5 +1,3 @@
-import { getToken, clearAuth } from "./auth";
-
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 // ── Error types ───────────────────────────────────────────────────────────────
@@ -28,9 +26,37 @@ interface RequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
 }
 
+/**
+ * Attempt to silently refresh the access token using the stored refresh token
+ * cookie. Returns true if the backend issued new cookies, false otherwise.
+ */
+async function tryRefresh(): Promise<boolean> {
+  try {
+    const response = await fetch(`${BASE_URL}/api/v2/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Core fetch wrapper. All requests include cookies (`credentials: "include"`)
+ * so the backend can authenticate via HTTP-only cookies. No Authorization
+ * header is sent — tokens are never accessible to JavaScript.
+ *
+ * On a 401 response the wrapper attempts one silent token refresh; if the
+ * refresh succeeds the original request is retried. If the refresh fails the
+ * user is redirected to /login.
+ *
+ * @param _skipRefresh - Internal flag to prevent infinite refresh loops.
+ */
 async function request<T>(
   path: string,
-  options: RequestOptions = {}
+  options: RequestOptions = {},
+  _skipRefresh = false
 ): Promise<T> {
   const { body, headers: extraHeaders, signal, ...rest } = options;
 
@@ -39,16 +65,12 @@ async function request<T>(
     ...(extraHeaders as Record<string, string>),
   };
 
-  const token = getToken();
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
   let response: Response;
   try {
     response = await fetch(`${BASE_URL}${path}`, {
       ...rest,
       headers,
+      credentials: "include",
       signal,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
@@ -60,12 +82,17 @@ async function request<T>(
     );
   }
 
-  if (response.status === 401) {
-    clearAuth();
+  if (response.status === 401 && !_skipRefresh) {
+    // Try a silent token refresh and replay the original request once.
+    const refreshed = await tryRefresh();
+    if (refreshed) {
+      return request<T>(path, options, true);
+    }
+    // Refresh failed — session is definitively expired.
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }
-    throw new ApiError(401, "Unauthorized");
+    throw new ApiError(401, "Session expired");
   }
 
   if (!response.ok) {
@@ -93,10 +120,12 @@ export interface LoginPayload {
   password: string;
 }
 
+/**
+ * The backend sets HTTP-only access_token and refresh_token cookies on
+ * success and returns only a success flag — tokens are never in JSON.
+ */
 export interface LoginResponse {
-  access_token: string;
-  token_type: string;
-  role: string;
+  success: boolean;
 }
 
 export function login(payload: LoginPayload): Promise<LoginResponse> {
@@ -104,6 +133,25 @@ export function login(payload: LoginPayload): Promise<LoginResponse> {
     method: "POST",
     body: payload,
   });
+}
+
+export interface MeResponse {
+  id: string;
+  email: string;
+  role: string;
+}
+
+/** Fetch the authenticated user's profile from the backend. */
+export function getMe(): Promise<MeResponse> {
+  return request<MeResponse>("/api/v2/auth/me");
+}
+
+/**
+ * Terminate the session. The backend deletes the refresh token from the DB
+ * and clears both HTTP-only cookies via Set-Cookie.
+ */
+export function logout(): Promise<void> {
+  return request<void>("/api/v2/auth/logout", { method: "POST" });
 }
 
 // ── Clients ───────────────────────────────────────────────────────────────────
