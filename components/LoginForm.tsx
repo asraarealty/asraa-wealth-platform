@@ -21,7 +21,14 @@ export default function LoginForm() {
       await login({ email, password });
       // Backend sets HTTP-only cookies; call /auth/me to retrieve the role
       // without ever exposing the token to JavaScript.
-      const me = await getMe();
+      let me;
+      try {
+        me = await getMe();
+      } catch {
+        setError("Login succeeded but failed to load your profile. Please refresh and try again.");
+        setLoading(false);
+        return;
+      }
       router.replace(me.role === "admin" ? "/admin" : "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");

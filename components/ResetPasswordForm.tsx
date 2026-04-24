@@ -8,7 +8,8 @@ import { resetPassword } from "@/lib/api";
 export default function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get("token") ?? "";
+  // Named resetToken to distinguish from auth tokens managed by the backend.
+  const resetToken = searchParams.get("token") ?? "";
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -24,7 +25,7 @@ export default function ResetPasswordForm() {
       return;
     }
 
-    if (!token) {
+    if (!resetToken) {
       setError("Invalid or missing reset token");
       return;
     }
@@ -32,7 +33,7 @@ export default function ResetPasswordForm() {
     setLoading(true);
 
     try {
-      await resetPassword({ token, password });
+      await resetPassword({ token: resetToken, password });
       router.replace("/login");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Password reset failed");
