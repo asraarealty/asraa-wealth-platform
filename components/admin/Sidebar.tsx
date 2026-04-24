@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 
 const navLinks = [
   { href: "/admin", label: "Dashboard" },
@@ -15,6 +16,7 @@ const navLinks = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { logout } = useAuth();
 
   return (
     <aside className="flex w-56 flex-shrink-0 flex-col bg-slate-900 border-r border-slate-800">
@@ -40,6 +42,14 @@ export default function Sidebar() {
           );
         })}
       </nav>
+      <div className="p-3 border-t border-slate-800">
+        <button
+          onClick={logout}
+          className="w-full rounded px-3 py-2 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-red-400 transition-colors text-left"
+        >
+          Sign out
+        </button>
+      </div>
     </aside>
   );
 }
