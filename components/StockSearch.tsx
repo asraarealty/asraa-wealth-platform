@@ -30,6 +30,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
   const [activeIndex, setActiveIndex] = useState(-1);
   const [open, setOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,23 +41,32 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
     }
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
+
+    debounceRef.current = setTimeout(() => {
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       setLoading(true);
       setError(null);
-      try {
-        const data = await searchStocks(query.trim());
-        setResults(data);
-        setOpen(true);
-        setActiveIndex(-1);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Search failed");
-      } finally {
-        setLoading(false);
-      }
+
+      searchStocks(query.trim(), controller.signal)
+        .then((data) => {
+          setResults(data);
+          setOpen(data.length > 0);
+          setActiveIndex(-1);
+        })
+        .catch((err) => {
+          if (err instanceof DOMException && err.name === "AbortError") return;
+          setError(err instanceof Error ? err.message : "Search failed");
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     }, 300);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
     };
   }, [query]);
 

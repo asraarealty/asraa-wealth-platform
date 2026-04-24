@@ -1,6 +1,8 @@
 import { getToken, removeToken } from "./auth";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
+
+// ── Error types ───────────────────────────────────────────────────────────────
 
 export class ApiError extends Error {
   constructor(
@@ -12,6 +14,16 @@ export class ApiError extends Error {
   }
 }
 
+/** Thrown when the request never reached the server (network down, CORS, etc.) */
+export class NetworkError extends Error {
+  constructor(message = "Network request failed") {
+    super(message);
+    this.name = "NetworkError";
+  }
+}
+
+// ── Core request wrapper ──────────────────────────────────────────────────────
+
 interface RequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
 }
@@ -20,7 +32,7 @@ async function request<T>(
   path: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { body, headers: extraHeaders, ...rest } = options;
+  const { body, headers: extraHeaders, signal, ...rest } = options;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -32,11 +44,21 @@ async function request<T>(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${BASE_URL}${path}`, {
-    ...rest,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}${path}`, {
+      ...rest,
+      headers,
+      signal,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (err) {
+    // AbortError should propagate as-is so callers can distinguish cancellations.
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    throw new NetworkError(
+      err instanceof Error ? err.message : "Network request failed"
+    );
+  }
 
   if (response.status === 401) {
     removeToken();
@@ -52,7 +74,7 @@ async function request<T>(
       const data = await response.json();
       message = data?.detail ?? data?.message ?? message;
     } catch {
-      // ignore parse errors
+      // ignore JSON parse errors on error bodies
     }
     throw new ApiError(response.status, message);
   }
@@ -93,8 +115,8 @@ export interface Client {
   risk_profile: "conservative" | "moderate" | "aggressive";
 }
 
-export function fetchClients(): Promise<Client[]> {
-  return request<Client[]>("/api/v2/clients");
+export function fetchClients(signal?: AbortSignal): Promise<Client[]> {
+  return request<Client[]>("/api/v2/clients", { signal });
 }
 
 // ── Stocks ────────────────────────────────────────────────────────────────────
@@ -109,14 +131,23 @@ export interface StockQuote {
   market_cap: number;
 }
 
-export function searchStocks(query: string): Promise<StockQuote[]> {
+export function searchStocks(
+  query: string,
+  signal?: AbortSignal
+): Promise<StockQuote[]> {
   return request<StockQuote[]>(
-    `/api/v2/stocks/search?q=${encodeURIComponent(query)}`
+    `/api/v2/stocks/search?q=${encodeURIComponent(query)}`,
+    { signal }
   );
 }
 
-export function fetchStockQuote(symbol: string): Promise<StockQuote> {
-  return request<StockQuote>(`/api/v2/stocks/${encodeURIComponent(symbol)}`);
+export function fetchStockQuote(
+  symbol: string,
+  signal?: AbortSignal
+): Promise<StockQuote> {
+  return request<StockQuote>(`/api/v2/stocks/${encodeURIComponent(symbol)}`, {
+    signal,
+  });
 }
 
 // ── Portfolio ─────────────────────────────────────────────────────────────────
@@ -141,8 +172,13 @@ export interface PortfolioPosition {
   gain_loss_percent: number;
 }
 
-export function fetchPortfolio(clientId: string): Promise<PortfolioSummary> {
+export function fetchPortfolio(
+  clientId: string,
+  signal?: AbortSignal
+): Promise<PortfolioSummary> {
   return request<PortfolioSummary>(
-    `/api/v2/clients/${encodeURIComponent(clientId)}/portfolio`
+    `/api/v2/clients/${encodeURIComponent(clientId)}/portfolio`,
+    { signal }
   );
 }
+

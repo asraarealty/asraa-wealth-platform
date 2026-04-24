@@ -59,13 +59,14 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockQuote | null>(null);
 
-  const loadPortfolio = useCallback(async (clientId: string) => {
+  const loadPortfolio = useCallback(async (clientId: string, signal?: AbortSignal) => {
     setPortfolioLoading(true);
     setPortfolioError(null);
     try {
-      const data = await fetchPortfolio(clientId);
+      const data = await fetchPortfolio(clientId, signal);
       setPortfolio(data);
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       setPortfolioError(
         err instanceof Error ? err.message : "Failed to load portfolio"
       );
@@ -75,9 +76,10 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (selectedClient) {
-      loadPortfolio(selectedClient.id);
-    }
+    if (!selectedClient) return;
+    const controller = new AbortController();
+    loadPortfolio(selectedClient.id, controller.signal);
+    return () => controller.abort();
   }, [selectedClient, loadPortfolio]);
 
   function handleLogout() {

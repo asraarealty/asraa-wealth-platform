@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticated, msUntilExpiry } from "@/lib/auth";
 import Dashboard from "@/components/Dashboard";
 
 export default function DashboardPage() {
@@ -12,8 +12,19 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!isAuthenticated()) {
       router.replace("/login");
-    } else {
-      setChecked(true);
+      return;
+    }
+
+    setChecked(true);
+
+    // Schedule a redirect exactly when the token expires so the user is
+    // kicked out automatically rather than receiving 401 errors mid-session.
+    const ms = msUntilExpiry();
+    if (ms > 0) {
+      const id = setTimeout(() => {
+        router.replace("/login");
+      }, ms);
+      return () => clearTimeout(id);
     }
   }, [router]);
 

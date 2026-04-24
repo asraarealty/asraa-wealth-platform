@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { fetchClients, type Client } from "@/lib/api";
 
 interface ClientSelectorProps {
@@ -32,14 +32,30 @@ export default function ClientSelector({
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
 
-  useEffect(() => {
-    fetchClients()
-      .then(setClients)
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Failed to load clients")
-      )
-      .finally(() => setLoading(false));
+  const load = useCallback(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+
+    fetchClients(controller.signal)
+      .then((data) => {
+        setClients(data);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(err instanceof Error ? err.message : "Failed to load clients");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+
+    return controller;
   }, []);
+
+  useEffect(() => {
+    const controller = load();
+    return () => controller.abort();
+  }, [load]);
 
   const filtered = clients.filter(
     (c) =>
@@ -76,7 +92,15 @@ export default function ClientSelector({
 
   if (error) {
     return (
-      <p className="text-red-400 text-sm py-2">{error}</p>
+      <div className="flex flex-col gap-2 py-2">
+        <p className="text-red-400 text-sm">{error}</p>
+        <button
+          onClick={load}
+          className="text-emerald-400 text-sm underline underline-offset-2 text-left"
+        >
+          Retry
+        </button>
+      </div>
     );
   }
 
@@ -138,3 +162,4 @@ export default function ClientSelector({
     </div>
   );
 }
+
