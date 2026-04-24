@@ -25,7 +25,7 @@ export class NetworkError extends Error {
 
 // ── Token helpers ─────────────────────────────────────────────────────────────
 
-const TOKEN_LS_KEY = "token";
+const TOKEN_LS_KEY = "access_token";
 /** Cookie name that the server-side proxy reads to gate protected routes. */
 const TOKEN_COOKIE_NAME = "access_token";
 
