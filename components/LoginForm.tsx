@@ -2,35 +2,27 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { login, getMe, ApiError, NetworkError } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
+import { ApiError, NetworkError } from "@/lib/fetcher";
 
 export default function LoginForm() {
-  const router = useRouter();
+  const { login, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loading = authLoading || submitting;
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    setLoading(true);
+    setSubmitting(true);
 
     try {
-      await login({ email, password });
-      // Backend sets HTTP-only cookies; call /auth/me to retrieve the role
-      // without ever exposing the token to JavaScript.
-      let me;
-      try {
-        me = await getMe();
-      } catch {
-        setError("Login succeeded but failed to load your profile. Please refresh and try again.");
-        setLoading(false);
-        return;
-      }
-      router.replace(me.role === "admin" ? "/admin" : "/dashboard");
+      await login(email, password);
+      // AuthContext.login() stores the token and redirects to /dashboard or /admin.
     } catch (err) {
       if (err instanceof NetworkError) {
         setError("Server not reachable. Please check your connection and try again.");
@@ -40,7 +32,7 @@ export default function LoginForm() {
         setError(err instanceof Error ? err.message : "Login failed");
       }
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   }
 

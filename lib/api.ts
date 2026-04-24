@@ -1,117 +1,14 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
+export {
+  API_BASE_URL,
+  ApiError,
+  NetworkError,
+  getStoredToken,
+  storeToken,
+  clearToken,
+  fetcher,
+} from "./fetcher";
 
-// ── Error types ───────────────────────────────────────────────────────────────
-
-export class ApiError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
-/** Thrown when the request never reached the server (network down, CORS, etc.) */
-export class NetworkError extends Error {
-  constructor(message = "Network request failed") {
-    super(message);
-    this.name = "NetworkError";
-  }
-}
-
-// ── Core request wrapper ──────────────────────────────────────────────────────
-
-interface RequestOptions extends Omit<RequestInit, "body"> {
-  body?: unknown;
-}
-
-/**
- * Attempt to silently refresh the access token using the stored refresh token
- * cookie. Returns true if the backend issued new cookies, false otherwise.
- */
-async function tryRefresh(): Promise<boolean> {
-  try {
-    const response = await fetch(`${BASE_URL}/api/v2/auth/refresh`, {
-      method: "POST",
-      credentials: "include",
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Core fetch wrapper. All requests include cookies (`credentials: "include"`)
- * so the backend can authenticate via HTTP-only cookies. No Authorization
- * header is sent — tokens are never accessible to JavaScript.
- *
- * On a 401 response the wrapper attempts one silent token refresh; if the
- * refresh succeeds the original request is retried. If the refresh fails the
- * user is redirected to /login.
- *
- * @param _skipRefresh - Internal flag to prevent infinite refresh loops.
- */
-async function request<T>(
-  path: string,
-  options: RequestOptions = {},
-  _skipRefresh = false
-): Promise<T> {
-  const { body, headers: extraHeaders, signal, ...rest } = options;
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(extraHeaders as Record<string, string>),
-  };
-
-  let response: Response;
-  try {
-    response = await fetch(`${BASE_URL}${path}`, {
-      ...rest,
-      headers,
-      credentials: "include",
-      signal,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-  } catch (err) {
-    // AbortError should propagate as-is so callers can distinguish cancellations.
-    if (err instanceof DOMException && err.name === "AbortError") throw err;
-    throw new NetworkError(
-      err instanceof Error ? err.message : "Network request failed"
-    );
-  }
-
-  if (response.status === 401 && !_skipRefresh) {
-    // Try a silent token refresh and replay the original request once.
-    const refreshed = await tryRefresh();
-    if (refreshed) {
-      return request<T>(path, options, true);
-    }
-    // Refresh failed — session is definitively expired.
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
-    }
-    throw new ApiError(401, "Session expired");
-  }
-
-  if (!response.ok) {
-    let message = `HTTP ${response.status}`;
-    try {
-      const data = await response.json();
-      message = data?.detail ?? data?.message ?? message;
-    } catch {
-      // ignore JSON parse errors on error bodies
-    }
-    throw new ApiError(response.status, message);
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json() as Promise<T>;
-}
+import { fetcher } from "./fetcher";
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -120,57 +17,16 @@ export interface LoginPayload {
   password: string;
 }
 
-/**
- * The backend sets HTTP-only access_token and refresh_token cookies on
- * success and returns only a success flag — tokens are never in JSON.
- */
 export interface LoginResponse {
-  success: boolean;
+  access_token: string;
+  token_type?: string;
 }
 
-export async function login(payload: LoginPayload): Promise<LoginResponse> {
-  // FastAPI's OAuth2PasswordRequestForm expects application/x-www-form-urlencoded
-  // with a "username" field (not "email") and "password". This diverges from the
-  // JSON-based `request()` helper intentionally — the login endpoint has a
-  // different content-type requirement than all other API calls.
-  // OAuth2PasswordRequestForm requires grant_type="password" in addition to
-  // username and password.
-  const body = new URLSearchParams();
-  body.append("grant_type", "password");
-  body.append("username", payload.email);
-  body.append("password", payload.password);
-
-  let response: Response;
-  try {
-    response = await fetch(`${BASE_URL}/api/v2/auth/login`, {
-      method: "POST",
-      body,
-      credentials: "include",
-    });
-  } catch (err) {
-    throw new NetworkError(
-      err instanceof Error ? err.message : "Network request failed"
-    );
-  }
-
-  // DEBUG: log status and raw body to help diagnose 403 issues.
-  // TODO: remove these logs once login is confirmed working.
-  const rawText = await response.clone().text();
-  console.debug("[login] response.status:", response.status);
-  console.debug("[login] response body:", rawText);
-
-  if (!response.ok) {
-    let message = `HTTP ${response.status}`;
-    try {
-      const data = JSON.parse(rawText);
-      message = data?.detail ?? data?.message ?? message;
-    } catch {
-      // ignore JSON parse errors on error bodies
-    }
-    throw new ApiError(response.status, message);
-  }
-
-  return response.json() as Promise<LoginResponse>;
+export function login(payload: LoginPayload): Promise<LoginResponse> {
+  return fetcher<LoginResponse>("/auth/login", {
+    method: "POST",
+    body: payload,
+  });
 }
 
 export interface MeResponse {
@@ -181,18 +37,15 @@ export interface MeResponse {
 
 /** Fetch the authenticated user's profile from the backend. */
 export function getMe(): Promise<MeResponse> {
-  return request<MeResponse>("/api/v2/auth/me");
+  return fetcher<MeResponse>("/auth/me");
 }
 
-/**
- * Terminate the session. The backend deletes the refresh token from the DB
- * and clears both HTTP-only cookies via Set-Cookie.
- */
+/** Terminate the session on the backend. */
 export function logout(): Promise<void> {
-  return request<void>("/api/v2/auth/logout", { method: "POST" });
+  return fetcher<void>("/auth/logout", { method: "POST" });
 }
 
-// ── Clients ───────────────────────────────────────────────────────────────────
+// ── Users / Clients ───────────────────────────────────────────────────────────
 
 export interface Client {
   id: string;
@@ -203,7 +56,7 @@ export interface Client {
 }
 
 export function fetchClients(signal?: AbortSignal): Promise<Client[]> {
-  return request<Client[]>("/api/v2/clients", { signal });
+  return fetcher<Client[]>("/users", { signal });
 }
 
 // ── Stocks ────────────────────────────────────────────────────────────────────
@@ -222,8 +75,8 @@ export function searchStocks(
   query: string,
   signal?: AbortSignal
 ): Promise<StockQuote[]> {
-  return request<StockQuote[]>(
-    `/api/v2/stocks/search?q=${encodeURIComponent(query)}`,
+  return fetcher<StockQuote[]>(
+    `/stocks?q=${encodeURIComponent(query)}`,
     { signal }
   );
 }
@@ -232,7 +85,7 @@ export function fetchStockQuote(
   symbol: string,
   signal?: AbortSignal
 ): Promise<StockQuote> {
-  return request<StockQuote>(`/api/v2/stocks/${encodeURIComponent(symbol)}`, {
+  return fetcher<StockQuote>(`/stocks/${encodeURIComponent(symbol)}`, {
     signal,
   });
 }
@@ -263,10 +116,31 @@ export function fetchPortfolio(
   clientId: string,
   signal?: AbortSignal
 ): Promise<PortfolioSummary> {
-  return request<PortfolioSummary>(
-    `/api/v2/clients/${encodeURIComponent(clientId)}/portfolio`,
+  return fetcher<PortfolioSummary>(
+    `/portfolio?client_id=${encodeURIComponent(clientId)}`,
     { signal }
   );
+}
+
+// ── Transactions ──────────────────────────────────────────────────────────────
+
+export interface Transaction {
+  id: string;
+  client_id: string;
+  symbol: string;
+  type: "buy" | "sell";
+  quantity: number;
+  price: number;
+  total: number;
+  date: string;
+}
+
+export function fetchTransactions(
+  clientId?: string,
+  signal?: AbortSignal
+): Promise<Transaction[]> {
+  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : "";
+  return fetcher<Transaction[]>(`/transactions${qs}`, { signal });
 }
 
 // ── Auth: signup / password reset ─────────────────────────────────────────────
@@ -278,7 +152,7 @@ export interface SignupPayload {
 }
 
 export function signup(payload: SignupPayload): Promise<void> {
-  return request<void>("/api/v2/auth/signup", {
+  return fetcher<void>("/auth/signup", {
     method: "POST",
     body: payload,
   });
@@ -289,7 +163,7 @@ export interface ForgotPasswordPayload {
 }
 
 export function forgotPassword(payload: ForgotPasswordPayload): Promise<void> {
-  return request<void>("/api/v2/auth/forgot-password", {
+  return fetcher<void>("/auth/forgot-password", {
     method: "POST",
     body: payload,
   });
@@ -301,7 +175,7 @@ export interface ResetPasswordPayload {
 }
 
 export function resetPassword(payload: ResetPasswordPayload): Promise<void> {
-  return request<void>("/api/v2/auth/reset-password", {
+  return fetcher<void>("/auth/reset-password", {
     method: "POST",
     body: payload,
   });

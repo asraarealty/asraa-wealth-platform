@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 import {
   fetchPortfolio,
-  logout,
   type Client,
   type PortfolioSummary,
   type StockQuote,
@@ -51,7 +50,7 @@ function StatCard({ label, value, sub, positive }: StatCardProps) {
 }
 
 export default function Dashboard() {
-  const router = useRouter();
+  const { logout } = useAuth();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
@@ -83,12 +82,8 @@ export default function Dashboard() {
   }, [selectedClient, loadPortfolio]);
 
   async function handleLogout() {
-    try {
-      await logout();
-    } finally {
-      // Always redirect to login, even if the API call fails.
-      router.replace("/login");
-    }
+    await logout();
+    // AuthContext.logout() clears the token and redirects to /login.
   }
 
   function handleClientChange(client: Client) {
