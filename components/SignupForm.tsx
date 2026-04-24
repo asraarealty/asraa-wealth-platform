@@ -3,10 +3,11 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { login, getMe } from "@/lib/api";
+import { signup } from "@/lib/api";
 
-export default function LoginForm() {
+export default function SignupForm() {
   const router = useRouter();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -18,20 +19,10 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      await login({ email, password });
-      // Backend sets HTTP-only cookies; call /auth/me to retrieve the role
-      // without ever exposing the token to JavaScript.
-      let me;
-      try {
-        me = await getMe();
-      } catch {
-        setError("Login succeeded but failed to load your profile. Please refresh and try again.");
-        setLoading(false);
-        return;
-      }
-      router.replace(me.role === "admin" ? "/admin" : "/dashboard");
+      await signup({ name, email, password });
+      router.replace("/login");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(err instanceof Error ? err.message : "Signup failed");
     } finally {
       setLoading(false);
     }
@@ -60,14 +51,31 @@ export default function LoginForm() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Asraa Wealth
           </h1>
-          <p className="text-gray-400 text-sm mt-1">
-            Sign in to your advisor portal
-          </p>
+          <p className="text-gray-400 text-sm mt-1">Create your account</p>
         </div>
 
         {/* Card */}
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-2xl">
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+            <div>
+              <label
+                htmlFor="name"
+                className="block text-sm font-medium text-gray-300 mb-1.5"
+              >
+                Full name
+              </label>
+              <input
+                id="name"
+                type="text"
+                autoComplete="name"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Jane Smith"
+                className="w-full rounded-lg bg-gray-800 border border-gray-700 text-white placeholder-gray-500 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
+              />
+            </div>
+
             <div>
               <label
                 htmlFor="email"
@@ -97,7 +105,7 @@ export default function LoginForm() {
               <input
                 id="password"
                 type="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -149,23 +157,18 @@ export default function LoginForm() {
                   />
                 </svg>
               )}
-              {loading ? "Signing in…" : "Sign in"}
+              {loading ? "Creating account…" : "Create account"}
             </button>
 
-            <div className="flex items-center justify-between pt-1 text-sm">
+            <p className="text-center text-sm text-gray-400">
+              Already have an account?{" "}
               <Link
-                href="/forgot-password"
-                className="text-gray-400 hover:text-emerald-400 transition"
+                href="/login"
+                className="text-emerald-400 hover:text-emerald-300 transition"
               >
-                Forgot password?
+                Sign in
               </Link>
-              <Link
-                href="/signup"
-                className="text-gray-400 hover:text-emerald-400 transition"
-              >
-                Create account
-              </Link>
-            </div>
+            </p>
           </form>
         </div>
       </div>
