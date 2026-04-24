@@ -35,12 +35,12 @@ export default function UsersPage() {
         Users
       </h1>
       <div
+        tabIndex={0}
         style={{
           backgroundColor: "#111827",
           borderRadius: "8px",
           border: "1px solid #1f2937",
           overflowX: "auto",
-          tabIndex: 0,
         }}
       >
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
