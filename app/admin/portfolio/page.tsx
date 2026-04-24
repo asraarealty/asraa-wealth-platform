@@ -1,28 +1,77 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { fetcher } from "@/lib/fetcher";
+import type { AdminPortfolioItem } from "@/lib/api";
+import Card from "@/components/ui/Card";
+import Loader from "@/components/ui/Loader";
+import ErrorState from "@/components/ui/ErrorState";
+
+function fmt(n: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(n);
+}
+
 export default function PortfolioPage() {
+  const [items, setItems] = useState<AdminPortfolioItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filterClient, setFilterClient] = useState("");
+
+  useEffect(() => {
+    const ac = new AbortController();
+    fetcher<AdminPortfolioItem[]>("/portfolio", { signal: ac.signal })
+      .then(setItems)
+      .catch((err) => {
+        if (err.name === "AbortError") return;
+        setError(
+          err.message?.includes("Unable to reach")
+            ? "Unable to reach backend API"
+            : "Something went wrong"
+        );
+      })
+      .finally(() => setLoading(false));
+    return () => ac.abort();
+  }, []);
+
+  if (loading) return <Loader />;
+  if (error) return <ErrorState message={error} />;
+
+  const filtered = filterClient
+    ? items.filter((p) => String(p.client_id).includes(filterClient))
+    : items;
+
   return (
     <div>
-      <h1
-        style={{
-          fontSize: "24px",
-          fontWeight: 700,
-          marginBottom: "24px",
-          color: "#f1f5f9",
-        }}
-      >
-        Portfolio
-      </h1>
-      <div
-        style={{
-          backgroundColor: "#111827",
-          borderRadius: "8px",
-          border: "1px solid #1f2937",
-          padding: "32px",
-          color: "#94a3b8",
-          fontSize: "15px",
-        }}
-      >
-        Portfolio data will appear here.
+      <h1 className="mb-6 text-2xl font-bold text-slate-100">Portfolio</h1>
+      <div className="mb-4">
+        <input
+          type="text"
+          placeholder="Filter by Client ID…"
+          value={filterClient}
+          onChange={(e) => setFilterClient(e.target.value)}
+          className="w-64 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
+        />
       </div>
+      {filtered.length === 0 ? (
+        <p className="text-slate-400">No portfolio records found.</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((p) => (
+            <Card key={p.id} title={`Client #${p.client_id}`}>
+              <p className="text-3xl font-bold text-slate-100">
+                {fmt(p.total_value)}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">Portfolio #{p.id}</p>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+

@@ -1,69 +1,77 @@
 "use client";
 
-interface StatCardProps {
-  title: string;
-  value: string | number;
-}
+import { useEffect, useState } from "react";
+import { fetcher } from "@/lib/fetcher";
+import type { User, AdminClient, AdminPortfolioItem } from "@/lib/api";
+import Card from "@/components/ui/Card";
+import Loader from "@/components/ui/Loader";
+import ErrorState from "@/components/ui/ErrorState";
 
-function StatCard({ title, value }: StatCardProps) {
-  return (
-    <div
-      style={{
-        backgroundColor: "#111827",
-        borderRadius: "8px",
-        padding: "24px",
-        border: "1px solid #1f2937",
-      }}
-    >
-      <p
-        style={{
-          margin: "0 0 8px",
-          fontSize: "13px",
-          color: "#94a3b8",
-          textTransform: "uppercase",
-          letterSpacing: "0.05em",
-        }}
-      >
-        {title}
-      </p>
-      <p
-        style={{
-          margin: 0,
-          fontSize: "32px",
-          fontWeight: 700,
-          color: "#f1f5f9",
-        }}
-      >
-        {value}
-      </p>
-    </div>
-  );
+function fmt(n: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(n);
 }
 
 export default function AdminPage() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [clients, setClients] = useState<AdminClient[]>([]);
+  const [portfolio, setPortfolio] = useState<AdminPortfolioItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    const { signal } = ac;
+
+    Promise.allSettled([
+      fetcher<User[]>("/users", { signal }),
+      fetcher<AdminClient[]>("/clients", { signal }),
+      fetcher<AdminPortfolioItem[]>("/portfolio", { signal }),
+    ])
+      .then(([usersRes, clientsRes, portfolioRes]) => {
+        if (usersRes.status === "fulfilled") setUsers(usersRes.value);
+        if (clientsRes.status === "fulfilled") setClients(clientsRes.value);
+        if (portfolioRes.status === "fulfilled") setPortfolio(portfolioRes.value);
+
+        const allFailed = [usersRes, clientsRes, portfolioRes].every(
+          (r) => r.status === "rejected"
+        );
+        if (allFailed) setError("Unable to reach backend API");
+      })
+      .finally(() => setLoading(false));
+
+    return () => ac.abort();
+  }, []);
+
+  const totalPortfolioValue = portfolio.reduce(
+    (sum, p) => sum + (p.total_value ?? 0),
+    0
+  );
+
+  if (loading) return <Loader />;
+  if (error) return <ErrorState message={error} />;
+
   return (
     <div>
-      <h1
-        style={{
-          fontSize: "24px",
-          fontWeight: 700,
-          marginBottom: "24px",
-          color: "#f1f5f9",
-        }}
-      >
-        Dashboard
-      </h1>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: "16px",
-        }}
-      >
-        <StatCard title="Total Users" value={128} />
-        <StatCard title="Total Portfolio Value" value="$4.2M" />
-        <StatCard title="Active Clients" value={94} />
+      <h1 className="mb-6 text-2xl font-bold text-slate-100">Dashboard</h1>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card title="Total Users">
+          <p className="text-4xl font-bold text-slate-100">{users.length}</p>
+        </Card>
+        <Card title="Total Clients">
+          <p className="text-4xl font-bold text-slate-100">{clients.length}</p>
+        </Card>
+        <Card title="Total Portfolio Value">
+          <p className="text-4xl font-bold text-slate-100">
+            {totalPortfolioValue > 0 ? fmt(totalPortfolioValue) : "—"}
+          </p>
+        </Card>
       </div>
     </div>
   );
 }
+

@@ -2,21 +2,31 @@
 
 import { useEffect, useState } from "react";
 import { fetcher } from "@/lib/fetcher";
-import type { User } from "@/lib/api";
+import type { Lead } from "@/lib/api";
 import Table from "@/components/ui/Table";
 import Badge from "@/components/ui/Badge";
 import Loader from "@/components/ui/Loader";
 import ErrorState from "@/components/ui/ErrorState";
 
-export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>([]);
+function leadBadgeVariant(
+  status: string
+): "blue" | "yellow" | "green" | "gray" {
+  const s = status?.toLowerCase();
+  if (s === "new") return "blue";
+  if (s === "contacted") return "yellow";
+  if (s === "closed") return "green";
+  return "gray";
+}
+
+export default function LeadsPage() {
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const ac = new AbortController();
-    fetcher<User[]>("/users", { signal: ac.signal })
-      .then(setUsers)
+    fetcher<Lead[]>("/leads", { signal: ac.signal })
+      .then(setLeads)
       .catch((err) => {
         if (err.name === "AbortError") return;
         setError(
@@ -34,27 +44,25 @@ export default function UsersPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-slate-100">Users</h1>
+      <h1 className="mb-6 text-2xl font-bold text-slate-100">Leads</h1>
       <Table<Record<string, unknown>>
         keyField="id"
-        rows={users as unknown as Record<string, unknown>[]}
+        rows={leads as unknown as Record<string, unknown>[]}
         columns={[
           { key: "name", header: "Name" },
-          { key: "email", header: "Email" },
-          { key: "role", header: "Role" },
+          { key: "source", header: "Source" },
           {
-            key: "is_active",
+            key: "status",
             header: "Status",
-            render: (row) =>
-              row["is_active"] ? (
-                <Badge label="Active" variant="green" />
-              ) : (
-                <Badge label="Inactive" variant="gray" />
-              ),
+            render: (row) => (
+              <Badge
+                label={String(row["status"] ?? "—")}
+                variant={leadBadgeVariant(String(row["status"] ?? ""))}
+              />
+            ),
           },
         ]}
       />
     </div>
   );
 }
-
