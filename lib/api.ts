@@ -128,11 +128,40 @@ export interface LoginResponse {
   success: boolean;
 }
 
-export function login(payload: LoginPayload): Promise<LoginResponse> {
-  return request<LoginResponse>("/api/v2/auth/login", {
-    method: "POST",
-    body: payload,
-  });
+export async function login(payload: LoginPayload): Promise<LoginResponse> {
+  // FastAPI's OAuth2PasswordRequestForm expects application/x-www-form-urlencoded
+  // with a "username" field (not "email") and "password". This diverges from the
+  // JSON-based `request()` helper intentionally — the login endpoint has a
+  // different content-type requirement than all other API calls.
+  const body = new URLSearchParams();
+  body.append("username", payload.email);
+  body.append("password", payload.password);
+
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}/api/v2/auth/login`, {
+      method: "POST",
+      body,
+      credentials: "include",
+    });
+  } catch (err) {
+    throw new NetworkError(
+      err instanceof Error ? err.message : "Network request failed"
+    );
+  }
+
+  if (!response.ok) {
+    let message = `HTTP ${response.status}`;
+    try {
+      const data = await response.json();
+      message = data?.detail ?? data?.message ?? message;
+    } catch {
+      // ignore JSON parse errors on error bodies
+    }
+    throw new ApiError(response.status, message);
+  }
+
+  return response.json() as Promise<LoginResponse>;
 }
 
 export interface MeResponse {
