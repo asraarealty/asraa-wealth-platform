@@ -52,7 +52,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
       searchStocks(query.trim(), controller.signal)
         .then((data) => {
           setResults(data);
-          setOpen(data.length > 0);
+          setOpen(true);
           setActiveIndex(-1);
         })
         .catch((err) => {
@@ -163,11 +163,16 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
         <p className="mt-1.5 text-xs text-red-400">{error}</p>
       )}
 
-      {open && results.length > 0 && (
+      {open && (
         <ul
           role="listbox"
           className="absolute z-50 mt-1.5 w-full bg-gray-900 border border-gray-700 rounded-xl shadow-2xl overflow-hidden max-h-80 overflow-y-auto"
         >
+          {results.length === 0 && !loading && (
+            <li className="px-4 py-3 text-sm text-gray-500 text-center">
+              No results for &ldquo;{query}&rdquo;
+            </li>
+          )}
           {results.map((stock, i) => (
             <li
               key={stock.symbol}

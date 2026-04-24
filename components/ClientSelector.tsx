@@ -32,7 +32,7 @@ export default function ClientSelector({
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
 
-  const load = useCallback(() => {
+  const load = useCallback((): AbortController => {
     const controller = new AbortController();
     setLoading(true);
     setError(null);

@@ -19,7 +19,9 @@ export default function DashboardPage() {
 
     // Schedule a redirect exactly when the token expires so the user is
     // kicked out automatically rather than receiving 401 errors mid-session.
-    const ms = msUntilExpiry();
+    // Cap at ~24 days to avoid 32-bit integer overflow in setTimeout.
+    const MAX_TIMEOUT_MS = 2_147_483_647; // 2^31 - 1
+    const ms = Math.min(msUntilExpiry(), MAX_TIMEOUT_MS);
     if (ms > 0) {
       const id = setTimeout(() => {
         router.replace("/login");
