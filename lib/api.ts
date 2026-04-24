@@ -1,4 +1,4 @@
-import { getToken, removeToken } from "./auth";
+import { getToken, clearAuth } from "./auth";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -61,7 +61,7 @@ async function request<T>(
   }
 
   if (response.status === 401) {
-    removeToken();
+    clearAuth();
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }
@@ -96,7 +96,7 @@ export interface LoginPayload {
 export interface LoginResponse {
   access_token: string;
   token_type: string;
-  role?: string;
+  role: string;
 }
 
 export function login(payload: LoginPayload): Promise<LoginResponse> {
@@ -181,5 +181,43 @@ export function fetchPortfolio(
     `/api/v2/clients/${encodeURIComponent(clientId)}/portfolio`,
     { signal }
   );
+}
+
+// ── Auth: signup / password reset ─────────────────────────────────────────────
+
+export interface SignupPayload {
+  name: string;
+  email: string;
+  password: string;
+}
+
+export function signup(payload: SignupPayload): Promise<void> {
+  return request<void>("/api/v2/auth/signup", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export interface ForgotPasswordPayload {
+  email: string;
+}
+
+export function forgotPassword(payload: ForgotPasswordPayload): Promise<void> {
+  return request<void>("/api/v2/auth/forgot-password", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export interface ResetPasswordPayload {
+  token: string;
+  password: string;
+}
+
+export function resetPassword(payload: ResetPasswordPayload): Promise<void> {
+  return request<void>("/api/v2/auth/reset-password", {
+    method: "POST",
+    body: payload,
+  });
 }
 

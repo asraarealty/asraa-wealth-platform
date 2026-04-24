@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { removeToken } from "@/lib/auth";
+import { clearAuth, isAuthenticated, msUntilExpiry } from "@/lib/auth";
 import {
   fetchPortfolio,
   type Client,
@@ -83,7 +83,7 @@ export default function Dashboard() {
   }, [selectedClient, loadPortfolio]);
 
   function handleLogout() {
-    removeToken();
+    clearAuth();
     router.replace("/login");
   }
 

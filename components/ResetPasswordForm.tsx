@@ -2,28 +2,40 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { login } from "@/lib/api";
-import { setAuth } from "@/lib/auth";
+import { useRouter, useSearchParams } from "next/navigation";
+import { resetPassword } from "@/lib/api";
 
-export default function LoginForm() {
+export default function ResetPasswordForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token") ?? "";
+
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+
+    if (password !== confirm) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (!token) {
+      setError("Invalid or missing reset token");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const data = await login({ email, password });
-      setAuth(data.access_token, data.role);
-      router.replace(data.role === "admin" ? "/admin" : "/dashboard");
+      await resetPassword({ token, password });
+      router.replace("/login");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(err instanceof Error ? err.message : "Password reset failed");
     } finally {
       setLoading(false);
     }
@@ -52,9 +64,7 @@ export default function LoginForm() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Asraa Wealth
           </h1>
-          <p className="text-gray-400 text-sm mt-1">
-            Sign in to your advisor portal
-          </p>
+          <p className="text-gray-400 text-sm mt-1">Set a new password</p>
         </div>
 
         {/* Card */}
@@ -62,37 +72,37 @@ export default function LoginForm() {
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <div>
               <label
-                htmlFor="email"
+                htmlFor="password"
                 className="block text-sm font-medium text-gray-300 mb-1.5"
               >
-                Email address
+                New password
               </label>
               <input
-                id="email"
-                type="email"
-                autoComplete="email"
+                id="password"
+                type="password"
+                autoComplete="new-password"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="advisor@asraa.com"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
                 className="w-full rounded-lg bg-gray-800 border border-gray-700 text-white placeholder-gray-500 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
               />
             </div>
 
             <div>
               <label
-                htmlFor="password"
+                htmlFor="confirm"
                 className="block text-sm font-medium text-gray-300 mb-1.5"
               >
-                Password
+                Confirm password
               </label>
               <input
-                id="password"
+                id="confirm"
                 type="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
                 placeholder="••••••••"
                 className="w-full rounded-lg bg-gray-800 border border-gray-700 text-white placeholder-gray-500 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
               />
@@ -141,23 +151,17 @@ export default function LoginForm() {
                   />
                 </svg>
               )}
-              {loading ? "Signing in…" : "Sign in"}
+              {loading ? "Saving…" : "Set new password"}
             </button>
 
-            <div className="flex items-center justify-between pt-1 text-sm">
+            <p className="text-center text-sm text-gray-400">
               <Link
-                href="/forgot-password"
-                className="text-gray-400 hover:text-emerald-400 transition"
+                href="/login"
+                className="text-emerald-400 hover:text-emerald-300 transition"
               >
-                Forgot password?
+                Back to sign in
               </Link>
-              <Link
-                href="/signup"
-                className="text-gray-400 hover:text-emerald-400 transition"
-              >
-                Create account
-              </Link>
-            </div>
+            </p>
           </form>
         </div>
       </div>
