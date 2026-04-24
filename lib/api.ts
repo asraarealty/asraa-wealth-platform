@@ -143,7 +143,74 @@ export function fetchTransactions(
   return fetcher<Transaction[]>(`/transactions${qs}`, { signal });
 }
 
-// ── Auth: signup / password reset ─────────────────────────────────────────────
+
+// ── Admin: Users ──────────────────────────────────────────────────────────────
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+}
+
+export function fetchUsers(signal?: AbortSignal): Promise<User[]> {
+  return fetcher<User[]>("/users", { signal });
+}
+
+// ── Admin: Clients ────────────────────────────────────────────────────────────
+
+export interface AdminClient {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+}
+
+export function fetchAdminClients(signal?: AbortSignal): Promise<AdminClient[]> {
+  return fetcher<AdminClient[]>("/clients", { signal });
+}
+
+// ── Admin: Leads ──────────────────────────────────────────────────────────────
+
+export interface Lead {
+  id: number;
+  name: string;
+  source: string;
+  status: string;
+}
+
+export function fetchLeads(signal?: AbortSignal): Promise<Lead[]> {
+  return fetcher<Lead[]>("/leads", { signal });
+}
+
+// ── Admin: Deals ──────────────────────────────────────────────────────────────
+
+export interface Deal {
+  id: number;
+  client_id: number;
+  value: number;
+  status: string;
+}
+
+export function fetchDeals(signal?: AbortSignal): Promise<Deal[]> {
+  return fetcher<Deal[]>("/deals", { signal });
+}
+
+// ── Admin: Portfolio (all) ────────────────────────────────────────────────────
+
+export interface AdminPortfolioItem {
+  id: number;
+  client_id: number;
+  total_value: number;
+}
+
+export function fetchAdminPortfolio(
+  signal?: AbortSignal
+): Promise<AdminPortfolioItem[]> {
+  return fetcher<AdminPortfolioItem[]>("/portfolio", { signal });
+}
+
 
 export interface SignupPayload {
   name: string;
