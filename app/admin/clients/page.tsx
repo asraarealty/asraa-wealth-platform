@@ -56,9 +56,9 @@ export default function ClientsPage() {
       {filtered.length === 0 ? (
         <p className="text-slate-400">No clients match your search.</p>
       ) : (
-        <Table<Record<string, unknown>>
+        <Table<AdminClient>
           keyField="id"
-          rows={filtered as unknown as Record<string, unknown>[]}
+          rows={filtered}
           columns={[
             { key: "name", header: "Name" },
             { key: "email", header: "Email" },

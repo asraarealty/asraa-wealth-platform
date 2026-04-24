@@ -53,9 +53,9 @@ export default function DealsPage() {
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold text-slate-100">Deals</h1>
-      <Table<Record<string, unknown>>
+      <Table<Deal>
         keyField="id"
-        rows={deals as unknown as Record<string, unknown>[]}
+        rows={deals}
         columns={[
           { key: "id", header: "Deal ID" },
           { key: "client_id", header: "Client ID" },
@@ -64,7 +64,7 @@ export default function DealsPage() {
             header: "Value",
             render: (row) => (
               <span className="font-semibold text-emerald-400">
-                {fmtValue(Number(row["value"] ?? 0))}
+                {fmtValue(row.value)}
               </span>
             ),
           },
@@ -73,8 +73,8 @@ export default function DealsPage() {
             header: "Status",
             render: (row) => (
               <Badge
-                label={String(row["status"] ?? "—")}
-                variant={dealBadgeVariant(String(row["status"] ?? ""))}
+                label={row.status ?? "—"}
+                variant={dealBadgeVariant(row.status ?? "")}
               />
             ),
           },

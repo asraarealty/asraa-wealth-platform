@@ -45,9 +45,9 @@ export default function LeadsPage() {
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold text-slate-100">Leads</h1>
-      <Table<Record<string, unknown>>
+      <Table<Lead>
         keyField="id"
-        rows={leads as unknown as Record<string, unknown>[]}
+        rows={leads}
         columns={[
           { key: "name", header: "Name" },
           { key: "source", header: "Source" },
@@ -56,8 +56,8 @@ export default function LeadsPage() {
             header: "Status",
             render: (row) => (
               <Badge
-                label={String(row["status"] ?? "—")}
-                variant={leadBadgeVariant(String(row["status"] ?? ""))}
+                label={row.status ?? "—"}
+                variant={leadBadgeVariant(row.status ?? "")}
               />
             ),
           },

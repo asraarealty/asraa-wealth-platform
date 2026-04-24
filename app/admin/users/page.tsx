@@ -35,9 +35,9 @@ export default function UsersPage() {
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold text-slate-100">Users</h1>
-      <Table<Record<string, unknown>>
+      <Table<User>
         keyField="id"
-        rows={users as unknown as Record<string, unknown>[]}
+        rows={users}
         columns={[
           { key: "name", header: "Name" },
           { key: "email", header: "Email" },
@@ -46,7 +46,7 @@ export default function UsersPage() {
             key: "is_active",
             header: "Status",
             render: (row) =>
-              row["is_active"] ? (
+              row.is_active ? (
                 <Badge label="Active" variant="green" />
               ) : (
                 <Badge label="Inactive" variant="gray" />

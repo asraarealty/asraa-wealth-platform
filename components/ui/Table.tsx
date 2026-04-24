@@ -6,13 +6,13 @@ interface Column<T> {
   render?: (row: T) => ReactNode;
 }
 
-interface TableProps<T extends Record<string, unknown>> {
+interface TableProps<T extends object> {
   columns: Column<T>[];
   rows: T[];
   keyField: keyof T;
 }
 
-export default function Table<T extends Record<string, unknown>>({
+export default function Table<T extends object>({
   columns,
   rows,
   keyField,
@@ -35,14 +35,16 @@ export default function Table<T extends Record<string, unknown>>({
         <tbody>
           {rows.map((row) => (
             <tr
-              key={String(row[keyField])}
+              key={String((row as Record<string, unknown>)[String(keyField)])}
               className="border-b border-slate-800/60 last:border-0 hover:bg-slate-800/40 transition-colors"
             >
               {columns.map((col) => (
                 <td key={col.key} className="px-4 py-3 text-slate-200">
                   {col.render
                     ? col.render(row)
-                    : (row[col.key] as ReactNode)}
+                    : String(
+                        (row as Record<string, unknown>)[col.key] ?? "—"
+                      )}
                 </td>
               ))}
             </tr>
