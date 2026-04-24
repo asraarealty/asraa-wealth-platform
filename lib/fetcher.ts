@@ -69,6 +69,7 @@ export async function fetcher<T>(
   const { body, headers: extraHeaders, signal, ...rest } = options;
 
   const token = getStoredToken();
+  console.log("Token present:", !!token);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
