@@ -29,6 +29,7 @@ export default function LeadsPage() {
       .then(setLeads)
       .catch((err) => {
         if (err.name === "AbortError") return;
+        console.error("Failed to load leads:", err);
         setError(
           err.message?.includes("Unable to reach")
             ? "Unable to reach backend API"

@@ -19,6 +19,7 @@ export default function UsersPage() {
       .then(setUsers)
       .catch((err) => {
         if (err.name === "AbortError") return;
+        console.error("Failed to load users:", err);
         setError(
           err.message?.includes("Unable to reach")
             ? "Unable to reach backend API"

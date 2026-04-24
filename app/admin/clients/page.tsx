@@ -19,6 +19,7 @@ export default function ClientsPage() {
       .then(setClients)
       .catch((err) => {
         if (err.name === "AbortError") return;
+        console.error("Failed to load clients:", err);
         setError(
           err.message?.includes("Unable to reach")
             ? "Unable to reach backend API"

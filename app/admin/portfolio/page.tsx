@@ -28,6 +28,7 @@ export default function PortfolioPage() {
       .then(setItems)
       .catch((err) => {
         if (err.name === "AbortError") return;
+        console.error("Failed to load portfolio:", err);
         setError(
           err.message?.includes("Unable to reach")
             ? "Unable to reach backend API"
