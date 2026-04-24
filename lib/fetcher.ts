@@ -1,4 +1,7 @@
-export const API_BASE_URL = "https://site-fixes-production.up.railway.app";
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://api.asraarealty.in";
+
+console.log("API_BASE_URL:", API_BASE_URL);
 
 // ── Error types ───────────────────────────────────────────────────────────────
 
@@ -82,9 +85,8 @@ export async function fetcher<T>(
     });
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
-    throw new NetworkError(
-      err instanceof Error ? err.message : "Network request failed"
-    );
+    console.error("Network error:", err);
+    throw new NetworkError("Unable to reach backend API");
   }
 
   if (response.status === 401) {
