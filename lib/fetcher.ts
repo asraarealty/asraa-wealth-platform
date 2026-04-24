@@ -35,7 +35,8 @@ export function storeToken(token: string): void {
   localStorage.setItem(TOKEN_LS_KEY, token);
   // Mirror to a readable cookie so proxy.ts can gate protected routes
   // without needing access to localStorage (which is client-only).
-  document.cookie = `${TOKEN_COOKIE_NAME}=${encodeURIComponent(token)}; path=/; SameSite=Strict`;
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${TOKEN_COOKIE_NAME}=${encodeURIComponent(token)}; path=/; SameSite=Strict${secure}`;
 }
 
 export function clearToken(): void {

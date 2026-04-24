@@ -30,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Restore session from localStorage on mount.
   useEffect(() => {
+    let cancelled = false;
     const stored = getStoredToken();
     if (!stored) {
       setLoading(false);
@@ -37,12 +38,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setToken(stored);
     getMe()
-      .then((me) => setUser(me))
-      .catch(() => {
-        clearToken();
-        setToken(null);
+      .then((me) => {
+        if (!cancelled) setUser(me);
       })
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (!cancelled) {
+          clearToken();
+          setToken(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = useCallback(

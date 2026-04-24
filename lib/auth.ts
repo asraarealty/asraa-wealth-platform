@@ -8,11 +8,10 @@
  */
 
 export { getStoredToken, storeToken, clearToken } from "./fetcher";
+import { clearToken } from "./fetcher";
 
 /** Clear the stored auth token from localStorage and cookie. */
 export function clearAuth(): void {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem("token");
-  document.cookie = "access_token=; path=/; max-age=0";
+  clearToken();
 }
 
