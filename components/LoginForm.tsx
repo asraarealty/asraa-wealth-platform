@@ -20,7 +20,7 @@ export default function LoginForm() {
     try {
       const data = await login({ email, password });
       setToken(data.access_token);
-      router.replace("/dashboard");
+      router.replace(data.role === "admin" ? "/admin" : "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
