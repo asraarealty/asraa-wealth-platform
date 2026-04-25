@@ -1,17 +1,21 @@
 /**
- * Auth utilities for localStorage-based token management.
- *
- * The access token is stored in localStorage and mirrored to a readable
- * cookie so the server-side proxy (proxy.ts) can gate protected routes.
- * Use the helpers in lib/fetcher.ts (storeToken, clearToken, getStoredToken)
- * for low-level token operations, or the AuthContext for higher-level auth state.
+ * Auth utilities (wrapper layer)
+ * Keep this thin — do NOT duplicate logic from fetcher
  */
 
-export { getStoredToken, storeToken, clearToken } from "./fetcher";
-import { clearToken } from "./fetcher";
+import { getStoredToken, storeToken, clearToken } from "./fetcher";
 
-/** Clear the stored auth token from localStorage and cookie. */
+/** Get current token */
+export function getToken(): string | null {
+  return getStoredToken();
+}
+
+/** Save token after login */
+export function setToken(token: string): void {
+  storeToken(token);
+}
+
+/** Clear auth (logout) */
 export function clearAuth(): void {
   clearToken();
 }
-
