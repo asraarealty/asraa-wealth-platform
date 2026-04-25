@@ -21,7 +21,9 @@ export interface LoginPayload {
 export interface LoginResponse {
   access_token: string;
   token_type?: string;
+  /** Present when the backend issues a refresh token alongside the access token. */
   refresh_token?: string;
+  /** Populated by some backends to avoid a separate /auth/me round-trip after login. */
   user?: MeResponse;
 }
 

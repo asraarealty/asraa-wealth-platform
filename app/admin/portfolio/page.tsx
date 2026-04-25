@@ -67,7 +67,7 @@ export default function PortfolioPage() {
               <p className="text-3xl font-bold text-slate-100">
                 {fmt(p.value)}
               </p>
-              <p className="mt-1 text-xs text-slate-500">Position #{p.id}</p>
+              <p className="mt-1 text-xs text-slate-500">Portfolio item #{p.id}</p>
             </Card>
           ))}
         </div>
