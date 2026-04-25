@@ -50,6 +50,11 @@ export function clearToken(): void {
 
 interface FetcherOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
+  /**
+   * When true, skip the automatic `{ data: ... }` unwrapping so the full
+   * JSON response (including any `meta` field) is returned as-is.
+   */
+  raw?: boolean;
 }
 
 /**
@@ -64,7 +69,7 @@ export async function fetcher<T>(
   path: string,
   options: FetcherOptions = {}
 ): Promise<T> {
-  const { body, headers: extraHeaders, signal, ...rest } = options;
+  const { body, headers: extraHeaders, signal, raw, ...rest } = options;
 
   const token = getStoredToken();
   const headers: Record<string, string> = {
@@ -111,6 +116,8 @@ export async function fetcher<T>(
   }
 
   const json = await response.json();
+  // When raw mode is requested, return the full JSON without any unwrapping.
+  if (raw) return json as T;
   // Backend wraps responses as { success: boolean, data: any }.
   // Unwrap `data` when present; otherwise return the raw JSON (e.g. /auth/login).
   if (json !== null && typeof json === "object" && "data" in json) {
