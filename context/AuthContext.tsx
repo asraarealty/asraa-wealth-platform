@@ -9,12 +9,16 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { login as apiLogin, logout as apiLogout, getMe, type MeResponse } from "@/lib/api";
-import { storeToken, clearToken, getStoredToken } from "@/lib/fetcher";
+import { API_BASE_URL } from "@/lib/fetcher";
+
+interface User {
+  id: number;
+  email: string;
+  role?: string;
+}
 
 interface AuthContextValue {
-  user: MeResponse | null;
-  token: string | null;
+  user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -24,64 +28,78 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [user, setUser] = useState<MeResponse | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Restore session from localStorage on mount.
+  // ✅ Check session on page load (COOKIE BASED)
   useEffect(() => {
     let cancelled = false;
-    const stored = getStoredToken();
-    if (!stored) {
-      setLoading(false);
-      return;
-    }
-    setToken(stored);
-    getMe()
-      .then((me) => {
-        if (!cancelled) setUser(me);
+
+    fetch(`${API_BASE_URL}/auth/me`, {
+      credentials: "include",
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled) setUser(data);
       })
       .catch(() => {
-        if (!cancelled) {
-          clearToken();
-          setToken(null);
-        }
+        if (!cancelled) setUser(null);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
   }, []);
 
+  // ✅ LOGIN (cookie set by backend)
   const login = useCallback(
     async (email: string, password: string) => {
-      const { access_token } = await apiLogin({ email, password });
-      storeToken(access_token);
-      setToken(access_token);
-      const me = await getMe();
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        credentials: "include", // 🔥 IMPORTANT
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Login failed");
+      }
+
+      // fetch user after login
+      const meRes = await fetch(`${API_BASE_URL}/auth/me`, {
+        credentials: "include",
+      });
+
+      const me = await meRes.json();
       setUser(me);
+
       router.replace(me.role === "admin" ? "/admin" : "/dashboard");
     },
     [router]
   );
 
+  // ✅ LOGOUT
   const logout = useCallback(async () => {
     try {
-      await apiLogout();
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
     } catch {
-      // Always clear the local session even if the server call fails.
+      // ignore
     } finally {
-      clearToken();
-      setToken(null);
       setUser(null);
       router.replace("/login");
     }
   }, [router]);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -89,6 +107,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
