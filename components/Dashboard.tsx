@@ -69,29 +69,34 @@ function KPICard({ label, value, sub, positive, icon }: KPICardProps) {
 
   return (
     <div
-      className="glass-card rounded-2xl p-5 flex flex-col gap-3 relative overflow-hidden"
+      className="glass-card card-hover rounded-2xl p-5 flex flex-col gap-3 relative overflow-hidden"
       style={{
-        boxShadow:
-          "0 4px 24px rgba(0,0,0,0.35), 0 0 0 1px rgba(201,162,39,0.06)",
+        background: "rgba(255,255,255,0.04)",
       }}
     >
-      {/* Subtle gold corner glow */}
+      {/* Corner radial glow */}
       <div
-        className="absolute -top-6 -right-6 w-20 h-20 rounded-full pointer-events-none"
+        className="absolute -top-8 -right-8 w-24 h-24 rounded-full pointer-events-none"
         style={{
-          background: "radial-gradient(circle, rgba(201,162,39,0.12) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(201,162,39,0.1) 0%, transparent 70%)",
         }}
+      />
+      {/* Bottom edge accent */}
+      <div
+        className="absolute bottom-0 left-5 right-5 h-px pointer-events-none"
+        style={{ background: "linear-gradient(90deg, transparent, rgba(201,162,39,0.2), transparent)" }}
       />
 
       <div className="flex items-center justify-between">
-        <p className="text-xs uppercase tracking-wider font-medium text-gray-400">
+        <p className="text-xs uppercase tracking-widest font-semibold" style={{ color: "rgba(201,162,39,0.65)" }}>
           {label}
         </p>
         <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center"
+          className="w-8 h-8 rounded-xl flex items-center justify-center"
           style={{
-            background: "rgba(201,162,39,0.12)",
-            border: "1px solid rgba(201,162,39,0.2)",
+            background: "rgba(201,162,39,0.1)",
+            border: "1px solid rgba(201,162,39,0.18)",
+            boxShadow: "0 0 10px rgba(201,162,39,0.08)",
           }}
         >
           {icon}
@@ -99,9 +104,9 @@ function KPICard({ label, value, sub, positive, icon }: KPICardProps) {
       </div>
 
       <div>
-        <p className="text-2xl font-bold text-white">{value}</p>
+        <p className="text-2xl font-bold text-white tracking-tight">{value}</p>
         {sub && (
-          <p className={`text-xs mt-1 font-medium ${subColor}`}>{sub}</p>
+          <p className={`text-xs mt-1.5 font-medium ${subColor}`}>{sub}</p>
         )}
       </div>
     </div>
@@ -197,14 +202,14 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen text-white flex flex-col" style={{ background: "#0b3d2e" }}>
+    <div className="min-h-screen text-white flex flex-col" style={{ background: "#071a14" }}>
       {/* ── Topbar (glass) ──────────────────────────────────────────────────── */}
       <header
         className="sticky top-0 z-30 backdrop-blur-xl"
         style={{
-          background: "rgba(11,61,46,0.7)",
-          borderBottom: "1px solid rgba(201,162,39,0.15)",
-          boxShadow: "0 2px 20px rgba(0,0,0,0.3)",
+          background: "rgba(7,26,20,0.88)",
+          borderBottom: "1px solid rgba(201,162,39,0.12)",
+          boxShadow: "0 2px 24px rgba(0,0,0,0.5), 0 1px 0 rgba(201,162,39,0.06)",
         }}
       >
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
@@ -299,11 +304,11 @@ export default function Dashboard() {
             ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
           `}
           style={{
-            background: "rgba(8,48,36,0.9)",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            border: "1px solid rgba(201,162,39,0.15)",
-            boxShadow: "4px 0 24px rgba(0,0,0,0.3)",
+            background: "rgba(11,42,32,0.97)",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
+            border: "1px solid rgba(201,162,39,0.13)",
+            boxShadow: "4px 0 32px rgba(0,0,0,0.5)",
           }}
         >
           {/* Sidebar header */}
@@ -455,25 +460,27 @@ export default function Dashboard() {
                 <KPICard
                   label="Portfolio Value"
                   value={formatCurrency(portfolioMeta.total_value ?? kpis.totalValue)}
+                  sub={kpis.gainPercent >= 0 ? "↑ Positive trend" : "↓ Negative trend"}
+                  positive={kpis.gainPercent >= 0}
                   icon={IconPortfolio}
                 />
                 <KPICard
-                  label="Growth"
+                  label="Total Return"
                   value={formatPercent(portfolioMeta.roi_percent ?? kpis.gainPercent)}
                   sub={formatCurrency(kpis.totalGain)}
                   positive={kpis.totalGain >= 0}
                   icon={IconGrowth}
                 />
                 <KPICard
-                  label="Total Cost"
+                  label="Invested Capital"
                   value={formatCurrency(kpis.totalCost)}
-                  sub="Invested capital"
+                  sub="Cost basis"
                   icon={IconAUM}
                 />
                 <KPICard
-                  label="Positions"
+                  label="Active Holdings"
                   value={String(kpis.positionCount)}
-                  sub="Active holdings"
+                  sub="Diversified positions"
                   icon={IconClients}
                 />
               </div>
@@ -499,99 +506,134 @@ export default function Dashboard() {
                     className="px-5 py-4 flex items-center justify-between"
                     style={{ borderBottom: "1px solid rgba(201,162,39,0.12)" }}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#c9a227" strokeWidth={1.8}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
                       </svg>
-                      <h2 className="font-semibold text-white text-sm">Holdings</h2>
+                      <h2 className="font-semibold text-white text-sm">Portfolio Holdings</h2>
                     </div>
-                    <span className="text-xs text-white/40">
-                      {portfolio.length} positions
-                    </span>
+                    <span className="badge-premium">{portfolio.length} Positions</span>
                   </div>
 
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr
-                          className="text-xs uppercase tracking-wider"
+                          className="text-xs uppercase tracking-widest"
                           style={{
-                            borderBottom: "1px solid rgba(201,162,39,0.1)",
-                            color: "rgba(201,162,39,0.6)",
+                            borderBottom: "1px solid rgba(201,162,39,0.08)",
+                            color: "rgba(201,162,39,0.55)",
+                            background: "rgba(201,162,39,0.02)",
                           }}
                         >
-                          <th className="px-5 py-3 text-left font-medium">Symbol</th>
-                          <th className="px-5 py-3 text-right font-medium hidden sm:table-cell">Qty</th>
-                          <th className="px-5 py-3 text-right font-medium hidden md:table-cell">Avg Price</th>
-                          <th className="px-5 py-3 text-right font-medium">Price</th>
-                          <th className="px-5 py-3 text-right font-medium">Value</th>
-                          <th className="px-5 py-3 text-right font-medium">G / L</th>
+                          <th className="px-5 py-3 text-left font-semibold">Asset</th>
+                          <th className="px-5 py-3 text-right font-semibold hidden sm:table-cell">Qty</th>
+                          <th className="px-5 py-3 text-right font-semibold hidden md:table-cell">Avg Price</th>
+                          <th className="px-5 py-3 text-right font-semibold">Price</th>
+                          <th className="px-5 py-3 text-right font-semibold">Value</th>
+                          <th className="px-5 py-3 text-right font-semibold">ROI</th>
                         </tr>
                       </thead>
                       <tbody>
                         {portfolio.map((pos, idx) => {
                           const { gainLoss, gainLossPct } = positionGainLoss(pos);
+                          const isTopPick = idx < 3;
+                          const alloc = pos.allocation ?? 0;
                           return (
                             <tr
                               key={pos.id}
-                              className="transition-all"
+                              className="transition-all duration-200"
                               style={{
                                 borderBottom:
                                   idx < portfolio.length - 1
-                                    ? "1px solid rgba(255,255,255,0.04)"
+                                    ? "1px solid rgba(255,255,255,0.035)"
                                     : "none",
                               }}
                               onMouseEnter={(e) => {
-                                e.currentTarget.style.background = "rgba(201,162,39,0.05)";
+                                e.currentTarget.style.background = "rgba(201,162,39,0.06)";
+                                e.currentTarget.style.boxShadow = "inset 0 0 20px rgba(201,162,39,0.03)";
                               }}
                               onMouseLeave={(e) => {
                                 e.currentTarget.style.background = "transparent";
+                                e.currentTarget.style.boxShadow = "none";
                               }}
                             >
                               <td className="px-5 py-3.5">
                                 <div className="flex items-center gap-2.5">
                                   <div
-                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
+                                    className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0"
                                     style={{
-                                      background: "rgba(201,162,39,0.1)",
-                                      border: "1px solid rgba(201,162,39,0.15)",
-                                      color: "#c9a227",
+                                      background: isTopPick
+                                        ? "linear-gradient(135deg, rgba(201,162,39,0.2) 0%, rgba(201,162,39,0.06) 100%)"
+                                        : "rgba(255,255,255,0.05)",
+                                      border: isTopPick
+                                        ? "1px solid rgba(201,162,39,0.3)"
+                                        : "1px solid rgba(255,255,255,0.08)",
+                                      color: isTopPick ? "#c9a227" : "rgba(255,255,255,0.5)",
+                                      boxShadow: isTopPick ? "0 0 10px rgba(201,162,39,0.1)" : "none",
                                     }}
                                   >
                                     {pos.symbol.slice(0, 2)}
                                   </div>
                                   <div>
-                                    <div className="font-semibold text-white text-sm">{pos.symbol}</div>
-                                    <div className="text-xs text-white/40 truncate max-w-28">{pos.name}</div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-semibold text-white text-sm">{pos.symbol}</span>
+                                      {isTopPick && (
+                                        <span className="badge-premium">Top Pick</span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      <span className="text-xs text-white/35 truncate max-w-24">{pos.name}</span>
+                                      {alloc > 0 && (
+                                        <span
+                                          className="text-xs shrink-0"
+                                          style={{ color: "rgba(201,162,39,0.5)" }}
+                                        >
+                                          {alloc.toFixed(1)}%
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               </td>
-                              <td className="px-5 py-3.5 text-right text-white/60 hidden sm:table-cell">
+                              <td className="px-5 py-3.5 text-right text-white/55 hidden sm:table-cell">
                                 {pos.quantity}
                               </td>
-                              <td className="px-5 py-3.5 text-right text-white/60 hidden md:table-cell">
+                              <td className="px-5 py-3.5 text-right text-white/55 hidden md:table-cell">
                                 {formatCurrency(pos.avg_price)}
                               </td>
-                              <td className="px-5 py-3.5 text-right text-white">
+                              <td className="px-5 py-3.5 text-right text-white font-medium">
                                 {formatCurrency(pos.current_price)}
                               </td>
-                              <td className="px-5 py-3.5 text-right text-white font-medium">
+                              <td className="px-5 py-3.5 text-right text-white font-semibold">
                                 {formatCurrency(pos.value)}
                               </td>
                               <td className="px-5 py-3.5 text-right">
                                 <div
-                                  className={`font-medium ${
-                                    gainLoss >= 0 ? "text-emerald-400" : "text-red-400"
-                                  }`}
+                                  className="inline-flex flex-col items-end gap-0.5 px-2.5 py-1 rounded-lg"
+                                  style={{
+                                    background: gainLoss >= 0
+                                      ? "rgba(16,185,129,0.08)"
+                                      : "rgba(239,68,68,0.08)",
+                                    border: gainLoss >= 0
+                                      ? "1px solid rgba(16,185,129,0.15)"
+                                      : "1px solid rgba(239,68,68,0.15)",
+                                  }}
                                 >
-                                  {formatCurrency(gainLoss)}
-                                </div>
-                                <div
-                                  className={`text-xs ${
-                                    gainLossPct >= 0 ? "text-emerald-400" : "text-red-400"
-                                  }`}
-                                >
-                                  {formatPercent(gainLossPct)}
+                                  <span
+                                    className={`font-semibold text-xs ${
+                                      gainLoss >= 0 ? "text-emerald-400" : "text-red-400"
+                                    }`}
+                                  >
+                                    {formatPercent(gainLossPct)}
+                                  </span>
+                                  <span
+                                    className={`text-xs ${
+                                      gainLoss >= 0 ? "text-emerald-400/70" : "text-red-400/70"
+                                    }`}
+                                  >
+                                    {formatCurrency(gainLoss)}
+                                  </span>
                                 </div>
                               </td>
                             </tr>
