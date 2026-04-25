@@ -15,10 +15,9 @@ export default function UsersPage() {
 
   useEffect(() => {
     const ac = new AbortController();
-    fetcher<User[] | { data: User[] }>("/users", { signal: ac.signal })
-      .then((res) => {
-        const users = Array.isArray(res) ? res : res.data || [];
-        setUsers(users);
+    fetcher<User[]>("/users", { signal: ac.signal })
+      .then((data) => {
+        setUsers(Array.isArray(data) ? data : []);
       })
       .catch((err) => {
         if (err.name === "AbortError") return;

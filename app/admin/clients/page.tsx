@@ -15,7 +15,7 @@ export default function ClientsPage() {
 
   useEffect(() => {
     const ac = new AbortController();
-    fetcher<AdminClient[]>("/users", { signal: ac.signal })
+    fetcher<AdminClient[]>("/clients", { signal: ac.signal })
       .then((data) => setClients(Array.isArray(data) ? data : []))
       .catch((err) => {
         if (err.name === "AbortError") return;

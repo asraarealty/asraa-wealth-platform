@@ -113,5 +113,10 @@ export async function fetcher<T>(
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  const json = await response.json();
+  // Backend wraps responses as { success: boolean, data: any }.
+  // Unwrap `data` when present; otherwise return the raw JSON (e.g. /auth/login).
+  return (json !== null && typeof json === "object" && "data" in json
+    ? json.data
+    : json) as T;
 }

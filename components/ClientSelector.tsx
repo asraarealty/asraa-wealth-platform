@@ -4,23 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { fetchClients, type Client } from "@/lib/api";
 
 interface ClientSelectorProps {
-  selectedId: string | null;
+  selectedId: number | null;
   onChange: (client: Client) => void;
-}
-
-const RISK_BADGE: Record<Client["risk_profile"], string> = {
-  conservative: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  moderate: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-  aggressive: "bg-red-500/10 text-red-400 border-red-500/20",
-};
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
 }
 
 export default function ClientSelector({
@@ -39,7 +24,7 @@ export default function ClientSelector({
 
     fetchClients(controller.signal)
       .then((data) => {
-        setClients(data);
+        setClients(Array.isArray(data) ? data : []);
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -141,16 +126,15 @@ export default function ClientSelector({
                       {client.email}
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-sm font-semibold text-white">
-                      {formatCurrency(client.portfolio_value)}
-                    </div>
+                  <div className="shrink-0">
                     <span
-                      className={`inline-block text-xs px-2 py-0.5 rounded-full border capitalize ${
-                        RISK_BADGE[client.risk_profile]
+                      className={`inline-block text-xs px-2 py-0.5 rounded-full border ${
+                        client.is_active
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                          : "bg-gray-500/10 text-gray-400 border-gray-500/20"
                       }`}
                     >
-                      {client.risk_profile}
+                      {client.is_active ? "Active" : "Inactive"}
                     </span>
                   </div>
                 </div>

@@ -25,7 +25,7 @@ export default function PortfolioPage() {
   useEffect(() => {
     const ac = new AbortController();
     fetcher<AdminPortfolioItem[]>("/portfolio", { signal: ac.signal })
-      .then(setItems)
+      .then((data) => setItems(Array.isArray(data) ? data : []))
       .catch((err) => {
         if (err.name === "AbortError") return;
         console.error("Failed to load portfolio:", err);
