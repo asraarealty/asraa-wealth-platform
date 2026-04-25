@@ -17,31 +17,7 @@ export class NetworkError extends Error {
   }
 }
 
-// ── Token helpers ─────────────────────────────────────────────────────────────
-
-const TOKEN_LS_KEY = "access_token";
-const TOKEN_COOKIE_NAME = "access_token";
-
-export function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_LS_KEY);
-}
-
-export function storeToken(token: string): void {
-  localStorage.setItem(TOKEN_LS_KEY, token);
-
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${TOKEN_COOKIE_NAME}=${encodeURIComponent(
-    token
-  )}; path=/; SameSite=Strict${secure}`;
-}
-
-export function clearToken(): void {
-  localStorage.removeItem(TOKEN_LS_KEY);
-  document.cookie = `${TOKEN_COOKIE_NAME}=; path=/; max-age=0`;
-}
-
-// ── Core fetch wrapper ────────────────────────────────────────────────────────
+// ── Core fetch wrapper (COOKIE BASED) ─────────────────────────────────────────
 
 interface FetcherOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
@@ -54,65 +30,52 @@ export async function fetcher<T>(
 ): Promise<T> {
   const { body, headers: extraHeaders, signal, raw, ...rest } = options;
 
-  // ✅ FIX: normalize null → undefined
-  let token: string | undefined = getStoredToken() ?? undefined;
+  let response: Response;
 
-  const makeRequest = async (overrideToken?: string) => {
-    return fetch(`${API_BASE_URL}${path}`, {
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
       ...rest,
+      credentials: "include", // 🔥 KEY: send cookies automatically
       headers: {
         "Content-Type": "application/json",
-        ...(overrideToken || token
-          ? { Authorization: `Bearer ${overrideToken || token}` }
-          : {}),
         ...(extraHeaders as Record<string, string>),
       },
       signal,
       body: body !== undefined ? JSON.stringify(body) : undefined,
-      credentials: "include",
     });
-  };
-
-  let response: Response;
-
-  try {
-    response = await makeRequest();
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
     console.error("Network error:", err);
     throw new NetworkError("Unable to reach backend API");
   }
 
-  // ── 🔁 AUTO REFRESH LOGIC ─────────────────────────────────────────────────
+  // ── 🔁 AUTO REFRESH USING COOKIE ──────────────────────────────────────────
 
   if (response.status === 401) {
     try {
       const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: "POST",
-        credentials: "include",
+        credentials: "include", // 🔥 cookie used
       });
 
       if (refreshRes.ok) {
-        const data = await refreshRes.json();
-
-        if (data?.access_token) {
-          storeToken(data.access_token);
-
-          // ✅ update token safely
-          token = data.access_token;
-
-          // 🔁 retry request with new token
-          response = await makeRequest(token);
-        } else {
-          throw new Error("No access_token in refresh response");
-        }
+        // retry original request (cookie updated automatically)
+        response = await fetch(`${API_BASE_URL}${path}`, {
+          ...rest,
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(extraHeaders as Record<string, string>),
+          },
+          signal,
+          body: body !== undefined ? JSON.stringify(body) : undefined,
+        });
       } else {
-        throw new Error("Refresh request failed");
+        throw new Error("Refresh failed");
       }
     } catch (err) {
-      console.warn("Token refresh failed:", err);
+      console.warn("Session expired:", err);
 
-      clearToken();
       if (typeof window !== "undefined") {
         window.location.href = "/login";
       }
@@ -129,7 +92,7 @@ export async function fetcher<T>(
       const data = await response.json();
       message = data?.detail ?? data?.message ?? message;
     } catch {
-      // ignore JSON parse errors
+      // ignore
     }
     throw new ApiError(response.status, message);
   }
