@@ -15,8 +15,11 @@ export default function UsersPage() {
 
   useEffect(() => {
     const ac = new AbortController();
-    fetcher<User[]>("/users", { signal: ac.signal })
-      .then(setUsers)
+    fetcher<User[] | { data: User[] }>("/users", { signal: ac.signal })
+      .then((res) => {
+        const users = Array.isArray(res) ? res : res.data || [];
+        setUsers(users);
+      })
       .catch((err) => {
         if (err.name === "AbortError") return;
         console.error("Failed to load users:", err);
@@ -36,25 +39,29 @@ export default function UsersPage() {
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold text-slate-100">Users</h1>
-      <Table<User>
-        keyField="id"
-        rows={users}
-        columns={[
-          { key: "name", header: "Name" },
-          { key: "email", header: "Email" },
-          { key: "role", header: "Role" },
-          {
-            key: "is_active",
-            header: "Status",
-            render: (row) =>
-              row.is_active ? (
-                <Badge label="Active" variant="green" />
-              ) : (
-                <Badge label="Inactive" variant="gray" />
-              ),
-          },
-        ]}
-      />
+      {users.length === 0 ? (
+        <p className="text-slate-400">No users found.</p>
+      ) : (
+        <Table<User>
+          keyField="id"
+          rows={users}
+          columns={[
+            { key: "name", header: "Name" },
+            { key: "email", header: "Email" },
+            { key: "role", header: "Role" },
+            {
+              key: "is_active",
+              header: "Status",
+              render: (row) =>
+                row.is_active ? (
+                  <Badge label="Active" variant="green" />
+                ) : (
+                  <Badge label="Inactive" variant="gray" />
+                ),
+            },
+          ]}
+        />
+      )}
     </div>
   );
 }
