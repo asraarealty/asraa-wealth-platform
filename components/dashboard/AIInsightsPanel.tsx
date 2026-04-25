@@ -78,7 +78,7 @@ const TYPE_STYLES: Record<
 
 export default function AIInsightsPanel() {
   return (
-    <div className="glass-card rounded-2xl p-5">
+    <div className="glass-card card-hover rounded-2xl p-5">
       <div className="flex items-center gap-2.5 mb-5">
         <div
           className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"

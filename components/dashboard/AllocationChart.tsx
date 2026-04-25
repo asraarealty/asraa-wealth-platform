@@ -76,8 +76,8 @@ export default function AllocationChart({ positions }: Props) {
   });
 
   return (
-    <div className="glass-card rounded-2xl p-5">
-      <p className="text-xs text-gold-light uppercase tracking-wider font-medium mb-4">
+    <div className="glass-card card-hover rounded-2xl p-5">
+      <p className="text-xs uppercase tracking-widest font-semibold mb-4" style={{ color: "rgba(201,162,39,0.65)" }}>
         Allocation
       </p>
 
@@ -136,7 +136,7 @@ export default function AllocationChart({ positions }: Props) {
                 d={d}
                 fill={arc.color}
                 opacity={0.85}
-                stroke="rgba(11,61,46,0.8)"
+                stroke="rgba(7,26,20,0.9)"
                 strokeWidth={2}
                 filter="url(#sliceGlow)"
               />

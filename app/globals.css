@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 @theme {
-  --color-wealth-green: #0b3d2e;
-  --color-wealth-green-mid: #0d4a37;
-  --color-wealth-green-light: #145c44;
-  --color-wealth-green-hover: #1a6b50;
+  --color-wealth-green: #0b2a20;
+  --color-wealth-green-mid: #0d3528;
+  --color-wealth-green-light: #10422f;
+  --color-wealth-green-hover: #145239;
   --color-gold: #c9a227;
   --color-gold-light: #d4af4a;
   --color-gold-pale: #e8d08a;
   --color-glass-border: rgba(201, 162, 39, 0.18);
-  --color-dark-base: #0a0f0d;
+  --color-dark-base: #071a14;
 }
 
 @keyframes fade-in {
@@ -22,10 +22,20 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(201, 162, 39, 0.2); }
+  50%       { box-shadow: 0 0 20px rgba(201, 162, 39, 0.45); }
+}
+
+@keyframes draw-line {
+  from { stroke-dashoffset: 1200; }
+  to   { stroke-dashoffset: 0; }
+}
+
 body {
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background-color: #0b3d2e;
+  background-color: #071a14;
 }
 
 /* Animation utilities */
@@ -35,14 +45,16 @@ body {
 .animate-slide-up-delay2 { animation: slide-up 0.6s ease 0.3s both; }
 .animate-slide-up-delay3 { animation: slide-up 0.6s ease 0.45s both; }
 .animate-slide-up-delay4 { animation: slide-up 0.6s ease 0.6s both; }
+.animate-glow-pulse { animation: glow-pulse 2.5s ease-in-out infinite; }
+.animate-draw-line  { animation: draw-line 1.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
 
-/* Glassmorphism card */
+/* Glassmorphism card — dark premium base */
 .glass-card {
-  background: rgba(11, 61, 46, 0.55);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(201, 162, 39, 0.18);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(201, 162, 39, 0.06);
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(201, 162, 39, 0.14);
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(201, 162, 39, 0.05);
 }
 
 /* Gold glow on focus / active */
@@ -50,11 +62,34 @@ body {
   box-shadow: 0 0 0 2px rgba(201, 162, 39, 0.35), 0 0 16px rgba(201, 162, 39, 0.15);
 }
 
+/* Card hover glow */
+.card-hover {
+  transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+}
+.card-hover:hover {
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(201, 162, 39, 0.2), 0 0 20px rgba(201, 162, 39, 0.08);
+  border-color: rgba(201, 162, 39, 0.22);
+  transform: translateY(-1px);
+}
+
 /* Sidebar nav item active indicator */
 .sidebar-active {
   background: rgba(201, 162, 39, 0.1);
   border-left: 3px solid #c9a227;
   color: #c9a227;
+  box-shadow: inset 0 0 20px rgba(201, 162, 39, 0.04);
+}
+
+/* Premium badge */
+.badge-premium {
+  background: linear-gradient(135deg, rgba(201,162,39,0.2) 0%, rgba(201,162,39,0.08) 100%);
+  border: 1px solid rgba(201,162,39,0.3);
+  color: #d4af4a;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  font-weight: 600;
 }
 
 /* Scrollbar styling */
@@ -63,13 +98,13 @@ body {
   height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(11, 61, 46, 0.3);
+  background: rgba(7, 26, 20, 0.5);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(201, 162, 39, 0.3);
+  background: rgba(201, 162, 39, 0.25);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(201, 162, 39, 0.5);
+  background: rgba(201, 162, 39, 0.45);
 }
 

@@ -59,23 +59,28 @@ export default function PortfolioGrowthChart({ totalValue, gainPercent }: Props)
   const toY = (v: number) =>
     padY + (1 - (v - minVal) / range) * (height - padY * 2);
 
-  const linePath = data
-    .map((d, i) => `${i === 0 ? "M" : "L"} ${toX(i)} ${toY(d.value)}`)
-    .join(" ");
+  // Build smooth cubic bezier path
+  const smoothPath = data.reduce((path, d, i) => {
+    if (i === 0) return `M ${toX(i)} ${toY(d.value)}`;
+    const prev = data[i - 1];
+    const cpX = (toX(i - 1) + toX(i)) / 2;
+    return `${path} C ${cpX} ${toY(prev.value)}, ${cpX} ${toY(d.value)}, ${toX(i)} ${toY(d.value)}`;
+  }, "");
 
-  const areaPath = `${linePath} L ${toX(data.length - 1)} ${height - padY} L ${toX(0)} ${height - padY} Z`;
+  const areaPath = `${smoothPath} L ${toX(data.length - 1)} ${height - padY} L ${toX(0)} ${height - padY} Z`;
 
   const latestValue = data[data.length - 1].value;
+  const peakIdx = data.reduce((best, d, i) => (d.value > data[best].value ? i : best), 0);
   const displayGain = gainPercent;
 
   return (
-    <div className="glass-card rounded-2xl p-5">
+    <div className="glass-card card-hover rounded-2xl p-5">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <p className="text-xs text-gold-light uppercase tracking-wider font-medium mb-1">
+          <p className="text-xs uppercase tracking-widest font-semibold mb-1" style={{ color: "rgba(201,162,39,0.65)" }}>
             Portfolio Growth
           </p>
-          <p className="text-xl font-bold text-white">
+          <p className="text-xl font-bold text-white tracking-tight">
             {new Intl.NumberFormat("en-US", {
               style: "currency",
               currency: "USD",
@@ -83,15 +88,17 @@ export default function PortfolioGrowthChart({ totalValue, gainPercent }: Props)
             }).format(latestValue)}
           </p>
         </div>
-        <span
-          className={`text-sm font-semibold px-2.5 py-1 rounded-full border ${
-            displayGain >= 0
-              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-              : "bg-red-500/10 text-red-400 border-red-500/20"
-          }`}
-        >
-          {displayGain >= 0 ? "+" : ""}{displayGain.toFixed(1)}%
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`text-sm font-semibold px-3 py-1 rounded-full border ${
+              displayGain >= 0
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                : "bg-red-500/10 text-red-400 border-red-500/20"
+            }`}
+          >
+            {displayGain >= 0 ? "+" : ""}{displayGain.toFixed(1)}%
+          </span>
+        </div>
       </div>
 
       <svg
@@ -101,12 +108,20 @@ export default function PortfolioGrowthChart({ totalValue, gainPercent }: Props)
         aria-label="Portfolio growth line chart"
       >
         <defs>
-          <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#c9a227" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#c9a227" stopOpacity="0.02" />
+          <linearGradient id="areaGradientGreen" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#10b981" stopOpacity="0.22" />
+            <stop offset="75%" stopColor="#10b981" stopOpacity="0.04" />
+            <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
           </linearGradient>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+          <filter id="lineGlow">
+            <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
+            <feMerge>
+              <feMergeNode in="coloredBlur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="dotGlow">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
             <feMerge>
               <feMergeNode in="coloredBlur" />
               <feMergeNode in="SourceGraphic" />
@@ -122,22 +137,26 @@ export default function PortfolioGrowthChart({ totalValue, gainPercent }: Props)
             y1={padY + t * (height - padY * 2)}
             x2={width - padX}
             y2={padY + t * (height - padY * 2)}
-            stroke="rgba(201,162,39,0.08)"
+            stroke="rgba(16,185,129,0.07)"
             strokeWidth={1}
+            strokeDasharray={t === 0 || t === 1 ? "none" : "4 6"}
           />
         ))}
 
         {/* Area fill */}
-        <path d={areaPath} fill="url(#areaGradient)" />
+        <path d={areaPath} fill="url(#areaGradientGreen)" />
 
-        {/* Line */}
+        {/* Main green line with draw animation */}
         <path
-          d={linePath}
+          d={smoothPath}
           fill="none"
-          stroke="#c9a227"
-          strokeWidth={2}
+          stroke="#10b981"
+          strokeWidth={2.5}
           strokeLinejoin="round"
-          filter="url(#glow)"
+          strokeLinecap="round"
+          filter="url(#lineGlow)"
+          strokeDasharray="1200"
+          className="animate-draw-line"
         />
 
         {/* Month labels */}
@@ -149,20 +168,47 @@ export default function PortfolioGrowthChart({ totalValue, gainPercent }: Props)
               y={height - 2}
               textAnchor="middle"
               fontSize={10}
-              fill="rgba(201,162,39,0.5)"
+              fill="rgba(255,255,255,0.2)"
             >
               {d.month}
             </text>
           ) : null
         )}
 
-        {/* Last data point dot */}
+        {/* Peak highlight point (gold) */}
+        <circle
+          cx={toX(peakIdx)}
+          cy={toY(data[peakIdx].value)}
+          r={5}
+          fill="#c9a227"
+          filter="url(#dotGlow)"
+        />
+        <circle
+          cx={toX(peakIdx)}
+          cy={toY(data[peakIdx].value)}
+          r={9}
+          fill="none"
+          stroke="#c9a227"
+          strokeOpacity={0.25}
+          strokeWidth={1.5}
+        />
+
+        {/* Latest data point dot (emerald) */}
         <circle
           cx={toX(data.length - 1)}
           cy={toY(latestValue)}
-          r={4}
-          fill="#c9a227"
-          filter="url(#glow)"
+          r={5}
+          fill="#10b981"
+          filter="url(#lineGlow)"
+        />
+        <circle
+          cx={toX(data.length - 1)}
+          cy={toY(latestValue)}
+          r={9}
+          fill="none"
+          stroke="#10b981"
+          strokeOpacity={0.3}
+          strokeWidth={1.5}
         />
       </svg>
     </div>
