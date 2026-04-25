@@ -5,12 +5,16 @@ import { useAuth } from "@/context/AuthContext";
 export default function AdminHeader() {
   const { user } = useAuth();
 
+  // ✅ normalize user safely
+  const name = user?.name ?? null;
+  const email = user?.email ?? "";
+
   return (
     <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
       <div>
         <h1 className="text-lg font-semibold text-white">Admin Dashboard</h1>
         <p className="text-xs text-gray-400">
-          Welcome back, {user?.name || user?.email || "Admin"}
+          Welcome back, {name || email || "Admin"}
         </p>
       </div>
 
@@ -22,20 +26,16 @@ export default function AdminHeader() {
             background: "linear-gradient(135deg, #C9A227, #e8d08a)",
           }}
         >
-          {
-            user?.name?.charAt(0)?.toUpperCase() ||
-            user?.email?.charAt(0)?.toUpperCase() ||
-            "A"
-          }
+          {(name?.charAt(0) || email?.charAt(0) || "A").toUpperCase()}
         </div>
 
         {/* User Info */}
         <div className="hidden md:block">
           <p className="text-xs font-semibold text-white leading-tight">
-            {user?.name || "Admin"}
+            {name || "Admin"}
           </p>
           <p className="text-[10px] text-gray-400">
-            {user?.email || "admin@asraarealty.com"}
+            {email || "contact@asraarealty.com"}
           </p>
         </div>
       </div>
