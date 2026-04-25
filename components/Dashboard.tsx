@@ -7,6 +7,9 @@ import { toErrorMessage } from "@/lib/fetcher";
 import type { Client, PortfolioSummary, StockQuote } from "@/lib/api";
 import ClientSelector from "./ClientSelector";
 import StockSearch from "./StockSearch";
+import PortfolioGrowthChart from "./dashboard/PortfolioGrowthChart";
+import AllocationChart from "./dashboard/AllocationChart";
+import AIInsightsPanel from "./dashboard/AIInsightsPanel";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -20,14 +23,17 @@ function formatPercent(value: number): string {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
-interface StatCardProps {
+// ─── KPI Card ─────────────────────────────────────────────────────────────────
+
+interface KPICardProps {
   label: string;
   value: string;
   sub?: string;
   positive?: boolean;
+  icon: React.ReactNode;
 }
 
-function StatCard({ label, value, sub, positive }: StatCardProps) {
+function KPICard({ label, value, sub, positive, icon }: KPICardProps) {
   const subColor =
     positive === undefined
       ? "text-gray-400"
@@ -36,15 +42,84 @@ function StatCard({ label, value, sub, positive }: StatCardProps) {
       : "text-red-400";
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-      <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">
-        {label}
-      </p>
-      <p className="text-2xl font-bold text-white">{value}</p>
-      {sub && <p className={`text-xs mt-1 font-medium ${subColor}`}>{sub}</p>}
+    <div
+      className="glass-card rounded-2xl p-5 flex flex-col gap-3 relative overflow-hidden"
+      style={{
+        boxShadow:
+          "0 4px 24px rgba(0,0,0,0.35), 0 0 0 1px rgba(201,162,39,0.06)",
+      }}
+    >
+      {/* Subtle gold corner glow */}
+      <div
+        className="absolute -top-6 -right-6 w-20 h-20 rounded-full pointer-events-none"
+        style={{
+          background: "radial-gradient(circle, rgba(201,162,39,0.12) 0%, transparent 70%)",
+        }}
+      />
+
+      <div className="flex items-center justify-between">
+        <p className="text-xs uppercase tracking-wider font-medium text-gray-400">
+          {label}
+        </p>
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{
+            background: "rgba(201,162,39,0.12)",
+            border: "1px solid rgba(201,162,39,0.2)",
+          }}
+        >
+          {icon}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-2xl font-bold text-white">{value}</p>
+        {sub && (
+          <p className={`text-xs mt-1 font-medium ${subColor}`}>{sub}</p>
+        )}
+      </div>
     </div>
   );
 }
+
+// ─── Icons ────────────────────────────────────────────────────────────────────
+
+const IconPortfolio = (
+  <svg className="w-4 h-4 text-gold-light" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
+  </svg>
+);
+
+const IconGrowth = (
+  <svg className="w-4 h-4 text-gold-light" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.307a11.95 11.95 0 0 1 5.814-5.519l2.74-1.22m0 0-5.94-2.28m5.94 2.28-2.28 5.941" />
+  </svg>
+);
+
+const IconClients = (
+  <svg className="w-4 h-4 text-gold-light" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+  </svg>
+);
+
+const IconAUM = (
+  <svg className="w-4 h-4 text-gold-light" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+  </svg>
+);
+
+// ─── Spinner ──────────────────────────────────────────────────────────────────
+
+function GoldSpinner() {
+  return (
+    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24" style={{ color: "#c9a227" }}>
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  );
+}
+
+// ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const { logout } = useAuth();
@@ -55,19 +130,22 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockQuote | null>(null);
 
-  const loadPortfolio = useCallback(async (clientId: number, signal?: AbortSignal) => {
-    setPortfolioLoading(true);
-    setPortfolioError(null);
-    try {
-      const data = await getPortfolio(clientId, signal);
-      setPortfolio(data);
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      setPortfolioError(toErrorMessage(err));
-    } finally {
-      setPortfolioLoading(false);
-    }
-  }, []);
+  const loadPortfolio = useCallback(
+    async (clientId: number, signal?: AbortSignal) => {
+      setPortfolioLoading(true);
+      setPortfolioError(null);
+      try {
+        const data = await getPortfolio(clientId, signal);
+        setPortfolio(data);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setPortfolioError(toErrorMessage(err));
+      } finally {
+        setPortfolioLoading(false);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     if (!selectedClient) return;
@@ -78,7 +156,6 @@ export default function Dashboard() {
 
   async function handleLogout() {
     await logout();
-    // AuthContext.logout() clears the token and redirects to /login.
   }
 
   function handleClientChange(client: Client) {
@@ -88,62 +165,87 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col">
-      {/* Top nav */}
-      <header className="sticky top-0 z-30 bg-gray-950/80 backdrop-blur border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
+    <div className="min-h-screen text-white flex flex-col" style={{ background: "#0b3d2e" }}>
+      {/* ── Topbar (glass) ──────────────────────────────────────────────────── */}
+      <header
+        className="sticky top-0 z-30 backdrop-blur-xl"
+        style={{
+          background: "rgba(11,61,46,0.7)",
+          borderBottom: "1px solid rgba(201,162,39,0.15)",
+          boxShadow: "0 2px 20px rgba(0,0,0,0.3)",
+        }}
+      >
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
+          {/* Logo + mobile toggle */}
           <div className="flex items-center gap-3">
-            {/* Mobile sidebar toggle */}
             <button
-              className="lg:hidden p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition"
+              className="lg:hidden p-1.5 rounded-lg transition"
+              style={{ color: "#c9a227" }}
               onClick={() => setSidebarOpen((v) => !v)}
               aria-label="Toggle client list"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
-                />
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
               </svg>
             </button>
-            <span className="font-bold text-lg tracking-tight">
-              <span className="text-emerald-400">Asraa</span> Wealth
-            </span>
+
+            {/* Brand mark */}
+            <div className="flex items-center gap-2">
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black"
+                style={{
+                  background: "linear-gradient(135deg, #c9a227 0%, #8b6914 100%)",
+                  boxShadow: "0 0 12px rgba(201,162,39,0.4)",
+                  color: "#0b3d2e",
+                }}
+              >
+                AW
+              </div>
+              <span className="font-bold text-base tracking-tight hidden sm:block">
+                <span style={{ color: "#c9a227" }}>Asraa</span>{" "}
+                <span className="text-white/80">Wealth</span>
+              </span>
+            </div>
           </div>
 
+          {/* Stock search */}
           <div className="hidden sm:flex flex-1 max-w-sm mx-6">
             <StockSearch onSelect={setSelectedStock} />
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Right side */}
+          <div className="flex items-center gap-3">
             {selectedClient && (
-              <span className="hidden sm:block text-sm text-gray-400 truncate max-w-32">
-                {selectedClient.name}
-              </span>
+              <div className="hidden md:flex items-center gap-2">
+                <div
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                  style={{ background: "rgba(201,162,39,0.2)", color: "#c9a227" }}
+                >
+                  {selectedClient.name.charAt(0)}
+                </div>
+                <span className="text-sm text-white/70 truncate max-w-32">
+                  {selectedClient.name}
+                </span>
+              </div>
             )}
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition px-3 py-1.5 rounded-lg hover:bg-gray-800"
+              className="flex items-center gap-1.5 text-sm transition px-3 py-1.5 rounded-lg"
+              style={{
+                color: "rgba(255,255,255,0.5)",
+                border: "1px solid rgba(255,255,255,0.08)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = "#c9a227";
+                e.currentTarget.style.borderColor = "rgba(201,162,39,0.3)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = "rgba(255,255,255,0.5)";
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+              }}
             >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M8.25 9V5.25A2.25 2.25 0 0 1 10.5 3h6a2.25 2.25 0 0 1 2.25 2.25v13.5A2.25 2.25 0 0 1 16.5 21h-6a2.25 2.25 0 0 1-2.25-2.25V15M12 9l3 3m0 0-3 3m3-3H2.25"
-                />
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 9V5.25A2.25 2.25 0 0 1 10.5 3h6a2.25 2.25 0 0 1 2.25 2.25v13.5A2.25 2.25 0 0 1 16.5 21h-6a2.25 2.25 0 0 1-2.25-2.25V15M12 9l3 3m0 0-3 3m3-3H2.25" />
               </svg>
               <span className="hidden sm:inline">Sign out</span>
             </button>
@@ -156,91 +258,94 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <div className="flex flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 gap-6">
-        {/* Sidebar — client list */}
+      <div className="flex flex-1 max-w-screen-xl mx-auto w-full px-4 sm:px-6 py-6 gap-6">
+        {/* ── Sidebar ──────────────────────────────────────────────────────── */}
         <aside
           className={`
-            fixed inset-y-0 left-0 z-40 w-72 bg-gray-900 border-r border-gray-800 p-4 overflow-y-auto
-            transition-transform duration-300
-            lg:static lg:block lg:w-72 lg:rounded-2xl lg:translate-x-0 lg:border lg:border-gray-800
+            fixed inset-y-0 left-0 z-40 w-72 p-4 overflow-y-auto transition-transform duration-300
+            lg:static lg:block lg:w-72 lg:rounded-2xl lg:translate-x-0
             ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
           `}
+          style={{
+            background: "rgba(8,48,36,0.9)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            border: "1px solid rgba(201,162,39,0.15)",
+            boxShadow: "4px 0 24px rgba(0,0,0,0.3)",
+          }}
         >
-          {sidebarOpen && (
-            <div className="flex items-center justify-between mb-4 lg:hidden">
-              <span className="text-sm font-semibold text-gray-300">
+          {/* Sidebar header */}
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#c9a227" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+              </svg>
+              <span className="text-xs uppercase tracking-wider font-semibold" style={{ color: "#c9a227" }}>
                 Clients
               </span>
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="p-1 text-gray-400 hover:text-white"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 18 18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
             </div>
-          )}
-          <p className="hidden lg:block text-xs text-gray-400 uppercase tracking-wider mb-3">
-            Clients
-          </p>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-1 rounded transition text-white/40 hover:text-white/80"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
           <ClientSelector
             selectedId={selectedClient?.id ?? null}
             onChange={handleClientChange}
           />
         </aside>
 
-        {/* Overlay for mobile sidebar */}
+        {/* Overlay */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+            className="fixed inset-0 z-30 lg:hidden"
+            style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(2px)" }}
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
-        {/* Main content */}
+        {/* ── Main Content ─────────────────────────────────────────────────── */}
         <main className="flex-1 min-w-0 space-y-6">
-          {/* Selected stock banner */}
+          {/* Stock quote banner */}
           {selectedStock && (
-            <div className="flex items-center justify-between bg-gray-900 border border-gray-800 rounded-2xl p-4">
+            <div
+              className="glass-card rounded-2xl p-4 flex items-center justify-between gap-4"
+            >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-sm">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm"
+                  style={{
+                    background: "rgba(201,162,39,0.15)",
+                    border: "1px solid rgba(201,162,39,0.25)",
+                    color: "#c9a227",
+                    boxShadow: "0 0 12px rgba(201,162,39,0.15)",
+                  }}
+                >
                   {selectedStock.symbol.slice(0, 2)}
                 </div>
                 <div>
                   <p className="font-semibold text-white">
                     {selectedStock.symbol}
-                    <span className="ml-2 font-normal text-sm text-gray-400">
+                    <span className="ml-2 font-normal text-sm text-white/50">
                       {selectedStock.name}
                     </span>
                   </p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-white/40">
                     Vol:{" "}
-                    {new Intl.NumberFormat("en-US", {
-                      notation: "compact",
-                    }).format(selectedStock.volume)}
+                    {new Intl.NumberFormat("en-US", { notation: "compact" }).format(selectedStock.volume)}
                   </p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-xl font-bold text-white">
-                  {formatCurrency(selectedStock.price)}
-                </p>
+                <p className="text-xl font-bold text-white">{formatCurrency(selectedStock.price)}</p>
                 <p
                   className={`text-sm font-medium ${
-                    selectedStock.change_percent >= 0
-                      ? "text-emerald-400"
-                      : "text-red-400"
+                    selectedStock.change_percent >= 0 ? "text-emerald-400" : "text-red-400"
                   }`}
                 >
                   {formatPercent(selectedStock.change_percent)}
@@ -248,74 +353,52 @@ export default function Dashboard() {
               </div>
               <button
                 onClick={() => setSelectedStock(null)}
-                className="ml-4 text-gray-500 hover:text-gray-300 transition"
+                className="text-white/30 hover:text-white/70 transition ml-2"
                 aria-label="Dismiss"
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 18 18 6M6 6l12 12"
-                  />
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
           )}
 
+          {/* ── Empty state ── */}
           {!selectedClient ? (
-            <div className="flex flex-col items-center justify-center text-center py-24 gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-gray-900 border border-gray-800 flex items-center justify-center">
-                <svg
-                  className="w-8 h-8 text-gray-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"
-                  />
+            <div className="flex flex-col items-center justify-center text-center py-24 gap-5">
+              <div
+                className="w-20 h-20 rounded-2xl flex items-center justify-center"
+                style={{
+                  background: "rgba(201,162,39,0.08)",
+                  border: "1px solid rgba(201,162,39,0.18)",
+                  boxShadow: "0 0 40px rgba(201,162,39,0.08)",
+                }}
+              >
+                <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="#c9a227" strokeWidth={1.2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
                 </svg>
               </div>
-              <p className="text-gray-400 text-sm">
-                Select a client to view their portfolio
-              </p>
+              <div>
+                <p className="text-white font-semibold mb-1">Select a client</p>
+                <p className="text-white/40 text-sm">
+                  Choose a client from the sidebar to view their wealth portfolio
+                </p>
+              </div>
               <button
-                className="lg:hidden mt-2 text-emerald-400 text-sm underline underline-offset-2"
+                className="lg:hidden text-sm font-medium px-4 py-2 rounded-lg transition"
+                style={{
+                  background: "rgba(201,162,39,0.15)",
+                  border: "1px solid rgba(201,162,39,0.3)",
+                  color: "#c9a227",
+                }}
                 onClick={() => setSidebarOpen(true)}
               >
                 Open client list
               </button>
             </div>
           ) : portfolioLoading ? (
-            <div className="flex items-center justify-center py-24 gap-3 text-gray-400">
-              <svg
-                className="animate-spin h-5 w-5 text-emerald-400"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z"
-                />
-              </svg>
+            <div className="flex items-center justify-center py-24 gap-3 text-white/50">
+              <GoldSpinner />
               Loading portfolio…
             </div>
           ) : portfolioError ? (
@@ -323,119 +406,167 @@ export default function Dashboard() {
               <p className="text-red-400 text-sm">{portfolioError}</p>
               <button
                 onClick={() => loadPortfolio(selectedClient.id)}
-                className="text-emerald-400 text-sm underline underline-offset-2"
+                className="text-sm font-medium px-4 py-2 rounded-lg transition"
+                style={{
+                  background: "rgba(201,162,39,0.15)",
+                  border: "1px solid rgba(201,162,39,0.3)",
+                  color: "#c9a227",
+                }}
               >
                 Retry
               </button>
             </div>
           ) : portfolio ? (
             <>
-              {/* Stats grid */}
+              {/* ── KPI Cards ── */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard
+                <KPICard
                   label="Portfolio Value"
                   value={formatCurrency(portfolio.total_value)}
+                  icon={IconPortfolio}
                 />
-                <StatCard
-                  label="Total Gain / Loss"
-                  value={formatCurrency(portfolio.total_gain_loss)}
-                  sub={formatPercent(portfolio.total_gain_loss_percent)}
+                <KPICard
+                  label="Growth"
+                  value={formatPercent(portfolio.total_gain_loss_percent)}
+                  sub={formatCurrency(portfolio.total_gain_loss)}
                   positive={portfolio.total_gain_loss >= 0}
+                  icon={IconGrowth}
                 />
-                <StatCard
+                <KPICard
                   label="Day Change"
                   value={formatCurrency(portfolio.day_gain_loss)}
                   sub={formatPercent(portfolio.day_gain_loss_percent)}
                   positive={portfolio.day_gain_loss >= 0}
+                  icon={IconAUM}
                 />
-                <StatCard
+                <KPICard
                   label="Positions"
                   value={String(portfolio.positions.length)}
+                  sub="Active holdings"
+                  icon={IconClients}
                 />
               </div>
 
-              {/* Positions table */}
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-800">
-                  <h2 className="font-semibold text-white text-sm">
-                    Holdings
-                  </h2>
+              {/* ── Charts row ── */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-2">
+                  <PortfolioGrowthChart baseValue={portfolio.total_value} />
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-xs text-gray-400 uppercase tracking-wider border-b border-gray-800">
-                        <th className="px-5 py-3 text-left font-medium">
-                          Symbol
-                        </th>
-                        <th className="px-5 py-3 text-right font-medium hidden sm:table-cell">
-                          Qty
-                        </th>
-                        <th className="px-5 py-3 text-right font-medium hidden md:table-cell">
-                          Avg Cost
-                        </th>
-                        <th className="px-5 py-3 text-right font-medium">
-                          Price
-                        </th>
-                        <th className="px-5 py-3 text-right font-medium">
-                          Value
-                        </th>
-                        <th className="px-5 py-3 text-right font-medium">
-                          G / L
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-800">
-                      {portfolio.positions.map((pos) => (
+                <AllocationChart positions={portfolio.positions} />
+              </div>
+
+              {/* ── Holdings table + AI Insights ── */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                {/* Holdings table */}
+                <div
+                  className="xl:col-span-2 glass-card rounded-2xl overflow-hidden"
+                >
+                  <div
+                    className="px-5 py-4 flex items-center justify-between"
+                    style={{ borderBottom: "1px solid rgba(201,162,39,0.12)" }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#c9a227" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
+                      </svg>
+                      <h2 className="font-semibold text-white text-sm">Holdings</h2>
+                    </div>
+                    <span className="text-xs text-white/40">
+                      {portfolio.positions.length} positions
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
                         <tr
-                          key={pos.symbol}
-                          className="hover:bg-gray-800/40 transition"
+                          className="text-xs uppercase tracking-wider"
+                          style={{
+                            borderBottom: "1px solid rgba(201,162,39,0.1)",
+                            color: "rgba(201,162,39,0.6)",
+                          }}
                         >
-                          <td className="px-5 py-3">
-                            <div className="font-semibold text-white">
-                              {pos.symbol}
-                            </div>
-                            <div className="text-xs text-gray-400 truncate max-w-28">
-                              {pos.name}
-                            </div>
-                          </td>
-                          <td className="px-5 py-3 text-right text-gray-300 hidden sm:table-cell">
-                            {pos.quantity}
-                          </td>
-                          <td className="px-5 py-3 text-right text-gray-300 hidden md:table-cell">
-                            {formatCurrency(pos.avg_cost)}
-                          </td>
-                          <td className="px-5 py-3 text-right text-white">
-                            {formatCurrency(pos.current_price)}
-                          </td>
-                          <td className="px-5 py-3 text-right text-white font-medium">
-                            {formatCurrency(pos.market_value)}
-                          </td>
-                          <td className="px-5 py-3 text-right">
-                            <div
-                              className={`font-medium ${
-                                pos.gain_loss >= 0
-                                  ? "text-emerald-400"
-                                  : "text-red-400"
-                              }`}
-                            >
-                              {formatCurrency(pos.gain_loss)}
-                            </div>
-                            <div
-                              className={`text-xs ${
-                                pos.gain_loss_percent >= 0
-                                  ? "text-emerald-400"
-                                  : "text-red-400"
-                              }`}
-                            >
-                              {formatPercent(pos.gain_loss_percent)}
-                            </div>
-                          </td>
+                          <th className="px-5 py-3 text-left font-medium">Symbol</th>
+                          <th className="px-5 py-3 text-right font-medium hidden sm:table-cell">Qty</th>
+                          <th className="px-5 py-3 text-right font-medium hidden md:table-cell">Avg Cost</th>
+                          <th className="px-5 py-3 text-right font-medium">Price</th>
+                          <th className="px-5 py-3 text-right font-medium">Value</th>
+                          <th className="px-5 py-3 text-right font-medium">G / L</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {portfolio.positions.map((pos, idx) => (
+                          <tr
+                            key={pos.symbol}
+                            className="transition-all group"
+                            style={{
+                              borderBottom:
+                                idx < portfolio.positions.length - 1
+                                  ? "1px solid rgba(255,255,255,0.04)"
+                                  : "none",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = "rgba(201,162,39,0.05)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "transparent";
+                            }}
+                          >
+                            <td className="px-5 py-3.5">
+                              <div className="flex items-center gap-2.5">
+                                <div
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
+                                  style={{
+                                    background: "rgba(201,162,39,0.1)",
+                                    border: "1px solid rgba(201,162,39,0.15)",
+                                    color: "#c9a227",
+                                  }}
+                                >
+                                  {pos.symbol.slice(0, 2)}
+                                </div>
+                                <div>
+                                  <div className="font-semibold text-white text-sm">{pos.symbol}</div>
+                                  <div className="text-xs text-white/40 truncate max-w-28">{pos.name}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5 text-right text-white/60 hidden sm:table-cell">
+                              {pos.quantity}
+                            </td>
+                            <td className="px-5 py-3.5 text-right text-white/60 hidden md:table-cell">
+                              {formatCurrency(pos.avg_cost)}
+                            </td>
+                            <td className="px-5 py-3.5 text-right text-white">
+                              {formatCurrency(pos.current_price)}
+                            </td>
+                            <td className="px-5 py-3.5 text-right text-white font-medium">
+                              {formatCurrency(pos.market_value)}
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              <div
+                                className={`font-medium ${
+                                  pos.gain_loss >= 0 ? "text-emerald-400" : "text-red-400"
+                                }`}
+                              >
+                                {formatCurrency(pos.gain_loss)}
+                              </div>
+                              <div
+                                className={`text-xs ${
+                                  pos.gain_loss_percent >= 0 ? "text-emerald-400" : "text-red-400"
+                                }`}
+                              >
+                                {formatPercent(pos.gain_loss_percent)}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
+
+                {/* AI Insights */}
+                <AIInsightsPanel />
               </div>
             </>
           ) : null}
