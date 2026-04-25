@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { getAdminClients } from "@/lib/services/clientService";
 import { toErrorMessage } from "@/lib/fetcher";
 import type { AdminClient } from "@/lib/api";
@@ -17,6 +18,7 @@ export default function ClientsPage() {
 
   useEffect(() => {
     const ac = new AbortController();
+
     getAdminClients(ac.signal)
       .then(setClients)
       .catch((err) => {
@@ -25,6 +27,7 @@ export default function ClientsPage() {
         setError(toErrorMessage(err));
       })
       .finally(() => setLoading(false));
+
     return () => ac.abort();
   }, []);
 
@@ -42,6 +45,7 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-6 text-white">
+      {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "#c9a227" }}>
@@ -51,7 +55,9 @@ export default function ClientsPage() {
             {clients.length} total client{clients.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <a
+
+        {/* ✅ FIXED: Next.js Link instead of <a> */}
+        <Link
           href="/admin/clients/new"
           className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl text-black transition-opacity hover:opacity-90"
           style={{
@@ -59,13 +65,20 @@ export default function ClientsPage() {
             boxShadow: "0 2px 10px rgba(201,162,39,0.3)",
           }}
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2.5}
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
           Add Client
-        </a>
+        </Link>
       </div>
 
+      {/* SEARCH */}
       <div>
         <div className="relative w-72">
           <svg
@@ -75,8 +88,13 @@ export default function ClientsPage() {
             stroke="rgba(201,162,39,0.5)"
             strokeWidth={2}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"
+            />
           </svg>
+
           <input
             type="text"
             placeholder="Search by name, email or phone…"
@@ -91,19 +109,26 @@ export default function ClientsPage() {
         </div>
       </div>
 
+      {/* TABLE / EMPTY */}
       {filtered.length === 0 ? (
         <EmptyState
           title="No clients found"
-          description={search ? "Try a different search term." : "Add your first client to get started."}
+          description={
+            search
+              ? "Try a different search term."
+              : "Add your first client to get started."
+          }
           action={
             !search ? (
-              <a
+              <Link
                 href="/admin/clients/new"
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl text-black"
-                style={{ background: "linear-gradient(90deg, #C9A227, #d4af4a)" }}
+                style={{
+                  background: "linear-gradient(90deg, #C9A227, #d4af4a)",
+                }}
               >
                 + Add Client
-              </a>
+              </Link>
             ) : undefined
           }
         />
@@ -123,13 +148,21 @@ export default function ClientsPage() {
                   className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold"
                   style={
                     row.is_active
-                      ? { background: "rgba(46,204,113,0.12)", color: "#2ecc71" }
-                      : { background: "rgba(239,68,68,0.1)", color: "#ef4444" }
+                      ? {
+                          background: "rgba(46,204,113,0.12)",
+                          color: "#2ecc71",
+                        }
+                      : {
+                          background: "rgba(239,68,68,0.1)",
+                          color: "#ef4444",
+                        }
                   }
                 >
                   <span
                     className="w-1.5 h-1.5 rounded-full"
-                    style={{ background: row.is_active ? "#2ecc71" : "#ef4444" }}
+                    style={{
+                      background: row.is_active ? "#2ecc71" : "#ef4444",
+                    }}
                   />
                   {row.is_active ? "Active" : "Inactive"}
                 </span>
