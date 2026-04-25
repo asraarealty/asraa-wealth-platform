@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetcher } from "@/lib/fetcher";
+import { getAdminPortfolio } from "@/lib/services/portfolioService";
+import { toErrorMessage } from "@/lib/fetcher";
 import type { AdminPortfolioItem } from "@/lib/api";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
@@ -24,16 +25,12 @@ export default function PortfolioPage() {
 
   useEffect(() => {
     const ac = new AbortController();
-    fetcher<AdminPortfolioItem[]>("/portfolio", { signal: ac.signal })
+    getAdminPortfolio(ac.signal)
       .then(setItems)
       .catch((err) => {
-        if (err.name === "AbortError") return;
-        console.error("Failed to load portfolio:", err);
-        setError(
-          err.message?.includes("Unable to reach")
-            ? "Unable to reach backend API"
-            : "Something went wrong"
-        );
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        console.error("[PortfolioPage] Failed to load portfolio:", err);
+        setError(toErrorMessage(err));
       })
       .finally(() => setLoading(false));
     return () => ac.abort();

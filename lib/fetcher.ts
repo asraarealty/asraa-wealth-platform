@@ -1,8 +1,6 @@
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "https://api.asraarealty.in";
 
-console.log("API_BASE_URL:", API_BASE_URL);
-
 // ── Error types ───────────────────────────────────────────────────────────────
 
 export class ApiError extends Error {
@@ -69,7 +67,6 @@ export async function fetcher<T>(
   const { body, headers: extraHeaders, signal, ...rest } = options;
 
   const token = getStoredToken();
-  console.log("Token present:", !!token);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -113,5 +110,25 @@ export async function fetcher<T>(
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  const json = await response.json();
+  // Backend wraps responses as { success: boolean, data: any }.
+  // Unwrap `data` when present; otherwise return the raw JSON (e.g. /auth/login).
+  if (json !== null && typeof json === "object" && "data" in json) {
+    if (json.data === null || json.data === undefined) {
+      console.warn(`[fetcher] ${path}: response has 'data' key but value is`, json.data);
+    }
+    return json.data as T;
+  }
+  return json as T;
+}
+
+/**
+ * Converts an unknown thrown value to a human-readable error string.
+ * Normalises network/API errors into user-friendly messages.
+ */
+export function toErrorMessage(err: unknown): string {
+  if (err instanceof NetworkError) return "Unable to reach backend API";
+  if (err instanceof ApiError) return err.message || `Request failed (${err.status})`;
+  if (err instanceof Error) return err.message || "Something went wrong";
+  return "Something went wrong";
 }

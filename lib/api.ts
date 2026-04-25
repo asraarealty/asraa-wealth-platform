@@ -6,6 +6,7 @@ export {
   storeToken,
   clearToken,
   fetcher,
+  toErrorMessage,
 } from "./fetcher";
 
 import { fetcher } from "./fetcher";
@@ -30,9 +31,11 @@ export function login(payload: LoginPayload): Promise<LoginResponse> {
 }
 
 export interface MeResponse {
-  id: string;
+  id: number;
+  name: string;
   email: string;
   role: string;
+  is_active: boolean;
 }
 
 /** Fetch the authenticated user's profile from the backend. */
@@ -48,15 +51,16 @@ export function logout(): Promise<void> {
 // ── Users / Clients ───────────────────────────────────────────────────────────
 
 export interface Client {
-  id: string;
+  id: number;
   name: string;
   email: string;
-  portfolio_value: number;
-  risk_profile: "conservative" | "moderate" | "aggressive";
+  phone?: string;
+  is_active: boolean;
+  created_at: string;
 }
 
 export function fetchClients(signal?: AbortSignal): Promise<Client[]> {
-  return fetcher<Client[]>("/users", { signal });
+  return fetcher<Client[]>("/clients", { signal });
 }
 
 // ── Stocks ────────────────────────────────────────────────────────────────────
@@ -113,7 +117,7 @@ export interface PortfolioPosition {
 }
 
 export function fetchPortfolio(
-  clientId: string,
+  clientId: number,
   signal?: AbortSignal
 ): Promise<PortfolioSummary> {
   return fetcher<PortfolioSummary>(
@@ -164,14 +168,16 @@ export interface AdminClient {
   id: number;
   name: string;
   email: string;
-  phone: string;
+  phone?: string;
+  is_active: boolean;
+  created_at: string;
 }
 
 export function fetchAdminClients(signal?: AbortSignal): Promise<AdminClient[]> {
-  return fetcher<AdminClient[]>("/users", { signal });
+  return fetcher<AdminClient[]>("/clients", { signal });
 }
 
-// ── Admin: Leads ──────────────────────────────────────────────────────────────
+// ── Admin: Leads (endpoint not available — reserved for future use) ───────────
 
 export interface Lead {
   id: number;
@@ -180,21 +186,13 @@ export interface Lead {
   status: string;
 }
 
-export function fetchLeads(signal?: AbortSignal): Promise<Lead[]> {
-  return fetcher<Lead[]>("/leads", { signal });
-}
-
-// ── Admin: Deals ──────────────────────────────────────────────────────────────
+// ── Admin: Deals (endpoint not available — reserved for future use) ───────────
 
 export interface Deal {
   id: number;
   client_id: number;
   value: number;
   status: string;
-}
-
-export function fetchDeals(signal?: AbortSignal): Promise<Deal[]> {
-  return fetcher<Deal[]>("/deals", { signal });
 }
 
 // ── Admin: Portfolio (all) ────────────────────────────────────────────────────

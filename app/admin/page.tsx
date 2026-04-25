@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetcher } from "@/lib/fetcher";
+import { getUsers } from "@/lib/services/userService";
+import { getAdminPortfolio } from "@/lib/services/portfolioService";
+import { toErrorMessage } from "@/lib/fetcher";
 import type { User, AdminPortfolioItem } from "@/lib/api";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
@@ -27,19 +29,22 @@ export default function AdminPage() {
     const { signal } = ac;
 
     Promise.allSettled([
-      fetcher<User[]>("/users", { signal }),
-      fetcher<AdminPortfolioItem[]>("/portfolio", { signal }),
+      getUsers(signal),
+      getAdminPortfolio(signal),
     ])
       .then(([usersRes, portfolioRes]) => {
-        if (usersRes.status === "fulfilled") setUsers(Array.isArray(usersRes.value) ? usersRes.value : []);
-        else console.error("Failed to load users:", usersRes.reason);
-        if (portfolioRes.status === "fulfilled") setPortfolio(Array.isArray(portfolioRes.value) ? portfolioRes.value : []);
-        else console.error("Failed to load portfolio:", portfolioRes.reason);
+        if (usersRes.status === "fulfilled") setUsers(usersRes.value);
+        else console.error("[AdminPage] Failed to load users:", usersRes.reason);
+        if (portfolioRes.status === "fulfilled") setPortfolio(portfolioRes.value);
+        else console.error("[AdminPage] Failed to load portfolio:", portfolioRes.reason);
 
         const allFailed = [usersRes, portfolioRes].every(
           (r) => r.status === "rejected"
         );
-        if (allFailed) setError("Unable to reach backend API");
+        if (allFailed) {
+          const reason = usersRes.status === "rejected" ? usersRes.reason : null;
+          setError(toErrorMessage(reason));
+        }
       })
       .finally(() => setLoading(false));
 

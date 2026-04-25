@@ -2,12 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
-import {
-  fetchPortfolio,
-  type Client,
-  type PortfolioSummary,
-  type StockQuote,
-} from "@/lib/api";
+import { getPortfolio } from "@/lib/services/portfolioService";
+import { toErrorMessage } from "@/lib/fetcher";
+import type { Client, PortfolioSummary, StockQuote } from "@/lib/api";
 import ClientSelector from "./ClientSelector";
 import StockSearch from "./StockSearch";
 
@@ -58,17 +55,15 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockQuote | null>(null);
 
-  const loadPortfolio = useCallback(async (clientId: string, signal?: AbortSignal) => {
+  const loadPortfolio = useCallback(async (clientId: number, signal?: AbortSignal) => {
     setPortfolioLoading(true);
     setPortfolioError(null);
     try {
-      const data = await fetchPortfolio(clientId, signal);
+      const data = await getPortfolio(clientId, signal);
       setPortfolio(data);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
-      setPortfolioError(
-        err instanceof Error ? err.message : "Failed to load portfolio"
-      );
+      setPortfolioError(toErrorMessage(err));
     } finally {
       setPortfolioLoading(false);
     }
