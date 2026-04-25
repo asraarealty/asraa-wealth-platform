@@ -51,12 +51,10 @@ export default function AdminHeader() {
           <input
             type="search"
             placeholder="Search clients, assets…"
-            className="w-full pl-9 pr-4 py-2 text-sm rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-1"
+            className="w-full pl-9 pr-4 py-2 text-sm rounded-xl text-white placeholder-gray-500 focus:outline-none"
             style={{
               background: "rgba(11,61,46,0.6)",
               border: "1px solid rgba(201,162,39,0.2)",
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              ["--tw-ring-color" as any]: "rgba(201,162,39,0.4)",
             }}
           />
         </div>

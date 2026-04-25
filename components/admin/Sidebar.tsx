@@ -113,11 +113,6 @@ export default function Sidebar() {
               className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
                 isActive ? "sidebar-active" : "text-gray-400 hover:text-white"
               }`}
-              style={
-                !isActive
-                  ? { ["--hover-bg" as never]: "rgba(201,162,39,0.06)" }
-                  : undefined
-              }
               onMouseEnter={(e) => {
                 if (!isActive) {
                   (e.currentTarget as HTMLElement).style.background =

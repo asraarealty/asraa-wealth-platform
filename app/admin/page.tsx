@@ -409,7 +409,7 @@ export default function AdminPage() {
                     <td className="px-4 py-3 font-semibold text-white">{c.name}</td>
                     <td className="px-4 py-3 text-gray-400">{c.email}</td>
                     <td className="px-4 py-3 font-semibold" style={{ color: "#c9a227" }}>
-                      {fmtFull(Math.random() * 2000000 + 500000)}
+                      {fmtFull(500000 + (c.id % 20) * 100000)}
                     </td>
                     <td className="px-4 py-3">
                       <span
