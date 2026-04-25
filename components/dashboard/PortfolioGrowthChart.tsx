@@ -8,9 +8,11 @@ interface DataPoint {
 }
 
 /**
- * Relative growth shape used to paint the line chart.
- * The real values are scaled from `totalValue` using these ratios,
- * so the line reflects the real current portfolio total at the rightmost point.
+ * Static growth shape used purely for visual illustration of an upward trend.
+ * These values are relative multipliers (base = 100) that get scaled to the
+ * real current portfolio total at render time.  They do NOT represent actual
+ * historical returns — the API does not expose time-series data.
+ * Month labels span the 12 months leading up to the current display period.
  */
 const GROWTH_SHAPE: DataPoint[] = [
   { month: "May", value: 100 },

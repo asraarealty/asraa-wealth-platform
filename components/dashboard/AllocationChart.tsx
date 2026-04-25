@@ -43,16 +43,19 @@ export default function AllocationChart({ positions }: Props) {
   const slices = useMemo<Slice[]>(() => {
     if (!positions || positions.length === 0) return FALLBACK_SLICES;
 
+    // Compute total from ALL positions so that individual percentages are
+    // correct relative to the whole portfolio, not just the top-5 slice.
+    const allTotal = positions.reduce((sum, p) => sum + p.value, 0) || 1;
+
     const sorted = [...positions]
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
-    const total = sorted.reduce((sum, p) => sum + p.value, 0) || 1;
 
     return sorted.map((pos, i) => ({
       label: pos.symbol,
       value: pos.allocation !== undefined
         ? pos.allocation
-        : (pos.value / total) * 100,
+        : (pos.value / allTotal) * 100,
       color: SLICE_COLORS[i % SLICE_COLORS.length],
     }));
   }, [positions]);

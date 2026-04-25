@@ -33,6 +33,14 @@ interface PortfolioKPIs {
   positionCount: number;
 }
 
+/** Compute gain/loss for a single Portfolio position. */
+function positionGainLoss(pos: Portfolio): { gainLoss: number; gainLossPct: number } {
+  const gainLoss = (pos.current_price - pos.avg_price) * pos.quantity;
+  const gainLossPct =
+    pos.avg_price > 0 ? ((pos.current_price - pos.avg_price) / pos.avg_price) * 100 : 0;
+  return { gainLoss, gainLossPct };
+}
+
 function computeKPIs(items: Portfolio[]): PortfolioKPIs {
   const totalValue = items.reduce((s, p) => s + p.value, 0);
   const totalCost = items.reduce((s, p) => s + p.avg_price * p.quantity, 0);
@@ -519,11 +527,7 @@ export default function Dashboard() {
                       </thead>
                       <tbody>
                         {portfolio.map((pos, idx) => {
-                          const gainLoss = (pos.current_price - pos.avg_price) * pos.quantity;
-                          const gainLossPct =
-                            pos.avg_price > 0
-                              ? ((pos.current_price - pos.avg_price) / pos.avg_price) * 100
-                              : 0;
+                          const { gainLoss, gainLossPct } = positionGainLoss(pos);
                           return (
                             <tr
                               key={pos.id}
