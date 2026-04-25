@@ -116,7 +116,7 @@ export interface PortfolioPosition {
 }
 
 export function fetchPortfolio(
-  clientId: string | number,
+  clientId: number,
   signal?: AbortSignal
 ): Promise<PortfolioSummary> {
   return fetcher<PortfolioSummary>(

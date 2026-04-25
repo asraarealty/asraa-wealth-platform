@@ -58,7 +58,7 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockQuote | null>(null);
 
-  const loadPortfolio = useCallback(async (clientId: string | number, signal?: AbortSignal) => {
+  const loadPortfolio = useCallback(async (clientId: number, signal?: AbortSignal) => {
     setPortfolioLoading(true);
     setPortfolioError(null);
     try {
