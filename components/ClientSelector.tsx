@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { fetchClients, type Client } from "@/lib/api";
+import { getClients } from "@/lib/services/clientService";
+import { toErrorMessage } from "@/lib/fetcher";
+import type { Client } from "@/lib/api";
 
 interface ClientSelectorProps {
   selectedId: number | null;
@@ -22,13 +24,13 @@ export default function ClientSelector({
     setLoading(true);
     setError(null);
 
-    fetchClients(controller.signal)
+    getClients(controller.signal)
       .then((data) => {
-        setClients(Array.isArray(data) ? data : []);
+        setClients(data);
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        setError(err instanceof Error ? err.message : "Failed to load clients");
+        setError(toErrorMessage(err));
       })
       .finally(() => {
         setLoading(false);

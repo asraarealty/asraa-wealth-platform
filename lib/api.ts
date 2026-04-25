@@ -6,6 +6,7 @@ export {
   storeToken,
   clearToken,
   fetcher,
+  toErrorMessage,
 } from "./fetcher";
 
 import { fetcher } from "./fetcher";

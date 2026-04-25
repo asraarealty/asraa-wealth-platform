@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetcher } from "@/lib/fetcher";
+import { getAdminClients } from "@/lib/services/clientService";
+import { toErrorMessage } from "@/lib/fetcher";
 import type { AdminClient } from "@/lib/api";
 import Table from "@/components/ui/Table";
 import Loader from "@/components/ui/Loader";
@@ -15,16 +16,12 @@ export default function ClientsPage() {
 
   useEffect(() => {
     const ac = new AbortController();
-    fetcher<AdminClient[]>("/clients", { signal: ac.signal })
-      .then((data) => setClients(Array.isArray(data) ? data : []))
+    getAdminClients(ac.signal)
+      .then(setClients)
       .catch((err) => {
-        if (err.name === "AbortError") return;
-        console.error("Failed to load clients:", err);
-        setError(
-          err.message?.includes("Unable to reach")
-            ? "Unable to reach backend API"
-            : "Something went wrong"
-        );
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        console.error("[ClientsPage] Failed to load clients:", err);
+        setError(toErrorMessage(err));
       })
       .finally(() => setLoading(false));
     return () => ac.abort();

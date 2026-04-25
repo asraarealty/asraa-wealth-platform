@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetcher } from "@/lib/fetcher";
+import { getUsers } from "@/lib/services/userService";
+import { toErrorMessage } from "@/lib/fetcher";
 import type { User } from "@/lib/api";
 import Table from "@/components/ui/Table";
 import Badge from "@/components/ui/Badge";
@@ -15,18 +16,12 @@ export default function UsersPage() {
 
   useEffect(() => {
     const ac = new AbortController();
-    fetcher<User[]>("/users", { signal: ac.signal })
-      .then((data) => {
-        setUsers(Array.isArray(data) ? data : []);
-      })
+    getUsers(ac.signal)
+      .then(setUsers)
       .catch((err) => {
-        if (err.name === "AbortError") return;
-        console.error("Failed to load users:", err);
-        setError(
-          err.message?.includes("Unable to reach")
-            ? "Unable to reach backend API"
-            : "Something went wrong"
-        );
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        console.error("[UsersPage] Failed to load users:", err);
+        setError(toErrorMessage(err));
       })
       .finally(() => setLoading(false));
     return () => ac.abort();
