@@ -96,6 +96,18 @@ export function fetchStockQuote(
 
 // ── Portfolio ─────────────────────────────────────────────────────────────────
 
+/** Shape returned by the real API: GET /portfolio or /portfolio?client_id=N */
+export interface Portfolio {
+  id: number;
+  symbol: string;
+  name: string;
+  quantity: number;
+  avg_price: number;
+  current_price: number;
+  value: number;
+  allocation?: number;
+}
+
 export interface PortfolioSummary {
   total_value: number;
   total_gain_loss: number;
@@ -114,6 +126,18 @@ export interface PortfolioPosition {
   market_value: number;
   gain_loss: number;
   gain_loss_percent: number;
+}
+
+/**
+ * Fetch flat portfolio items.  Omit clientId to get all positions (admin);
+ * pass clientId to scope to a specific client.
+ */
+export function fetchPortfolioItems(
+  clientId?: number,
+  signal?: AbortSignal
+): Promise<Portfolio[]> {
+  const qs = clientId !== undefined ? `?client_id=${encodeURIComponent(clientId)}` : "";
+  return fetcher<Portfolio[]>(`/portfolio${qs}`, { signal });
 }
 
 export function fetchPortfolio(

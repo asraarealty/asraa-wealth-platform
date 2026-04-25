@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getPortfolio } from "@/lib/services/portfolioService";
+import { getPortfolioItems } from "@/lib/services/portfolioService";
 import { toErrorMessage } from "@/lib/fetcher";
-import type { Client, PortfolioSummary, StockQuote } from "@/lib/api";
+import type { Client, Portfolio, StockQuote } from "@/lib/api";
 import ClientSelector from "./ClientSelector";
 import StockSearch from "./StockSearch";
 import PortfolioGrowthChart from "./dashboard/PortfolioGrowthChart";
@@ -21,6 +21,24 @@ function formatCurrency(value: number): string {
 
 function formatPercent(value: number): string {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+// ─── KPI helpers derived from Portfolio[] ─────────────────────────────────────
+
+interface PortfolioKPIs {
+  totalValue: number;
+  totalCost: number;
+  totalGain: number;
+  gainPercent: number;
+  positionCount: number;
+}
+
+function computeKPIs(items: Portfolio[]): PortfolioKPIs {
+  const totalValue = items.reduce((s, p) => s + p.value, 0);
+  const totalCost = items.reduce((s, p) => s + p.avg_price * p.quantity, 0);
+  const totalGain = totalValue - totalCost;
+  const gainPercent = totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
+  return { totalValue, totalCost, totalGain, gainPercent, positionCount: items.length };
 }
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
@@ -124,18 +142,21 @@ function GoldSpinner() {
 export default function Dashboard() {
   const { logout } = useAuth();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null);
+  const [portfolio, setPortfolio] = useState<Portfolio[]>([]);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [portfolioError, setPortfolioError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockQuote | null>(null);
+
+  // Derived KPIs from real API data
+  const kpis = useMemo(() => computeKPIs(portfolio), [portfolio]);
 
   const loadPortfolio = useCallback(
     async (clientId: number, signal?: AbortSignal) => {
       setPortfolioLoading(true);
       setPortfolioError(null);
       try {
-        const data = await getPortfolio(clientId, signal);
+        const data = await getPortfolioItems(clientId, signal);
         setPortfolio(data);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -160,7 +181,7 @@ export default function Dashboard() {
 
   function handleClientChange(client: Client) {
     setSelectedClient(client);
-    setPortfolio(null);
+    setPortfolio([]);
     setSidebarOpen(false);
   }
 
@@ -416,43 +437,45 @@ export default function Dashboard() {
                 Retry
               </button>
             </div>
-          ) : portfolio ? (
+          ) : portfolio.length > 0 ? (
             <>
-              {/* ── KPI Cards ── */}
+              {/* ── KPI Cards — computed from real API data ── */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <KPICard
                   label="Portfolio Value"
-                  value={formatCurrency(portfolio.total_value)}
+                  value={formatCurrency(kpis.totalValue)}
                   icon={IconPortfolio}
                 />
                 <KPICard
                   label="Growth"
-                  value={formatPercent(portfolio.total_gain_loss_percent)}
-                  sub={formatCurrency(portfolio.total_gain_loss)}
-                  positive={portfolio.total_gain_loss >= 0}
+                  value={formatPercent(kpis.gainPercent)}
+                  sub={formatCurrency(kpis.totalGain)}
+                  positive={kpis.totalGain >= 0}
                   icon={IconGrowth}
                 />
                 <KPICard
-                  label="Day Change"
-                  value={formatCurrency(portfolio.day_gain_loss)}
-                  sub={formatPercent(portfolio.day_gain_loss_percent)}
-                  positive={portfolio.day_gain_loss >= 0}
+                  label="Total Cost"
+                  value={formatCurrency(kpis.totalCost)}
+                  sub="Invested capital"
                   icon={IconAUM}
                 />
                 <KPICard
                   label="Positions"
-                  value={String(portfolio.positions.length)}
+                  value={String(kpis.positionCount)}
                   sub="Active holdings"
                   icon={IconClients}
                 />
               </div>
 
-              {/* ── Charts row ── */}
+              {/* ── Charts row — bound to real Portfolio[] data ── */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div className="lg:col-span-2">
-                  <PortfolioGrowthChart baseValue={portfolio.total_value} />
+                  <PortfolioGrowthChart
+                    totalValue={kpis.totalValue}
+                    gainPercent={kpis.gainPercent}
+                  />
                 </div>
-                <AllocationChart positions={portfolio.positions} />
+                <AllocationChart positions={portfolio} />
               </div>
 
               {/* ── Holdings table + AI Insights ── */}
@@ -472,7 +495,7 @@ export default function Dashboard() {
                       <h2 className="font-semibold text-white text-sm">Holdings</h2>
                     </div>
                     <span className="text-xs text-white/40">
-                      {portfolio.positions.length} positions
+                      {portfolio.length} positions
                     </span>
                   </div>
 
@@ -488,78 +511,85 @@ export default function Dashboard() {
                         >
                           <th className="px-5 py-3 text-left font-medium">Symbol</th>
                           <th className="px-5 py-3 text-right font-medium hidden sm:table-cell">Qty</th>
-                          <th className="px-5 py-3 text-right font-medium hidden md:table-cell">Avg Cost</th>
+                          <th className="px-5 py-3 text-right font-medium hidden md:table-cell">Avg Price</th>
                           <th className="px-5 py-3 text-right font-medium">Price</th>
                           <th className="px-5 py-3 text-right font-medium">Value</th>
                           <th className="px-5 py-3 text-right font-medium">G / L</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {portfolio.positions.map((pos, idx) => (
-                          <tr
-                            key={pos.symbol}
-                            className="transition-all group"
-                            style={{
-                              borderBottom:
-                                idx < portfolio.positions.length - 1
-                                  ? "1px solid rgba(255,255,255,0.04)"
-                                  : "none",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = "rgba(201,162,39,0.05)";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = "transparent";
-                            }}
-                          >
-                            <td className="px-5 py-3.5">
-                              <div className="flex items-center gap-2.5">
+                        {portfolio.map((pos, idx) => {
+                          const gainLoss = (pos.current_price - pos.avg_price) * pos.quantity;
+                          const gainLossPct =
+                            pos.avg_price > 0
+                              ? ((pos.current_price - pos.avg_price) / pos.avg_price) * 100
+                              : 0;
+                          return (
+                            <tr
+                              key={pos.id}
+                              className="transition-all"
+                              style={{
+                                borderBottom:
+                                  idx < portfolio.length - 1
+                                    ? "1px solid rgba(255,255,255,0.04)"
+                                    : "none",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = "rgba(201,162,39,0.05)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = "transparent";
+                              }}
+                            >
+                              <td className="px-5 py-3.5">
+                                <div className="flex items-center gap-2.5">
+                                  <div
+                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
+                                    style={{
+                                      background: "rgba(201,162,39,0.1)",
+                                      border: "1px solid rgba(201,162,39,0.15)",
+                                      color: "#c9a227",
+                                    }}
+                                  >
+                                    {pos.symbol.slice(0, 2)}
+                                  </div>
+                                  <div>
+                                    <div className="font-semibold text-white text-sm">{pos.symbol}</div>
+                                    <div className="text-xs text-white/40 truncate max-w-28">{pos.name}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-5 py-3.5 text-right text-white/60 hidden sm:table-cell">
+                                {pos.quantity}
+                              </td>
+                              <td className="px-5 py-3.5 text-right text-white/60 hidden md:table-cell">
+                                {formatCurrency(pos.avg_price)}
+                              </td>
+                              <td className="px-5 py-3.5 text-right text-white">
+                                {formatCurrency(pos.current_price)}
+                              </td>
+                              <td className="px-5 py-3.5 text-right text-white font-medium">
+                                {formatCurrency(pos.value)}
+                              </td>
+                              <td className="px-5 py-3.5 text-right">
                                 <div
-                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
-                                  style={{
-                                    background: "rgba(201,162,39,0.1)",
-                                    border: "1px solid rgba(201,162,39,0.15)",
-                                    color: "#c9a227",
-                                  }}
+                                  className={`font-medium ${
+                                    gainLoss >= 0 ? "text-emerald-400" : "text-red-400"
+                                  }`}
                                 >
-                                  {pos.symbol.slice(0, 2)}
+                                  {formatCurrency(gainLoss)}
                                 </div>
-                                <div>
-                                  <div className="font-semibold text-white text-sm">{pos.symbol}</div>
-                                  <div className="text-xs text-white/40 truncate max-w-28">{pos.name}</div>
+                                <div
+                                  className={`text-xs ${
+                                    gainLossPct >= 0 ? "text-emerald-400" : "text-red-400"
+                                  }`}
+                                >
+                                  {formatPercent(gainLossPct)}
                                 </div>
-                              </div>
-                            </td>
-                            <td className="px-5 py-3.5 text-right text-white/60 hidden sm:table-cell">
-                              {pos.quantity}
-                            </td>
-                            <td className="px-5 py-3.5 text-right text-white/60 hidden md:table-cell">
-                              {formatCurrency(pos.avg_cost)}
-                            </td>
-                            <td className="px-5 py-3.5 text-right text-white">
-                              {formatCurrency(pos.current_price)}
-                            </td>
-                            <td className="px-5 py-3.5 text-right text-white font-medium">
-                              {formatCurrency(pos.market_value)}
-                            </td>
-                            <td className="px-5 py-3.5 text-right">
-                              <div
-                                className={`font-medium ${
-                                  pos.gain_loss >= 0 ? "text-emerald-400" : "text-red-400"
-                                }`}
-                              >
-                                {formatCurrency(pos.gain_loss)}
-                              </div>
-                              <div
-                                className={`text-xs ${
-                                  pos.gain_loss_percent >= 0 ? "text-emerald-400" : "text-red-400"
-                                }`}
-                              >
-                                {formatPercent(pos.gain_loss_percent)}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -569,7 +599,15 @@ export default function Dashboard() {
                 <AIInsightsPanel />
               </div>
             </>
-          ) : null}
+          ) : (
+            // Client selected but returned empty portfolio
+            <div className="flex flex-col items-center justify-center py-24 gap-3 text-white/40">
+              <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
+              </svg>
+              <p className="text-sm">No portfolio data for this client</p>
+            </div>
+          )}
         </main>
       </div>
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { PortfolioPosition } from "@/lib/api";
+import type { Portfolio } from "@/lib/api";
 
 interface Slice {
   label: string;
@@ -19,7 +19,7 @@ const SLICE_COLORS = [
 ];
 
 interface Props {
-  positions: PortfolioPosition[];
+  positions: Portfolio[];
 }
 
 function polarToCartesian(cx: number, cy: number, r: number, angle: number) {
@@ -30,21 +30,8 @@ function polarToCartesian(cx: number, cy: number, r: number, angle: number) {
   };
 }
 
-function describeArc(
-  cx: number,
-  cy: number,
-  r: number,
-  startAngle: number,
-  endAngle: number
-): string {
-  const start = polarToCartesian(cx, cy, r, endAngle);
-  const end = polarToCartesian(cx, cy, r, startAngle);
-  const largeArc = endAngle - startAngle > 180 ? 1 : 0;
-  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 0 ${end.x} ${end.y}`;
-}
-
-// Mock fallback slices when no positions
-const MOCK_SLICES: Slice[] = [
+// Fallback slices shown only when no positions are loaded yet
+const FALLBACK_SLICES: Slice[] = [
   { label: "Equities", value: 45, color: SLICE_COLORS[0] },
   { label: "Bonds", value: 25, color: SLICE_COLORS[1] },
   { label: "Real Estate", value: 15, color: SLICE_COLORS[2] },
@@ -54,16 +41,18 @@ const MOCK_SLICES: Slice[] = [
 
 export default function AllocationChart({ positions }: Props) {
   const slices = useMemo<Slice[]>(() => {
-    if (!positions || positions.length === 0) return MOCK_SLICES;
+    if (!positions || positions.length === 0) return FALLBACK_SLICES;
 
     const sorted = [...positions]
-      .sort((a, b) => b.market_value - a.market_value)
+      .sort((a, b) => b.value - a.value)
       .slice(0, 5);
-    const total = sorted.reduce((sum, p) => sum + p.market_value, 0) || 1;
+    const total = sorted.reduce((sum, p) => sum + p.value, 0) || 1;
 
     return sorted.map((pos, i) => ({
       label: pos.symbol,
-      value: (pos.market_value / total) * 100,
+      value: pos.allocation !== undefined
+        ? pos.allocation
+        : (pos.value / total) * 100,
       color: SLICE_COLORS[i % SLICE_COLORS.length],
     }));
   }, [positions]);

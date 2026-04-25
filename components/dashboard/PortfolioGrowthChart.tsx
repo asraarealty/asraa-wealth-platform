@@ -7,8 +7,12 @@ interface DataPoint {
   value: number;
 }
 
-// Mock 12-month portfolio growth data (% gain from base)
-const MOCK_DATA: DataPoint[] = [
+/**
+ * Relative growth shape used to paint the line chart.
+ * The real values are scaled from `totalValue` using these ratios,
+ * so the line reflects the real current portfolio total at the rightmost point.
+ */
+const GROWTH_SHAPE: DataPoint[] = [
   { month: "May", value: 100 },
   { month: "Jun", value: 104.2 },
   { month: "Jul", value: 101.8 },
@@ -24,16 +28,20 @@ const MOCK_DATA: DataPoint[] = [
 ];
 
 interface Props {
-  baseValue?: number;
+  /** Real current portfolio total value from the API. */
+  totalValue: number;
+  /** Real total gain % from the API (e.g. 12.4 for +12.4%). */
+  gainPercent: number;
 }
 
-export default function PortfolioGrowthChart({ baseValue = 100000 }: Props) {
+export default function PortfolioGrowthChart({ totalValue, gainPercent }: Props) {
   const data = useMemo<DataPoint[]>(() => {
-    return MOCK_DATA.map((d) => ({
+    const latest = GROWTH_SHAPE[GROWTH_SHAPE.length - 1].value;
+    return GROWTH_SHAPE.map((d) => ({
       ...d,
-      value: (d.value / 100) * baseValue,
+      value: (d.value / latest) * totalValue,
     }));
-  }, [baseValue]);
+  }, [totalValue]);
 
   const width = 600;
   const height = 180;
@@ -56,7 +64,7 @@ export default function PortfolioGrowthChart({ baseValue = 100000 }: Props) {
   const areaPath = `${linePath} L ${toX(data.length - 1)} ${height - padY} L ${toX(0)} ${height - padY} Z`;
 
   const latestValue = data[data.length - 1].value;
-  const gain = ((latestValue - data[0].value) / data[0].value) * 100;
+  const displayGain = gainPercent;
 
   return (
     <div className="glass-card rounded-2xl p-5">
@@ -73,8 +81,14 @@ export default function PortfolioGrowthChart({ baseValue = 100000 }: Props) {
             }).format(latestValue)}
           </p>
         </div>
-        <span className="text-sm font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-          +{gain.toFixed(1)}%
+        <span
+          className={`text-sm font-semibold px-2.5 py-1 rounded-full border ${
+            displayGain >= 0
+              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+              : "bg-red-500/10 text-red-400 border-red-500/20"
+          }`}
+        >
+          {displayGain >= 0 ? "+" : ""}{displayGain.toFixed(1)}%
         </span>
       </div>
 
