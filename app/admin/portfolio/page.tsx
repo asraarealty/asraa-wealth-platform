@@ -40,7 +40,10 @@ export default function PortfolioPage() {
   if (error) return <ErrorState message={error} />;
 
   const filtered = filterClient
-    ? items.filter((p) => String(p.client_id).includes(filterClient))
+    ? items.filter((p) =>
+        p.symbol.toLowerCase().includes(filterClient.toLowerCase()) ||
+        p.name.toLowerCase().includes(filterClient.toLowerCase())
+      )
     : items;
 
   return (
@@ -49,7 +52,7 @@ export default function PortfolioPage() {
       <div className="mb-4">
         <input
           type="text"
-          placeholder="Filter by Client ID…"
+          placeholder="Filter by symbol or name…"
           value={filterClient}
           onChange={(e) => setFilterClient(e.target.value)}
           className="w-64 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
@@ -60,11 +63,11 @@ export default function PortfolioPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p) => (
-            <Card key={p.id} title={`Client #${p.client_id}`}>
+            <Card key={p.id} title={`${p.symbol} — ${p.name}`}>
               <p className="text-3xl font-bold text-slate-100">
-                {fmt(p.total_value)}
+                {fmt(p.value)}
               </p>
-              <p className="mt-1 text-xs text-slate-500">Portfolio #{p.id}</p>
+              <p className="mt-1 text-xs text-slate-500">Portfolio item #{p.id}</p>
             </Card>
           ))}
         </div>

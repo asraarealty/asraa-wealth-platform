@@ -52,7 +52,7 @@ export default function AdminPage() {
   }, []);
 
   const totalPortfolioValue = portfolio.reduce(
-    (sum, p) => sum + (p.total_value ?? 0),
+    (sum, p) => sum + (p.value ?? 0),
     0
   );
 
