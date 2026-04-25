@@ -30,46 +30,41 @@ export async function fetcher<T>(
 ): Promise<T> {
   const { body, headers: extraHeaders, signal, raw, ...rest } = options;
 
-  let response: Response;
-
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+  // 🔧 single request builder (important)
+  const makeRequest = () =>
+    fetch(`${API_BASE_URL}${path}`, {
       ...rest,
-      credentials: "include", // 🔥 KEY: send cookies automatically
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        ...(extraHeaders as Record<string, string>),
+        ...(extraHeaders || {}),
       },
       signal,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
+
+  let response: Response;
+
+  try {
+    response = await makeRequest();
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
     console.error("Network error:", err);
     throw new NetworkError("Unable to reach backend API");
   }
 
-  // ── 🔁 AUTO REFRESH USING COOKIE ──────────────────────────────────────────
+  // ── 🔁 AUTO REFRESH (SAFE VERSION) ────────────────────────────────────────
 
   if (response.status === 401) {
     try {
       const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: "POST",
-        credentials: "include", // 🔥 cookie used
+        credentials: "include",
       });
 
       if (refreshRes.ok) {
-        // retry original request (cookie updated automatically)
-        response = await fetch(`${API_BASE_URL}${path}`, {
-          ...rest,
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-            ...(extraHeaders as Record<string, string>),
-          },
-          signal,
-          body: body !== undefined ? JSON.stringify(body) : undefined,
-        });
+        // retry once only
+        response = await makeRequest();
       } else {
         throw new Error("Refresh failed");
       }
@@ -88,12 +83,14 @@ export async function fetcher<T>(
 
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
+
     try {
       const data = await response.json();
       message = data?.detail ?? data?.message ?? message;
     } catch {
       // ignore
     }
+
     throw new ApiError(response.status, message);
   }
 
@@ -107,7 +104,7 @@ export async function fetcher<T>(
 
   if (raw) return json as T;
 
-  if (json !== null && typeof json === "object" && "data" in json) {
+  if (json && typeof json === "object" && "data" in json) {
     return json.data as T;
   }
 
