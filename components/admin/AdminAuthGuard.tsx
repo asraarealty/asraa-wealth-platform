@@ -6,28 +6,28 @@ import { useAuth } from "@/context/AuthContext";
 import Loader from "@/components/ui/Loader";
 
 /**
- * Client-side auth guard for admin routes.
+ * Admin route guard (COOKIE-BASED AUTH)
  *
- * While the session is being restored (loading), renders a spinner.
- * Once loading is complete, redirects to /login if no token is present.
- * Otherwise renders children normally.
- *
- * This complements the server-side proxy check (proxy.ts) by guarding
- * against cases where the cookie has expired but localStorage still
- * hasn't been cleared, or when navigating client-side without a page reload.
+ * - Waits for auth to load
+ * - Redirects if user not logged in
+ * - Redirects if not admin
  */
 export default function AdminAuthGuard({ children }: { children: ReactNode }) {
-  const { token, loading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !token) {
-      router.replace("/login");
+    if (!loading) {
+      if (!user) {
+        router.replace("/login");
+      } else if (user.role !== "admin") {
+        router.replace("/dashboard");
+      }
     }
-  }, [loading, token, router]);
+  }, [user, loading, router]);
 
   if (loading) return <Loader />;
-  if (!token) return null;
+  if (!user) return null;
 
   return <>{children}</>;
 }
