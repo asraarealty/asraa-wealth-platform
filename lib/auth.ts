@@ -1,21 +1,21 @@
 /**
- * Auth utilities (wrapper layer)
- * Keep this thin — do NOT duplicate logic from fetcher
+ * Auth utilities for token management using localStorage.
+ * This file is aligned with the token-based fetcher.
  */
 
-import { getStoredToken, storeToken, clearToken } from "./fetcher";
+import { getToken, setToken, clearToken } from "./fetcher";
 
 /** Get current token */
-export function getToken(): string | null {
-  return getStoredToken();
+export function getStoredToken(): string | null {
+  return getToken();
 }
 
-/** Save token after login */
-export function setToken(token: string): void {
-  storeToken(token);
+/** Save token */
+export function storeToken(token: string): void {
+  setToken(token);
 }
 
-/** Clear auth (logout) */
+/** Clear token */
 export function clearAuth(): void {
   clearToken();
 }
