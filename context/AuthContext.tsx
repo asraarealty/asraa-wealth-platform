@@ -13,6 +13,7 @@ import { API_BASE_URL } from "@/lib/fetcher";
 
 interface User {
   id: number;
+  name?: string; // ✅ FIX: added optional name
   email: string;
   role?: string;
 }
@@ -28,10 +29,11 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Check session on page load (COOKIE BASED)
+  // ✅ Restore session (cookie-based)
   useEffect(() => {
     let cancelled = false;
 
@@ -54,12 +56,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // ✅ LOGIN (cookie set by backend)
+  // ✅ Login
   const login = useCallback(
     async (email: string, password: string) => {
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
-        credentials: "include", // 🔥 IMPORTANT
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -70,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("Login failed");
       }
 
-      // fetch user after login
+      // Fetch user after login
       const meRes = await fetch(`${API_BASE_URL}/auth/me`, {
         credentials: "include",
       });
@@ -83,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [router]
   );
 
-  // ✅ LOGOUT
+  // ✅ Logout
   const logout = useCallback(async () => {
     try {
       await fetch(`${API_BASE_URL}/auth/logout`, {
@@ -91,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         credentials: "include",
       });
     } catch {
-      // ignore
+      // ignore errors
     } finally {
       setUser(null);
       router.replace("/login");
