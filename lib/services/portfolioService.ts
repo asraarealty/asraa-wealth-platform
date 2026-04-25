@@ -1,9 +1,7 @@
 import {
-  fetchPortfolio,
   fetchPortfolioItems,
   fetchAdminPortfolio,
   type Portfolio,
-  type PortfolioSummary,
   type AdminPortfolioItem,
 } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
@@ -24,16 +22,6 @@ export async function getPortfolioItems(
     console.error("[portfolioService] getPortfolioItems failed:", toErrorMessage(err));
     return [];
   }
-}
-
-/**
- * Fetch the portfolio summary for a specific client.
- */
-export async function getPortfolio(
-  clientId: number,
-  signal?: AbortSignal
-): Promise<PortfolioSummary> {
-  return fetchPortfolio(clientId, signal);
 }
 
 /**

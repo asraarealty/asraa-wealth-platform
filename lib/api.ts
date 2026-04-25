@@ -1,4 +1,3 @@
-```ts
 export {
   API_BASE_URL,
   ApiError,
@@ -22,6 +21,8 @@ export interface LoginPayload {
 export interface LoginResponse {
   access_token: string;
   token_type?: string;
+  refresh_token?: string;
+  user?: MeResponse;
 }
 
 export function login(payload: LoginPayload): Promise<LoginResponse> {
@@ -119,7 +120,10 @@ export function fetchPortfolioItems(
       : "";
 
   return fetcher<any>(`/portfolio${qs}`, { signal }).then((res) => {
-    return res?.positions || [];
+    if (Array.isArray(res)) return res as Portfolio[];
+    if (Array.isArray(res?.positions)) return res.positions as Portfolio[];
+    if (Array.isArray(res?.data)) return res.data as Portfolio[];
+    return [];
   });
 }
 
@@ -191,7 +195,10 @@ export function fetchAdminPortfolio(
   signal?: AbortSignal
 ): Promise<AdminPortfolioItem[]> {
   return fetcher<any>("/portfolio", { signal }).then((res) => {
-    return res?.positions || [];
+    if (Array.isArray(res)) return res as AdminPortfolioItem[];
+    if (Array.isArray(res?.positions)) return res.positions as AdminPortfolioItem[];
+    if (Array.isArray(res?.data)) return res.data as AdminPortfolioItem[];
+    return [];
   });
 }
 
@@ -236,4 +243,3 @@ export function resetPassword(
     body: payload,
   });
 }
-```
