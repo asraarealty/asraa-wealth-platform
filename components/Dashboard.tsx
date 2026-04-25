@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getPortfolioItems } from "@/lib/services/portfolioService";
 import { toErrorMessage } from "@/lib/fetcher";
-import type { Client, Portfolio, StockQuote } from "@/lib/api";
+import type { Client, Portfolio, PortfolioMeta, StockQuote } from "@/lib/api";
 import ClientSelector from "./ClientSelector";
 import StockSearch from "./StockSearch";
 import PortfolioGrowthChart from "./dashboard/PortfolioGrowthChart";
@@ -151,6 +151,7 @@ export default function Dashboard() {
   const { logout } = useAuth();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [portfolio, setPortfolio] = useState<Portfolio[]>([]);
+  const [portfolioMeta, setPortfolioMeta] = useState<Partial<PortfolioMeta>>({});
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [portfolioError, setPortfolioError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -164,8 +165,9 @@ export default function Dashboard() {
       setPortfolioLoading(true);
       setPortfolioError(null);
       try {
-        const data = await getPortfolioItems(clientId, signal);
-        setPortfolio(data);
+        const { items, meta } = await getPortfolioItems(clientId, signal);
+        setPortfolio(items);
+        setPortfolioMeta(meta);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setPortfolioError(toErrorMessage(err));
@@ -190,6 +192,7 @@ export default function Dashboard() {
   function handleClientChange(client: Client) {
     setSelectedClient(client);
     setPortfolio([]);
+    setPortfolioMeta({});
     setSidebarOpen(false);
   }
 
@@ -447,16 +450,16 @@ export default function Dashboard() {
             </div>
           ) : portfolio.length > 0 ? (
             <>
-              {/* ── KPI Cards — computed from real API data ── */}
+              {/* ── KPI Cards — prefer backend meta values, fall back to local computation ── */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <KPICard
                   label="Portfolio Value"
-                  value={formatCurrency(kpis.totalValue)}
+                  value={formatCurrency(portfolioMeta.total_value ?? kpis.totalValue)}
                   icon={IconPortfolio}
                 />
                 <KPICard
                   label="Growth"
-                  value={formatPercent(kpis.gainPercent)}
+                  value={formatPercent(portfolioMeta.roi_percent ?? kpis.gainPercent)}
                   sub={formatCurrency(kpis.totalGain)}
                   positive={kpis.totalGain >= 0}
                   icon={IconGrowth}

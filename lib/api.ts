@@ -109,24 +109,49 @@ export interface Portfolio {
   allocation?: number;
 }
 
+export interface PortfolioMeta {
+  total_value: number;
+  stock_value: number;
+  mf_value: number;
+  property_value: number;
+  roi_percent: number;
+}
+
+export interface PortfolioResult {
+  items: Portfolio[];
+  meta: Partial<PortfolioMeta>;
+}
+
 /**
- * FIXED: unwrap backend response { positions: [] }
+ * Fetch portfolio items for a specific client (or all when clientId is
+ * omitted).  Returns a normalised `{ items, meta }` object; never throws
+ * (callers receive empty arrays on parse failures).
  */
-export function fetchPortfolioItems(
+export async function fetchPortfolioItems(
   clientId?: number,
   signal?: AbortSignal
-): Promise<Portfolio[]> {
+): Promise<PortfolioResult> {
   const qs =
     clientId !== undefined
       ? `?client_id=${encodeURIComponent(clientId)}`
       : "";
 
-  return fetcher<any>(`/portfolio${qs}`, { signal }).then((res) => {
-    if (Array.isArray(res)) return res as Portfolio[];
-    if (Array.isArray(res?.positions)) return res.positions as Portfolio[];
-    if (Array.isArray(res?.data)) return res.data as Portfolio[];
-    return [];
-  });
+  const res = await fetcher<any>(`/portfolio${qs}`, { signal, raw: true });
+
+  console.log("RAW API RESPONSE:", res);
+
+  // Support both wrapped `{ success, data, meta }` and unwrapped array shapes.
+  const data: unknown = Array.isArray(res)
+    ? res
+    : (res?.data ?? res?.positions ?? []);
+  const meta: Partial<PortfolioMeta> = res?.meta ?? {};
+
+  if (!Array.isArray(data)) {
+    console.error("Portfolio data is not array (clientId=%s):", clientId, data);
+    return { items: [], meta };
+  }
+
+  return { items: data as Portfolio[], meta };
 }
 
 // ── Transactions ──────────────────────────────────────────────────────────────
@@ -193,15 +218,19 @@ export interface AdminPortfolioItem {
   value: number;
 }
 
-export function fetchAdminPortfolio(
+export async function fetchAdminPortfolio(
   signal?: AbortSignal
 ): Promise<AdminPortfolioItem[]> {
-  return fetcher<any>("/portfolio", { signal }).then((res) => {
-    if (Array.isArray(res)) return res as AdminPortfolioItem[];
-    if (Array.isArray(res?.positions)) return res.positions as AdminPortfolioItem[];
-    if (Array.isArray(res?.data)) return res.data as AdminPortfolioItem[];
+  const res = await fetcher<any>("/portfolio", { signal, raw: true });
+  // Support both wrapped `{ success, data, meta }` and bare-array shapes.
+  const data: unknown = Array.isArray(res)
+    ? res
+    : (res?.data ?? res?.positions ?? []);
+  if (!Array.isArray(data)) {
+    console.error("[fetchAdminPortfolio] expected array, got:", data);
     return [];
-  });
+  }
+  return data as AdminPortfolioItem[];
 }
 
 // ── Auth Extras ───────────────────────────────────────────────────────────────
