@@ -458,10 +458,10 @@ export default function Dashboard() {
               {/* ── KPI Cards — prefer backend meta values, fall back to local computation ── */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <KPICard
-                  label="Total AUM"
+                  label="Portfolio Value"
                   value={formatCurrency(portfolioMeta.total_value ?? kpis.totalValue)}
-                  sub={`${kpis.totalGain >= 0 ? "▲" : "▼"} ${formatCurrency(Math.abs(kpis.totalGain * 0.003))} today`}
-                  positive={kpis.totalGain >= 0}
+                  sub={kpis.gainPercent >= 0 ? "↑ Positive trend" : "↓ Negative trend"}
+                  positive={kpis.gainPercent >= 0}
                   icon={IconPortfolio}
                 />
                 <KPICard
@@ -537,7 +537,7 @@ export default function Dashboard() {
                       <tbody>
                         {portfolio.map((pos, idx) => {
                           const { gainLoss, gainLossPct } = positionGainLoss(pos);
-                          const isPremium = idx < 3;
+                          const isTopPick = idx < 3;
                           const alloc = pos.allocation ?? 0;
                           return (
                             <tr
@@ -563,14 +563,14 @@ export default function Dashboard() {
                                   <div
                                     className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0"
                                     style={{
-                                      background: isPremium
+                                      background: isTopPick
                                         ? "linear-gradient(135deg, rgba(201,162,39,0.2) 0%, rgba(201,162,39,0.06) 100%)"
                                         : "rgba(255,255,255,0.05)",
-                                      border: isPremium
+                                      border: isTopPick
                                         ? "1px solid rgba(201,162,39,0.3)"
                                         : "1px solid rgba(255,255,255,0.08)",
-                                      color: isPremium ? "#c9a227" : "rgba(255,255,255,0.5)",
-                                      boxShadow: isPremium ? "0 0 10px rgba(201,162,39,0.1)" : "none",
+                                      color: isTopPick ? "#c9a227" : "rgba(255,255,255,0.5)",
+                                      boxShadow: isTopPick ? "0 0 10px rgba(201,162,39,0.1)" : "none",
                                     }}
                                   >
                                     {pos.symbol.slice(0, 2)}
@@ -578,7 +578,7 @@ export default function Dashboard() {
                                   <div>
                                     <div className="flex items-center gap-1.5">
                                       <span className="font-semibold text-white text-sm">{pos.symbol}</span>
-                                      {isPremium && (
+                                      {isTopPick && (
                                         <span className="badge-premium">Top Pick</span>
                                       )}
                                     </div>
