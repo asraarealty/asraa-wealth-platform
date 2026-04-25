@@ -17,7 +17,26 @@ export class NetworkError extends Error {
   }
 }
 
-// ── Core fetch wrapper (COOKIE BASED) ─────────────────────────────────────────
+// ── Token helpers ─────────────────────────────────────────────────────────────
+
+const TOKEN_KEY = "access_token";
+
+export function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+// ── Core fetch wrapper (TOKEN BASED) ─────────────────────────────────────────
 
 interface FetcherOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
@@ -30,53 +49,37 @@ export async function fetcher<T>(
 ): Promise<T> {
   const { body, headers: extraHeaders, signal, raw, ...rest } = options;
 
-  // 🔧 single request builder (important)
-  const makeRequest = () =>
-    fetch(`${API_BASE_URL}${path}`, {
-      ...rest,
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...(extraHeaders || {}),
-      },
-      signal,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+  const token = getToken();
 
   let response: Response;
 
   try {
-    response = await makeRequest();
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...rest,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(extraHeaders as Record<string, string>),
+      },
+      signal,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
     console.error("Network error:", err);
     throw new NetworkError("Unable to reach backend API");
   }
 
-  // ── 🔁 AUTO REFRESH (SAFE VERSION) ────────────────────────────────────────
+  // ── Handle Unauthorized ────────────────────────────────────────────────────
 
   if (response.status === 401) {
-    try {
-      const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
-        method: "POST",
-        credentials: "include",
-      });
+    clearToken();
 
-      if (refreshRes.ok) {
-        // retry once only
-        response = await makeRequest();
-      } else {
-        throw new Error("Refresh failed");
-      }
-    } catch (err) {
-      console.warn("Session expired:", err);
-
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
-
-      throw new ApiError(401, "Session expired");
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
     }
+
+    throw new ApiError(401, "Session expired");
   }
 
   // ── Error handling ─────────────────────────────────────────────────────────
@@ -88,7 +91,7 @@ export async function fetcher<T>(
       const data = await response.json();
       message = data?.detail ?? data?.message ?? message;
     } catch {
-      // ignore
+      // ignore JSON parse error
     }
 
     throw new ApiError(response.status, message);
