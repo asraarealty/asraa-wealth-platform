@@ -2,9 +2,6 @@ export {
   API_BASE_URL,
   ApiError,
   NetworkError,
-  getStoredToken,
-  storeToken,
-  clearToken,
   fetcher,
   toErrorMessage,
 } from "./fetcher";
@@ -21,9 +18,7 @@ export interface LoginPayload {
 export interface LoginResponse {
   access_token: string;
   token_type?: string;
-  /** Present when the backend issues a refresh token alongside the access token. */
   refresh_token?: string;
-  /** Populated by some backends to avoid a separate /auth/me round-trip after login. */
   user?: MeResponse;
 }
 
@@ -36,7 +31,7 @@ export function login(payload: LoginPayload): Promise<LoginResponse> {
 
 export interface MeResponse {
   id: number;
-  name: string;
+  name?: string; // ✅ made optional (safe)
   email: string;
   role: string;
   is_active: boolean;
@@ -122,11 +117,6 @@ export interface PortfolioResult {
   meta: Partial<PortfolioMeta>;
 }
 
-/**
- * Fetch portfolio items for a specific client (or all when clientId is
- * omitted).  Returns a normalised `{ items, meta }` object; never throws
- * (callers receive empty arrays on parse failures).
- */
 export async function fetchPortfolioItems(
   clientId?: number,
   signal?: AbortSignal
@@ -138,16 +128,14 @@ export async function fetchPortfolioItems(
 
   const res = await fetcher<any>(`/portfolio${qs}`, { signal, raw: true });
 
-  console.log("RAW API RESPONSE:", res);
-
-  // Support both wrapped `{ success, data, meta }` and unwrapped array shapes.
   const data: unknown = Array.isArray(res)
     ? res
     : (res?.data ?? res?.positions ?? []);
+
   const meta: Partial<PortfolioMeta> = res?.meta ?? {};
 
   if (!Array.isArray(data)) {
-    console.error("Portfolio data is not array (clientId=%s):", clientId, data);
+    console.error("Portfolio data invalid:", data);
     return { items: [], meta };
   }
 
@@ -174,6 +162,7 @@ export function fetchTransactions(
   const qs = clientId
     ? `?client_id=${encodeURIComponent(clientId)}`
     : "";
+
   return fetcher<Transaction[]>(`/transactions${qs}`, { signal });
 }
 
@@ -181,7 +170,7 @@ export function fetchTransactions(
 
 export interface User {
   id: number;
-  name: string;
+  name?: string; // ✅ optional
   email: string;
   role: string;
   is_active: boolean;
@@ -206,7 +195,7 @@ export function fetchAdminClients(signal?: AbortSignal): Promise<AdminClient[]> 
   return fetcher<AdminClient[]>("/clients", { signal });
 }
 
-// ── Admin: Portfolio (FIXED) ──────────────────────────────────────────────────
+// ── Admin: Portfolio ──────────────────────────────────────────────────────────
 
 export interface AdminPortfolioItem {
   id: number;
@@ -222,14 +211,16 @@ export async function fetchAdminPortfolio(
   signal?: AbortSignal
 ): Promise<AdminPortfolioItem[]> {
   const res = await fetcher<any>("/portfolio", { signal, raw: true });
-  // Support both wrapped `{ success, data, meta }` and bare-array shapes.
+
   const data: unknown = Array.isArray(res)
     ? res
     : (res?.data ?? res?.positions ?? []);
+
   if (!Array.isArray(data)) {
-    console.error("[fetchAdminPortfolio] expected array, got:", data);
+    console.error("Admin portfolio invalid:", data);
     return [];
   }
+
   return data as AdminPortfolioItem[];
 }
 
