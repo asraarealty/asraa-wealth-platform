@@ -1,9 +1,30 @@
 import {
   fetchPortfolio,
+  fetchPortfolioItems,
   fetchAdminPortfolio,
+  type Portfolio,
   type PortfolioSummary,
   type AdminPortfolioItem,
 } from "@/lib/api";
+import { toErrorMessage } from "@/lib/fetcher";
+
+/**
+ * Fetch flat portfolio items for a specific client (or all clients when
+ * clientId is omitted).  Always returns an array; never throws.
+ */
+export async function getPortfolioItems(
+  clientId?: number,
+  signal?: AbortSignal
+): Promise<Portfolio[]> {
+  try {
+    const data = await fetchPortfolioItems(clientId, signal);
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    console.error("[portfolioService] getPortfolioItems failed:", toErrorMessage(err));
+    return [];
+  }
+}
 
 /**
  * Fetch the portfolio summary for a specific client.

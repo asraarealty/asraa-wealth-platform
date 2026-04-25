@@ -1,7 +1,56 @@
 @import "tailwindcss";
 
+@theme {
+  --color-wealth-green: #0b3d2e;
+  --color-wealth-green-mid: #0d4a37;
+  --color-wealth-green-light: #145c44;
+  --color-wealth-green-hover: #1a6b50;
+  --color-gold: #c9a227;
+  --color-gold-light: #d4af4a;
+  --color-gold-pale: #e8d08a;
+  --color-glass-border: rgba(201, 162, 39, 0.18);
+}
+
 body {
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: #0b3d2e;
+}
+
+/* Glassmorphism card */
+.glass-card {
+  background: rgba(11, 61, 46, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(201, 162, 39, 0.18);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(201, 162, 39, 0.06);
+}
+
+/* Gold glow on focus / active */
+.gold-glow {
+  box-shadow: 0 0 0 2px rgba(201, 162, 39, 0.35), 0 0 16px rgba(201, 162, 39, 0.15);
+}
+
+/* Sidebar nav item active indicator */
+.sidebar-active {
+  background: rgba(201, 162, 39, 0.1);
+  border-left: 3px solid #c9a227;
+  color: #c9a227;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(11, 61, 46, 0.3);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(201, 162, 39, 0.3);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 162, 39, 0.5);
 }
 
