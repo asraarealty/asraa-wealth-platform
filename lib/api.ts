@@ -1,3 +1,4 @@
+```ts
 export {
   API_BASE_URL,
   ApiError,
@@ -38,17 +39,15 @@ export interface MeResponse {
   is_active: boolean;
 }
 
-/** Fetch the authenticated user's profile from the backend. */
 export function getMe(): Promise<MeResponse> {
   return fetcher<MeResponse>("/auth/me");
 }
 
-/** Terminate the session on the backend. */
 export function logout(): Promise<void> {
   return fetcher<void>("/auth/logout", { method: "POST" });
 }
 
-// ── Users / Clients ───────────────────────────────────────────────────────────
+// ── Clients ───────────────────────────────────────────────────────────────────
 
 export interface Client {
   id: number;
@@ -96,7 +95,6 @@ export function fetchStockQuote(
 
 // ── Portfolio ─────────────────────────────────────────────────────────────────
 
-/** Shape returned by the real API: GET /portfolio or /portfolio?client_id=N */
 export interface Portfolio {
   id: number;
   symbol: string;
@@ -108,46 +106,21 @@ export interface Portfolio {
   allocation?: number;
 }
 
-export interface PortfolioSummary {
-  total_value: number;
-  total_gain_loss: number;
-  total_gain_loss_percent: number;
-  day_gain_loss: number;
-  day_gain_loss_percent: number;
-  positions: PortfolioPosition[];
-}
-
-export interface PortfolioPosition {
-  symbol: string;
-  name: string;
-  quantity: number;
-  avg_cost: number;
-  current_price: number;
-  market_value: number;
-  gain_loss: number;
-  gain_loss_percent: number;
-}
-
 /**
- * Fetch flat portfolio items.  Omit clientId to get all positions (admin);
- * pass clientId to scope to a specific client.
+ * FIXED: unwrap backend response { positions: [] }
  */
 export function fetchPortfolioItems(
   clientId?: number,
   signal?: AbortSignal
 ): Promise<Portfolio[]> {
-  const qs = clientId !== undefined ? `?client_id=${encodeURIComponent(clientId)}` : "";
-  return fetcher<Portfolio[]>(`/portfolio${qs}`, { signal });
-}
+  const qs =
+    clientId !== undefined
+      ? `?client_id=${encodeURIComponent(clientId)}`
+      : "";
 
-export function fetchPortfolio(
-  clientId: number,
-  signal?: AbortSignal
-): Promise<PortfolioSummary> {
-  return fetcher<PortfolioSummary>(
-    `/portfolio?client_id=${encodeURIComponent(clientId)}`,
-    { signal }
-  );
+  return fetcher<any>(`/portfolio${qs}`, { signal }).then((res) => {
+    return res?.positions || [];
+  });
 }
 
 // ── Transactions ──────────────────────────────────────────────────────────────
@@ -167,10 +140,11 @@ export function fetchTransactions(
   clientId?: string,
   signal?: AbortSignal
 ): Promise<Transaction[]> {
-  const qs = clientId ? `?client_id=${encodeURIComponent(clientId)}` : "";
+  const qs = clientId
+    ? `?client_id=${encodeURIComponent(clientId)}`
+    : "";
   return fetcher<Transaction[]>(`/transactions${qs}`, { signal });
 }
-
 
 // ── Admin: Users ──────────────────────────────────────────────────────────────
 
@@ -201,38 +175,27 @@ export function fetchAdminClients(signal?: AbortSignal): Promise<AdminClient[]> 
   return fetcher<AdminClient[]>("/clients", { signal });
 }
 
-// ── Admin: Leads (endpoint not available — reserved for future use) ───────────
-
-export interface Lead {
-  id: number;
-  name: string;
-  source: string;
-  status: string;
-}
-
-// ── Admin: Deals (endpoint not available — reserved for future use) ───────────
-
-export interface Deal {
-  id: number;
-  client_id: number;
-  value: number;
-  status: string;
-}
-
-// ── Admin: Portfolio (all) ────────────────────────────────────────────────────
+// ── Admin: Portfolio (FIXED) ──────────────────────────────────────────────────
 
 export interface AdminPortfolioItem {
   id: number;
-  client_id: number;
-  total_value: number;
+  symbol: string;
+  name: string;
+  quantity: number;
+  avg_price: number;
+  current_price: number;
+  value: number;
 }
 
 export function fetchAdminPortfolio(
   signal?: AbortSignal
 ): Promise<AdminPortfolioItem[]> {
-  return fetcher<AdminPortfolioItem[]>("/portfolio", { signal });
+  return fetcher<any>("/portfolio", { signal }).then((res) => {
+    return res?.positions || [];
+  });
 }
 
+// ── Auth Extras ───────────────────────────────────────────────────────────────
 
 export interface SignupPayload {
   name: string;
@@ -241,7 +204,7 @@ export interface SignupPayload {
 }
 
 export function signup(payload: SignupPayload): Promise<void> {
-  return fetcher<void>("/auth/signup", {
+  return fetcher<void>("/auth/register", {
     method: "POST",
     body: payload,
   });
@@ -251,7 +214,9 @@ export interface ForgotPasswordPayload {
   email: string;
 }
 
-export function forgotPassword(payload: ForgotPasswordPayload): Promise<void> {
+export function forgotPassword(
+  payload: ForgotPasswordPayload
+): Promise<void> {
   return fetcher<void>("/auth/forgot-password", {
     method: "POST",
     body: payload,
@@ -263,10 +228,12 @@ export interface ResetPasswordPayload {
   password: string;
 }
 
-export function resetPassword(payload: ResetPasswordPayload): Promise<void> {
+export function resetPassword(
+  payload: ResetPasswordPayload
+): Promise<void> {
   return fetcher<void>("/auth/reset-password", {
     method: "POST",
     body: payload,
   });
 }
-
+```
