@@ -168,7 +168,7 @@ export interface AdminClient {
 }
 
 export function fetchAdminClients(signal?: AbortSignal): Promise<AdminClient[]> {
-  return fetcher<AdminClient[]>("/clients", { signal });
+  return fetcher<AdminClient[]>("/users", { signal });
 }
 
 // ── Admin: Leads ──────────────────────────────────────────────────────────────
