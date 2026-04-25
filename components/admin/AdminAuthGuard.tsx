@@ -1,33 +1,114 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
-import Loader from "@/components/ui/Loader";
+import { API_BASE_URL } from "@/lib/fetcher";
 
-/**
- * Admin route guard (COOKIE-BASED AUTH)
- *
- * - Waits for auth to load
- * - Redirects if user not logged in
- * - Redirects if not admin
- */
-export default function AdminAuthGuard({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth();
+interface User {
+  id: number;
+  name?: string; // ✅ added to fix AdminHeader error
+  email: string;
+  role?: string;
+}
+
+interface AuthContextValue {
+  user: User | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // ✅ Restore session using cookie
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        router.replace("/login");
-      } else if (user.role !== "admin") {
-        router.replace("/dashboard");
+    let cancelled = false;
+
+    fetch(`${API_BASE_URL}/auth/me`, {
+      credentials: "include",
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled) setUser(data);
+      })
+      .catch(() => {
+        if (!cancelled) setUser(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ✅ Login (cookie handled by backend)
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        credentials: "include", // 🔥 important
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Login failed");
       }
+
+      // fetch user after login
+      const meRes = await fetch(`${API_BASE_URL}/auth/me`, {
+        credentials: "include",
+      });
+
+      const me = await meRes.json();
+      setUser(me);
+
+      router.replace(me.role === "admin" ? "/admin" : "/dashboard");
+    },
+    [router]
+  );
+
+  // ✅ Logout
+  const logout = useCallback(async () => {
+    try {
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {
+      // ignore network errors
+    } finally {
+      setUser(null);
+      router.replace("/login");
     }
-  }, [user, loading, router]);
+  }, [router]);
 
-  if (loading) return <Loader />;
-  if (!user) return null;
+  return (
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
 
-  return <>{children}</>;
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
 }
