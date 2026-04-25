@@ -111,7 +111,7 @@ export default function LoginPage() {
                 backgroundClip: "text",
               }}
             >
-              For intelligent<br />investors only.
+              For intelligent<br />investor's.
             </h1>
 
             {/* Sub-text */}
