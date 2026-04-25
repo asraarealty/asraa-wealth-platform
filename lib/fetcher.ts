@@ -54,7 +54,8 @@ export async function fetcher<T>(
 ): Promise<T> {
   const { body, headers: extraHeaders, signal, raw, ...rest } = options;
 
-  let token = getStoredToken();
+  // ✅ FIX: normalize null → undefined
+  let token: string | undefined = getStoredToken() ?? undefined;
 
   const makeRequest = async (overrideToken?: string) => {
     return fetch(`${API_BASE_URL}${path}`, {
@@ -96,9 +97,11 @@ export async function fetcher<T>(
 
         if (data?.access_token) {
           storeToken(data.access_token);
+
+          // ✅ update token safely
           token = data.access_token;
 
-          // 🔁 Retry original request
+          // 🔁 retry request with new token
           response = await makeRequest(token);
         } else {
           throw new Error("No access_token in refresh response");
@@ -126,7 +129,7 @@ export async function fetcher<T>(
       const data = await response.json();
       message = data?.detail ?? data?.message ?? message;
     } catch {
-      // ignore
+      // ignore JSON parse errors
     }
     throw new ApiError(response.status, message);
   }
