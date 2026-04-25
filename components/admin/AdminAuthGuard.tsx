@@ -1,36 +1,44 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import Loader from "@/components/ui/Loader";
 
-/**
- * Admin route guard (COOKIE-BASED AUTH)
- * - Waits for auth to load
- * - Redirects if not logged in
- * - Redirects if not admin
- */
-export default function AdminAuthGuard({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const { user, loading } = useAuth();
-  const router = useRouter();
+export default function AdminHeader() {
+  const { user } = useAuth();
 
-  useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        router.replace("/login");
-      } else if (user.role !== "admin") {
-        router.replace("/dashboard");
-      }
-    }
-  }, [user, loading, router]);
+  return (
+    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+      <div>
+        <h1 className="text-lg font-semibold text-white">Admin Dashboard</h1>
+        <p className="text-xs text-gray-400">
+          Welcome back, {user?.name || user?.email || "Admin"}
+        </p>
+      </div>
 
-  if (loading) return <Loader />;
-  if (!user) return null;
+      <div className="flex items-center gap-3">
+        {/* Avatar */}
+        <div
+          className="w-9 h-9 flex items-center justify-center rounded-full text-black font-semibold text-sm"
+          style={{
+            background: "linear-gradient(135deg, #C9A227, #e8d08a)",
+          }}
+        >
+          {
+            user?.name?.charAt(0)?.toUpperCase() ||
+            user?.email?.charAt(0)?.toUpperCase() ||
+            "A"
+          }
+        </div>
 
-  return <>{children}</>;
+        {/* User Info */}
+        <div className="hidden md:block">
+          <p className="text-xs font-semibold text-white leading-tight">
+            {user?.name || "Admin"}
+          </p>
+          <p className="text-[10px] text-gray-400">
+            {user?.email || "admin@asraarealty.com"}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
