@@ -9,11 +9,11 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { API_BASE_URL } from "@/lib/fetcher";
+import { fetcher, setToken, clearToken } from "@/lib/fetcher";
 
 interface User {
   id: number;
-  name?: string; // ✅ FIX: added optional name
+  name?: string;
   email: string;
   role?: string;
 }
@@ -33,14 +33,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Restore session (cookie-based)
+  // ✅ Restore session (TOKEN BASED)
   useEffect(() => {
     let cancelled = false;
 
-    fetch(`${API_BASE_URL}/auth/me`, {
-      credentials: "include",
-    })
-      .then((res) => (res.ok ? res.json() : null))
+    fetcher<User>("/auth/me")
       .then((data) => {
         if (!cancelled) setUser(data);
       })
@@ -56,28 +53,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // ✅ Login
+  // ✅ Login (store token)
   const login = useCallback(
     async (email: string, password: string) => {
-      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+      const res = await fetcher<{ access_token: string }>("/auth/login", {
         method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
+        body: { email, password },
+        raw: true,
       });
 
-      if (!res.ok) {
-        throw new Error("Login failed");
-      }
+      // 🔥 CRITICAL
+      setToken(res.access_token);
 
       // Fetch user after login
-      const meRes = await fetch(`${API_BASE_URL}/auth/me`, {
-        credentials: "include",
-      });
-
-      const me = await meRes.json();
+      const me = await fetcher<User>("/auth/me");
       setUser(me);
 
       router.replace(me.role === "admin" ? "/admin" : "/dashboard");
@@ -88,13 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ✅ Logout
   const logout = useCallback(async () => {
     try {
-      await fetch(`${API_BASE_URL}/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
+      await fetcher("/auth/logout", { method: "POST" });
     } catch {
-      // ignore errors
+      // ignore
     } finally {
+      clearToken();
       setUser(null);
       router.replace("/login");
     }
