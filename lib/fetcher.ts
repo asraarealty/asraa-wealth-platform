@@ -36,7 +36,7 @@ export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
 
-// ── FETCH WRAPPER (FINAL STABLE) ───────────────────────
+// ── FETCH WRAPPER ──────────────────────────────────────
 
 interface FetcherOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
@@ -59,7 +59,7 @@ export async function fetcher<T>(
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(extraHeaders || {}),
+        ...(extraHeaders as Record<string, string>),
       },
       signal,
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -70,12 +70,17 @@ export async function fetcher<T>(
     throw new NetworkError("Unable to reach backend API");
   }
 
-  // 🔐 AUTH FAILURE (client only)
+  // 🔐 AUTH FAILURE
   if (response.status === 401 || response.status === 403) {
     if (typeof window !== "undefined") {
       clearToken();
-      window.location.href = "/login";
+
+      // prevent infinite redirect loop
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
     }
+
     throw new ApiError(response.status, "Session expired");
   }
 
@@ -87,7 +92,7 @@ export async function fetcher<T>(
       const data = await response.json();
       message = data?.detail ?? data?.message ?? message;
     } catch {
-      // ignore parsing issues
+      // ignore JSON parse errors
     }
 
     console.error("❌ API Error:", message);
@@ -106,7 +111,7 @@ export async function fetcher<T>(
 
   // 📦 UNWRAP DATA
   if (json && typeof json === "object" && "data" in json) {
-    return json.data as T;
+    return (json as any).data as T;
   }
 
   return json as T;
