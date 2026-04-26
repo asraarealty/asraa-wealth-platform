@@ -22,42 +22,40 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      console.log("📡 CALLING login()");
-
-      const me = await login(email, password); // ✅ get user
+      const me = await login(email, password);
 
       console.log("✅ USER:", me);
 
       if (!me) {
-        setError("User not found");
+        setError("Unable to fetch user data");
         return;
       }
 
-      // 🔥 SAFE ROLE HANDLING
-      const role = String(me.role || "").trim().toLowerCase();
+      // 🔥 robust role handling
+      const role = (me.role || "").toString().trim().toLowerCase();
 
-      // 🔥 FINAL REDIRECT
+      // 🔥 safe redirect (replace avoids back button going to login)
       if (role === "admin") {
-        window.location.href = "/admin";
+        window.location.replace("/admin");
       } else {
-        window.location.href = "/dashboard";
+        window.location.replace("/dashboard");
       }
 
     } catch (err) {
       console.error("❌ LOGIN ERROR:", err);
 
       if (err instanceof NetworkError) {
-        setError("Server not reachable");
+        setError("Server not reachable. Try again.");
       } else if (err instanceof ApiError) {
         if (err.status === 401) {
-          setError("Invalid email or password");
+          setError("Invalid email or password.");
         } else if (err.status === 403) {
-          setError("Access denied");
+          setError("Access denied.");
         } else {
           setError(err.message);
         }
       } else {
-        setError("Login failed");
+        setError("Login failed. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -74,9 +72,10 @@ export default function LoginForm() {
           type="email"
           placeholder="Email"
           required
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-2 rounded bg-black/40 text-white"
+          className="w-full p-2 rounded bg-black/40 text-white outline-none focus:ring-2 focus:ring-yellow-500"
         />
 
         {/* Password */}
@@ -85,9 +84,10 @@ export default function LoginForm() {
             type={showPassword ? "text" : "password"}
             placeholder="Password"
             required
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 rounded bg-black/40 text-white"
+            className="w-full p-2 rounded bg-black/40 text-white outline-none focus:ring-2 focus:ring-yellow-500"
           />
           <button
             type="button"
