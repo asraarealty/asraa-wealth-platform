@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { fetcher, setToken, clearToken } from "@/lib/fetcher";
+import { fetcher, setToken, clearToken, getToken } from "@/lib/fetcher";
 
 interface User {
   id: number;
@@ -33,9 +33,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Restore session (TOKEN BASED)
+  // ✅ FIXED: Restore session ONLY if token exists
   useEffect(() => {
     let cancelled = false;
+
+    const token = getToken();
+
+    if (!token) {
+      setLoading(false);
+      return;
+    }
 
     fetcher<User>("/auth/me")
       .then((data) => {
@@ -53,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // ✅ Login (store token)
+  // ✅ Login
   const login = useCallback(
     async (email: string, password: string) => {
       const res = await fetcher<{ access_token: string }>("/auth/login", {
@@ -62,10 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         raw: true,
       });
 
-      // 🔥 CRITICAL
       setToken(res.access_token);
 
-      // Fetch user after login
       const me = await fetcher<User>("/auth/me");
       setUser(me);
 
