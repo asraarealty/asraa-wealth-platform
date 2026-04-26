@@ -15,13 +15,15 @@ export default function LoginForm() {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (loading) return;
+
     setError(null);
     setLoading(true);
 
     try {
-      // ✅ SINGLE SOURCE OF TRUTH
-      await login(email, password);
+      await login(email, password); // ✅ correct
     } catch (err) {
+      console.error("Login error:", err);
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
       setLoading(false);
