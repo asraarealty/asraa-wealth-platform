@@ -1,109 +1,85 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
-import { ApiError, NetworkError } from "@/lib/fetcher";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  type ReactNode,
+} from "react";
+import { fetcher, setToken, clearToken, getToken } from "@/lib/fetcher";
 
-export default function LoginForm() {
-  const { login } = useAuth();
-  const router = useRouter();
+interface User {
+  id: number;
+  name?: string;
+  email: string;
+  role?: string;
+}
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+interface AuthContextValue {
+  user: User | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<User>;
+  logout: () => Promise<void>;
+}
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (loading) return;
+const AuthContext = createContext<AuthContextValue | null>(null);
 
-    setError(null);
-    setLoading(true);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-    try {
-      const me = await login(email, password);
+  useEffect(() => {
+    const token = getToken();
 
-      const isAdmin =
-        String(me?.role).toLowerCase() === "admin";
-
-      // 🔥 guaranteed navigation
-      window.location.href = isAdmin ? "/admin" : "/dashboard";
-    } catch (err) {
-      console.error("Login error:", err);
-
-      if (err instanceof NetworkError) {
-        setError("Server not reachable.");
-      } else if (err instanceof ApiError) {
-        if (err.status === 401) {
-          setError("Invalid email or password.");
-        } else if (err.status === 403) {
-          setError("Access denied.");
-        } else {
-          setError(err.message);
-        }
-      } else {
-        setError("Login failed.");
-      }
-    } finally {
+    if (!token) {
       setLoading(false);
+      return;
     }
-  }
+
+    fetcher<User>("/auth/me")
+      .then(setUser)
+      .catch(() => {
+        setUser(null);
+        clearToken();
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const login = useCallback(async (email: string, password: string) => {
+    const res = await fetcher<{ access_token: string }>("/auth/login", {
+      method: "POST",
+      body: { email, password },
+      raw: true,
+    });
+
+    setToken(res.access_token);
+
+    const me = await fetcher<User>("/auth/me");
+    setUser(me);
+
+    return me;
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      await fetcher("/auth/logout", { method: "POST" });
+    } catch {}
+    clearToken();
+    setUser(null);
+    window.location.href = "/login";
+  }, []);
 
   return (
-    <div className="w-full rounded-2xl p-8 shadow-2xl bg-[#0A0F0D] border border-[#C9A22733]">
-      <h2 className="text-xl font-bold text-white mb-6">Welcome back</h2>
-
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Email */}
-        <input
-          type="email"
-          placeholder="Email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-2 rounded bg-black/40 text-white"
-        />
-
-        {/* Password */}
-        <div className="relative">
-          <input
-            type={showPassword ? "text" : "password"}
-            placeholder="Password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 rounded bg-black/40 text-white"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            className="absolute right-2 top-2 text-gray-400"
-          >
-            👁
-          </button>
-        </div>
-
-        {/* Error */}
-        {error && <p className="text-red-400 text-sm">{error}</p>}
-
-        {/* Submit */}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-2 bg-yellow-500 text-black rounded disabled:opacity-50"
-        >
-          {loading ? "Signing in..." : "Sign In"}
-        </button>
-
-        {/* Links */}
-        <div className="flex justify-between text-sm text-gray-400">
-          <Link href="/forgot-password">Forgot password?</Link>
-          <Link href="/signup">Create account</Link>
-        </div>
-      </form>
-    </div>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
+      {children}
+    </AuthContext.Provider>
   );
+}
+
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
 }
