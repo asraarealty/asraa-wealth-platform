@@ -14,13 +14,18 @@ export default function AdminAuthGuard({ children }: Props) {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
+    // ✅ Only redirect AFTER auth is fully resolved
+    if (!loading && user === null) {
       router.replace("/login");
     }
   }, [loading, user, router]);
 
+  // ⛔ While checking auth → show loader
   if (loading) return <Loader />;
-  if (!user) return null;
 
+  // ⛔ If not authenticated → block UI (redirect already triggered)
+  if (user === null) return null;
+
+  // ✅ Authorized
   return <>{children}</>;
 }
