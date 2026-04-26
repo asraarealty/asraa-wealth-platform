@@ -1,7 +1,7 @@
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "https://api.asraarealty.in";
 
-// ── Error types ─────────────────────────────────────
+// ── Error types ─────────────────────────────────────────
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -17,7 +17,7 @@ export class NetworkError extends Error {
   }
 }
 
-// ── TOKEN STORAGE ───────────────────────────────────
+// ── Token storage (LOCALSTORAGE) ───────────────────────
 
 const TOKEN_KEY = "access_token";
 
@@ -26,17 +26,17 @@ export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
 
-export function setToken(token: string) {
+export function setToken(token: string): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(TOKEN_KEY, token);
 }
 
-export function clearToken() {
+export function clearToken(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(TOKEN_KEY);
 }
 
-// ── FETCH WRAPPER ───────────────────────────────────
+// ── Fetch wrapper (SINGLE SOURCE OF TRUTH) ─────────────
 
 interface FetcherOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
@@ -51,15 +51,10 @@ export async function fetcher<T>(
 
   const token = getToken();
 
-  const url = `${API_BASE_URL}${path}`;
-
-  // 🔍 DEBUG (VERY IMPORTANT)
-  console.log("API CALL →", url);
-
   let response: Response;
 
   try {
-    response = await fetch(url, {
+    response = await fetch(`${API_BASE_URL}${path}`, {
       ...rest,
       headers: {
         "Content-Type": "application/json",
@@ -74,40 +69,51 @@ export async function fetcher<T>(
     throw new NetworkError("Unable to reach backend API");
   }
 
-  // 🔐 Handle auth expiry
-  if (response.status === 401) {
+  // ── AUTH FAILURE ────────────────────────────────────
+
+  if (response.status === 401 || response.status === 403) {
+    console.warn("AUTH ERROR:", response.status);
+
     clearToken();
+
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }
-    throw new ApiError(401, "Session expired");
+
+    throw new ApiError(response.status, "Session expired");
   }
 
-  // ❌ Handle errors
+  // ── API ERROR ───────────────────────────────────────
+
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
 
     try {
       const data = await response.json();
       message = data?.detail ?? data?.message ?? message;
-    } catch {}
+    } catch {
+      // ignore parse errors
+    }
 
-    console.error("API ERROR:", url, message);
+    console.error("API ERROR:", message);
 
     throw new ApiError(response.status, message);
   }
 
-  // ✅ No content
+  // ── NO CONTENT ──────────────────────────────────────
+
   if (response.status === 204) {
     return undefined as T;
   }
 
   const json = await response.json();
 
-  // 🔁 Raw mode (login, etc.)
+  // ── RAW MODE (for login etc.) ───────────────────────
+
   if (raw) return json as T;
 
-  // 🧠 Support both wrapped + direct responses
+  // ── SUPPORT WRAPPED RESPONSE ────────────────────────
+
   if (json && typeof json === "object" && "data" in json) {
     return json.data as T;
   }
@@ -115,7 +121,7 @@ export async function fetcher<T>(
   return json as T;
 }
 
-// ── ERROR FORMATTER ─────────────────────────────────
+// ── Error formatter ───────────────────────────────────
 
 export function toErrorMessage(err: unknown): string {
   if (err instanceof NetworkError) return "Unable to reach backend API";
