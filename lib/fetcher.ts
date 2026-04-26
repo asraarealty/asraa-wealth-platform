@@ -59,15 +59,20 @@ export async function fetcher<T>(
 
   const token = getToken();
 
+  const url = path.startsWith("http")
+    ? path
+    : `${API_BASE_URL}${path}`;
+
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetch(url, {
       ...rest,
       headers: {
         "Content-Type": "application/json",
+        "Accept": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(extraHeaders as Record<string, string>),
+        ...(extraHeaders || {}),
       },
       signal,
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -78,12 +83,12 @@ export async function fetcher<T>(
     throw new NetworkError("Unable to reach backend API");
   }
 
-  // 🔐 AUTH FAILURE
+  // 🔐 AUTH FAILURE (only redirect on client)
   if (response.status === 401 || response.status === 403) {
     if (typeof window !== "undefined") {
       clearToken();
 
-      // prevent redirect loop
+      // avoid redirect loop
       if (window.location.pathname !== "/login") {
         window.location.href = "/login";
       }
@@ -110,7 +115,7 @@ export async function fetcher<T>(
     return undefined as T;
   }
 
-  let json: unknown;
+  let json: any;
 
   try {
     json = await response.json();
@@ -123,7 +128,7 @@ export async function fetcher<T>(
 
   // 📦 UNWRAP { data }
   if (json && typeof json === "object" && "data" in json) {
-    return (json as any).data as T;
+    return json.data as T;
   }
 
   return json as T;
