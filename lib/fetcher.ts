@@ -66,18 +66,16 @@ export async function fetcher<T>(
     });
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
-    console.error("Network error:", err);
+    console.error("🌐 Network error:", err);
     throw new NetworkError("Unable to reach backend API");
   }
 
-  // 🔐 AUTH FAILURE
+  // 🔐 AUTH FAILURE (client only)
   if (response.status === 401 || response.status === 403) {
-    clearToken();
-
     if (typeof window !== "undefined") {
+      clearToken();
       window.location.href = "/login";
     }
-
     throw new ApiError(response.status, "Session expired");
   }
 
@@ -89,9 +87,10 @@ export async function fetcher<T>(
       const data = await response.json();
       message = data?.detail ?? data?.message ?? message;
     } catch {
-      // ignore
+      // ignore parsing issues
     }
 
+    console.error("❌ API Error:", message);
     throw new ApiError(response.status, message);
   }
 
