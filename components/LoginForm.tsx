@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { ApiError, NetworkError } from "@/lib/fetcher";
 
 export default function LoginForm() {
   const { login } = useAuth();
@@ -17,14 +18,33 @@ export default function LoginForm() {
     e.preventDefault();
     if (loading) return;
 
+    console.log("🚀 SUBMIT TRIGGERED"); // DEBUG 1
+
     setError(null);
     setLoading(true);
 
     try {
-      await login(email, password); // ✅ correct
+      console.log("📡 CALLING login()"); // DEBUG 2
+
+      await login(email, password);
+
+      console.log("✅ LOGIN SUCCESS"); // DEBUG 3
     } catch (err) {
-      console.error("Login error:", err);
-      setError(err instanceof Error ? err.message : "Login failed");
+      console.error("❌ LOGIN ERROR:", err);
+
+      if (err instanceof NetworkError) {
+        setError("Server not reachable");
+      } else if (err instanceof ApiError) {
+        if (err.status === 401) {
+          setError("Invalid email or password");
+        } else if (err.status === 403) {
+          setError("Access denied");
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError("Login failed");
+      }
     } finally {
       setLoading(false);
     }
