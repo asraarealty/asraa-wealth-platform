@@ -17,7 +17,7 @@ export class NetworkError extends Error {
   }
 }
 
-// ── Token storage (LOCALSTORAGE) ───────────────────────
+// 🔐 TOKEN STORAGE
 
 const TOKEN_KEY = "access_token";
 
@@ -26,17 +26,17 @@ export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
 
-export function setToken(token: string): void {
+export function setToken(token: string) {
   if (typeof window === "undefined") return;
   localStorage.setItem(TOKEN_KEY, token);
 }
 
-export function clearToken(): void {
+export function clearToken() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(TOKEN_KEY);
 }
 
-// ── Fetch wrapper (SINGLE SOURCE OF TRUTH) ─────────────
+// ── FETCH WRAPPER (FINAL STABLE) ───────────────────────
 
 interface FetcherOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
@@ -65,15 +65,13 @@ export async function fetcher<T>(
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch (err) {
-    console.error("NETWORK ERROR:", err);
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    console.error("Network error:", err);
     throw new NetworkError("Unable to reach backend API");
   }
 
-  // ── AUTH FAILURE ────────────────────────────────────
-
+  // 🔐 AUTH FAILURE
   if (response.status === 401 || response.status === 403) {
-    console.warn("AUTH ERROR:", response.status);
-
     clearToken();
 
     if (typeof window !== "undefined") {
@@ -83,8 +81,7 @@ export async function fetcher<T>(
     throw new ApiError(response.status, "Session expired");
   }
 
-  // ── API ERROR ───────────────────────────────────────
-
+  // ❌ API ERROR
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
 
@@ -92,28 +89,23 @@ export async function fetcher<T>(
       const data = await response.json();
       message = data?.detail ?? data?.message ?? message;
     } catch {
-      // ignore parse errors
+      // ignore
     }
-
-    console.error("API ERROR:", message);
 
     throw new ApiError(response.status, message);
   }
 
-  // ── NO CONTENT ──────────────────────────────────────
-
+  // ✅ NO CONTENT
   if (response.status === 204) {
     return undefined as T;
   }
 
   const json = await response.json();
 
-  // ── RAW MODE (for login etc.) ───────────────────────
-
+  // 🔁 RAW MODE
   if (raw) return json as T;
 
-  // ── SUPPORT WRAPPED RESPONSE ────────────────────────
-
+  // 📦 UNWRAP DATA
   if (json && typeof json === "object" && "data" in json) {
     return json.data as T;
   }
@@ -125,7 +117,8 @@ export async function fetcher<T>(
 
 export function toErrorMessage(err: unknown): string {
   if (err instanceof NetworkError) return "Unable to reach backend API";
-  if (err instanceof ApiError) return err.message;
-  if (err instanceof Error) return err.message;
+  if (err instanceof ApiError)
+    return err.message || `Request failed (${err.status})`;
+  if (err instanceof Error) return err.message || "Something went wrong";
   return "Something went wrong";
 }
