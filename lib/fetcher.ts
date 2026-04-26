@@ -70,7 +70,7 @@ export async function fetcher<T>(
       ...rest,
       headers: {
         "Content-Type": "application/json",
-        "Accept": "application/json",
+        Accept: "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(extraHeaders || {}),
       },
@@ -83,21 +83,26 @@ export async function fetcher<T>(
     throw new NetworkError("Unable to reach backend API");
   }
 
-  // 🔐 AUTH FAILURE (only redirect on client)
-  if (response.status === 401 || response.status === 403) {
+  // 🔐 401 → session expired → logout
+  if (response.status === 401) {
     if (typeof window !== "undefined") {
       clearToken();
 
       // avoid redirect loop
       if (window.location.pathname !== "/login") {
-        window.location.href = "/login";
+        window.location.assign("/login");
       }
     }
 
-    throw new ApiError(response.status, "Session expired");
+    throw new ApiError(401, "Session expired");
   }
 
-  // ❌ API ERROR
+  // 🚫 403 → forbidden → DO NOT logout
+  if (response.status === 403) {
+    throw new ApiError(403, "Forbidden");
+  }
+
+  // ❌ Other API errors
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
 
