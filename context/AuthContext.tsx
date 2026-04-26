@@ -1,119 +1,109 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-  type ReactNode,
-} from "react";
+import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { fetcher, setToken, clearToken, getToken } from "@/lib/fetcher";
+import { useAuth } from "@/context/AuthContext";
+import { ApiError, NetworkError } from "@/lib/fetcher";
 
-interface User {
-  id: number;
-  name?: string;
-  email: string;
-  role?: string;
-}
-
-interface AuthContextValue {
-  user: User | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null);
-
-export function AuthProvider({ children }: { children: ReactNode }) {
+export default function LoginForm() {
+  const { login } = useAuth();
   const router = useRouter();
 
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  // ✅ Restore session ONLY if token exists
-  useEffect(() => {
-    let cancelled = false;
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (loading) return;
 
-    const token = getToken();
+    setError(null);
+    setLoading(true);
 
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
-    fetcher<User>("/auth/me")
-      .then((data) => {
-        if (!cancelled) setUser(data);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setUser(null);
-          clearToken(); // 🔥 cleanup invalid token
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // ✅ Login
-  const login = useCallback(
-    async (email: string, password: string) => {
-      const res = await fetcher<{ access_token: string }>("/auth/login", {
-        method: "POST",
-        body: { email, password },
-        raw: true,
-      });
-
-      // 🔐 Save token
-      setToken(res.access_token);
-
-      // 👤 Fetch user
-      const me = await fetcher<User>("/auth/me");
-      setUser(me);
-
-      // 🔥 FIX: safer role handling + guaranteed navigation
-      const isAdmin = String(me?.role).toLowerCase() === "admin";
-
-      // small delay ensures React state settles before navigation
-      setTimeout(() => {
-        router.replace(isAdmin ? "/admin" : "/dashboard");
-      }, 0);
-    },
-    [router]
-  );
-
-  // ✅ Logout
-  const logout = useCallback(async () => {
     try {
-      await fetcher("/auth/logout", { method: "POST" });
-    } catch {
-      // ignore
-    } finally {
-      clearToken();
-      setUser(null);
+      const me = await login(email, password);
 
-      // ensure redirect always happens
-      router.replace("/login");
+      const isAdmin =
+        String(me?.role).toLowerCase() === "admin";
+
+      // 🔥 guaranteed navigation
+      window.location.href = isAdmin ? "/admin" : "/dashboard";
+    } catch (err) {
+      console.error("Login error:", err);
+
+      if (err instanceof NetworkError) {
+        setError("Server not reachable.");
+      } else if (err instanceof ApiError) {
+        if (err.status === 401) {
+          setError("Invalid email or password.");
+        } else if (err.status === 403) {
+          setError("Access denied.");
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError("Login failed.");
+      }
+    } finally {
+      setLoading(false);
     }
-  }, [router]);
+  }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
+    <div className="w-full rounded-2xl p-8 shadow-2xl bg-[#0A0F0D] border border-[#C9A22733]">
+      <h2 className="text-xl font-bold text-white mb-6">Welcome back</h2>
 
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Email */}
+        <input
+          type="email"
+          placeholder="Email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full p-2 rounded bg-black/40 text-white"
+        />
+
+        {/* Password */}
+        <div className="relative">
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder="Password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full p-2 rounded bg-black/40 text-white"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            className="absolute right-2 top-2 text-gray-400"
+          >
+            👁
+          </button>
+        </div>
+
+        {/* Error */}
+        {error && <p className="text-red-400 text-sm">{error}</p>}
+
+        {/* Submit */}
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-2 bg-yellow-500 text-black rounded disabled:opacity-50"
+        >
+          {loading ? "Signing in..." : "Sign In"}
+        </button>
+
+        {/* Links */}
+        <div className="flex justify-between text-sm text-gray-400">
+          <Link href="/forgot-password">Forgot password?</Link>
+          <Link href="/signup">Create account</Link>
+        </div>
+      </form>
+    </div>
+  );
 }
