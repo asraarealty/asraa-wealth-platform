@@ -3,7 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 
-const NAV_LINKS = ["Home", "About", "Services", "Contact"] as const;
+// ✅ Controlled routes (only existing pages)
+const NAV_LINKS = [
+  { label: "Home", href: "/" },
+  // Uncomment when pages are created:
+  // { label: "About", href: "/about" },
+  // { label: "Services", href: "/services" },
+  // { label: "Contact", href: "/contact" },
+];
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -33,16 +40,16 @@ export default function Header() {
           <nav className="hidden md:flex items-center gap-8">
             {NAV_LINKS.map((item) => (
               <Link
-                key={item}
-                href={item === "Home" ? "/" : `/${item.toLowerCase()}`}
+                key={item.label}
+                href={item.href}
                 className="text-sm text-gray-400 hover:text-white transition-colors duration-200"
               >
-                {item}
+                {item.label}
               </Link>
             ))}
           </nav>
 
-          {/* CTA + mobile hamburger */}
+          {/* CTA + Mobile toggle */}
           <div className="flex items-center gap-3">
             <Link
               href="/signup"
@@ -55,7 +62,7 @@ export default function Header() {
               Get Free Plan
             </Link>
 
-            {/* Mobile menu toggle */}
+            {/* Mobile menu button */}
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
@@ -87,25 +94,28 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Mobile dropdown */}
+        {/* Mobile menu */}
         {menuOpen && (
           <div className="md:hidden border-t border-white/[0.06] py-4 space-y-1 animate-fade-in">
             {NAV_LINKS.map((item) => (
               <Link
-                key={item}
-                href={item === "Home" ? "/" : `/${item.toLowerCase()}`}
+                key={item.label}
+                href={item.href}
                 onClick={() => setMenuOpen(false)}
                 className="block px-2 py-2.5 text-sm text-gray-400 hover:text-white transition-colors rounded-md hover:bg-white/5"
               >
-                {item}
+                {item.label}
               </Link>
             ))}
+
             <div className="pt-2">
               <Link
                 href="/signup"
                 onClick={() => setMenuOpen(false)}
                 className="block px-4 py-2.5 text-sm font-semibold text-center rounded-lg text-black"
-                style={{ background: "linear-gradient(90deg, #C9A227, #d4af4a)" }}
+                style={{
+                  background: "linear-gradient(90deg, #C9A227, #d4af4a)",
+                }}
               >
                 Get Free Plan
               </Link>
