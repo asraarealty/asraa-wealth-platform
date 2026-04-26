@@ -17,7 +17,7 @@ export class NetworkError extends Error {
   }
 }
 
-// ── Token helpers (LOCALSTORAGE BASED) ─────────────
+// ── TOKEN STORAGE ───────────────────────────────────
 
 const TOKEN_KEY = "access_token";
 
@@ -26,17 +26,17 @@ export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
 
-export function setToken(token: string): void {
+export function setToken(token: string) {
   if (typeof window === "undefined") return;
   localStorage.setItem(TOKEN_KEY, token);
 }
 
-export function clearToken(): void {
+export function clearToken() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(TOKEN_KEY);
 }
 
-// ── Fetch wrapper ──────────────────────────────────
+// ── FETCH WRAPPER ───────────────────────────────────
 
 interface FetcherOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
@@ -51,10 +51,15 @@ export async function fetcher<T>(
 
   const token = getToken();
 
+  const url = `${API_BASE_URL}${path}`;
+
+  // 🔍 DEBUG (VERY IMPORTANT)
+  console.log("API CALL →", url);
+
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetch(url, {
       ...rest,
       headers: {
         "Content-Type": "application/json",
@@ -64,31 +69,30 @@ export async function fetcher<T>(
       signal,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
-  } catch {
+  } catch (err) {
+    console.error("NETWORK ERROR:", err);
     throw new NetworkError("Unable to reach backend API");
   }
 
-  // 🔐 Session expired
+  // 🔐 Handle auth expiry
   if (response.status === 401) {
     clearToken();
-
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }
-
     throw new ApiError(401, "Session expired");
   }
 
-  // ❌ API error
+  // ❌ Handle errors
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
 
     try {
       const data = await response.json();
       message = data?.detail ?? data?.message ?? message;
-    } catch {
-      // ignore JSON error
-    }
+    } catch {}
+
+    console.error("API ERROR:", url, message);
 
     throw new ApiError(response.status, message);
   }
@@ -100,10 +104,10 @@ export async function fetcher<T>(
 
   const json = await response.json();
 
-  // 🔁 Raw mode (used for login)
+  // 🔁 Raw mode (login, etc.)
   if (raw) return json as T;
 
-  // 🧠 Support wrapped responses
+  // 🧠 Support both wrapped + direct responses
   if (json && typeof json === "object" && "data" in json) {
     return json.data as T;
   }
@@ -111,7 +115,7 @@ export async function fetcher<T>(
   return json as T;
 }
 
-// ── Error formatter ─────────────────────────────────
+// ── ERROR FORMATTER ─────────────────────────────────
 
 export function toErrorMessage(err: unknown): string {
   if (err instanceof NetworkError) return "Unable to reach backend API";
