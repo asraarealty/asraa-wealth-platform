@@ -1,15 +1,15 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   async rewrites() {
     const backendUrl = process.env.BACKEND_URL;
+
     if (!backendUrl) {
       console.warn(
-        "[next.config] BACKEND_URL is not set. " +
-          "API rewrites are disabled — set BACKEND_URL to enable server-side proxying of /api/v2/* requests."
+        "[next.config] BACKEND_URL is not set. API rewrites are disabled."
       );
       return [];
     }
+
     return [
       {
         source: "/api/v2/:path*",
@@ -19,4 +19,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+module.exports = nextConfig;
