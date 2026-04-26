@@ -13,7 +13,7 @@ export default function LoginPage() {
 
       {/* Main content */}
       <main className="flex-1 flex flex-col pt-16">
-        <div className="flex-1 flex flex-col lg:flex-row">
+        <div className="flex flex-1 flex-col lg:flex-row">
 
           {/* LEFT PANEL */}
           <div className="flex flex-col justify-center px-8 py-16 lg:px-16 xl:px-24 lg:w-[55%]">
@@ -27,18 +27,10 @@ export default function LoginPage() {
             </p>
 
             <ul className="space-y-4 max-w-md">
-              <li className="text-gray-300 text-sm">
-                ✔ AI-driven portfolio insights
-              </li>
-              <li className="text-gray-300 text-sm">
-                ✔ Curated wealth strategies
-              </li>
-              <li className="text-gray-300 text-sm">
-                ✔ Bank-grade security
-              </li>
-              <li className="text-gray-300 text-sm">
-                ✔ Dedicated advisor access
-              </li>
+              <li className="text-gray-300 text-sm">✔ AI-driven portfolio insights</li>
+              <li className="text-gray-300 text-sm">✔ Curated wealth strategies</li>
+              <li className="text-gray-300 text-sm">✔ Bank-grade security</li>
+              <li className="text-gray-300 text-sm">✔ Dedicated advisor access</li>
             </ul>
           </div>
 
