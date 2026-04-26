@@ -18,17 +18,26 @@ export default function LoginForm() {
     e.preventDefault();
     if (loading) return;
 
-    console.log("🚀 SUBMIT TRIGGERED"); // DEBUG 1
-
     setError(null);
     setLoading(true);
 
     try {
-      console.log("📡 CALLING login()"); // DEBUG 2
+      console.log("📡 CALLING login()");
+      
+      const me = await login(email, password); // ✅ GET USER
 
-      await login(email, password);
+      console.log("✅ USER:", me);
 
-      console.log("✅ LOGIN SUCCESS"); // DEBUG 3
+      // 🔥 SAFE ROLE CHECK
+      const role = String(me?.role || "").trim().toLowerCase();
+
+      // 🔥 FORCE REDIRECT
+      if (role === "admin") {
+        window.location.href = "/admin";
+      } else {
+        window.location.href = "/dashboard";
+      }
+
     } catch (err) {
       console.error("❌ LOGIN ERROR:", err);
 
@@ -55,7 +64,6 @@ export default function LoginForm() {
       <h2 className="text-xl font-bold text-white mb-6">Welcome back</h2>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Email */}
         <input
           type="email"
           placeholder="Email"
@@ -65,7 +73,6 @@ export default function LoginForm() {
           className="w-full p-2 rounded bg-black/40 text-white"
         />
 
-        {/* Password */}
         <div className="relative">
           <input
             type={showPassword ? "text" : "password"}
@@ -84,10 +91,8 @@ export default function LoginForm() {
           </button>
         </div>
 
-        {/* Error */}
         {error && <p className="text-red-400 text-sm">{error}</p>}
 
-        {/* Submit */}
         <button
           type="submit"
           disabled={loading}
@@ -96,7 +101,6 @@ export default function LoginForm() {
           {loading ? "Signing in..." : "Sign In"}
         </button>
 
-        {/* Links */}
         <div className="flex justify-between text-sm text-gray-400">
           <Link href="/forgot-password">Forgot password?</Link>
           <Link href="/signup">Create account</Link>
