@@ -20,7 +20,7 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      // ✅ LOGIN → get JWT
+      // ✅ LOGIN → get JWT token
       const res = await fetcher<{ access_token: string }>("/auth/login", {
         method: "POST",
         body: { email, password },
@@ -30,13 +30,11 @@ export default function LoginForm() {
       // ✅ SAVE TOKEN
       setToken(res.access_token);
 
-      // ✅ GET USER
+      // ✅ FETCH USER
       const me = await fetcher<any>("/auth/me");
 
-      console.log("USER:", me);
-
-      // ✅ REDIRECT
-      router.replace(me.role === "admin" ? "/admin" : "/dashboard");
+      // ✅ REDIRECT BASED ON ROLE
+      router.replace(me?.role === "admin" ? "/admin" : "/dashboard");
 
     } catch (err) {
       if (err instanceof NetworkError) {
@@ -56,18 +54,22 @@ export default function LoginForm() {
       <h2 className="text-xl font-bold text-white mb-6">Welcome back</h2>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Email */}
         <input
           type="email"
           placeholder="Email"
+          required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full p-2 rounded bg-black/40 text-white"
         />
 
+        {/* Password */}
         <div className="relative">
           <input
             type={showPassword ? "text" : "password"}
             placeholder="Password"
+            required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full p-2 rounded bg-black/40 text-white"
@@ -81,16 +83,19 @@ export default function LoginForm() {
           </button>
         </div>
 
+        {/* Error */}
         {error && <p className="text-red-400 text-sm">{error}</p>}
 
+        {/* Submit */}
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-2 bg-yellow-500 text-black rounded"
+          className="w-full py-2 bg-yellow-500 text-black rounded disabled:opacity-50"
         >
           {loading ? "Signing in..." : "Sign In"}
         </button>
 
+        {/* Links */}
         <div className="flex justify-between text-sm text-gray-400">
           <Link href="/forgot-password">Forgot password?</Link>
           <Link href="/signup">Create account</Link>
