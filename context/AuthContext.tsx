@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // ✅ FIXED: Restore session ONLY if token exists
+  // ✅ Restore session ONLY if token exists
   useEffect(() => {
     let cancelled = false;
 
@@ -49,7 +49,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!cancelled) setUser(data);
       })
       .catch(() => {
-        if (!cancelled) setUser(null);
+        if (!cancelled) {
+          setUser(null);
+          clearToken(); // 🔥 cleanup invalid token
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -69,12 +72,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         raw: true,
       });
 
+      // 🔐 Save token
       setToken(res.access_token);
 
+      // 👤 Fetch user
       const me = await fetcher<User>("/auth/me");
       setUser(me);
 
-      router.replace(me.role === "admin" ? "/admin" : "/dashboard");
+      // 🔥 FIX: safer role handling + guaranteed navigation
+      const isAdmin = String(me?.role).toLowerCase() === "admin";
+
+      // small delay ensures React state settles before navigation
+      setTimeout(() => {
+        router.replace(isAdmin ? "/admin" : "/dashboard");
+      }, 0);
     },
     [router]
   );
@@ -88,6 +99,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       clearToken();
       setUser(null);
+
+      // ensure redirect always happens
       router.replace("/login");
     }
   }, [router]);
