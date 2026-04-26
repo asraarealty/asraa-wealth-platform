@@ -23,17 +23,25 @@ const TOKEN_KEY = "access_token";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
 }
 
 export function setToken(token: string) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(TOKEN_KEY, token);
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+  } catch {}
 }
 
 export function clearToken() {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(TOKEN_KEY);
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+  } catch {}
 }
 
 // ── FETCH WRAPPER ──────────────────────────────────────
@@ -75,7 +83,7 @@ export async function fetcher<T>(
     if (typeof window !== "undefined") {
       clearToken();
 
-      // prevent infinite redirect loop
+      // prevent redirect loop
       if (window.location.pathname !== "/login") {
         window.location.href = "/login";
       }
@@ -91,9 +99,7 @@ export async function fetcher<T>(
     try {
       const data = await response.json();
       message = data?.detail ?? data?.message ?? message;
-    } catch {
-      // ignore JSON parse errors
-    }
+    } catch {}
 
     console.error("❌ API Error:", message);
     throw new ApiError(response.status, message);
@@ -104,12 +110,18 @@ export async function fetcher<T>(
     return undefined as T;
   }
 
-  const json = await response.json();
+  let json: unknown;
+
+  try {
+    json = await response.json();
+  } catch {
+    return undefined as T;
+  }
 
   // 🔁 RAW MODE
   if (raw) return json as T;
 
-  // 📦 UNWRAP DATA
+  // 📦 UNWRAP { data }
   if (json && typeof json === "object" && "data" in json) {
     return (json as any).data as T;
   }
