@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { fetcher, setToken, ApiError, NetworkError } from "@/lib/fetcher";
+import { useAuth } from "@/context/AuthContext";
 
 export default function LoginForm() {
-  const router = useRouter();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,30 +19,10 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      // ✅ LOGIN → get JWT token
-      const res = await fetcher<{ access_token: string }>("/auth/login", {
-        method: "POST",
-        body: { email, password },
-        raw: true,
-      });
-
-      // ✅ SAVE TOKEN
-      setToken(res.access_token);
-
-      // ✅ FETCH USER
-      const me = await fetcher<any>("/auth/me");
-
-      // ✅ REDIRECT BASED ON ROLE
-      router.replace(me?.role === "admin" ? "/admin" : "/dashboard");
-
+      // ✅ SINGLE SOURCE OF TRUTH
+      await login(email, password);
     } catch (err) {
-      if (err instanceof NetworkError) {
-        setError("Server not reachable. Please try again.");
-      } else if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-        setError("Invalid email or password.");
-      } else {
-        setError(err instanceof Error ? err.message : "Login failed");
-      }
+      setError(err instanceof Error ? err.message : "Login failed");
     } finally {
       setLoading(false);
     }
