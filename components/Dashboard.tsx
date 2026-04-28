@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getPortfolioItems } from "@/lib/services/portfolioService";
-import { toErrorMessage } from "@/lib/fetcher";
+import { toErrorMessage, fetcher } from "@/lib/fetcher";
 import ClientSelector from "./ClientSelector";
 import StockSearch from "./StockSearch";
 import PortfolioGrowthChart from "./dashboard/PortfolioGrowthChart";
@@ -52,6 +53,7 @@ function computeKPIs(items: Portfolio[]) {
 
 export default function Dashboard() {
   const { logout, user } = useAuth();
+  const searchParams = useSearchParams();
 
   const [selectedClient, setSelectedClient] =
     useState<Client | null>(null);
@@ -63,6 +65,13 @@ export default function Dashboard() {
   const [selectedStock, setSelectedStock] =
     useState<StockQuote | null>(null);
 
+  // 🔥 modal states
+  const [showStockModal, setShowStockModal] = useState(false);
+  const [showMFModal, setShowMFModal] = useState(false);
+  const [showPropertyModal, setShowPropertyModal] = useState(false);
+
+  const [form, setForm] = useState<any>({});
+
   const kpis = useMemo(
     () => computeKPIs(portfolio),
     [portfolio]
@@ -70,6 +79,8 @@ export default function Dashboard() {
 
   const isAdmin =
     String(user?.role).toLowerCase() === "admin";
+
+  const clientIdFromUrl = searchParams.get("client_id");
 
   /* LOAD PORTFOLIO */
 
@@ -94,20 +105,51 @@ export default function Dashboard() {
     [isAdmin]
   );
 
+  /* 🔥 FULL CONTROL LOGIC */
+
   useEffect(() => {
     if (!user) return;
 
     if (isAdmin) {
-      if (selectedClient) {
-        loadPortfolio(selectedClient.id);
-      }
+      const id = clientIdFromUrl
+        ? Number(clientIdFromUrl)
+        : selectedClient?.id;
+
+      if (id) loadPortfolio(id);
     } else {
       loadPortfolio();
     }
-  }, [selectedClient, loadPortfolio, user, isAdmin]);
+  }, [clientIdFromUrl, selectedClient, loadPortfolio, user, isAdmin]);
 
   async function handleLogout() {
     await logout();
+  }
+
+  /* 🔥 SAVE FUNCTIONS */
+
+  async function handleSave(type: string) {
+    try {
+      let endpoint = "";
+
+      if (type === "stock") endpoint = "/stocks";
+      if (type === "mf") endpoint = "/mutual-funds";
+      if (type === "property") endpoint = "/properties";
+
+      await fetcher(endpoint, {
+        method: "POST",
+        body: form,
+      });
+
+      // refresh
+      loadPortfolio(selectedClient?.id);
+
+      setShowStockModal(false);
+      setShowMFModal(false);
+      setShowPropertyModal(false);
+      setForm({});
+    } catch (err) {
+      alert(toErrorMessage(err));
+    }
   }
 
   return (
@@ -124,22 +166,25 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* 🔥 NOW BOTH CLIENT + ADMIN CAN ADD */}
+      {/* 🔥 ADD ACTIONS */}
       {user && (
         <div className="flex gap-3">
-          <button className="px-4 py-2 bg-yellow-500 text-black rounded">
+          <button onClick={() => setShowStockModal(true)}
+            className="px-4 py-2 bg-yellow-500 text-black rounded">
             + Add Stock
           </button>
-          <button className="px-4 py-2 bg-yellow-500 text-black rounded">
+          <button onClick={() => setShowMFModal(true)}
+            className="px-4 py-2 bg-yellow-500 text-black rounded">
             + Add Mutual Fund
           </button>
-          <button className="px-4 py-2 bg-yellow-500 text-black rounded">
+          <button onClick={() => setShowPropertyModal(true)}
+            className="px-4 py-2 bg-yellow-500 text-black rounded">
             + Add Property
           </button>
         </div>
       )}
 
-      {/* Admin only */}
+      {/* Admin selector */}
       {isAdmin && (
         <ClientSelector
           selectedId={selectedClient?.id ?? null}
@@ -147,29 +192,19 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Stock search */}
       <StockSearch onSelect={setSelectedStock} />
 
-      {/* Selected stock */}
       {selectedStock && (
         <div className="p-4 border border-yellow-500 rounded">
-          {selectedStock.symbol} —{" "}
-          {formatCurrency(selectedStock.price)}
+          {selectedStock.symbol} — {formatCurrency(selectedStock.price)}
         </div>
       )}
 
-      {/* Loading */}
       {loading && <p>Loading...</p>}
+      {error && <p className="text-red-400">{error}</p>}
 
-      {/* Error */}
-      {error && (
-        <p className="text-red-400">{error}</p>
-      )}
-
-      {/* Data */}
       {portfolio.length > 0 && (
         <>
-          {/* KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div>Total Value: {formatCurrency(kpis.totalValue)}</div>
             <div>Return: {formatPercent(kpis.gainPercent)}</div>
@@ -177,7 +212,6 @@ export default function Dashboard() {
             <div>Holdings: {kpis.positionCount}</div>
           </div>
 
-          {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <PortfolioGrowthChart
               totalValue={kpis.totalValue}
@@ -186,10 +220,57 @@ export default function Dashboard() {
             <AllocationChart positions={portfolio} />
           </div>
 
-          {/* AI */}
           <AIInsightsPanel />
         </>
       )}
+
+      {/* 🔥 MODALS */}
+
+      {showStockModal && (
+        <Modal title="Add Stock" onClose={() => setShowStockModal(false)}>
+          <input placeholder="Symbol"
+            onChange={(e) => setForm({ ...form, ticker: e.target.value })} />
+          <input placeholder="Quantity"
+            onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} />
+          <input placeholder="Avg Price"
+            onChange={(e) => setForm({ ...form, avg_price: Number(e.target.value) })} />
+          <button onClick={() => handleSave("stock")}>Save</button>
+        </Modal>
+      )}
+
+      {showMFModal && (
+        <Modal title="Add Mutual Fund" onClose={() => setShowMFModal(false)}>
+          <input placeholder="MF Code"
+            onChange={(e) => setForm({ ...form, mf_code: e.target.value })} />
+          <input placeholder="Units"
+            onChange={(e) => setForm({ ...form, units: Number(e.target.value) })} />
+          <button onClick={() => handleSave("mf")}>Save</button>
+        </Modal>
+      )}
+
+      {showPropertyModal && (
+        <Modal title="Add Property" onClose={() => setShowPropertyModal(false)}>
+          <input placeholder="Title"
+            onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <input placeholder="Value"
+            onChange={(e) => setForm({ ...form, value: Number(e.target.value) })} />
+          <button onClick={() => handleSave("property")}>Save</button>
+        </Modal>
+      )}
+
+    </div>
+  );
+}
+
+/* SIMPLE MODAL */
+function Modal({ children, title, onClose }: any) {
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
+      <div className="bg-[#0A0F0D] p-6 rounded space-y-3 w-80">
+        <h2>{title}</h2>
+        {children}
+        <button onClick={onClose}>Cancel</button>
+      </div>
     </div>
   );
 }
