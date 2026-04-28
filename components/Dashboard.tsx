@@ -10,7 +10,7 @@ import PortfolioGrowthChart from "./dashboard/PortfolioGrowthChart";
 import AllocationChart from "./dashboard/AllocationChart";
 import AIInsightsPanel from "./dashboard/AIInsightsPanel";
 
-/* ✅ SAFE LOCAL TYPES (fixes build crash) */
+/* ✅ SAFE LOCAL TYPES */
 type Client = any;
 type Portfolio = any;
 type PortfolioMeta = any;
@@ -33,9 +33,13 @@ function formatPercent(value: number): string {
 
 function computeKPIs(items: Portfolio[]) {
   const totalValue = items.reduce((s, p) => s + p.value, 0);
-  const totalCost = items.reduce((s, p) => s + p.avg_price * p.quantity, 0);
+  const totalCost = items.reduce(
+    (s, p) => s + p.avg_price * p.quantity,
+    0
+  );
   const totalGain = totalValue - totalCost;
-  const gainPercent = totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
+  const gainPercent =
+    totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
 
   return {
     totalValue,
@@ -49,36 +53,64 @@ function computeKPIs(items: Portfolio[]) {
 /* ─── MAIN COMPONENT ─── */
 
 export default function Dashboard() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [selectedClient, setSelectedClient] =
+    useState<Client | null>(null);
   const [portfolio, setPortfolio] = useState<Portfolio[]>([]);
-  const [portfolioMeta, setPortfolioMeta] = useState<Partial<PortfolioMeta>>({});
+  const [portfolioMeta, setPortfolioMeta] =
+    useState<Partial<PortfolioMeta>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedStock, setSelectedStock] = useState<StockQuote | null>(null);
+  const [selectedStock, setSelectedStock] =
+    useState<StockQuote | null>(null);
 
-  const kpis = useMemo(() => computeKPIs(portfolio), [portfolio]);
+  const kpis = useMemo(
+    () => computeKPIs(portfolio),
+    [portfolio]
+  );
 
-  const loadPortfolio = useCallback(async (clientId: number) => {
-    setLoading(true);
-    setError(null);
+  /* 🔥 FIXED: role-aware portfolio loading */
+  const loadPortfolio = useCallback(
+    async (clientId?: number) => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const { items, meta } = await getPortfolioItems(clientId);
-      setPortfolio(items);
-      setPortfolioMeta(meta);
-    } catch (err) {
-      setError(toErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      try {
+        const isAdmin =
+          String(user?.role).toLowerCase() === "admin";
 
+        const { items, meta } = await getPortfolioItems(
+          isAdmin ? clientId : undefined
+        );
+
+        setPortfolio(items || []);
+        setPortfolioMeta(meta || {});
+      } catch (err) {
+        setError(toErrorMessage(err));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [user]
+  );
+
+  /* 🔥 FIXED: correct behavior for admin vs client */
   useEffect(() => {
-    if (!selectedClient) return;
-    loadPortfolio(selectedClient.id);
-  }, [selectedClient, loadPortfolio]);
+    if (!user) return;
+
+    const isAdmin =
+      String(user.role).toLowerCase() === "admin";
+
+    if (isAdmin) {
+      if (selectedClient) {
+        loadPortfolio(selectedClient.id);
+      }
+    } else {
+      // client → always load own portfolio
+      loadPortfolio();
+    }
+  }, [selectedClient, loadPortfolio, user]);
 
   async function handleLogout() {
     await logout();
@@ -86,7 +118,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen text-white bg-[#071a14] p-6 space-y-6">
-
+      
       {/* Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-xl font-bold">Dashboard</h1>
@@ -98,11 +130,13 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Client selector */}
-      <ClientSelector
-        selectedId={selectedClient?.id ?? null}
-        onChange={setSelectedClient}
-      />
+      {/* ✅ Show client selector ONLY for admin */}
+      {String(user?.role).toLowerCase() === "admin" && (
+        <ClientSelector
+          selectedId={selectedClient?.id ?? null}
+          onChange={setSelectedClient}
+        />
+      )}
 
       {/* Stock search */}
       <StockSearch onSelect={setSelectedStock} />
@@ -110,7 +144,8 @@ export default function Dashboard() {
       {/* Selected stock */}
       {selectedStock && (
         <div className="p-4 border border-yellow-500 rounded">
-          {selectedStock.symbol} — {formatCurrency(selectedStock.price)}
+          {selectedStock.symbol} —{" "}
+          {formatCurrency(selectedStock.price)}
         </div>
       )}
 
@@ -118,17 +153,30 @@ export default function Dashboard() {
       {loading && <p>Loading...</p>}
 
       {/* Error */}
-      {error && <p className="text-red-400">{error}</p>}
+      {error && (
+        <p className="text-red-400">{error}</p>
+      )}
 
       {/* Data */}
       {portfolio.length > 0 && (
         <>
           {/* KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>Total Value: {formatCurrency(kpis.totalValue)}</div>
-            <div>Return: {formatPercent(kpis.gainPercent)}</div>
-            <div>Invested: {formatCurrency(kpis.totalCost)}</div>
-            <div>Holdings: {kpis.positionCount}</div>
+            <div>
+              Total Value:{" "}
+              {formatCurrency(kpis.totalValue)}
+            </div>
+            <div>
+              Return:{" "}
+              {formatPercent(kpis.gainPercent)}
+            </div>
+            <div>
+              Invested:{" "}
+              {formatCurrency(kpis.totalCost)}
+            </div>
+            <div>
+              Holdings: {kpis.positionCount}
+            </div>
           </div>
 
           {/* Charts */}
@@ -140,7 +188,7 @@ export default function Dashboard() {
             <AllocationChart positions={portfolio} />
           </div>
 
-          {/* AI */}
+          {/* AI Insights */}
           <AIInsightsPanel />
         </>
       )}
