@@ -8,7 +8,7 @@ export {
 
 import { fetcher } from "./fetcher";
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
+/* ── Auth ───────────────────────────────────────────────────────────── */
 
 export interface LoginPayload {
   email: string;
@@ -31,7 +31,7 @@ export function login(payload: LoginPayload): Promise<LoginResponse> {
 
 export interface MeResponse {
   id: number;
-  name?: string; // ✅ made optional (safe)
+  name?: string;
   email: string;
   role: string;
   is_active: boolean;
@@ -45,7 +45,7 @@ export function logout(): Promise<void> {
   return fetcher<void>("/auth/logout", { method: "POST" });
 }
 
-// ── Clients ───────────────────────────────────────────────────────────────────
+/* ── Clients ───────────────────────────────────────────────────────── */
 
 export interface Client {
   id: number;
@@ -60,7 +60,7 @@ export function fetchClients(signal?: AbortSignal): Promise<Client[]> {
   return fetcher<Client[]>("/clients", { signal });
 }
 
-// ── Stocks ────────────────────────────────────────────────────────────────────
+/* ── Stocks ────────────────────────────────────────────────────────── */
 
 export interface StockQuote {
   symbol: string;
@@ -91,7 +91,7 @@ export function fetchStockQuote(
   });
 }
 
-// ── Portfolio ─────────────────────────────────────────────────────────────────
+/* ── Portfolio ─────────────────────────────────────────────────────── */
 
 export interface Portfolio {
   id: number;
@@ -117,20 +117,28 @@ export interface PortfolioResult {
   meta: Partial<PortfolioMeta>;
 }
 
+/**
+ * ✅ FIXED VERSION
+ * - Uses correct query param: user_id
+ * - Matches backend route: /portfolio
+ * - Prevents client from sending ID
+ */
 export async function fetchPortfolioItems(
   clientId?: number,
   signal?: AbortSignal
 ): Promise<PortfolioResult> {
-  const qs =
-    clientId !== undefined
-      ? `?client_id=${encodeURIComponent(clientId)}`
-      : "";
+  let path = "/portfolio";
 
-  const res = await fetcher<any>(`/portfolio${qs}`, { signal, raw: true });
+  // ✅ Only admin should pass user_id
+  if (clientId !== undefined) {
+    path += `?user_id=${encodeURIComponent(clientId)}`;
+  }
+
+  const res = await fetcher<any>(path, { signal, raw: true });
 
   const data: unknown = Array.isArray(res)
     ? res
-    : (res?.data ?? res?.positions ?? []);
+    : res?.data ?? res?.positions ?? [];
 
   const meta: Partial<PortfolioMeta> = res?.meta ?? {};
 
@@ -142,7 +150,7 @@ export async function fetchPortfolioItems(
   return { items: data as Portfolio[], meta };
 }
 
-// ── Transactions ──────────────────────────────────────────────────────────────
+/* ── Transactions ─────────────────────────────────────────────────── */
 
 export interface Transaction {
   id: string;
@@ -166,11 +174,11 @@ export function fetchTransactions(
   return fetcher<Transaction[]>(`/transactions${qs}`, { signal });
 }
 
-// ── Admin: Users ──────────────────────────────────────────────────────────────
+/* ── Admin: Users ─────────────────────────────────────────────────── */
 
 export interface User {
   id: number;
-  name?: string; // ✅ optional
+  name?: string;
   email: string;
   role: string;
   is_active: boolean;
@@ -180,7 +188,7 @@ export function fetchUsers(signal?: AbortSignal): Promise<User[]> {
   return fetcher<User[]>("/users", { signal });
 }
 
-// ── Admin: Clients ────────────────────────────────────────────────────────────
+/* ── Admin: Clients ───────────────────────────────────────────────── */
 
 export interface AdminClient {
   id: number;
@@ -191,11 +199,13 @@ export interface AdminClient {
   created_at: string;
 }
 
-export function fetchAdminClients(signal?: AbortSignal): Promise<AdminClient[]> {
+export function fetchAdminClients(
+  signal?: AbortSignal
+): Promise<AdminClient[]> {
   return fetcher<AdminClient[]>("/clients", { signal });
 }
 
-// ── Admin: Portfolio ──────────────────────────────────────────────────────────
+/* ── Admin: Portfolio ─────────────────────────────────────────────── */
 
 export interface AdminPortfolioItem {
   id: number;
@@ -210,11 +220,14 @@ export interface AdminPortfolioItem {
 export async function fetchAdminPortfolio(
   signal?: AbortSignal
 ): Promise<AdminPortfolioItem[]> {
-  const res = await fetcher<any>("/portfolio", { signal, raw: true });
+  const res = await fetcher<any>("/portfolio", {
+    signal,
+    raw: true,
+  });
 
   const data: unknown = Array.isArray(res)
     ? res
-    : (res?.data ?? res?.positions ?? []);
+    : res?.data ?? res?.positions ?? [];
 
   if (!Array.isArray(data)) {
     console.error("Admin portfolio invalid:", data);
@@ -224,7 +237,7 @@ export async function fetchAdminPortfolio(
   return data as AdminPortfolioItem[];
 }
 
-// ── Auth Extras ───────────────────────────────────────────────────────────────
+/* ── Auth Extras ───────────────────────────────────────────────────── */
 
 export interface SignupPayload {
   name: string;
