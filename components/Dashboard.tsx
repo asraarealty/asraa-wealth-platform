@@ -10,13 +10,13 @@ import PortfolioGrowthChart from "./dashboard/PortfolioGrowthChart";
 import AllocationChart from "./dashboard/AllocationChart";
 import AIInsightsPanel from "./dashboard/AIInsightsPanel";
 
-/* ✅ SAFE LOCAL TYPES */
+/* TYPES */
 type Client = any;
 type Portfolio = any;
 type PortfolioMeta = any;
 type StockQuote = any;
 
-/* ─── Helpers ─── */
+/* HELPERS */
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -28,8 +28,6 @@ function formatCurrency(value: number): string {
 function formatPercent(value: number): string {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
-
-/* ─── KPI LOGIC ─── */
 
 function computeKPIs(items: Portfolio[]) {
   const totalValue = items.reduce((s, p) => s + p.value, 0);
@@ -50,7 +48,7 @@ function computeKPIs(items: Portfolio[]) {
   };
 }
 
-/* ─── MAIN COMPONENT ─── */
+/* COMPONENT */
 
 export default function Dashboard() {
   const { logout, user } = useAuth();
@@ -70,16 +68,17 @@ export default function Dashboard() {
     [portfolio]
   );
 
-  /* 🔥 FIXED: role-aware portfolio loading */
+  const isAdmin =
+    String(user?.role).toLowerCase() === "admin";
+
+  /* LOAD PORTFOLIO */
+
   const loadPortfolio = useCallback(
     async (clientId?: number) => {
       setLoading(true);
       setError(null);
 
       try {
-        const isAdmin =
-          String(user?.role).toLowerCase() === "admin";
-
         const { items, meta } = await getPortfolioItems(
           isAdmin ? clientId : undefined
         );
@@ -92,25 +91,20 @@ export default function Dashboard() {
         setLoading(false);
       }
     },
-    [user]
+    [isAdmin]
   );
 
-  /* 🔥 FIXED: correct behavior for admin vs client */
   useEffect(() => {
     if (!user) return;
-
-    const isAdmin =
-      String(user.role).toLowerCase() === "admin";
 
     if (isAdmin) {
       if (selectedClient) {
         loadPortfolio(selectedClient.id);
       }
     } else {
-      // client → always load own portfolio
       loadPortfolio();
     }
-  }, [selectedClient, loadPortfolio, user]);
+  }, [selectedClient, loadPortfolio, user, isAdmin]);
 
   async function handleLogout() {
     await logout();
@@ -118,7 +112,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen text-white bg-[#071a14] p-6 space-y-6">
-      
+
       {/* Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-xl font-bold">Dashboard</h1>
@@ -130,8 +124,23 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* ✅ Show client selector ONLY for admin */}
-      {String(user?.role).toLowerCase() === "admin" && (
+      {/* 🔥 NOW BOTH CLIENT + ADMIN CAN ADD */}
+      {user && (
+        <div className="flex gap-3">
+          <button className="px-4 py-2 bg-yellow-500 text-black rounded">
+            + Add Stock
+          </button>
+          <button className="px-4 py-2 bg-yellow-500 text-black rounded">
+            + Add Mutual Fund
+          </button>
+          <button className="px-4 py-2 bg-yellow-500 text-black rounded">
+            + Add Property
+          </button>
+        </div>
+      )}
+
+      {/* Admin only */}
+      {isAdmin && (
         <ClientSelector
           selectedId={selectedClient?.id ?? null}
           onChange={setSelectedClient}
@@ -162,21 +171,10 @@ export default function Dashboard() {
         <>
           {/* KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              Total Value:{" "}
-              {formatCurrency(kpis.totalValue)}
-            </div>
-            <div>
-              Return:{" "}
-              {formatPercent(kpis.gainPercent)}
-            </div>
-            <div>
-              Invested:{" "}
-              {formatCurrency(kpis.totalCost)}
-            </div>
-            <div>
-              Holdings: {kpis.positionCount}
-            </div>
+            <div>Total Value: {formatCurrency(kpis.totalValue)}</div>
+            <div>Return: {formatPercent(kpis.gainPercent)}</div>
+            <div>Invested: {formatCurrency(kpis.totalCost)}</div>
+            <div>Holdings: {kpis.positionCount}</div>
           </div>
 
           {/* Charts */}
@@ -188,7 +186,7 @@ export default function Dashboard() {
             <AllocationChart positions={portfolio} />
           </div>
 
-          {/* AI Insights */}
+          {/* AI */}
           <AIInsightsPanel />
         </>
       )}
