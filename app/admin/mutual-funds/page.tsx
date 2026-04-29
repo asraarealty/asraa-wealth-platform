@@ -27,8 +27,8 @@ export default function MutualFundsPage() {
 
     getAdminPortfolio(ac.signal)
       .then((items) => {
-        // Mutual funds have numeric symbols (e.g. AMFI codes)
-        setFunds(items.filter((p) => !isNaN(Number(p.symbol))));
+        // Mutual funds have numeric-only symbols (e.g. AMFI codes like 120503)
+        setFunds(items.filter((p) => /^\d+$/.test(p.symbol)));
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;

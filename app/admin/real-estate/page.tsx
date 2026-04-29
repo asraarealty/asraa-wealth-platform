@@ -28,7 +28,7 @@ export default function RealEstatePage() {
     getAdminPortfolio(ac.signal)
       .then((items) => {
         // Real estate items have symbols starting with "PROP-"
-        setProperties(items.filter((p) => p.symbol?.startsWith("PROP-")));
+        setProperties(items.filter((p) => p.symbol && p.symbol.startsWith("PROP-")));
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;

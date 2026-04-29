@@ -53,7 +53,7 @@ export default function NewPortfolioPage() {
       });
 
       router.push("/admin/portfolio");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setError(toErrorMessage(err));
     } finally {

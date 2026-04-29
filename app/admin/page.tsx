@@ -72,15 +72,15 @@ export default function AdminPage() {
 
   // 🔥 SPLIT ASSETS (FIXED)
   const stockItems = portfolio
-    .filter((p) => p.symbol && !p.symbol.startsWith("PROP-") && isNaN(Number(p.symbol)))
+    .filter((p) => p.symbol && !p.symbol.startsWith("PROP-") && !/^\d+$/.test(p.symbol))
     .slice(0, 5);
 
   const mutualFundItems = portfolio
-    .filter((p) => !isNaN(Number(p.symbol))) // numeric = MF code
+    .filter((p) => /^\d+$/.test(p.symbol)) // numeric-only = MF code
     .slice(0, 5);
 
   const realEstateItems = portfolio
-    .filter((p) => p.symbol?.startsWith("PROP-"))
+    .filter((p) => p.symbol && p.symbol.startsWith("PROP-"))
     .slice(0, 5);
 
   // 🔥 CHART DATA
