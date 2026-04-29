@@ -1,115 +1,96 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getAdminPortfolio } from "@/lib/services/portfolioService";
+import { toErrorMessage } from "@/lib/fetcher";
+import type { AdminPortfolioItem } from "@/lib/api";
+import Loader from "@/components/ui/Loader";
+import ErrorState from "@/components/ui/ErrorState";
+import EmptyState from "@/components/ui/EmptyState";
 
-interface Fund {
-  id: number;
-  name: string;
-  invested: number;
-  current: number;
+function fmt(n: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(n);
 }
 
 export default function MutualFundsPage() {
-  const [funds, setFunds] = useState<Fund[]>([]);
-  const [name, setName] = useState("");
-  const [invested, setInvested] = useState("");
-  const [current, setCurrent] = useState("");
+  const [funds, setFunds] = useState<AdminPortfolioItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  function addFund() {
-    if (!name || !invested || !current) return;
+  useEffect(() => {
+    const ac = new AbortController();
 
-    const newFund: Fund = {
-      id: Date.now(),
-      name,
-      invested: Number(invested),
-      current: Number(current),
-    };
+    getAdminPortfolio(ac.signal)
+      .then((items) => {
+        // Mutual funds have numeric symbols (e.g. AMFI codes)
+        setFunds(items.filter((p) => !isNaN(Number(p.symbol))));
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        console.error("[MutualFundsPage] Failed to load:", err);
+        setError(toErrorMessage(err));
+      })
+      .finally(() => setLoading(false));
 
-    setFunds((prev) => [...prev, newFund]);
+    return () => ac.abort();
+  }, []);
 
-    setName("");
-    setInvested("");
-    setCurrent("");
-  }
+  if (loading) return <Loader />;
+  if (error) return <ErrorState message={error} />;
+
+  const totalValue = funds.reduce((sum, f) => sum + (f.value ?? 0), 0);
 
   return (
-    <div className="p-6 text-white">
-      <h1 className="text-2xl font-bold mb-6">Mutual Funds</h1>
-
-      {/* Add Fund Form */}
-      <div className="bg-[#111] p-4 rounded-xl mb-6 space-y-3">
-        <input
-          placeholder="Fund Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full p-2 rounded bg-black/40"
-        />
-
-        <input
-          placeholder="Invested Amount"
-          type="number"
-          value={invested}
-          onChange={(e) => setInvested(e.target.value)}
-          className="w-full p-2 rounded bg-black/40"
-        />
-
-        <input
-          placeholder="Current Value"
-          type="number"
-          value={current}
-          onChange={(e) => setCurrent(e.target.value)}
-          className="w-full p-2 rounded bg-black/40"
-        />
-
-        <button
-          onClick={addFund}
-          className="bg-yellow-500 text-black px-4 py-2 rounded"
-        >
-          Add Fund
-        </button>
+    <div className="space-y-6 text-white">
+      {/* HEADER */}
+      <div>
+        <h1 className="text-2xl font-bold" style={{ color: "#c9a227" }}>
+          Mutual Funds
+        </h1>
+        <p className="text-sm text-gray-400 mt-1">
+          {funds.length} fund{funds.length !== 1 ? "s" : ""} ·{" "}
+          <span style={{ color: "#c9a227" }}>{fmt(totalValue)}</span> total value
+        </p>
       </div>
 
-      {/* Table */}
-      <div className="bg-[#111] rounded-xl overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-black/40">
-            <tr>
-              <th className="p-3">Fund</th>
-              <th className="p-3">Invested</th>
-              <th className="p-3">Current</th>
-              <th className="p-3">Profit</th>
-            </tr>
-          </thead>
-          <tbody>
-            {funds.length === 0 && (
-              <tr>
-                <td className="p-3 text-gray-400" colSpan={4}>
-                  No funds added yet
-                </td>
+      {funds.length === 0 ? (
+        <EmptyState
+          title="No mutual funds"
+          description="Add mutual fund positions to your portfolio to see them here."
+        />
+      ) : (
+        <div className="bg-gray-900 rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-800 text-gray-400 text-xs uppercase">
+                <th className="px-4 py-3 text-left">Fund</th>
+                <th className="px-4 py-3 text-left">Symbol</th>
+                <th className="px-4 py-3 text-right">Qty</th>
+                <th className="px-4 py-3 text-right">Avg Price</th>
+                <th className="px-4 py-3 text-right">Value</th>
               </tr>
-            )}
-
-            {funds.map((f) => {
-              const profit = f.current - f.invested;
-
-              return (
-                <tr key={f.id} className="border-t border-gray-800">
-                  <td className="p-3">{f.name}</td>
-                  <td className="p-3">₹{f.invested}</td>
-                  <td className="p-3">₹{f.current}</td>
-                  <td
-                    className={`p-3 ${
-                      profit >= 0 ? "text-green-400" : "text-red-400"
-                    }`}
-                  >
-                    ₹{profit}
+            </thead>
+            <tbody>
+              {funds.map((f) => (
+                <tr key={f.id} className="border-b border-gray-800 hover:bg-gray-800/40">
+                  <td className="px-4 py-3 text-white font-medium">{f.name}</td>
+                  <td className="px-4 py-3 text-gray-400">{f.symbol}</td>
+                  <td className="px-4 py-3 text-right text-gray-300">{f.quantity}</td>
+                  <td className="px-4 py-3 text-right text-gray-300">{fmt(f.avg_price)}</td>
+                  <td className="px-4 py-3 text-right font-semibold" style={{ color: "#c9a227" }}>
+                    {fmt(f.value)}
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

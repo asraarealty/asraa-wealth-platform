@@ -217,6 +217,24 @@ export interface AdminPortfolioItem {
   value: number;
 }
 
+export interface CreatePortfolioItemPayload {
+  symbol: string;
+  name: string;
+  quantity: number;
+  avg_price: number;
+}
+
+export function createPortfolioItem(
+  payload: CreatePortfolioItemPayload,
+  signal?: AbortSignal
+): Promise<AdminPortfolioItem> {
+  return fetcher<AdminPortfolioItem>("/portfolio", {
+    method: "POST",
+    body: payload,
+    signal,
+  });
+}
+
 export async function fetchAdminPortfolio(
   signal?: AbortSignal
 ): Promise<AdminPortfolioItem[]> {
