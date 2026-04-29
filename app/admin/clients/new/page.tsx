@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { fetcher, toErrorMessage } from "@/lib/fetcher";
 
 export default function NewClientPage() {
   const router = useRouter();
@@ -38,31 +39,15 @@ export default function NewClientPage() {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem("token");
+      await fetcher("/clients", {
+        method: "POST",
+        body: form,
+      });
 
-      const res = await fetch(
-        "https://api.asraarealty.in/clients",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(form),
-        }
-      );
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.detail || "Failed to create client");
-      }
-
-      // ✅ success → redirect
       router.push("/admin/clients");
-
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Something went wrong");
+      setError(toErrorMessage(err));
     } finally {
       setLoading(false);
     }
