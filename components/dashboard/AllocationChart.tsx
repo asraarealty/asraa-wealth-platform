@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { Portfolio } from "@/lib/api";
+import type { AssetsAllocation } from "@/lib/api";
 
 interface Slice {
   label: string;
@@ -19,7 +19,7 @@ const SLICE_COLORS = [
 ];
 
 interface Props {
-  positions: Portfolio[];
+  allocation?: AssetsAllocation;
 }
 
 function polarToCartesian(cx: number, cy: number, r: number, angle: number) {
@@ -30,7 +30,7 @@ function polarToCartesian(cx: number, cy: number, r: number, angle: number) {
   };
 }
 
-// Fallback slices shown only when no positions are loaded yet
+// Fallback slices shown only when no allocation data is available
 const FALLBACK_SLICES: Slice[] = [
   { label: "Equities", value: 45, color: SLICE_COLORS[0] },
   { label: "Bonds", value: 25, color: SLICE_COLORS[1] },
@@ -39,26 +39,19 @@ const FALLBACK_SLICES: Slice[] = [
   { label: "Alts", value: 5, color: SLICE_COLORS[4] },
 ];
 
-export default function AllocationChart({ positions }: Props) {
+export default function AllocationChart({ allocation }: Props) {
   const slices = useMemo<Slice[]>(() => {
-    if (!positions || positions.length === 0) return FALLBACK_SLICES;
+    if (!allocation) return FALLBACK_SLICES;
 
-    // Compute total from ALL positions so that individual percentages are
-    // correct relative to the whole portfolio, not just the top-5 slice.
-    const allTotal = positions.reduce((sum, p) => sum + p.value, 0) || 1;
+    const candidates: Slice[] = [
+      { label: "Stocks", value: allocation.stock ?? 0, color: SLICE_COLORS[0] },
+      { label: "Mutual Funds", value: allocation.mf ?? 0, color: SLICE_COLORS[1] },
+      { label: "Real Estate", value: allocation.real_estate ?? 0, color: SLICE_COLORS[2] },
+    ].filter((s) => s.value > 0);
 
-    const sorted = [...positions]
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
-
-    return sorted.map((pos, i) => ({
-      label: pos.symbol,
-      value: pos.allocation !== undefined
-        ? pos.allocation
-        : (pos.value / allTotal) * 100,
-      color: SLICE_COLORS[i % SLICE_COLORS.length],
-    }));
-  }, [positions]);
+    if (candidates.length === 0) return FALLBACK_SLICES;
+    return candidates;
+  }, [allocation]);
 
   const cx = 90;
   const cy = 90;

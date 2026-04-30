@@ -68,6 +68,7 @@ export async function fetcher<T>(
   try {
     response = await fetch(url, {
       ...rest,
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",

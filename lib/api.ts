@@ -77,7 +77,7 @@ export function searchStocks(
   signal?: AbortSignal
 ): Promise<StockQuote[]> {
   return fetcher<StockQuote[]>(
-    `/stocks?q=${encodeURIComponent(query)}`,
+    `/stocks/search?q=${encodeURIComponent(query)}`,
     { signal }
   );
 }
@@ -292,10 +292,29 @@ export type CreateAssetPayload = Omit<
 >;
 export type UpdateAssetPayload = Partial<CreateAssetPayload>;
 
+export interface AssetsSummary {
+  total_value: number;
+  total_invested: number;
+  total_return: number;
+  return_percentage: number;
+}
+
+export interface AssetsAllocation {
+  stock: number;
+  mf: number;
+  real_estate: number;
+}
+
+export interface AssetsResponse {
+  summary: AssetsSummary;
+  allocation: AssetsAllocation;
+  assets: Asset[];
+}
+
 export async function fetchAssets(
   clientId?: number,
   signal?: AbortSignal
-): Promise<Asset[]> {
+): Promise<AssetsResponse> {
   const path =
     clientId !== undefined
       ? `/assets/me?user_id=${encodeURIComponent(clientId)}`
@@ -303,16 +322,51 @@ export async function fetchAssets(
 
   const res = await fetcher<any>(path, { signal, raw: true });
 
-  const data: unknown = Array.isArray(res)
-    ? res
-    : res?.data ?? res?.assets ?? [];
-
-  if (!Array.isArray(data)) {
-    console.error("Assets data invalid:", data);
-    return [];
+  // Backend returns { summary, allocation, assets }
+  if (res && typeof res === "object" && "assets" in res) {
+    const assets: Asset[] = Array.isArray(res.assets) ? res.assets : [];
+    return {
+      summary: res.summary ?? {
+        total_value: 0,
+        total_invested: 0,
+        total_return: 0,
+        return_percentage: 0,
+      },
+      allocation: res.allocation ?? { stock: 0, mf: 0, real_estate: 0 },
+      assets,
+    };
   }
 
-  return data as Asset[];
+  // Fallback: handle legacy array response
+  const assets: Asset[] = Array.isArray(res)
+    ? res
+    : (res?.data ?? res?.positions ?? []);
+
+  const totalValue = assets.reduce(
+    (s, a) => s + (a.value ?? a.current_value ?? 0),
+    0
+  );
+  const totalInvested = assets.reduce((s, a) => {
+    const cost =
+      a.type === "real_estate"
+        ? (a.purchase_price ?? 0)
+        : (a.avg_price ?? 0) * (a.quantity ?? 1);
+    return s + cost;
+  }, 0);
+
+  return {
+    summary: {
+      total_value: totalValue,
+      total_invested: totalInvested,
+      total_return: totalValue - totalInvested,
+      return_percentage:
+        totalInvested > 0
+          ? ((totalValue - totalInvested) / totalInvested) * 100
+          : 0,
+    },
+    allocation: { stock: 0, mf: 0, real_estate: 0 },
+    assets,
+  };
 }
 
 export function createAsset(
@@ -358,17 +412,31 @@ export interface InsightItem {
   severity?: "low" | "medium" | "high";
 }
 
+export interface InsightsResponse {
+  equity_percentage: number;
+  real_estate_percentage: number;
+  alerts: string[];
+}
+
 export async function fetchInsights(
   signal?: AbortSignal
-): Promise<InsightItem[]> {
+): Promise<InsightsResponse> {
   const res = await fetcher<any>("/insights/me", { signal, raw: true });
 
-  const data: unknown = Array.isArray(res)
-    ? res
-    : res?.data ?? res?.insights ?? [];
+  if (res && typeof res === "object" && "alerts" in res) {
+    return {
+      equity_percentage: res.equity_percentage ?? 0,
+      real_estate_percentage: res.real_estate_percentage ?? 0,
+      alerts: Array.isArray(res.alerts) ? res.alerts : [],
+    };
+  }
 
-  if (!Array.isArray(data)) return [];
-  return data as InsightItem[];
+  // Fallback: if backend returns an array of InsightItem objects
+  if (Array.isArray(res)) {
+    return { equity_percentage: 0, real_estate_percentage: 0, alerts: [] };
+  }
+
+  return { equity_percentage: 0, real_estate_percentage: 0, alerts: [] };
 }
 
 /* ── Mutual Funds ───────────────────────────────────────────────────── */
