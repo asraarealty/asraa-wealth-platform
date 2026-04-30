@@ -415,7 +415,8 @@ export interface InsightItem {
 export interface InsightsResponse {
   equity_percentage: number;
   real_estate_percentage: number;
-  alerts: string[];
+  /** Backend may return plain strings or structured InsightItem objects */
+  alerts: (string | InsightItem)[];
 }
 
 export async function fetchInsights(
