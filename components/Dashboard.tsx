@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getPortfolioItems } from "@/lib/services/portfolioService";
-import { toErrorMessage, fetcher } from "@/lib/fetcher";
+import { toErrorMessage } from "@/lib/fetcher";
+import { createPortfolioItem } from "@/lib/api";
 import ClientSelector from "./ClientSelector";
 import StockSearch from "./StockSearch";
 import PortfolioGrowthChart from "./dashboard/PortfolioGrowthChart";
@@ -94,20 +95,62 @@ export default function Dashboard({
     await logout();
   }
 
+  function openStockModal() {
+    setForm({});
+    setShowStockModal(true);
+  }
+
+  function openMFModal() {
+    setForm({});
+    setShowMFModal(true);
+  }
+
+  function openPropertyModal() {
+    setForm({});
+    setShowPropertyModal(true);
+  }
+
   /* SAVE */
   async function handleSave(type: string) {
     try {
-      let endpoint = "";
-      if (type === "stock") endpoint = "/stocks";
-      if (type === "mf") endpoint = "/mutual-funds";
-      if (type === "property") endpoint = "/properties";
+      const clientOpts = isAdmin && selectedClient?.id ? { user_id: selectedClient.id } : {};
 
-      await fetcher(endpoint, {
-        method: "POST",
-        body: form,
-      });
+      if (type === "stock") {
+        const symbol = (form.symbol ?? "").trim().toUpperCase();
+        const name = (form.name ?? "").trim();
+        const quantity = Number(form.quantity);
+        const avg_price = Number(form.avg_price);
 
-      loadPortfolio(selectedClient?.id);
+        if (!symbol) { alert("Symbol is required"); return; }
+        if (!name) { alert("Name is required"); return; }
+        if (!Number.isFinite(quantity) || quantity <= 0) { alert("Valid quantity is required"); return; }
+        if (!Number.isFinite(avg_price) || avg_price <= 0) { alert("Valid average price is required"); return; }
+
+        await createPortfolioItem({ symbol, name, quantity, avg_price, ...clientOpts });
+      } else if (type === "mf") {
+        const symbol = (form.mf_code ?? "").trim().toUpperCase();
+        const name = (form.name ?? "").trim();
+        const quantity = Number(form.units);
+        const avg_price = Number(form.avg_price);
+
+        if (!symbol) { alert("MF Code is required"); return; }
+        if (!name) { alert("Name is required"); return; }
+        if (!Number.isFinite(quantity) || quantity <= 0) { alert("Valid units is required"); return; }
+        if (!Number.isFinite(avg_price) || avg_price <= 0) { alert("Valid NAV / price is required"); return; }
+
+        await createPortfolioItem({ symbol, name, quantity, avg_price, ...clientOpts });
+      } else if (type === "property") {
+        const symbol = (form.symbol ?? "PROP").trim().toUpperCase();
+        const name = (form.title ?? "").trim();
+        const avg_price = Number(form.value);
+
+        if (!name) { alert("Title is required"); return; }
+        if (!Number.isFinite(avg_price) || avg_price <= 0) { alert("Valid value is required"); return; }
+
+        await createPortfolioItem({ symbol, name, quantity: 1, avg_price, ...clientOpts });
+      }
+
+      await loadPortfolio(selectedClient?.id);
 
       setShowStockModal(false);
       setShowMFModal(false);
@@ -135,15 +178,15 @@ export default function Dashboard({
       {/* ACTIONS */}
       {user && (
         <div className="flex gap-3">
-          <button onClick={() => setShowStockModal(true)}
+          <button onClick={openStockModal}
             className="px-4 py-2 bg-yellow-500 text-black rounded">
             + Add Stock
           </button>
-          <button onClick={() => setShowMFModal(true)}
+          <button onClick={openMFModal}
             className="px-4 py-2 bg-yellow-500 text-black rounded">
             + Add Mutual Fund
           </button>
-          <button onClick={() => setShowPropertyModal(true)}
+          <button onClick={openPropertyModal}
             className="px-4 py-2 bg-yellow-500 text-black rounded">
             + Add Property
           </button>
@@ -197,12 +240,18 @@ export default function Dashboard({
 
       {showStockModal && (
         <Modal title="Add Stock" onClose={() => setShowStockModal(false)}>
-          <input placeholder="Symbol"
-            onChange={(e) => setForm({ ...form, ticker: e.target.value })} />
-          <input placeholder="Quantity"
-            onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} />
-          <input placeholder="Avg Price"
-            onChange={(e) => setForm({ ...form, avg_price: Number(e.target.value) })} />
+          <input placeholder="Symbol (e.g. AAPL)"
+            value={form.symbol ?? ""}
+            onChange={(e) => setForm({ ...form, symbol: e.target.value })} />
+          <input placeholder="Name (e.g. Apple Inc.)"
+            value={form.name ?? ""}
+            onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input placeholder="Quantity" type="number" min="0"
+            value={form.quantity ?? ""}
+            onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+          <input placeholder="Avg Price" type="number" min="0"
+            value={form.avg_price ?? ""}
+            onChange={(e) => setForm({ ...form, avg_price: e.target.value })} />
           <button onClick={() => handleSave("stock")}>Save</button>
         </Modal>
       )}
@@ -210,19 +259,32 @@ export default function Dashboard({
       {showMFModal && (
         <Modal title="Add Mutual Fund" onClose={() => setShowMFModal(false)}>
           <input placeholder="MF Code"
+            value={form.mf_code ?? ""}
             onChange={(e) => setForm({ ...form, mf_code: e.target.value })} />
-          <input placeholder="Units"
-            onChange={(e) => setForm({ ...form, units: Number(e.target.value) })} />
+          <input placeholder="Name (e.g. HDFC Top 100)"
+            value={form.name ?? ""}
+            onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input placeholder="Units" type="number" min="0"
+            value={form.units ?? ""}
+            onChange={(e) => setForm({ ...form, units: e.target.value })} />
+          <input placeholder="Avg NAV / Price" type="number" min="0"
+            value={form.avg_price ?? ""}
+            onChange={(e) => setForm({ ...form, avg_price: e.target.value })} />
           <button onClick={() => handleSave("mf")}>Save</button>
         </Modal>
       )}
 
       {showPropertyModal && (
         <Modal title="Add Property" onClose={() => setShowPropertyModal(false)}>
+          <input placeholder="Symbol / ID (e.g. PROP-001)"
+            value={form.symbol ?? ""}
+            onChange={(e) => setForm({ ...form, symbol: e.target.value })} />
           <input placeholder="Title"
+            value={form.title ?? ""}
             onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          <input placeholder="Value"
-            onChange={(e) => setForm({ ...form, value: Number(e.target.value) })} />
+          <input placeholder="Current Value" type="number" min="0"
+            value={form.value ?? ""}
+            onChange={(e) => setForm({ ...form, value: e.target.value })} />
           <button onClick={() => handleSave("property")}>Save</button>
         </Modal>
       )}
