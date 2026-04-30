@@ -324,7 +324,7 @@ export async function fetchAssets(
 ): Promise<AssetsResponse> {
   const path =
     clientId !== undefined
-      ? `/assets/me?user_id=${encodeURIComponent(clientId)}`
+      ? `/portfolio?user_id=${encodeURIComponent(clientId)}`
       : "/assets/me";
 
   const res = await fetcher<any>(path, { signal, raw: true });
