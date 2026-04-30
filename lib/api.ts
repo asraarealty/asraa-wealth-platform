@@ -222,6 +222,8 @@ export interface CreatePortfolioItemPayload {
   name: string;
   quantity: number;
   avg_price: number;
+  /** Admin only: assign the position to a specific client */
+  user_id?: number;
 }
 
 export function createPortfolioItem(
