@@ -54,8 +54,14 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     return selectedClient?.id ?? undefined;
   }, [isAdmin, clientId, selectedClient]);
 
-  const loadData = useCallback(async (id?: number) => {
-    setLoading(true);
+  /**
+   * Load assets (and insights) for the given client id.
+   * @param id       - client id (admin only; omit for self)
+   * @param silent   - when true, skip the loading-spinner so background polls
+   *                   don't cause a full page re-render
+   */
+  const loadData = useCallback(async (id?: number, silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const res = await fetchAssets(id);
@@ -68,13 +74,14 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
         setInsights(null);
       }
     } catch (err) {
-      setError(toErrorMessage(err));
+      // Don't overwrite data with an error on a silent background poll
+      if (!silent) setError(toErrorMessage(err));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  // Ref to track whether a refresh is already in progress, preventing overlapping requests
+  // Ref to track whether a background refresh is already in flight
   const refreshingRef = useRef(false);
 
   useEffect(() => {
@@ -82,16 +89,30 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     if (isAdmin && resolvedClientId === undefined) return;
     loadData(resolvedClientId);
 
-    // Auto-refresh live prices every 20 seconds, skip if a request is already in flight
-    const interval = setInterval(() => {
+    // Silent auto-refresh every 20 s; skip when the tab is hidden or a
+    // previous refresh hasn't finished yet.
+    function doRefresh() {
+      if (document.visibilityState === "hidden") return;
       if (refreshingRef.current) return;
       refreshingRef.current = true;
-      loadData(resolvedClientId).finally(() => {
+      loadData(resolvedClientId, true).finally(() => {
         refreshingRef.current = false;
       });
-    }, 20_000);
+    }
 
-    return () => clearInterval(interval);
+    const interval = setInterval(doRefresh, 20_000);
+
+    // When the user switches back to this tab, refresh immediately instead of
+    // waiting up to 20 s for the next scheduled tick.
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") doRefresh();
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [user, isAdmin, resolvedClientId, loadData]);
 
   const assets: Asset[] = data?.assets ?? [];

@@ -63,14 +63,25 @@ function alertsToInsights(
   const result: Insight[] = [];
 
   if (insights && insights.alerts && insights.alerts.length > 0) {
-    insights.alerts.slice(0, 5).forEach((text, i) => {
-      const type = classifyInsight(text);
-      result.push({
-        id: `alert-${i}`,
-        type,
-        title: text.length > 55 ? text.slice(0, 55) + "…" : text,
-        body: text,
-      });
+    insights.alerts.slice(0, 5).forEach((alert, i) => {
+      if (typeof alert === "string") {
+        // Plain-text alert from backend
+        const type = classifyInsight(alert);
+        result.push({
+          id: `alert-${i}`,
+          type,
+          title: alert.length > 55 ? alert.slice(0, 55) + "…" : alert,
+          body: alert,
+        });
+      } else {
+        // Structured InsightItem from backend
+        result.push({
+          id: String(alert.id ?? `alert-${i}`),
+          type: alert.type,
+          title: alert.title,
+          body: alert.body,
+        });
+      }
     });
   }
 
