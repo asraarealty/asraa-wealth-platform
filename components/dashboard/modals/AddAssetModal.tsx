@@ -7,7 +7,7 @@ import StockModal from "./StockModal";
 import MFModal from "./MFModal";
 import RealEstateModal from "./RealEstateModal";
 
-type TypeChoice = "stock" | "mutual_fund" | "real_estate";
+type TypeChoice = "stock" | "mf" | "property";
 
 interface TypeOption {
   id: TypeChoice;
@@ -28,7 +28,7 @@ const TYPES: TypeOption[] = [
     ),
   },
   {
-    id: "mutual_fund",
+    id: "mf",
     label: "Mutual Fund",
     description: "AMFI schemes & SIPs",
     icon: (
@@ -38,7 +38,7 @@ const TYPES: TypeOption[] = [
     ),
   },
   {
-    id: "real_estate",
+    id: "property",
     label: "Real Estate",
     description: "Properties & land",
     icon: (
@@ -71,10 +71,10 @@ export default function AddAssetModal({ onClose, onSave }: AddAssetModalProps) {
   if (type === "stock") {
     return <StockModal onClose={onClose} onSave={onSaveUnion} />;
   }
-  if (type === "mutual_fund") {
+  if (type === "mf") {
     return <MFModal onClose={onClose} onSave={onSaveUnion} />;
   }
-  if (type === "real_estate") {
+  if (type === "property") {
     return <RealEstateModal onClose={onClose} onSave={onSaveUnion} />;
   }
 

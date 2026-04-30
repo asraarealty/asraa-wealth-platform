@@ -33,7 +33,7 @@ export default function MutualFundsTab({
   const [editing, setEditing] = useState<Asset | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const mfs = assets.filter((a) => a.type === "mutual_fund");
+  const mfs = assets.filter((a) => a.type === "mf");
 
   async function handleSave(
     payload: CreateAssetPayload | UpdateAssetPayload

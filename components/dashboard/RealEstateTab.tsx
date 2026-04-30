@@ -62,7 +62,7 @@ export default function RealEstateTab({
   const [editing, setEditing] = useState<Asset | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const properties = assets.filter((a) => a.type === "real_estate");
+  const properties = assets.filter((a) => a.type === "property");
 
   async function handleSave(
     payload: CreateAssetPayload | UpdateAssetPayload

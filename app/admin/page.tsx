@@ -1,28 +1,37 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { getPortfolioIntelligence } from "@/lib/services/portfolioService";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import {
+  getAdminPortfolio,
+  groupAssetsByUserId,
+} from "@/lib/services/portfolioService";
 import { getAdminClients } from "@/lib/services/clientService";
+import {
+  createAsset,
+  updateAsset,
+  deleteAsset,
+  type AdminClient,
+  type Asset,
+  type AssetsAllocation,
+  type CreateAssetPayload,
+  type UpdateAssetPayload,
+  type Client,
+} from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
-import type { AdminClient } from "@/lib/api";
-import type { ClientIntelligence } from "@/components/admin/dashboard/intelligenceHelpers";
 import StatBox from "@/components/ui/StatBox";
 import Loader from "@/components/ui/Loader";
 import ErrorState from "@/components/ui/ErrorState";
 import PortfolioGrowthChart from "@/components/dashboard/PortfolioGrowthChart";
 import AllocationChart from "@/components/dashboard/AllocationChart";
-import AlertsPanel from "@/components/admin/dashboard/AlertsPanel";
-import ClientIntelligenceTable from "@/components/admin/dashboard/ClientIntelligenceTable";
-import RecommendationCard from "@/components/admin/dashboard/RecommendationCard";
-import {
-  deriveAlerts,
-  calcAverageReturn,
-} from "@/components/admin/dashboard/intelligenceHelpers";
+import ClientSelector from "@/components/ClientSelector";
+import AssetTabs from "@/components/dashboard/AssetTabs";
 
-function fmt(n: number) {
-  return new Intl.NumberFormat("en-US", {
+type Tab = "stocks" | "mutual_funds" | "real_estate";
+
+function fmtCurrency(n: number) {
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency: "USD",
+    currency: "INR",
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(n);
@@ -30,9 +39,23 @@ function fmt(n: number) {
 
 export default function AdminPage() {
   const [clients, setClients] = useState<AdminClient[]>([]);
-  const [intelligenceRows, setIntelligenceRows] = useState<ClientIntelligence[]>([]);
+  const [grouped, setGrouped] = useState<Record<number, Asset[]>>({});
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>("stocks");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const reloadGrouped = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const assets = await getAdminPortfolio(signal);
+      const g = groupAssetsByUserId(assets);
+      console.log("grouped portfolio:", g);
+      setGrouped(g);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      console.error("[AdminPage] reloadGrouped failed:", toErrorMessage(err));
+    }
+  }, []);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -40,19 +63,21 @@ export default function AdminPage() {
 
     Promise.allSettled([
       getAdminClients(signal),
-      getPortfolioIntelligence(signal),
+      getAdminPortfolio(signal),
     ])
-      .then(([clientsRes, intelligenceRes]) => {
+      .then(([clientsRes, portfolioRes]) => {
         if (clientsRes.status === "fulfilled") setClients(clientsRes.value);
-        if (intelligenceRes.status === "fulfilled") setIntelligenceRows(intelligenceRes.value);
+        if (portfolioRes.status === "fulfilled") {
+          const g = groupAssetsByUserId(portfolioRes.value);
+          console.log("grouped portfolio:", g);
+          setGrouped(g);
+        }
 
-        const allFailed = [clientsRes, intelligenceRes].every(
-          (r) => r.status === "rejected"
-        );
-        if (allFailed) {
-          const reason =
-            clientsRes.status === "rejected" ? clientsRes.reason : null;
-          setError(toErrorMessage(reason));
+        if (
+          clientsRes.status === "rejected" &&
+          portfolioRes.status === "rejected"
+        ) {
+          setError(toErrorMessage(clientsRes.reason));
         }
       })
       .finally(() => setLoading(false));
@@ -60,16 +85,52 @@ export default function AdminPage() {
     return () => ac.abort();
   }, []);
 
-  // Aggregate stats derived from real intelligence rows
-  const totalAUM = useMemo(
-    () => intelligenceRows.reduce((sum, r) => sum + r.portfolioValue, 0),
-    [intelligenceRows]
+  // All assets flattened for aggregate stats
+  const allAssets = useMemo(
+    () => Object.values(grouped).flat(),
+    [grouped]
   );
-  const activeClients = clients.filter((c) => c.is_active).length;
 
-  // Derived from real per-client intelligence
-  const alerts = useMemo(() => deriveAlerts(intelligenceRows), [intelligenceRows]);
-  const avgReturn = useMemo(() => calcAverageReturn(intelligenceRows), [intelligenceRows]);
+  const totalAUM = useMemo(
+    () => allAssets.reduce((s, a) => s + (a.value ?? a.current_value ?? 0), 0),
+    [allAssets]
+  );
+
+  const allocation = useMemo<AssetsAllocation | undefined>(() => {
+    if (totalAUM === 0) return undefined;
+    const pct = (type: Asset["type"]) => {
+      const val = allAssets
+        .filter((a) => a.type === type)
+        .reduce((s, a) => s + (a.value ?? a.current_value ?? 0), 0);
+      return parseFloat(((val / totalAUM) * 100).toFixed(1));
+    };
+    return {
+      stock: pct("stock"),
+      mf: pct("mf"),
+      real_estate: pct("property"),
+    };
+  }, [allAssets, totalAUM]);
+
+  const activeClients = clients.filter((c) => c.is_active).length;
+  const clientAssets: Asset[] = selectedClient
+    ? grouped[selectedClient.id] ?? []
+    : [];
+
+  async function handleAdd(payload: CreateAssetPayload) {
+    if (!selectedClient) return;
+    await createAsset({ ...payload, user_id: selectedClient.id });
+    await reloadGrouped();
+  }
+
+  async function handleEdit(id: number, payload: UpdateAssetPayload) {
+    await updateAsset(id, payload);
+    await reloadGrouped();
+  }
+
+  async function handleDelete(id: number) {
+    await deleteAsset(id);
+    await reloadGrouped();
+  }
 
   if (loading) return <Loader />;
   if (error) return <ErrorState message={error} />;
@@ -86,20 +147,13 @@ export default function AdminPage() {
       </div>
 
       {/* SUMMARY CARDS */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <StatBox
           label="Total AUM"
-          value={fmt(totalAUM)}
+          value={fmtCurrency(totalAUM)}
           subValue="Assets Under Management"
           trend="up"
-          trendLabel="+12.4%"
-        />
-        <StatBox
-          label="Avg Return"
-          value={`${avgReturn}%`}
-          subValue="Across all clients"
-          trend={avgReturn >= 8 ? "up" : avgReturn >= 5 ? "neutral" : "down"}
-          trendLabel={avgReturn >= 8 ? "Above target" : avgReturn >= 5 ? "On track" : "Below target"}
+          trendLabel="All clients"
         />
         <StatBox
           label="Total Clients"
@@ -107,10 +161,9 @@ export default function AdminPage() {
           subValue={`${activeClients} active`}
         />
         <StatBox
-          label="Active Alerts"
-          value={alerts.length}
-          subValue={alerts.length === 0 ? "All portfolios healthy" : "Requires attention"}
-          trend={alerts.length === 0 ? "up" : alerts.length <= 2 ? "neutral" : "down"}
+          label="Total Holdings"
+          value={allAssets.length}
+          subValue="Across all clients"
         />
       </div>
 
@@ -119,31 +172,70 @@ export default function AdminPage() {
         <SectionHeading title="Portfolio Overview" />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <PortfolioGrowthChart totalValue={totalAUM} gainPercent={avgReturn} />
+            <PortfolioGrowthChart totalValue={totalAUM} gainPercent={0} />
           </div>
           <div>
-            <AllocationChart />
+            <AllocationChart allocation={allocation} />
           </div>
         </div>
       </section>
 
-      {/* CLIENT INTELLIGENCE TABLE */}
+      {/* CLIENT PORTFOLIO SECTION */}
       <section>
-        <SectionHeading title="Client Intelligence" link="/admin/clients" linkLabel="View all clients →" />
-        <ClientIntelligenceTable rows={intelligenceRows} />
-      </section>
+        <SectionHeading
+          title="Client Portfolio"
+          link="/admin/portfolio"
+          linkLabel="Full portfolio manager →"
+        />
 
-      {/* ALERTS + RECOMMENDATIONS */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <section>
-          <SectionHeading title="Alerts" />
-          <AlertsPanel alerts={alerts} />
-        </section>
-        <section>
-          <SectionHeading title="Recommendations" />
-          <RecommendationCard rows={intelligenceRows.slice(0, 5)} />
-        </section>
-      </div>
+        {/* Client selector */}
+        <div className="glass-card rounded-2xl p-5 mb-4">
+          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#c9a227" }}>
+            Select Client
+          </p>
+          <ClientSelector
+            selectedId={selectedClient?.id ?? null}
+            onChange={(client) => {
+              setSelectedClient(client);
+              setActiveTab("stocks");
+            }}
+          />
+        </div>
+
+        {/* Holdings */}
+        {!selectedClient && (
+          <div
+            className="glass-card rounded-2xl p-10 text-center"
+            style={{ border: "1px solid rgba(201,162,39,0.15)" }}
+          >
+            <p className="text-gray-400 text-sm">
+              Select a client above to view their holdings.
+            </p>
+          </div>
+        )}
+
+        {selectedClient && clientAssets.length === 0 && (
+          <div
+            className="glass-card rounded-2xl p-10 text-center"
+            style={{ border: "1px solid rgba(201,162,39,0.15)" }}
+          >
+            <p className="text-gray-400 text-sm">
+              No assets found for <span className="text-white font-medium">{selectedClient.name}</span>.
+            </p>
+          </div>
+        )}
+
+        {selectedClient && clientAssets.length > 0 && (
+          <AssetTabs
+            assets={clientAssets}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            onAdd={handleAdd}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+          />
+        )}
+      </section>
 
     </div>
   );
@@ -171,3 +263,4 @@ function SectionHeading({
     </div>
   );
 }
+

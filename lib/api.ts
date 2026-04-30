@@ -78,7 +78,7 @@ export function searchStocks(
 ): Promise<StockQuote[]> {
   return fetcher<StockQuote[]>(
     `/stocks/search?q=${encodeURIComponent(query)}`,
-    { signal }
+    { signal, noRedirectOn401: true }
   );
 }
 
@@ -266,7 +266,7 @@ export async function fetchAdminPortfolio(
 
 /* ── Assets ─────────────────────────────────────────────────────────── */
 
-export type AssetType = "stock" | "mutual_fund" | "real_estate";
+export type AssetType = "stock" | "mf" | "property";
 
 export interface Asset {
   id: number;
@@ -361,7 +361,7 @@ export async function fetchAssets(
   );
   const totalInvested = assets.reduce((s, a) => {
     const cost =
-      a.type === "real_estate"
+      a.type === "property"
         ? (a.purchase_price ?? 0)
         : (a.avg_price ?? 0) * (a.quantity ?? 1);
     return s + cost;

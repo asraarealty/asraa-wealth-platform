@@ -78,7 +78,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
     setSaving(true);
     try {
       await onSave({
-        type: "mutual_fund",
+        type: "mf",
         symbol: symbol || undefined,
         name,
         quantity,
