@@ -5,7 +5,7 @@ import { getAdminPortfolio } from "@/lib/services/portfolioService";
 import { getPortfolioIntelligence } from "@/lib/services/portfolioService";
 import { getAdminClients } from "@/lib/services/clientService";
 import { toErrorMessage } from "@/lib/fetcher";
-import type { AdminPortfolioItem, AdminClient, Portfolio } from "@/lib/api";
+import type { AdminPortfolioItem, AdminClient } from "@/lib/api";
 import type { ClientIntelligence } from "@/components/admin/dashboard/intelligenceHelpers";
 import StatBox from "@/components/ui/StatBox";
 import Loader from "@/components/ui/Loader";
@@ -71,17 +71,6 @@ export default function AdminPage() {
   );
   const activeClients = clients.filter((c) => c.is_active).length;
 
-  // Chart data — uses the global portfolio fetch (for layout continuity)
-  const portfolioForChart: Portfolio[] = portfolio.map((p) => ({
-    id: p.id,
-    symbol: p.symbol,
-    name: p.name,
-    quantity: p.quantity,
-    avg_price: p.avg_price,
-    current_price: p.current_price,
-    value: p.value,
-  }));
-
   // Derived from real per-client intelligence
   const alerts = useMemo(() => deriveAlerts(intelligenceRows), [intelligenceRows]);
   const avgReturn = useMemo(() => calcAverageReturn(intelligenceRows), [intelligenceRows]);
@@ -137,7 +126,7 @@ export default function AdminPage() {
             <PortfolioGrowthChart totalValue={totalAUM} gainPercent={avgReturn} />
           </div>
           <div>
-            <AllocationChart positions={portfolioForChart} />
+            <AllocationChart />
           </div>
         </div>
       </section>
