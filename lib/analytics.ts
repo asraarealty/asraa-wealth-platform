@@ -178,7 +178,14 @@ export interface Recommendation {
   priority: "low" | "medium" | "high";
 }
 
-const BENCHMARK_RETURN_PCT = 8;
+// ── Constants ────────────────────────────────────────────────────────────────
+
+/**
+ * Annualised benchmark return used for recommendations and alert thresholds.
+ * 8 % represents a reasonable long-term equity-balanced portfolio return.
+ * Adjust here if the target benchmark changes (e.g. for different markets).
+ */
+export const BENCHMARK_RETURN_PCT = 8;
 
 /**
  * Generate structured, actionable recommendations based on allocation and

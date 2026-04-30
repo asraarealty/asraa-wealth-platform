@@ -52,10 +52,6 @@ export async function getStockPrice(
     return price;
   } catch (err) {
     console.error(`[marketData] getStockPrice(${symbol}) failed:`, err);
-    if (fallback > 0) {
-      // Cache the fallback briefly so we don't spam the API on every request
-      priceCache.set(symbol, { price: fallback, timestamp: Date.now() });
-    }
     return fallback;
   }
 }

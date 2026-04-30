@@ -91,6 +91,17 @@ function toSuggestedAction(
   return "Hold";
 }
 
+/** Parse a backend portfolio response into a flat array of items. */
+function parsePortfolioResponse(raw: unknown): BackendPortfolioItem[] {
+  if (Array.isArray(raw)) return raw as BackendPortfolioItem[];
+  if (raw !== null && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    if (Array.isArray(obj.data)) return obj.data as BackendPortfolioItem[];
+    if (Array.isArray(obj.positions)) return obj.positions as BackendPortfolioItem[];
+  }
+  return [];
+}
+
 // ── Route Handler ─────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -113,10 +124,7 @@ export async function GET(request: NextRequest) {
           `/portfolio?user_id=${client.id}`,
           authHeader
         );
-        const items: BackendPortfolioItem[] = Array.isArray(raw)
-          ? (raw as BackendPortfolioItem[])
-          : ((raw as Record<string, unknown>)?.positions as BackendPortfolioItem[]) ??
-            [];
+        const items = parsePortfolioResponse(raw);
         return { clientId: client.id, items };
       })
     );
