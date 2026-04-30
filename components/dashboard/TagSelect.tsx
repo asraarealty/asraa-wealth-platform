@@ -2,6 +2,9 @@
 
 import { useState, useRef, type KeyboardEvent } from "react";
 
+/** Delay in ms before hiding suggestions on blur — prevents dropdown closing before click fires */
+const BLUR_HIDE_DELAY_MS = 150;
+
 const PRESET_TAGS = [
   "Long Term",
   "Short Term",
@@ -104,7 +107,7 @@ export default function TagSelect({
           }}
           onKeyDown={handleKeyDown}
           onFocus={() => setShowSuggestions(true)}
-          onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+          onBlur={() => setTimeout(() => setShowSuggestions(false), BLUR_HIDE_DELAY_MS)}
           placeholder={value.length === 0 ? placeholder : ""}
           className="flex-1 min-w-[80px] bg-transparent text-sm text-white placeholder-white/30 focus:outline-none"
         />

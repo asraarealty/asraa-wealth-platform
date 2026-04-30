@@ -13,6 +13,11 @@ interface Rec {
   icon: React.ReactNode;
 }
 
+/** Allocation thresholds that drive portfolio recommendations */
+const MAX_EQUITY_ALLOCATION_PCT = 60;
+const MIN_MF_ALLOCATION_PCT = 20;
+const MIN_RE_ALLOCATION_PCT = 10;
+
 function buildRecs(assets: Asset[]): Rec[] {
   if (assets.length === 0) return [];
 
@@ -34,7 +39,7 @@ function buildRecs(assets: Asset[]): Rec[] {
   const mfPct = (mfVal / total) * 100;
   const rePct = (reVal / total) * 100;
 
-  if (stockPct > 60)
+  if (stockPct > MAX_EQUITY_ALLOCATION_PCT)
     recs.push({
       id: "reduce-equity",
       label: "Reduce equity exposure — portfolio is overweight stocks",
@@ -46,7 +51,7 @@ function buildRecs(assets: Asset[]): Rec[] {
       ),
     });
 
-  if (mfPct < 20)
+  if (mfPct < MIN_MF_ALLOCATION_PCT)
     recs.push({
       id: "add-mf",
       label: "Add mutual funds for diversification and lower volatility",
@@ -58,7 +63,7 @@ function buildRecs(assets: Asset[]): Rec[] {
       ),
     });
 
-  if (rePct < 10)
+  if (rePct < MIN_RE_ALLOCATION_PCT)
     recs.push({
       id: "invest-re",
       label: "Consider real estate for stable income and inflation hedge",

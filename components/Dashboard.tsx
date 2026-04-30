@@ -27,7 +27,8 @@ import type { DashboardAlert } from "./admin/dashboard/AlertsPanel";
 
 type Tab = "stocks" | "mutual_funds" | "real_estate";
 
-/* ── helpers ──────────────────────────────────────────────────────── */
+/** Assumed annual dividend yield for estimating monthly stock income (0.5% per month) */
+const ASSUMED_MONTHLY_DIVIDEND_YIELD = 0.005;
 
 function fmtCurrency(n: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -133,7 +134,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       .reduce((s, a) => s + (a.rent_amount ?? 0), 0);
     const stockIncome = assets
       .filter((a) => a.type === "stock")
-      .reduce((s, a) => s + (a.value ?? 0) * 0.005, 0);
+      .reduce((s, a) => s + (a.value ?? 0) * ASSUMED_MONTHLY_DIVIDEND_YIELD, 0);
     const riskScore = computeRiskScore(assets);
 
     const portfolioPositions = assets.map((a) => ({

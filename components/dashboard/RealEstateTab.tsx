@@ -33,6 +33,7 @@ function getRentStatus(
   due.setHours(0, 0, 0, 0);
 
   if (due < now)
+    // Due date is in the past (strictly before today) → rent is late
     return {
       label: "Late",
       color: "#f87171",

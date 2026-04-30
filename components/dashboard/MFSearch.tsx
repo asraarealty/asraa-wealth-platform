@@ -4,6 +4,9 @@ import { useState, useEffect, useRef, type KeyboardEvent } from "react";
 import { searchMutualFunds, type MutualFundResult } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
 
+/** Debounce delay in ms — prevents excessive API calls while user is typing */
+const SEARCH_DEBOUNCE_MS = 350;
+
 interface MFSearchProps {
   onSelect?: (mf: MutualFundResult) => void;
   initialValue?: string;
@@ -47,7 +50,7 @@ export default function MFSearch({ onSelect, initialValue = "" }: MFSearchProps)
           setError(toErrorMessage(err));
         })
         .finally(() => setLoading(false));
-    }, 350);
+    }, SEARCH_DEBOUNCE_MS);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
