@@ -340,7 +340,7 @@ export async function fetchAssets(
   // Fallback: handle legacy array response
   const assets: Asset[] = Array.isArray(res)
     ? res
-    : (res?.data ?? res?.positions ?? []);
+    : (res?.data ?? res?.assets ?? []);
 
   const totalValue = assets.reduce(
     (s, a) => s + (a.value ?? a.current_value ?? 0),

@@ -210,20 +210,29 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       {loading && <Loader />}
       {!loading && error && <ErrorState message={error} />}
 
-      {/* Empty state */}
-      {!loading && !error && (isAdmin ? resolvedClientId !== undefined : true) && assets.length === 0 && data !== null && (
-        <div
-          className="glass-card rounded-2xl p-10 text-center"
-          style={{ border: "1px solid rgba(201,162,39,0.15)" }}
-        >
-          <p className="text-gray-400 text-sm">
-            No assets yet. Add your first investment.
-          </p>
-        </div>
-      )}
+      {/* Shared guard: data is loaded, no error, and (if admin) a client is selected */}
+      {(() => {
+        const clientReady = isAdmin ? resolvedClientId !== undefined : true;
+        const dataReady = !loading && !error && data !== null && clientReady;
+        const shouldShowEmptyState = dataReady && assets.length === 0;
+        const shouldShowContent = dataReady && assets.length > 0;
 
-      {/* Main content */}
-      {!loading && !error && (isAdmin ? resolvedClientId !== undefined : true) && (data !== null) && (
+        return (
+          <>
+            {/* Empty state */}
+            {shouldShowEmptyState && (
+              <div
+                className="glass-card rounded-2xl p-10 text-center"
+                style={{ border: "1px solid rgba(201,162,39,0.15)" }}
+              >
+                <p className="text-gray-400 text-sm">
+                  No assets yet. Add your first investment.
+                </p>
+              </div>
+            )}
+
+            {/* Main content */}
+            {shouldShowContent && (
         <>
           {/* KPI Row */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -320,6 +329,9 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
           />
         </>
       )}
+    </>
+  );
+})()}
 
       {/* Admin: no client selected */}
       {!loading && !error && isAdmin && resolvedClientId === undefined && (
