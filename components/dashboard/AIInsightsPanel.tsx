@@ -1,45 +1,19 @@
 "use client";
 
+import type { InsightsResponse } from "@/lib/api";
+
 interface Insight {
-  id: number;
+  id: string;
   type: "opportunity" | "risk" | "rebalance" | "trend";
   title: string;
   body: string;
 }
 
-const INSIGHTS: Insight[] = [
-  {
-    id: 1,
-    type: "opportunity",
-    title: "Diversification opportunity",
-    body: "Client portfolio is 68% concentrated in tech. Consider rebalancing into defensive sectors for volatility protection.",
-  },
-  {
-    id: 2,
-    type: "trend",
-    title: "Positive momentum",
-    body: "Holdings gained +4.2% over the past 30 days, outperforming the S&P 500 by 1.8 percentage points.",
-  },
-  {
-    id: 3,
-    type: "risk",
-    title: "Interest rate sensitivity",
-    body: "Fixed-income allocation may face headwinds as markets price in two additional rate cuts. Review duration exposure.",
-  },
-  {
-    id: 4,
-    type: "rebalance",
-    title: "Rebalancing recommended",
-    body: "Target allocation drift detected. Portfolio is 12% overweight equities vs. the agreed investment policy statement.",
-  },
-];
-
 const TYPE_STYLES: Record<
   Insight["type"],
-  { dot: string; badge: string; icon: React.ReactNode }
+  { badge: string; icon: React.ReactNode }
 > = {
   opportunity: {
-    dot: "bg-emerald-400",
     badge: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
     icon: (
       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -48,7 +22,6 @@ const TYPE_STYLES: Record<
     ),
   },
   trend: {
-    dot: "bg-sky-400",
     badge: "bg-sky-500/10 text-sky-400 border-sky-500/20",
     icon: (
       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -57,7 +30,6 @@ const TYPE_STYLES: Record<
     ),
   },
   risk: {
-    dot: "bg-amber-400",
     badge: "bg-amber-500/10 text-amber-400 border-amber-500/20",
     icon: (
       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -66,7 +38,6 @@ const TYPE_STYLES: Record<
     ),
   },
   rebalance: {
-    dot: "bg-gold",
     badge: "bg-gold/10 text-gold-light border-gold/20",
     icon: (
       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -76,7 +47,73 @@ const TYPE_STYLES: Record<
   },
 };
 
-export default function AIInsightsPanel() {
+function classifyInsight(text: string): Insight["type"] {
+  const t = text.toLowerCase();
+  if (t.includes("opportunit") || t.includes("growth") || t.includes("gain")) return "opportunity";
+  if (t.includes("risk") || t.includes("overexposed") || t.includes("loss") || t.includes("delayed")) return "risk";
+  if (t.includes("rebalanc") || t.includes("adjust") || t.includes("consider")) return "rebalance";
+  return "trend";
+}
+
+function alertsToInsights(
+  insights: InsightsResponse | null,
+  equityPct: number,
+  rePct: number
+): Insight[] {
+  const result: Insight[] = [];
+
+  if (insights && insights.alerts && insights.alerts.length > 0) {
+    insights.alerts.slice(0, 5).forEach((text, i) => {
+      const type = classifyInsight(text);
+      result.push({
+        id: `alert-${i}`,
+        type,
+        title: text.length > 55 ? text.slice(0, 55) + "…" : text,
+        body: text,
+      });
+    });
+  }
+
+  // Append allocation-based insights if we have room
+  if (result.length < 3) {
+    if (equityPct > 65) {
+      result.push({
+        id: "equity-overweight",
+        type: "risk",
+        title: "High equity concentration",
+        body: `Portfolio is ${equityPct.toFixed(0)}% in equities. Consider diversifying into debt or real estate for stability.`,
+      });
+    }
+    if (rePct < 10 && result.length < 4) {
+      result.push({
+        id: "re-underweight",
+        type: "rebalance",
+        title: "Low real-estate allocation",
+        body: "Adding real estate can provide inflation hedging and steady rental income to balance the portfolio.",
+      });
+    }
+    if (equityPct <= 65 && rePct >= 10 && result.length === 0) {
+      result.push({
+        id: "balanced",
+        type: "opportunity",
+        title: "Portfolio is well-diversified",
+        body: "Asset allocation across equities, funds and real estate looks healthy. Continue monitoring for drift.",
+      });
+    }
+  }
+
+  return result;
+}
+
+interface AIInsightsPanelProps {
+  insights?: InsightsResponse | null;
+}
+
+export default function AIInsightsPanel({ insights }: AIInsightsPanelProps) {
+  const equityPct = insights?.equity_percentage ?? 0;
+  const rePct = insights?.real_estate_percentage ?? 0;
+  const items = alertsToInsights(insights ?? null, equityPct, rePct);
+
   return (
     <div className="glass-card card-hover rounded-2xl p-5">
       <div className="flex items-center gap-2.5 mb-5">
@@ -105,25 +142,31 @@ export default function AIInsightsPanel() {
           <p className="text-sm font-semibold text-white">AI Insights</p>
           <p className="text-xs text-gray-400">Powered by Asraa Intelligence</p>
         </div>
-        <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-gold/10 text-gold-light border border-gold/20">
-          Mock
-        </span>
+        {!insights && (
+          <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-gold/10 text-gold-light border border-gold/20">
+            Live
+          </span>
+        )}
       </div>
 
-      <ul className="space-y-3">
-        {INSIGHTS.map((insight) => {
-          const style = TYPE_STYLES[insight.type];
-          return (
-            <li
-              key={insight.id}
-              className="rounded-xl p-3.5 transition-all"
-              style={{
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.06)",
-              }}
-            >
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5">
+      {items.length === 0 ? (
+        <p className="text-sm text-gray-500 text-center py-8">
+          Add assets to unlock portfolio insights.
+        </p>
+      ) : (
+        <ul className="space-y-3">
+          {items.map((insight) => {
+            const style = TYPE_STYLES[insight.type];
+            return (
+              <li
+                key={insight.id}
+                className="rounded-xl p-3.5 transition-all"
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                }}
+              >
+                <div>
                   <span
                     className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${style.badge}`}
                   >
@@ -131,17 +174,17 @@ export default function AIInsightsPanel() {
                     {insight.type.charAt(0).toUpperCase() + insight.type.slice(1)}
                   </span>
                 </div>
-              </div>
-              <p className="text-sm font-medium text-white mt-2">
-                {insight.title}
-              </p>
-              <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-                {insight.body}
-              </p>
-            </li>
-          );
-        })}
-      </ul>
+                <p className="text-sm font-medium text-white mt-2">
+                  {insight.title}
+                </p>
+                <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                  {insight.body}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

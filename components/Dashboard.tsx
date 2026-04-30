@@ -18,13 +18,12 @@ import { toErrorMessage } from "@/lib/fetcher";
 import ClientSelector from "./ClientSelector";
 import PortfolioGrowthChart from "./dashboard/PortfolioGrowthChart";
 import AllocationChart from "./dashboard/AllocationChart";
-import AlertsPanel from "./admin/dashboard/AlertsPanel";
+import AIInsightsPanel from "./dashboard/AIInsightsPanel";
 import ClientRecommendations from "./dashboard/ClientRecommendations";
 import AssetTabs from "./dashboard/AssetTabs";
 import StatBox from "./ui/StatBox";
 import Loader from "./ui/Loader";
 import ErrorState from "./ui/ErrorState";
-import type { DashboardAlert } from "./admin/dashboard/AlertsPanel";
 
 type Tab = "stocks" | "mutual_funds" | "real_estate";
 
@@ -34,36 +33,6 @@ function fmtCurrency(n: number) {
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(n);
-}
-
-/**
- * Map a raw alert string from /insights/me to a severity level.
- * Risk keywords → high (red)
- * Rebalance / low / delayed → medium (yellow)
- * Opportunity → low (green/blue)
- */
-function alertSeverity(text: string): "high" | "medium" | "low" {
-  const t = text.toLowerCase();
-  if (
-    t.includes("overexposed") ||
-    t.includes("risk") ||
-    t.includes("delayed") ||
-    t.includes("loss")
-  )
-    return "high";
-  if (t.includes("rebalance") || t.includes("low") || t.includes("consider"))
-    return "medium";
-  return "low";
-}
-
-function insightsToAlerts(insights: InsightsResponse | null): DashboardAlert[] {
-  if (!insights || !insights.alerts || insights.alerts.length === 0) return [];
-  return insights.alerts.slice(0, 5).map((text, i) => ({
-    id: String(i),
-    title: text.length > 60 ? text.slice(0, 60) + "…" : text,
-    description: text,
-    severity: alertSeverity(text),
-  }));
 }
 
 /* ── component ────────────────────────────────────────────────────── */
@@ -109,6 +78,13 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     if (!user) return;
     if (isAdmin && resolvedClientId === undefined) return;
     loadData(resolvedClientId);
+
+    // Auto-refresh live prices every 20 seconds
+    const interval = setInterval(() => {
+      loadData(resolvedClientId);
+    }, 20_000);
+
+    return () => clearInterval(interval);
   }, [user, isAdmin, resolvedClientId, loadData]);
 
   const assets: Asset[] = data?.assets ?? [];
@@ -133,8 +109,6 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     await deleteAsset(id);
     loadData(resolvedClientId);
   }
-
-  const alerts = useMemo(() => insightsToAlerts(insights), [insights]);
 
   const returnPct = summary?.return_percentage ?? 0;
 
@@ -296,25 +270,9 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
             <AllocationChart allocation={allocation} />
           </div>
 
-          {/* Alerts + Recommendations */}
+          {/* AI Insights + Recommendations */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <AlertsPanel
-              alerts={
-                alerts.length > 0
-                  ? alerts
-                  : assets.length > 0
-                  ? []
-                  : [
-                      {
-                        id: "welcome",
-                        title: "Get started",
-                        description:
-                          "Add your first asset using the tabs below to unlock portfolio alerts.",
-                        severity: "low",
-                      },
-                    ]
-              }
-            />
+            <AIInsightsPanel insights={insights} />
             <ClientRecommendations assets={assets} />
           </div>
 
