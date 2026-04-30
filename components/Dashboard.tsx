@@ -2,306 +2,371 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getPortfolioItems } from "@/lib/services/portfolioService";
+import {
+  fetchAssets,
+  createAsset,
+  updateAsset,
+  deleteAsset,
+  fetchInsights,
+  type Asset,
+  type CreateAssetPayload,
+  type UpdateAssetPayload,
+  type InsightItem,
+} from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
-import { createPortfolioItem } from "@/lib/api";
 import ClientSelector from "./ClientSelector";
-import StockSearch from "./StockSearch";
 import PortfolioGrowthChart from "./dashboard/PortfolioGrowthChart";
 import AllocationChart from "./dashboard/AllocationChart";
-import AIInsightsPanel from "./dashboard/AIInsightsPanel";
+import AlertsPanel from "./admin/dashboard/AlertsPanel";
+import ClientRecommendations from "./dashboard/ClientRecommendations";
+import AssetTabs from "./dashboard/AssetTabs";
+import StatBox from "./ui/StatBox";
+import Loader from "./ui/Loader";
+import ErrorState from "./ui/ErrorState";
+import type { DashboardAlert } from "./admin/dashboard/AlertsPanel";
 
-/* TYPES */
-type Client = any;
-type Portfolio = any;
-type StockQuote = any;
+type Tab = "stocks" | "mutual_funds" | "real_estate";
 
-export default function Dashboard({
-  clientId,
-}: {
-  clientId?: string;
-}) {
+/** Assumed annual dividend yield for estimating monthly stock income (0.5% per month) */
+const ASSUMED_MONTHLY_DIVIDEND_YIELD = 0.005;
+
+function fmtCurrency(n: number) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
+function computeRiskScore(assets: Asset[]): number {
+  if (assets.length === 0) return 0;
+  const total = assets.reduce(
+    (s, a) => s + (a.value ?? a.current_value ?? 0),
+    0
+  );
+  if (total === 0) return 0;
+  const equityVal = assets
+    .filter((a) => a.type === "stock")
+    .reduce((s, a) => s + (a.value ?? 0), 0);
+  const equityPct = (equityVal / total) * 100;
+  return Math.min(10, Math.max(1, Math.round(2 + (equityPct / 100) * 7)));
+}
+
+function insightsToAlerts(insights: InsightItem[]): DashboardAlert[] {
+  return insights
+    .filter((i) => i.type === "risk" || i.severity)
+    .slice(0, 5)
+    .map((i) => ({
+      id: String(i.id),
+      title: i.title,
+      description: i.body,
+      severity: (i.severity ?? (i.type === "risk" ? "high" : "medium")) as
+        | "low"
+        | "medium"
+        | "high",
+    }));
+}
+
+/* ── component ────────────────────────────────────────────────────── */
+
+export default function Dashboard({ clientId }: { clientId?: string }) {
   const { logout, user } = useAuth();
-
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [portfolio, setPortfolio] = useState<Portfolio[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedStock, setSelectedStock] = useState<StockQuote | null>(null);
-
-  // 🔥 modal states
-  const [showStockModal, setShowStockModal] = useState(false);
-  const [showMFModal, setShowMFModal] = useState(false);
-  const [showPropertyModal, setShowPropertyModal] = useState(false);
-
-  const [form, setForm] = useState<any>({});
-
   const isAdmin = String(user?.role).toLowerCase() === "admin";
 
-  /* KPI */
-  const kpis = useMemo(() => {
-    const totalValue = portfolio.reduce((s, p) => s + p.value, 0);
-    const totalCost = portfolio.reduce(
-      (s, p) => s + p.avg_price * p.quantity,
-      0
-    );
-    const gainPercent =
-      totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
+  const [selectedClient, setSelectedClient] = useState<any | null>(null);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [insights, setInsights] = useState<InsightItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>("stocks");
 
-    return {
-      totalValue,
-      totalCost,
-      gainPercent,
-      positionCount: portfolio.length,
-    };
-  }, [portfolio]);
+  const resolvedClientId = useMemo<number | undefined>(() => {
+    if (!isAdmin) return undefined;
+    if (clientId) return Number(clientId);
+    return selectedClient?.id ?? undefined;
+  }, [isAdmin, clientId, selectedClient]);
 
-  /* LOAD PORTFOLIO */
-  const loadPortfolio = useCallback(
-    async (id?: number) => {
-      setLoading(true);
-      setError(null);
+  const loadAssets = useCallback(async (id?: number) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchAssets(id);
+      setAssets(data);
+    } catch (err) {
+      setError(toErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-      try {
-        const { items } = await getPortfolioItems(
-          isAdmin ? id : undefined
-        );
-        setPortfolio(items || []);
-      } catch (err) {
-        setError(toErrorMessage(err));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [isAdmin]
-  );
+  const loadInsights = useCallback(async () => {
+    try {
+      const data = await fetchInsights();
+      setInsights(data);
+    } catch {
+      // non-critical
+    }
+  }, []);
 
-  /* MAIN LOGIC */
   useEffect(() => {
     if (!user) return;
+    if (isAdmin && resolvedClientId === undefined) return;
+    loadAssets(resolvedClientId);
+    loadInsights();
+  }, [user, isAdmin, resolvedClientId, loadAssets, loadInsights]);
 
-    if (isAdmin) {
-      const id = clientId
-        ? Number(clientId)
-        : selectedClient?.id;
+  const kpis = useMemo(() => {
+    const netWorth = assets.reduce(
+      (s, a) => s + (a.value ?? a.current_value ?? 0),
+      0
+    );
+    const totalCost = assets.reduce((s, a) => {
+      const cost =
+        a.type === "real_estate"
+          ? (a.purchase_price ?? 0)
+          : (a.avg_price ?? 0) * (a.quantity ?? 1);
+      return s + cost;
+    }, 0);
+    const returnPct =
+      totalCost > 0 ? ((netWorth - totalCost) / totalCost) * 100 : 0;
+    const monthlyIncome = assets
+      .filter((a) => a.type === "real_estate")
+      .reduce((s, a) => s + (a.rent_amount ?? 0), 0);
+    const stockIncome = assets
+      .filter((a) => a.type === "stock")
+      .reduce((s, a) => s + (a.value ?? 0) * ASSUMED_MONTHLY_DIVIDEND_YIELD, 0);
+    const riskScore = computeRiskScore(assets);
 
-      if (id) loadPortfolio(id);
-    } else {
-      loadPortfolio();
-    }
-  }, [clientId, selectedClient, user, isAdmin, loadPortfolio]);
+    const portfolioPositions = assets.map((a) => ({
+      id: a.id,
+      symbol: a.symbol ?? a.name.slice(0, 6).toUpperCase(),
+      name: a.name,
+      quantity: a.quantity ?? 1,
+      avg_price: a.avg_price ?? a.purchase_price ?? 0,
+      current_price: a.current_price ?? a.current_value ?? 0,
+      value: a.value ?? a.current_value ?? 0,
+      allocation: undefined,
+    }));
 
-  async function handleLogout() {
-    await logout();
+    return {
+      netWorth,
+      totalCost,
+      returnPct,
+      monthlyIncome: monthlyIncome + stockIncome,
+      riskScore,
+      portfolioPositions,
+    };
+  }, [assets]);
+
+  async function handleAdd(payload: CreateAssetPayload) {
+    const body: CreateAssetPayload = {
+      ...payload,
+      ...(isAdmin && resolvedClientId ? { user_id: resolvedClientId } : {}),
+    };
+    await createAsset(body);
+    loadAssets(resolvedClientId);
   }
 
-  function openStockModal() {
-    setForm({});
-    setShowStockModal(true);
+  async function handleEdit(id: number, payload: UpdateAssetPayload) {
+    await updateAsset(id, payload);
+    loadAssets(resolvedClientId);
   }
 
-  function openMFModal() {
-    setForm({});
-    setShowMFModal(true);
+  async function handleDelete(id: number) {
+    await deleteAsset(id);
+    loadAssets(resolvedClientId);
   }
 
-  function openPropertyModal() {
-    setForm({});
-    setShowPropertyModal(true);
-  }
-
-  /* SAVE */
-  async function handleSave(type: string) {
-    try {
-      const clientOpts = isAdmin && selectedClient?.id ? { user_id: selectedClient.id } : {};
-
-      if (type === "stock") {
-        const symbol = (form.symbol ?? "").trim().toUpperCase();
-        const name = (form.name ?? "").trim();
-        const quantity = Number(form.quantity);
-        const avg_price = Number(form.avg_price);
-
-        if (!symbol) { alert("Symbol is required"); return; }
-        if (!name) { alert("Name is required"); return; }
-        if (!Number.isFinite(quantity) || quantity <= 0) { alert("Valid quantity is required"); return; }
-        if (!Number.isFinite(avg_price) || avg_price <= 0) { alert("Valid average price is required"); return; }
-
-        await createPortfolioItem({ symbol, name, quantity, avg_price, ...clientOpts });
-      } else if (type === "mf") {
-        const symbol = (form.mf_code ?? "").trim().toUpperCase();
-        const name = (form.name ?? "").trim();
-        const quantity = Number(form.units);
-        const avg_price = Number(form.avg_price);
-
-        if (!symbol) { alert("MF Code is required"); return; }
-        if (!name) { alert("Name is required"); return; }
-        if (!Number.isFinite(quantity) || quantity <= 0) { alert("Valid units is required"); return; }
-        if (!Number.isFinite(avg_price) || avg_price <= 0) { alert("Valid NAV / price is required"); return; }
-
-        await createPortfolioItem({ symbol, name, quantity, avg_price, ...clientOpts });
-      } else if (type === "property") {
-        const symbol = (form.symbol ?? "PROP").trim().toUpperCase();
-        const name = (form.title ?? "").trim();
-        const avg_price = Number(form.value);
-
-        if (!name) { alert("Title is required"); return; }
-        if (!Number.isFinite(avg_price) || avg_price <= 0) { alert("Valid value is required"); return; }
-
-        await createPortfolioItem({ symbol, name, quantity: 1, avg_price, ...clientOpts });
-      }
-
-      await loadPortfolio(selectedClient?.id);
-
-      setShowStockModal(false);
-      setShowMFModal(false);
-      setShowPropertyModal(false);
-      setForm({});
-    } catch (err) {
-      alert(toErrorMessage(err));
-    }
-  }
+  const alerts = useMemo(() => insightsToAlerts(insights), [insights]);
 
   return (
     <div className="min-h-screen text-white bg-[#071a14] p-6 space-y-6">
 
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold">Dashboard</h1>
-        <button
-          onClick={handleLogout}
-          className="px-4 py-2 border border-white/20 rounded"
-        >
-          Logout
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-white">Portfolio Dashboard</h1>
+          <p className="text-sm text-gray-400 mt-0.5">
+            {user?.name ?? user?.email ?? "Welcome back"}
+            {isAdmin && (
+              <span
+                className="ml-2 text-xs px-2 py-0.5 rounded-full font-semibold"
+                style={{
+                  background: "rgba(201,162,39,0.12)",
+                  color: "#d4af4a",
+                  border: "1px solid rgba(201,162,39,0.2)",
+                }}
+              >
+                Admin
+              </span>
+            )}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {isAdmin && (
+            <button
+              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-colors"
+              style={{
+                background: "rgba(201,162,39,0.15)",
+                color: "#d4af4a",
+                border: "1px solid rgba(201,162,39,0.25)",
+              }}
+              onClick={() => {
+                window.location.href = "/admin/clients/new";
+              }}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+              </svg>
+              Add Client
+            </button>
+          )}
+          <button
+            onClick={() => logout()}
+            className="px-4 py-2 text-sm rounded-xl transition-colors text-gray-300 hover:text-white"
+            style={{
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
-      {/* ACTIONS */}
-      {user && (
-        <div className="flex gap-3">
-          <button onClick={openStockModal}
-            className="px-4 py-2 bg-yellow-500 text-black rounded">
-            + Add Stock
-          </button>
-          <button onClick={openMFModal}
-            className="px-4 py-2 bg-yellow-500 text-black rounded">
-            + Add Mutual Fund
-          </button>
-          <button onClick={openPropertyModal}
-            className="px-4 py-2 bg-yellow-500 text-black rounded">
-            + Add Property
-          </button>
+      {/* Admin client selector */}
+      {isAdmin && !clientId && (
+        <div className="glass-card rounded-2xl p-5">
+          <p className="text-xs font-semibold uppercase tracking-widest text-gold-light mb-3">
+            Select Client
+          </p>
+          <ClientSelector
+            selectedId={selectedClient?.id ?? null}
+            onChange={setSelectedClient}
+          />
         </div>
       )}
 
-      {/* Admin selector */}
-      {isAdmin && (
-        <ClientSelector
-          selectedId={selectedClient?.id ?? null}
-          onChange={setSelectedClient}
-        />
-      )}
+      {/* Loading / Error */}
+      {loading && <Loader />}
+      {error && <ErrorState message={error} />}
 
-      {/* Stock search */}
-      <StockSearch onSelect={setSelectedStock} />
-
-      {selectedStock && (
-        <div className="p-4 border border-yellow-500 rounded">
-          {selectedStock.symbol} — ₹ {selectedStock.price}
-        </div>
-      )}
-
-      {/* Loading/Error */}
-      {loading && <p>Loading...</p>}
-      {error && <p className="text-red-400">{error}</p>}
-
-      {/* Portfolio */}
-      {portfolio.length > 0 && (
+      {/* Main content */}
+      {!loading && !error && (isAdmin ? resolvedClientId !== undefined : true) && (
         <>
+          {/* KPI Row */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>Total Value: ₹ {kpis.totalValue}</div>
-            <div>Return: {kpis.gainPercent.toFixed(2)}%</div>
-            <div>Invested: ₹ {kpis.totalCost}</div>
-            <div>Holdings: {kpis.positionCount}</div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <PortfolioGrowthChart
-              totalValue={kpis.totalValue}
-              gainPercent={kpis.gainPercent}
+            <StatBox
+              label="Net Worth"
+              value={fmtCurrency(kpis.netWorth)}
+              trend={kpis.returnPct >= 0 ? "up" : "down"}
+              trendLabel={`${kpis.returnPct >= 0 ? "+" : ""}${kpis.returnPct.toFixed(1)}%`}
+              subValue="total portfolio value"
+              icon={
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
+                </svg>
+              }
             />
-            <AllocationChart positions={portfolio} />
+            <StatBox
+              label="Return %"
+              value={`${kpis.returnPct >= 0 ? "+" : ""}${kpis.returnPct.toFixed(2)}%`}
+              trend={kpis.returnPct >= 0 ? "up" : "down"}
+              trendLabel={kpis.returnPct >= 0 ? "Profit" : "Loss"}
+              subValue="all time"
+              icon={
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.307a11.95 11.95 0 0 1 5.814-5.519l2.74-1.22m0 0-5.94-2.28m5.94 2.28-2.28 5.941" />
+                </svg>
+              }
+            />
+            <StatBox
+              label="Monthly Income"
+              value={fmtCurrency(kpis.monthlyIncome)}
+              trend="neutral"
+              subValue="rent + dividends"
+              icon={
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
+                </svg>
+              }
+            />
+            <StatBox
+              label="Risk Score"
+              value={`${kpis.riskScore} / 10`}
+              trend={kpis.riskScore <= 4 ? "up" : kpis.riskScore <= 7 ? "neutral" : "down"}
+              trendLabel={
+                kpis.riskScore <= 3
+                  ? "Conservative"
+                  : kpis.riskScore <= 6
+                  ? "Moderate"
+                  : "Aggressive"
+              }
+              subValue="portfolio risk level"
+              icon={
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+                </svg>
+              }
+            />
           </div>
 
-          <AIInsightsPanel />
+          {/* Charts Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2">
+              <PortfolioGrowthChart
+                totalValue={kpis.netWorth}
+                gainPercent={kpis.returnPct}
+              />
+            </div>
+            <AllocationChart positions={kpis.portfolioPositions} />
+          </div>
+
+          {/* Alerts + Recommendations */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <AlertsPanel
+              alerts={
+                alerts.length > 0
+                  ? alerts
+                  : assets.length > 0
+                  ? []
+                  : [
+                      {
+                        id: "welcome",
+                        title: "Get started",
+                        description:
+                          "Add your first asset using the tabs below to unlock portfolio alerts.",
+                        severity: "low",
+                      },
+                    ]
+              }
+            />
+            <ClientRecommendations assets={assets} />
+          </div>
+
+          {/* Asset Tabs */}
+          <AssetTabs
+            assets={assets}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            onAdd={handleAdd}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+          />
         </>
       )}
 
-      {/* MODALS */}
-
-      {showStockModal && (
-        <Modal title="Add Stock" onClose={() => setShowStockModal(false)}>
-          <input placeholder="Symbol (e.g. AAPL)"
-            value={form.symbol ?? ""}
-            onChange={(e) => setForm({ ...form, symbol: e.target.value })} />
-          <input placeholder="Name (e.g. Apple Inc.)"
-            value={form.name ?? ""}
-            onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <input placeholder="Quantity" type="number" min="0"
-            value={form.quantity ?? ""}
-            onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
-          <input placeholder="Avg Price" type="number" min="0"
-            value={form.avg_price ?? ""}
-            onChange={(e) => setForm({ ...form, avg_price: e.target.value })} />
-          <button onClick={() => handleSave("stock")}>Save</button>
-        </Modal>
+      {/* Admin: no client selected */}
+      {!loading && !error && isAdmin && resolvedClientId === undefined && (
+        <div
+          className="glass-card rounded-2xl p-10 text-center"
+          style={{ border: "1px solid rgba(201,162,39,0.15)" }}
+        >
+          <p className="text-gray-400 text-sm">
+            Select a client above to view their portfolio.
+          </p>
+        </div>
       )}
-
-      {showMFModal && (
-        <Modal title="Add Mutual Fund" onClose={() => setShowMFModal(false)}>
-          <input placeholder="MF Code"
-            value={form.mf_code ?? ""}
-            onChange={(e) => setForm({ ...form, mf_code: e.target.value })} />
-          <input placeholder="Name (e.g. HDFC Top 100)"
-            value={form.name ?? ""}
-            onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <input placeholder="Units" type="number" min="0"
-            value={form.units ?? ""}
-            onChange={(e) => setForm({ ...form, units: e.target.value })} />
-          <input placeholder="Avg NAV / Price" type="number" min="0"
-            value={form.avg_price ?? ""}
-            onChange={(e) => setForm({ ...form, avg_price: e.target.value })} />
-          <button onClick={() => handleSave("mf")}>Save</button>
-        </Modal>
-      )}
-
-      {showPropertyModal && (
-        <Modal title="Add Property" onClose={() => setShowPropertyModal(false)}>
-          <input placeholder="Symbol / ID (e.g. PROP-001)"
-            value={form.symbol ?? ""}
-            onChange={(e) => setForm({ ...form, symbol: e.target.value })} />
-          <input placeholder="Title"
-            value={form.title ?? ""}
-            onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          <input placeholder="Current Value" type="number" min="0"
-            value={form.value ?? ""}
-            onChange={(e) => setForm({ ...form, value: e.target.value })} />
-          <button onClick={() => handleSave("property")}>Save</button>
-        </Modal>
-      )}
-
-    </div>
-  );
-}
-
-/* MODAL */
-function Modal({ children, title, onClose }: any) {
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
-      <div className="bg-[#0A0F0D] p-6 rounded space-y-3 w-80">
-        <h2>{title}</h2>
-        {children}
-        <button onClick={onClose}>Cancel</button>
-      </div>
     </div>
   );
 }
