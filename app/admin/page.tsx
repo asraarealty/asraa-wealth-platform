@@ -44,7 +44,7 @@ export default function AdminPage() {
     ])
       .then(([clientsRes, intelligenceRes]) => {
         if (clientsRes.status === "fulfilled") setClients(clientsRes.value);
-        if (intelligenceRes.status === "fulfilled") setIntelligenceRows(intelligenceRes.value ?? []);
+        if (intelligenceRes.status === "fulfilled") setIntelligenceRows(intelligenceRes.value);
 
         const allFailed = [clientsRes, intelligenceRes].every(
           (r) => r.status === "rejected"
