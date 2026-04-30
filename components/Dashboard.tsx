@@ -9,9 +9,10 @@ import {
   deleteAsset,
   fetchInsights,
   type Asset,
+  type AssetsResponse,
+  type InsightsResponse,
   type CreateAssetPayload,
   type UpdateAssetPayload,
-  type InsightItem,
 } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
 import ClientSelector from "./ClientSelector";
@@ -27,9 +28,6 @@ import type { DashboardAlert } from "./admin/dashboard/AlertsPanel";
 
 type Tab = "stocks" | "mutual_funds" | "real_estate";
 
-/** Assumed annual dividend yield for estimating monthly stock income (0.5% per month) */
-const ASSUMED_MONTHLY_DIVIDEND_YIELD = 0.005;
-
 function fmtCurrency(n: number) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -38,33 +36,34 @@ function fmtCurrency(n: number) {
   }).format(n);
 }
 
-function computeRiskScore(assets: Asset[]): number {
-  if (assets.length === 0) return 0;
-  const total = assets.reduce(
-    (s, a) => s + (a.value ?? a.current_value ?? 0),
-    0
-  );
-  if (total === 0) return 0;
-  const equityVal = assets
-    .filter((a) => a.type === "stock")
-    .reduce((s, a) => s + (a.value ?? 0), 0);
-  const equityPct = (equityVal / total) * 100;
-  return Math.min(10, Math.max(1, Math.round(2 + (equityPct / 100) * 7)));
+/**
+ * Map a raw alert string from /insights/me to a severity level.
+ * Risk keywords → high (red)
+ * Rebalance / low / delayed → medium (yellow)
+ * Opportunity → low (green/blue)
+ */
+function alertSeverity(text: string): "high" | "medium" | "low" {
+  const t = text.toLowerCase();
+  if (
+    t.includes("overexposed") ||
+    t.includes("risk") ||
+    t.includes("delayed") ||
+    t.includes("loss")
+  )
+    return "high";
+  if (t.includes("rebalance") || t.includes("low") || t.includes("consider"))
+    return "medium";
+  return "low";
 }
 
-function insightsToAlerts(insights: InsightItem[]): DashboardAlert[] {
-  return insights
-    .filter((i) => i.type === "risk" || i.severity)
-    .slice(0, 5)
-    .map((i) => ({
-      id: String(i.id),
-      title: i.title,
-      description: i.body,
-      severity: (i.severity ?? (i.type === "risk" ? "high" : "medium")) as
-        | "low"
-        | "medium"
-        | "high",
-    }));
+function insightsToAlerts(insights: InsightsResponse | null): DashboardAlert[] {
+  if (!insights || !insights.alerts || insights.alerts.length === 0) return [];
+  return insights.alerts.slice(0, 5).map((text, i) => ({
+    id: String(i),
+    title: text.length > 60 ? text.slice(0, 60) + "…" : text,
+    description: text,
+    severity: alertSeverity(text),
+  }));
 }
 
 /* ── component ────────────────────────────────────────────────────── */
@@ -74,8 +73,8 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
   const isAdmin = String(user?.role).toLowerCase() === "admin";
 
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [insights, setInsights] = useState<InsightItem[]>([]);
+  const [data, setData] = useState<AssetsResponse | null>(null);
+  const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("stocks");
@@ -86,12 +85,19 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     return selectedClient?.id ?? undefined;
   }, [isAdmin, clientId, selectedClient]);
 
-  const loadAssets = useCallback(async (id?: number) => {
+  const loadData = useCallback(async (id?: number) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchAssets(id);
-      setAssets(data);
+      const res = await fetchAssets(id);
+      setData(res);
+
+      try {
+        const ins = await fetchInsights();
+        setInsights(ins);
+      } catch {
+        setInsights(null);
+      }
     } catch (err) {
       setError(toErrorMessage(err));
     } finally {
@@ -99,64 +105,15 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     }
   }, []);
 
-  const loadInsights = useCallback(async () => {
-    try {
-      const data = await fetchInsights();
-      setInsights(data);
-    } catch {
-      // non-critical
-    }
-  }, []);
-
   useEffect(() => {
     if (!user) return;
     if (isAdmin && resolvedClientId === undefined) return;
-    loadAssets(resolvedClientId);
-    loadInsights();
-  }, [user, isAdmin, resolvedClientId, loadAssets, loadInsights]);
+    loadData(resolvedClientId);
+  }, [user, isAdmin, resolvedClientId, loadData]);
 
-  const kpis = useMemo(() => {
-    const netWorth = assets.reduce(
-      (s, a) => s + (a.value ?? a.current_value ?? 0),
-      0
-    );
-    const totalCost = assets.reduce((s, a) => {
-      const cost =
-        a.type === "real_estate"
-          ? (a.purchase_price ?? 0)
-          : (a.avg_price ?? 0) * (a.quantity ?? 1);
-      return s + cost;
-    }, 0);
-    const returnPct =
-      totalCost > 0 ? ((netWorth - totalCost) / totalCost) * 100 : 0;
-    const monthlyIncome = assets
-      .filter((a) => a.type === "real_estate")
-      .reduce((s, a) => s + (a.rent_amount ?? 0), 0);
-    const stockIncome = assets
-      .filter((a) => a.type === "stock")
-      .reduce((s, a) => s + (a.value ?? 0) * ASSUMED_MONTHLY_DIVIDEND_YIELD, 0);
-    const riskScore = computeRiskScore(assets);
-
-    const portfolioPositions = assets.map((a) => ({
-      id: a.id,
-      symbol: a.symbol ?? a.name.slice(0, 6).toUpperCase(),
-      name: a.name,
-      quantity: a.quantity ?? 1,
-      avg_price: a.avg_price ?? a.purchase_price ?? 0,
-      current_price: a.current_price ?? a.current_value ?? 0,
-      value: a.value ?? a.current_value ?? 0,
-      allocation: undefined,
-    }));
-
-    return {
-      netWorth,
-      totalCost,
-      returnPct,
-      monthlyIncome: monthlyIncome + stockIncome,
-      riskScore,
-      portfolioPositions,
-    };
-  }, [assets]);
+  const assets: Asset[] = data?.assets ?? [];
+  const summary = data?.summary;
+  const allocation = data?.allocation;
 
   async function handleAdd(payload: CreateAssetPayload) {
     const body: CreateAssetPayload = {
@@ -164,20 +121,22 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       ...(isAdmin && resolvedClientId ? { user_id: resolvedClientId } : {}),
     };
     await createAsset(body);
-    loadAssets(resolvedClientId);
+    loadData(resolvedClientId);
   }
 
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
     await updateAsset(id, payload);
-    loadAssets(resolvedClientId);
+    loadData(resolvedClientId);
   }
 
   async function handleDelete(id: number) {
     await deleteAsset(id);
-    loadAssets(resolvedClientId);
+    loadData(resolvedClientId);
   }
 
   const alerts = useMemo(() => insightsToAlerts(insights), [insights]);
+
+  const returnPct = summary?.return_percentage ?? 0;
 
   return (
     <div className="min-h-screen text-white bg-[#071a14] p-6 space-y-6">
@@ -249,19 +208,40 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
 
       {/* Loading / Error */}
       {loading && <Loader />}
-      {error && <ErrorState message={error} />}
+      {!loading && error && <ErrorState message={error} />}
 
-      {/* Main content */}
-      {!loading && !error && (isAdmin ? resolvedClientId !== undefined : true) && (
+      {/* Shared guard: data is loaded, no error, and (if admin) a client is selected */}
+      {(() => {
+        const clientReady = isAdmin ? resolvedClientId !== undefined : true;
+        const dataReady = !loading && !error && data !== null && clientReady;
+        const shouldShowEmptyState = dataReady && assets.length === 0;
+        const shouldShowContent = dataReady && assets.length > 0;
+
+        return (
+          <>
+            {/* Empty state */}
+            {shouldShowEmptyState && (
+              <div
+                className="glass-card rounded-2xl p-10 text-center"
+                style={{ border: "1px solid rgba(201,162,39,0.15)" }}
+              >
+                <p className="text-gray-400 text-sm">
+                  No assets yet. Add your first investment.
+                </p>
+              </div>
+            )}
+
+            {/* Main content */}
+            {shouldShowContent && (
         <>
           {/* KPI Row */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatBox
-              label="Net Worth"
-              value={fmtCurrency(kpis.netWorth)}
-              trend={kpis.returnPct >= 0 ? "up" : "down"}
-              trendLabel={`${kpis.returnPct >= 0 ? "+" : ""}${kpis.returnPct.toFixed(1)}%`}
-              subValue="total portfolio value"
+              label="Total Value"
+              value={fmtCurrency(summary?.total_value ?? 0)}
+              trend={returnPct >= 0 ? "up" : "down"}
+              trendLabel={`${returnPct >= 0 ? "+" : ""}${returnPct.toFixed(1)}%`}
+              subValue="current portfolio value"
               icon={
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
@@ -269,10 +249,21 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
               }
             />
             <StatBox
-              label="Return %"
-              value={`${kpis.returnPct >= 0 ? "+" : ""}${kpis.returnPct.toFixed(2)}%`}
-              trend={kpis.returnPct >= 0 ? "up" : "down"}
-              trendLabel={kpis.returnPct >= 0 ? "Profit" : "Loss"}
+              label="Invested"
+              value={fmtCurrency(summary?.total_invested ?? 0)}
+              trend="neutral"
+              subValue="total cost basis"
+              icon={
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
+                </svg>
+              }
+            />
+            <StatBox
+              label="Returns %"
+              value={`${returnPct >= 0 ? "+" : ""}${returnPct.toFixed(2)}%`}
+              trend={returnPct >= 0 ? "up" : "down"}
+              trendLabel={returnPct >= 0 ? "Profit" : "Loss"}
               subValue="all time"
               icon={
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -281,28 +272,11 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
               }
             />
             <StatBox
-              label="Monthly Income"
-              value={fmtCurrency(kpis.monthlyIncome)}
-              trend="neutral"
-              subValue="rent + dividends"
-              icon={
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
-                </svg>
-              }
-            />
-            <StatBox
-              label="Risk Score"
-              value={`${kpis.riskScore} / 10`}
-              trend={kpis.riskScore <= 4 ? "up" : kpis.riskScore <= 7 ? "neutral" : "down"}
-              trendLabel={
-                kpis.riskScore <= 3
-                  ? "Conservative"
-                  : kpis.riskScore <= 6
-                  ? "Moderate"
-                  : "Aggressive"
-              }
-              subValue="portfolio risk level"
+              label="Total Profit"
+              value={fmtCurrency(summary?.total_return ?? 0)}
+              trend={(summary?.total_return ?? 0) >= 0 ? "up" : "down"}
+              trendLabel={(summary?.total_return ?? 0) >= 0 ? "Gain" : "Loss"}
+              subValue="absolute return"
               icon={
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
@@ -315,11 +289,11 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2">
               <PortfolioGrowthChart
-                totalValue={kpis.netWorth}
-                gainPercent={kpis.returnPct}
+                totalValue={summary?.total_value ?? 0}
+                gainPercent={returnPct}
               />
             </div>
-            <AllocationChart positions={kpis.portfolioPositions} />
+            <AllocationChart allocation={allocation} />
           </div>
 
           {/* Alerts + Recommendations */}
@@ -355,6 +329,9 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
           />
         </>
       )}
+    </>
+  );
+})()}
 
       {/* Admin: no client selected */}
       {!loading && !error && isAdmin && resolvedClientId === undefined && (
@@ -370,3 +347,4 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     </div>
   );
 }
+
