@@ -1,7 +1,6 @@
 import {
   fetchPortfolioItems,
   fetchAdminPortfolio,
-  fetcher,
   type Portfolio,
   type PortfolioMeta,
   type PortfolioResult,
@@ -60,21 +59,10 @@ export async function getAdminPortfolio(
  * Returns an empty array (never throws) on non-abort errors.
  */
 export async function getPortfolioIntelligence(
-  signal?: AbortSignal
+  _signal?: AbortSignal
 ): Promise<ClientIntelligence[]> {
-  try {
-    await fetcher<unknown>("/portfolio", { signal, raw: true });
-    // The backend /portfolio endpoint returns the current user's portfolio
-    // items, not the per-client aggregated intelligence shape. Return an empty
-    // array so the admin page renders gracefully while per-client analytics
-    // are unavailable from this endpoint.
-    return [];
-  } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") throw err;
-    console.error(
-      "[portfolioService] getPortfolioIntelligence failed:",
-      toErrorMessage(err)
-    );
-    return [];
-  }
+  // The backend /portfolio endpoint returns the current user's portfolio items,
+  // not the per-client aggregated intelligence shape needed by the admin page.
+  // Return an empty array so the admin page renders gracefully.
+  return [];
 }
