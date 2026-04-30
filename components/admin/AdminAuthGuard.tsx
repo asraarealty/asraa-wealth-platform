@@ -12,18 +12,25 @@ export default function AdminAuthGuard({ children }: Props) {
   const { user, loading } = useAuth();
 
   useEffect(() => {
-    // 🔥 FORCE redirect (no router issues)
-    if (!loading && user === null) {
+    if (loading) return;
+
+    if (user === null) {
       window.location.href = "/login";
+      return;
+    }
+
+    // Redirect non-admin authenticated users to the client dashboard
+    if ((user.role ?? "").toLowerCase() !== "admin") {
+      window.location.href = "/dashboard";
     }
   }, [loading, user]);
 
   // ⏳ While checking auth
   if (loading) return <Loader />;
 
-  // ⛔ Prevent rendering if not logged in
-  if (!user) return null;
+  // ⛔ Prevent rendering until role is confirmed
+  if (!user || (user.role ?? "").toLowerCase() !== "admin") return null;
 
-  // ✅ Authorized
+  // ✅ Authorized admin
   return <>{children}</>;
 }

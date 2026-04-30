@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { CreateAssetPayload } from "@/lib/api";
+import type { CreateAssetPayload, UpdateAssetPayload } from "@/lib/api";
 import Modal from "./Modal";
 import StockModal from "./StockModal";
 import MFModal from "./MFModal";
@@ -61,14 +61,21 @@ export default function AddAssetModal({ onClose, onSave }: AddAssetModalProps) {
   // Once a type is chosen, hand off to the appropriate sub-modal.
   // Passing onClose directly means the sub-modal's Cancel button dismisses
   // the whole flow, and its Save calls onSave then the parent closes.
+  // AddAssetModal is always in "add" mode: sub-modals will only ever call
+  // onSave with a complete CreateAssetPayload, so the wider union type they
+  // declare is safe to bridge here.
+  const onSaveUnion = onSave as (
+    payload: CreateAssetPayload | UpdateAssetPayload
+  ) => Promise<void>;
+
   if (type === "stock") {
-    return <StockModal onClose={onClose} onSave={onSave} />;
+    return <StockModal onClose={onClose} onSave={onSaveUnion} />;
   }
   if (type === "mutual_fund") {
-    return <MFModal onClose={onClose} onSave={onSave} />;
+    return <MFModal onClose={onClose} onSave={onSaveUnion} />;
   }
   if (type === "real_estate") {
-    return <RealEstateModal onClose={onClose} onSave={onSave} />;
+    return <RealEstateModal onClose={onClose} onSave={onSaveUnion} />;
   }
 
   return (
