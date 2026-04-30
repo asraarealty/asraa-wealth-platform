@@ -76,7 +76,7 @@ export default function AdminPortfolioPage() {
       if (document.visibilityState === "hidden") return;
       if (refreshingRef.current) return;
       refreshingRef.current = true;
-      loadData(id, true).finally(() => {
+      void loadData(id, true).catch(() => {}).finally(() => {
         refreshingRef.current = false;
       });
     }

@@ -95,7 +95,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       if (document.visibilityState === "hidden") return;
       if (refreshingRef.current) return;
       refreshingRef.current = true;
-      loadData(resolvedClientId, true).finally(() => {
+      void loadData(resolvedClientId, true).catch(() => {}).finally(() => {
         refreshingRef.current = false;
       });
     }

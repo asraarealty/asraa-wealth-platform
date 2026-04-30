@@ -56,6 +56,7 @@ interface AddAssetModalProps {
 
 export default function AddAssetModal({ onClose, onSave }: AddAssetModalProps) {
   const [type, setType] = useState<TypeChoice | null>(null);
+  const [hovered, setHovered] = useState<TypeChoice | null>(null);
 
   // Once a type is chosen, hand off to the appropriate sub-modal.
   // Passing onClose directly means the sub-modal's Cancel button dismisses
@@ -82,18 +83,12 @@ export default function AddAssetModal({ onClose, onSave }: AddAssetModalProps) {
             <button
               key={t.id}
               onClick={() => setType(t.id)}
+              onMouseEnter={() => setHovered(t.id)}
+              onMouseLeave={() => setHovered(null)}
               className="flex flex-col items-center gap-3 p-4 rounded-2xl text-center transition-all"
               style={{
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(201,162,39,0.15)",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = "rgba(201,162,39,0.08)";
-                (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(201,162,39,0.35)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.03)";
-                (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(201,162,39,0.15)";
+                background: hovered === t.id ? "rgba(201,162,39,0.08)" : "rgba(255,255,255,0.03)",
+                border: `1px solid ${hovered === t.id ? "rgba(201,162,39,0.35)" : "rgba(201,162,39,0.15)"}`,
               }}
             >
               <span style={{ color: "#c9a227" }}>{t.icon}</span>
