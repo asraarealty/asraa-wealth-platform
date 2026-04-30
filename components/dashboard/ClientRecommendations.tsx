@@ -29,10 +29,10 @@ function buildRecs(assets: Asset[]): Rec[] {
     .filter((a) => a.type === "stock")
     .reduce((s, a) => s + (a.value ?? 0), 0);
   const mfVal = assets
-    .filter((a) => a.type === "mutual_fund")
+    .filter((a) => a.type === "mf")
     .reduce((s, a) => s + (a.value ?? 0), 0);
   const reVal = assets
-    .filter((a) => a.type === "real_estate")
+    .filter((a) => a.type === "property")
     .reduce((s, a) => s + (a.current_value ?? 0), 0);
 
   const stockPct = (stockVal / total) * 100;

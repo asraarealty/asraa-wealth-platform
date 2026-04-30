@@ -66,6 +66,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     try {
       const res = await fetchAssets(id);
       setData(res);
+      console.log("portfolio:", res.assets);
 
       try {
         const ins = await fetchInsights();

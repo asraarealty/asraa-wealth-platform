@@ -49,13 +49,18 @@ export function clearToken() {
 interface FetcherOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
   raw?: boolean;
+  /** When true, a 401 response throws ApiError without clearing the token or
+   *  redirecting to /login. Use for optional / non-critical endpoints (e.g.
+   *  stock search) where an auth failure should be surfaced as a UI error
+   *  rather than a full-page redirect. */
+  noRedirectOn401?: boolean;
 }
 
 export async function fetcher<T>(
   path: string,
   options: FetcherOptions = {}
 ): Promise<T> {
-  const { body, headers: extraHeaders, signal, raw, ...rest } = options;
+  const { body, headers: extraHeaders, signal, raw, noRedirectOn401, ...rest } = options;
 
   const token = getToken();
 
@@ -84,9 +89,9 @@ export async function fetcher<T>(
     throw new NetworkError("Unable to reach backend API");
   }
 
-  // 🔐 401 → session expired → logout
+  // 🔐 401 → session expired → logout (unless caller opts out)
   if (response.status === 401) {
-    if (typeof window !== "undefined") {
+    if (!noRedirectOn401 && typeof window !== "undefined") {
       clearToken();
 
       // avoid redirect loop

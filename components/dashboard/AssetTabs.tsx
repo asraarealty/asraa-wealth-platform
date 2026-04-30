@@ -56,8 +56,8 @@ export default function AssetTabs({
 }: AssetTabsProps) {
   const counts: Record<Tab, number> = {
     stocks: assets.filter((a) => a.type === "stock").length,
-    mutual_funds: assets.filter((a) => a.type === "mutual_fund").length,
-    real_estate: assets.filter((a) => a.type === "real_estate").length,
+    mutual_funds: assets.filter((a) => a.type === "mf").length,
+    real_estate: assets.filter((a) => a.type === "property").length,
   };
 
   return (

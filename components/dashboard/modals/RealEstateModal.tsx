@@ -101,7 +101,7 @@ export default function RealEstateModal({
     setSaving(true);
     try {
       await onSave({
-        type: "real_estate",
+        type: "property",
         name,
         location: form.location.trim() || undefined,
         purchase_price,
