@@ -329,25 +329,31 @@ export async function fetchAssets(
 
   const res = await fetcher<any>(path, { signal, raw: true });
 
+  // Unwrap { data: ... } envelope when present (e.g. { data: { assets, summary, allocation } })
+  const unwrapped =
+    res && typeof res === "object" && !Array.isArray(res) && res.data != null
+      ? res.data
+      : res;
+
   // Backend returns { summary, allocation, assets }
-  if (res && typeof res === "object" && "assets" in res) {
-    const assets: Asset[] = Array.isArray(res.assets) ? res.assets : [];
+  if (unwrapped && typeof unwrapped === "object" && "assets" in unwrapped) {
+    const assets: Asset[] = Array.isArray(unwrapped.assets) ? unwrapped.assets : [];
     return {
-      summary: res.summary ?? {
+      summary: unwrapped.summary ?? {
         total_value: 0,
         total_invested: 0,
         total_return: 0,
         return_percentage: 0,
       },
-      allocation: res.allocation ?? { stock: 0, mf: 0, real_estate: 0 },
+      allocation: unwrapped.allocation ?? { stock: 0, mf: 0, real_estate: 0 },
       assets,
     };
   }
 
   // Fallback: handle legacy array response
-  const assets: Asset[] = Array.isArray(res)
-    ? res
-    : (res?.data ?? res?.assets ?? []);
+  const assets: Asset[] = Array.isArray(unwrapped)
+    ? unwrapped
+    : (unwrapped?.assets ?? []);
 
   const totalValue = assets.reduce(
     (s, a) => s + (a.value ?? a.current_value ?? 0),

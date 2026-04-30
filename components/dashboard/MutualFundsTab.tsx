@@ -112,6 +112,10 @@ export default function MutualFundsTab({
             </thead>
             <tbody>
               {mfs.map((a) => {
+                const pl =
+                  a.current_price != null && a.avg_price != null && a.quantity != null
+                    ? (a.current_price - a.avg_price) * a.quantity
+                    : null;
                 const plPct =
                   a.current_price != null && a.avg_price != null && a.avg_price > 0
                     ? ((a.current_price - a.avg_price) / a.avg_price) * 100
@@ -153,6 +157,12 @@ export default function MutualFundsTab({
                       }}
                     >
                       {plPct != null ? pct(plPct) : "—"}
+                      {pl != null && (
+                        <span className="block text-xs opacity-70">
+                          {pl >= 0 ? "+" : ""}
+                          {fmt(pl)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
