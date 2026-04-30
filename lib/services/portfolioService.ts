@@ -41,6 +41,7 @@ export async function getAdminPortfolio(
   signal?: AbortSignal
 ): Promise<AdminPortfolioItem[]> {
   const data = await fetchAdminPortfolio(signal);
+  console.log("Portfolio API (service):", data);
   if (!Array.isArray(data)) {
     console.warn(
       "[portfolioService] getAdminPortfolio: expected array, got",

@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getAdminPortfolio } from "@/lib/services/portfolioService";
 import { getPortfolioIntelligence } from "@/lib/services/portfolioService";
 import { getAdminClients } from "@/lib/services/clientService";
 import { toErrorMessage } from "@/lib/fetcher";
-import type { AdminPortfolioItem, AdminClient } from "@/lib/api";
+import type { AdminClient } from "@/lib/api";
 import type { ClientIntelligence } from "@/components/admin/dashboard/intelligenceHelpers";
 import StatBox from "@/components/ui/StatBox";
 import Loader from "@/components/ui/Loader";
@@ -30,7 +29,6 @@ function fmt(n: number) {
 }
 
 export default function AdminPage() {
-  const [portfolio, setPortfolio] = useState<AdminPortfolioItem[]>([]);
   const [clients, setClients] = useState<AdminClient[]>([]);
   const [intelligenceRows, setIntelligenceRows] = useState<ClientIntelligence[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,21 +39,19 @@ export default function AdminPage() {
     const { signal } = ac;
 
     Promise.allSettled([
-      getAdminPortfolio(signal),
       getAdminClients(signal),
       getPortfolioIntelligence(signal),
     ])
-      .then(([portfolioRes, clientsRes, intelligenceRes]) => {
-        if (portfolioRes.status === "fulfilled") setPortfolio(portfolioRes.value);
+      .then(([clientsRes, intelligenceRes]) => {
         if (clientsRes.status === "fulfilled") setClients(clientsRes.value);
-        if (intelligenceRes.status === "fulfilled") setIntelligenceRows(intelligenceRes.value);
+        if (intelligenceRes.status === "fulfilled") setIntelligenceRows(intelligenceRes.value ?? []);
 
-        const allFailed = [portfolioRes, clientsRes, intelligenceRes].every(
+        const allFailed = [clientsRes, intelligenceRes].every(
           (r) => r.status === "rejected"
         );
         if (allFailed) {
           const reason =
-            portfolioRes.status === "rejected" ? portfolioRes.reason : null;
+            clientsRes.status === "rejected" ? clientsRes.reason : null;
           setError(toErrorMessage(reason));
         }
       })

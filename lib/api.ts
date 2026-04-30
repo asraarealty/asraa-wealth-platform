@@ -217,6 +217,11 @@ export interface AdminPortfolioItem {
   value: number;
 }
 
+export interface PortfolioResponse {
+  success: boolean;
+  data: AdminPortfolioItem[];
+}
+
 export interface CreatePortfolioItemPayload {
   symbol: string;
   name: string;
@@ -240,14 +245,16 @@ export function createPortfolioItem(
 export async function fetchAdminPortfolio(
   signal?: AbortSignal
 ): Promise<AdminPortfolioItem[]> {
-  const res = await fetcher<any>("/portfolio", {
+  const res = await fetcher<PortfolioResponse | AdminPortfolioItem[]>("/portfolio", {
     signal,
     raw: true,
   });
 
+  console.log("Portfolio API:", res);
+
   const data: unknown = Array.isArray(res)
     ? res
-    : res?.data ?? res?.positions ?? [];
+    : (res as PortfolioResponse)?.data ?? (res as any)?.positions ?? [];
 
   if (!Array.isArray(data)) {
     console.error("Admin portfolio invalid:", data);
