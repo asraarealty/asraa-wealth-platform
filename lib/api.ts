@@ -257,6 +257,140 @@ export async function fetchAdminPortfolio(
   return data as AdminPortfolioItem[];
 }
 
+/* ── Assets ─────────────────────────────────────────────────────────── */
+
+export type AssetType = "stock" | "mutual_fund" | "real_estate";
+
+export interface Asset {
+  id: number;
+  type: AssetType;
+  symbol?: string;
+  name: string;
+  quantity?: number;
+  avg_price?: number;
+  current_price?: number;
+  value?: number;
+  allocation?: number;
+  /** Real estate */
+  location?: string;
+  purchase_price?: number;
+  current_value?: number;
+  rent_amount?: number;
+  rent_due_date?: string;
+  tenant_name?: string;
+  tenant_phone?: string;
+  tenant_email?: string;
+  /** Common */
+  tags?: string[];
+  user_id?: number;
+  created_at?: string;
+}
+
+export type CreateAssetPayload = Omit<
+  Asset,
+  "id" | "current_price" | "value" | "allocation" | "created_at"
+>;
+export type UpdateAssetPayload = Partial<CreateAssetPayload>;
+
+export async function fetchAssets(
+  clientId?: number,
+  signal?: AbortSignal
+): Promise<Asset[]> {
+  const path =
+    clientId !== undefined
+      ? `/assets/me?user_id=${encodeURIComponent(clientId)}`
+      : "/assets/me";
+
+  const res = await fetcher<any>(path, { signal, raw: true });
+
+  const data: unknown = Array.isArray(res)
+    ? res
+    : res?.data ?? res?.assets ?? [];
+
+  if (!Array.isArray(data)) {
+    console.error("Assets data invalid:", data);
+    return [];
+  }
+
+  return data as Asset[];
+}
+
+export function createAsset(
+  payload: CreateAssetPayload,
+  signal?: AbortSignal
+): Promise<Asset> {
+  return fetcher<Asset>("/assets", {
+    method: "POST",
+    body: payload,
+    signal,
+  });
+}
+
+export function updateAsset(
+  id: number,
+  payload: UpdateAssetPayload,
+  signal?: AbortSignal
+): Promise<Asset> {
+  return fetcher<Asset>(`/assets/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: payload,
+    signal,
+  });
+}
+
+export function deleteAsset(
+  id: number,
+  signal?: AbortSignal
+): Promise<void> {
+  return fetcher<void>(`/assets/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    signal,
+  });
+}
+
+/* ── Insights ───────────────────────────────────────────────────────── */
+
+export interface InsightItem {
+  id: number | string;
+  type: "opportunity" | "risk" | "rebalance" | "trend";
+  title: string;
+  body: string;
+  severity?: "low" | "medium" | "high";
+}
+
+export async function fetchInsights(
+  signal?: AbortSignal
+): Promise<InsightItem[]> {
+  const res = await fetcher<any>("/insights/me", { signal, raw: true });
+
+  const data: unknown = Array.isArray(res)
+    ? res
+    : res?.data ?? res?.insights ?? [];
+
+  if (!Array.isArray(data)) return [];
+  return data as InsightItem[];
+}
+
+/* ── Mutual Funds ───────────────────────────────────────────────────── */
+
+export interface MutualFundResult {
+  code: string;
+  name: string;
+  nav: number;
+  category?: string;
+  fund_house?: string;
+}
+
+export function searchMutualFunds(
+  query: string,
+  signal?: AbortSignal
+): Promise<MutualFundResult[]> {
+  return fetcher<MutualFundResult[]>(
+    `/mf/search?q=${encodeURIComponent(query)}`,
+    { signal }
+  );
+}
+
 /* ── Auth Extras ───────────────────────────────────────────────────── */
 
 export interface SignupPayload {
