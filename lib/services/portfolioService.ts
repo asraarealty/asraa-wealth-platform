@@ -6,7 +6,8 @@ import {
   type PortfolioResult,
   type AdminPortfolioItem,
 } from "@/lib/api";
-import { toErrorMessage } from "@/lib/fetcher";
+import { getToken, toErrorMessage } from "@/lib/fetcher";
+import type { ClientIntelligence } from "@/components/admin/dashboard/intelligenceHelpers";
 
 export type { PortfolioResult };
 
@@ -48,4 +49,40 @@ export async function getAdminPortfolio(
     return [];
   }
   return data;
+}
+
+/**
+ * Fetch fully-computed client intelligence from the server-side Route Handler
+ * `/api/portfolio/intelligence`.  The route enriches portfolio items with live
+ * Yahoo Finance prices and runs analytics per client.
+ *
+ * Returns an empty array (never throws) on non-abort errors.
+ */
+export async function getPortfolioIntelligence(
+  signal?: AbortSignal
+): Promise<ClientIntelligence[]> {
+  const token = getToken();
+  try {
+    const res = await fetch("/api/portfolio/intelligence", {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : "",
+        Accept: "application/json",
+      },
+      signal,
+    });
+
+    if (!res.ok) {
+      throw new Error(`Intelligence API responded with ${res.status}`);
+    }
+
+    const data: unknown = await res.json();
+    return Array.isArray(data) ? (data as ClientIntelligence[]) : [];
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    console.error(
+      "[portfolioService] getPortfolioIntelligence failed:",
+      toErrorMessage(err)
+    );
+    return [];
+  }
 }

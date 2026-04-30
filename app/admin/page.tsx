@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getAdminPortfolio } from "@/lib/services/portfolioService";
+import { getPortfolioIntelligence } from "@/lib/services/portfolioService";
 import { getAdminClients } from "@/lib/services/clientService";
 import { toErrorMessage } from "@/lib/fetcher";
 import type { AdminPortfolioItem, AdminClient, Portfolio } from "@/lib/api";
+import type { ClientIntelligence } from "@/components/admin/dashboard/intelligenceHelpers";
 import StatBox from "@/components/ui/StatBox";
 import Loader from "@/components/ui/Loader";
 import ErrorState from "@/components/ui/ErrorState";
@@ -14,7 +16,6 @@ import AlertsPanel from "@/components/admin/dashboard/AlertsPanel";
 import ClientIntelligenceTable from "@/components/admin/dashboard/ClientIntelligenceTable";
 import RecommendationCard from "@/components/admin/dashboard/RecommendationCard";
 import {
-  buildClientIntelligence,
   deriveAlerts,
   calcAverageReturn,
 } from "@/components/admin/dashboard/intelligenceHelpers";
@@ -31,6 +32,7 @@ function fmt(n: number) {
 export default function AdminPage() {
   const [portfolio, setPortfolio] = useState<AdminPortfolioItem[]>([]);
   const [clients, setClients] = useState<AdminClient[]>([]);
+  const [intelligenceRows, setIntelligenceRows] = useState<ClientIntelligence[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,12 +43,14 @@ export default function AdminPage() {
     Promise.allSettled([
       getAdminPortfolio(signal),
       getAdminClients(signal),
+      getPortfolioIntelligence(signal),
     ])
-      .then(([portfolioRes, clientsRes]) => {
+      .then(([portfolioRes, clientsRes, intelligenceRes]) => {
         if (portfolioRes.status === "fulfilled") setPortfolio(portfolioRes.value);
         if (clientsRes.status === "fulfilled") setClients(clientsRes.value);
+        if (intelligenceRes.status === "fulfilled") setIntelligenceRows(intelligenceRes.value);
 
-        const allFailed = [portfolioRes, clientsRes].every(
+        const allFailed = [portfolioRes, clientsRes, intelligenceRes].every(
           (r) => r.status === "rejected"
         );
         if (allFailed) {
@@ -60,11 +64,14 @@ export default function AdminPage() {
     return () => ac.abort();
   }, []);
 
-  // Derived metrics
-  const totalAUM = portfolio.reduce((sum, p) => sum + (p.value ?? 0), 0);
+  // Aggregate stats derived from real intelligence rows
+  const totalAUM = useMemo(
+    () => intelligenceRows.reduce((sum, r) => sum + r.portfolioValue, 0),
+    [intelligenceRows]
+  );
   const activeClients = clients.filter((c) => c.is_active).length;
 
-  // Chart data
+  // Chart data — uses the global portfolio fetch (for layout continuity)
   const portfolioForChart: Portfolio[] = portfolio.map((p) => ({
     id: p.id,
     symbol: p.symbol,
@@ -75,11 +82,7 @@ export default function AdminPage() {
     value: p.value,
   }));
 
-  // Intelligence layer
-  const intelligenceRows = useMemo(
-    () => buildClientIntelligence(clients, portfolio),
-    [clients, portfolio]
-  );
+  // Derived from real per-client intelligence
   const alerts = useMemo(() => deriveAlerts(intelligenceRows), [intelligenceRows]);
   const avgReturn = useMemo(() => calcAverageReturn(intelligenceRows), [intelligenceRows]);
 

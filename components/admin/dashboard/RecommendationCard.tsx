@@ -103,9 +103,6 @@ export default function RecommendationCard({ rows }: Props) {
           <p className="text-sm font-semibold text-white">Recommendation Engine</p>
           <p className="text-xs text-gray-400">Per-client action items</p>
         </div>
-        <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-gold/10 text-gold-light border border-gold/20">
-          Mock
-        </span>
       </div>
 
       {/* Client recommendation list */}
