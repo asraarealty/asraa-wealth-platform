@@ -62,18 +62,30 @@ export default function AdminPortfolioPage() {
 
   async function handleAdd(payload: CreateAssetPayload) {
     if (!selectedClient) return;
-    await createAsset({ ...payload, user_id: selectedClient.id });
-    loadData(selectedClient.id);
+    try {
+      await createAsset({ ...payload, user_id: selectedClient.id });
+      loadData(selectedClient.id);
+    } catch (err) {
+      setError(toErrorMessage(err));
+    }
   }
 
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
-    await updateAsset(id, payload);
-    if (selectedClient) loadData(selectedClient.id);
+    try {
+      await updateAsset(id, payload);
+      if (selectedClient) loadData(selectedClient.id);
+    } catch (err) {
+      setError(toErrorMessage(err));
+    }
   }
 
   async function handleDelete(id: number) {
-    await deleteAsset(id);
-    if (selectedClient) loadData(selectedClient.id);
+    try {
+      await deleteAsset(id);
+      if (selectedClient) loadData(selectedClient.id);
+    } catch (err) {
+      setError(toErrorMessage(err));
+    }
   }
 
   const returnPct = summary?.return_percentage ?? 0;

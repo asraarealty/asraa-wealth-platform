@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchAssets,
@@ -74,14 +74,21 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     }
   }, []);
 
+  // Ref to track whether a refresh is already in progress, preventing overlapping requests
+  const refreshingRef = useRef(false);
+
   useEffect(() => {
     if (!user) return;
     if (isAdmin && resolvedClientId === undefined) return;
     loadData(resolvedClientId);
 
-    // Auto-refresh live prices every 20 seconds
+    // Auto-refresh live prices every 20 seconds, skip if a request is already in flight
     const interval = setInterval(() => {
-      loadData(resolvedClientId);
+      if (refreshingRef.current) return;
+      refreshingRef.current = true;
+      loadData(resolvedClientId).finally(() => {
+        refreshingRef.current = false;
+      });
     }, 20_000);
 
     return () => clearInterval(interval);

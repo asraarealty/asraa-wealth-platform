@@ -142,7 +142,7 @@ export default function AIInsightsPanel({ insights }: AIInsightsPanelProps) {
           <p className="text-sm font-semibold text-white">AI Insights</p>
           <p className="text-xs text-gray-400">Powered by Asraa Intelligence</p>
         </div>
-        {!insights && (
+        {insights && (
           <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-gold/10 text-gold-light border border-gold/20">
             Live
           </span>
