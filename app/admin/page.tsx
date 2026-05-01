@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { getAdminClients } from "@/lib/services/clientService";
 import {
-  fetchAssets,
+  fetchAdminGroupedAssets,
   createAsset,
   updateAsset,
   deleteAsset,
+  fetchAssets,
   type AdminClient,
   type Asset,
   type AssetsAllocation,
@@ -37,7 +38,8 @@ function fmtCurrency(n: number) {
 export default function AdminPage() {
   const [clients, setClients] = useState<AdminClient[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [assetsByClient, setAssetsByClient] = useState<Record<number, Asset[]>>({});
+  // Single source of truth: all client assets keyed by string user_id
+  const [groupedAssets, setGroupedAssets] = useState<Record<string, Asset[]>>({});
   const [activeTab, setActiveTab] = useState<Tab>("stocks");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,24 +47,14 @@ export default function AdminPage() {
   useEffect(() => {
     const ac = new AbortController();
 
-    getAdminClients(ac.signal)
-      .then(async (data) => {
-        setClients(data);
-
-        // Fetch all clients' assets in parallel so that the AUM and allocation
-        // stats are accurate from the moment the page loads, not just for
-        // clients that have been manually clicked.
-        const results = await Promise.allSettled(
-          data.map((client) => fetchAssets(client.id, ac.signal))
-        );
-
-        const portfolioMap: Record<number, Asset[]> = {};
-        data.forEach((client, i) => {
-          const result = results[i];
-          portfolioMap[client.id] =
-            result.status === "fulfilled" ? result.value : [];
-        });
-        setAssetsByClient(portfolioMap);
+    // Single parallel fetch: client list + all assets grouped by user_id
+    Promise.all([
+      getAdminClients(ac.signal),
+      fetchAdminGroupedAssets(ac.signal),
+    ])
+      .then(([clientData, grouped]) => {
+        setClients(clientData);
+        setGroupedAssets(grouped);
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -73,10 +65,13 @@ export default function AdminPage() {
     return () => ac.abort();
   }, []);
 
+  // After a mutation, re-fetch only the affected client to keep data fresh.
+  // fetchAssets applies the same "real_estate" → "property" normalisation as
+  // fetchAdminGroupedAssets, so the grouped map stays consistent.
   const reloadClient = useCallback(async (clientId: number) => {
     try {
       const data = await fetchAssets(clientId);
-      setAssetsByClient((prev: Record<number, Asset[]>) => ({ ...prev, [clientId]: data }));
+      setGroupedAssets((prev) => ({ ...prev, [String(clientId)]: data }));
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       console.error("[AdminPage] reloadClient failed:", toErrorMessage(err));
@@ -85,8 +80,8 @@ export default function AdminPage() {
 
   // All assets flattened for aggregate stats
   const allAssets = useMemo(
-    () => Object.values(assetsByClient).flat(),
-    [assetsByClient]
+    () => Object.values(groupedAssets).flat(),
+    [groupedAssets]
   );
 
   const totalAUM = useMemo(
@@ -110,7 +105,8 @@ export default function AdminPage() {
   }, [allAssets, totalAUM]);
 
   const activeClients = clients.filter((c: AdminClient) => c.is_active).length;
-  const assets: Asset[] = assetsByClient[selectedClient?.id ?? -1] ?? [];
+  // Derive selected client's assets from the grouped map — no separate fetch
+  const assets: Asset[] = groupedAssets[String(selectedClient?.id ?? "")] ?? [];
 
   async function handleAdd(payload: CreateAssetPayload) {
     if (!selectedClient) return;
@@ -261,4 +257,3 @@ function SectionHeading({
     </div>
   );
 }
-
