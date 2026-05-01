@@ -342,7 +342,13 @@ export async function fetchAssets(
 
   const normalized = (list as any[]).map((a: any) => ({
     ...a,
-    type: a.type ?? a.asset_type,
+    // Normalise backend variants: "real_estate" → "property" so that all tab
+    // filters (which test `a.type === "property"`) work regardless of which
+    // field name the backend sends.
+    type:
+      a.type === "real_estate"
+        ? "property"
+        : a.type ?? a.asset_type,
   }));
 
   console.log(
@@ -405,9 +411,17 @@ export interface InsightsResponse {
 }
 
 export async function fetchInsights(
+  clientId?: number,
   signal?: AbortSignal
 ): Promise<InsightsResponse> {
-  const res = await fetcher<any>("/insights/me", { signal, raw: true });
+  // Admins can request insights for a specific client by passing clientId.
+  // All other callers (or admins viewing their own data) use the /insights/me route.
+  const path =
+    clientId !== undefined
+      ? `/insights?user_id=${encodeURIComponent(clientId)}`
+      : "/insights/me";
+
+  const res = await fetcher<any>(path, { signal, raw: true });
 
   if (res && typeof res === "object" && "alerts" in res) {
     return {
@@ -441,7 +455,7 @@ export function searchMutualFunds(
 ): Promise<MutualFundResult[]> {
   return fetcher<MutualFundResult[]>(
     `/mf/search?q=${encodeURIComponent(query)}`,
-    { signal }
+    { signal, noRedirectOn401: true }
   );
 }
 
