@@ -566,6 +566,7 @@ export default function MobileDashboard({
   }
 
   async function handleAddSave(payload: CreateAssetPayload | UpdateAssetPayload) {
+    if (!payload.type || !payload.name) return;
     await onAdd(payload as CreateAssetPayload);
     setModal(null);
   }
@@ -678,7 +679,7 @@ export default function MobileDashboard({
           <div className="p-4 space-y-4">
             {loading ? (
               <>
-                <div className="flex gap-3 overflow-x-hidden">
+                <div className="flex gap-3 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
                   {[1, 2, 3, 4].map((i) => (
                     <div
                       key={i}
