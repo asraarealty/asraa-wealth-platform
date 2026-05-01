@@ -9,7 +9,7 @@ import {
   deleteAsset,
   fetchInsights,
   type Asset,
-  type AssetsResponse,
+  type AssetsAllocation,
   type InsightsResponse,
   type CreateAssetPayload,
   type UpdateAssetPayload,
@@ -42,7 +42,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
   const isAdmin = String(user?.role).toLowerCase() === "admin";
 
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
-  const [data, setData] = useState<AssetsResponse | null>(null);
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,9 +64,9 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     if (!silent) setLoading(true);
     setError(null);
     try {
-      const res = await fetchAssets(id);
-      setData(res);
-      console.log("portfolio:", res.assets);
+      const data = await fetchAssets(id);
+      setAssets(data);
+      console.log("portfolio:", data);
 
       try {
         const ins = await fetchInsights();
@@ -116,9 +116,19 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     };
   }, [user, isAdmin, resolvedClientId, loadData]);
 
-  const assets: Asset[] = data?.assets ?? [];
-  const summary = data?.summary;
-  const allocation = data?.allocation;
+  const totalValue = useMemo(() => assets.reduce((s: number, a: Asset) => s + (a.value ?? 0), 0), [assets]);
+  const totalInvested = useMemo(() => assets.reduce((s: number, a: Asset) => s + ((a.quantity ?? 0) * (a.avg_price ?? 0)), 0), [assets]);
+  const totalReturn = totalValue - totalInvested;
+  const returnPct = totalInvested > 0 ? (totalReturn / totalInvested) * 100 : 0;
+
+  const allocation = useMemo<AssetsAllocation | undefined>(() => {
+    if (totalValue === 0) return undefined;
+    const pct = (type: Asset["type"]) => {
+      const val = assets.filter((a: Asset) => a.type === type).reduce((s: number, a: Asset) => s + (a.value ?? 0), 0);
+      return parseFloat(((val / totalValue) * 100).toFixed(1));
+    };
+    return { stock: pct("stock"), mf: pct("mf"), real_estate: pct("property") };
+  }, [assets, totalValue]);
 
   async function handleAdd(payload: CreateAssetPayload) {
     const body: CreateAssetPayload = {
@@ -138,8 +148,6 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     await deleteAsset(id);
     loadData(resolvedClientId);
   }
-
-  const returnPct = summary?.return_percentage ?? 0;
 
   return (
     <div className="min-h-screen text-white bg-[#071a14] p-6 space-y-6">
@@ -216,7 +224,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       {/* Shared guard: data is loaded, no error, and (if admin) a client is selected */}
       {(() => {
         const clientReady = isAdmin ? resolvedClientId !== undefined : true;
-        const dataReady = !loading && !error && data !== null && clientReady;
+        const dataReady = !loading && !error && clientReady;
         const shouldShowEmptyState = dataReady && assets.length === 0;
         const shouldShowContent = dataReady && assets.length > 0;
 
@@ -241,7 +249,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatBox
               label="Total Value"
-              value={fmtCurrency(summary?.total_value ?? 0)}
+              value={fmtCurrency(totalValue)}
               trend={returnPct >= 0 ? "up" : "down"}
               trendLabel={`${returnPct >= 0 ? "+" : ""}${returnPct.toFixed(1)}%`}
               subValue="current portfolio value"
@@ -253,7 +261,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
             />
             <StatBox
               label="Invested"
-              value={fmtCurrency(summary?.total_invested ?? 0)}
+              value={fmtCurrency(totalInvested)}
               trend="neutral"
               subValue="total cost basis"
               icon={
@@ -276,9 +284,9 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
             />
             <StatBox
               label="Total Profit"
-              value={fmtCurrency(summary?.total_return ?? 0)}
-              trend={(summary?.total_return ?? 0) >= 0 ? "up" : "down"}
-              trendLabel={(summary?.total_return ?? 0) >= 0 ? "Gain" : "Loss"}
+              value={fmtCurrency(totalReturn)}
+              trend={totalReturn >= 0 ? "up" : "down"}
+              trendLabel={totalReturn >= 0 ? "Gain" : "Loss"}
               subValue="absolute return"
               icon={
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -292,7 +300,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2">
               <PortfolioGrowthChart
-                totalValue={summary?.total_value ?? 0}
+                totalValue={totalValue}
                 gainPercent={returnPct}
               />
             </div>

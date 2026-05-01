@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   fetchAssets,
   createAsset,
   updateAsset,
   deleteAsset,
   type Asset,
-  type AssetsResponse,
   type CreateAssetPayload,
   type UpdateAssetPayload,
 } from "@/lib/api";
@@ -40,7 +39,7 @@ function whatsAppLink(phone: string) {
 
 export default function AdminPortfolioPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [data, setData] = useState<AssetsResponse | null>(null);
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("stocks");
@@ -51,8 +50,8 @@ export default function AdminPortfolioPage() {
       if (!silent) setLoading(true);
       setError(null);
       try {
-        const res = await fetchAssets(clientId);
-        setData(res);
+        const data = await fetchAssets(clientId);
+        setAssets(data);
       } catch (err) {
         if (!silent) setError(toErrorMessage(err));
       } finally {
@@ -66,7 +65,7 @@ export default function AdminPortfolioPage() {
 
   useEffect(() => {
     if (!selectedClient) {
-      setData(null);
+      setAssets([]);
       return;
     }
     const id = selectedClient.id;
@@ -94,38 +93,43 @@ export default function AdminPortfolioPage() {
     };
   }, [selectedClient, loadData]);
 
-  const assets: Asset[] = data?.assets ?? [];
-  const summary = data?.summary;
+  const totalValue = useMemo(() => assets.reduce((s: number, a: Asset) => s + (a.value ?? 0), 0), [assets]);
+  const totalInvested = useMemo(() => assets.reduce((s: number, a: Asset) => s + ((a.quantity ?? 0) * (a.avg_price ?? 0)), 0), [assets]);
+  const totalReturn = totalValue - totalInvested;
+  const returnPct = totalInvested > 0 ? (totalReturn / totalInvested) * 100 : 0;
 
   async function handleAdd(payload: CreateAssetPayload) {
     if (!selectedClient) return;
     try {
       await createAsset({ ...payload, user_id: selectedClient.id });
-      loadData(selectedClient.id);
+      const updated = await fetchAssets(selectedClient.id);
+      setAssets(updated);
     } catch (err) {
       setError(toErrorMessage(err));
     }
   }
 
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
+    if (!selectedClient) return;
     try {
       await updateAsset(id, payload);
-      if (selectedClient) loadData(selectedClient.id);
+      const updated = await fetchAssets(selectedClient.id);
+      setAssets(updated);
     } catch (err) {
       setError(toErrorMessage(err));
     }
   }
 
   async function handleDelete(id: number) {
+    if (!selectedClient) return;
     try {
       await deleteAsset(id);
-      if (selectedClient) loadData(selectedClient.id);
+      const updated = await fetchAssets(selectedClient.id);
+      setAssets(updated);
     } catch (err) {
       setError(toErrorMessage(err));
     }
   }
-
-  const returnPct = summary?.return_percentage ?? 0;
 
   return (
     <div className="space-y-6 text-white">
@@ -179,7 +183,7 @@ export default function AdminPortfolioPage() {
       {selectedClient && !loading && error && <ErrorState message={error} />}
 
       {/* Portfolio content */}
-      {selectedClient && !loading && !error && data !== null && (
+      {selectedClient && !loading && !error && (
         <>
           {/* ── Client header ── */}
           <div
@@ -253,7 +257,7 @@ export default function AdminPortfolioPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatBox
               label="Total Value"
-              value={fmtCurrency(summary?.total_value ?? 0)}
+              value={fmtCurrency(totalValue)}
               trend={returnPct >= 0 ? "up" : "down"}
               trendLabel={`${returnPct >= 0 ? "+" : ""}${returnPct.toFixed(1)}%`}
               subValue="current portfolio value"
@@ -265,7 +269,7 @@ export default function AdminPortfolioPage() {
             />
             <StatBox
               label="Invested"
-              value={fmtCurrency(summary?.total_invested ?? 0)}
+              value={fmtCurrency(totalInvested)}
               trend="neutral"
               subValue="total cost basis"
               icon={
@@ -288,9 +292,9 @@ export default function AdminPortfolioPage() {
             />
             <StatBox
               label="Total Profit"
-              value={fmtCurrency(summary?.total_return ?? 0)}
-              trend={(summary?.total_return ?? 0) >= 0 ? "up" : "down"}
-              trendLabel={(summary?.total_return ?? 0) >= 0 ? "Gain" : "Loss"}
+              value={fmtCurrency(totalReturn)}
+              trend={totalReturn >= 0 ? "up" : "down"}
+              trendLabel={totalReturn >= 0 ? "Gain" : "Loss"}
               subValue="absolute return"
               icon={
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
