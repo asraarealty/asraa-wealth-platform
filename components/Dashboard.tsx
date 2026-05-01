@@ -77,7 +77,10 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
    *                   don't cause a full page re-render
    */
   const loadData = useCallback(async (id?: number, silent = false) => {
-    if (!silent) setLoading(true);
+    if (!silent) {
+      setLoading(true);
+      setAssets([]); // clear stale data before loading the new client
+    }
     setError(null);
     try {
       const data = await fetchAssets(id);

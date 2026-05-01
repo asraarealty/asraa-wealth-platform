@@ -324,19 +324,34 @@ export async function fetchAssets(
       ? `/portfolio?user_id=${encodeURIComponent(clientId)}`
       : "/portfolio/me";
 
-  const list = await fetcher<any[]>(path, { signal });
-  console.log("client", clientId);
-  console.log("assets", list);
+  // Use raw mode so we can handle every envelope shape the backend may return
+  // without the fetcher silently discarding top-level keys.
+  const res = await fetcher<any>(path, { signal, raw: true });
+
+  console.log("[fetchAssets] raw response for clientId=%s:", clientId, res);
+
+  // Normalise: raw array → { data: [] } → { assets: [] } → { positions: [] }
+  const list: unknown = Array.isArray(res)
+    ? res
+    : res?.data ?? res?.assets ?? res?.positions ?? [];
 
   if (!Array.isArray(list)) {
-    console.error("fetchAssets: expected array, got", list);
+    console.error("[fetchAssets] expected array, got:", list);
     return [];
   }
 
-  return list.map((a: any) => ({
+  const normalized = (list as any[]).map((a: any) => ({
     ...a,
     type: a.type ?? a.asset_type,
   }));
+
+  console.log(
+    "[fetchAssets] normalized %d item(s) for clientId=%s",
+    normalized.length,
+    clientId
+  );
+
+  return normalized;
 }
 
 export function createAsset(

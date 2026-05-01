@@ -47,7 +47,10 @@ export default function AdminPortfolioPage() {
 
   const loadData = useCallback(
     async (clientId: number, silent = false) => {
-      if (!silent) setLoading(true);
+      if (!silent) {
+        setLoading(true);
+        setAssets([]); // clear stale data before loading the new client
+      }
       setError(null);
       try {
         const data = await fetchAssets(clientId);
