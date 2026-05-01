@@ -63,6 +63,16 @@ function fmtCompact(n: number) {
   return `₹${n.toFixed(0)}`;
 }
 
+/** Returns `value` when it is a finite number, otherwise `fallback` (default 0). */
+function safeNumber(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+/** Returns `[] when arr is not an array, applying the filter otherwise. */
+function filterAssetsByType(arr: Asset[], type: Asset["type"]): Asset[] {
+  return Array.isArray(arr) ? arr.filter((a) => a.type === type) : [];
+}
+
 function gainColor(n: number) {
   return n >= 0 ? "#4ade80" : "#f87171";
 }
@@ -537,9 +547,9 @@ export default function MobileDashboard({
       ? selectedClient.name
       : user?.name ?? user?.email ?? "Welcome";
 
-  const stocks = useMemo(() => Array.isArray(assets) ? assets.filter((a) => a.type === "stock") : [], [assets]);
-  const mfs = useMemo(() => Array.isArray(assets) ? assets.filter((a) => a.type === "mf") : [], [assets]);
-  const properties = useMemo(() => Array.isArray(assets) ? assets.filter((a) => a.type === "property") : [], [assets]);
+  const stocks = useMemo(() => filterAssetsByType(assets, "stock"), [assets]);
+  const mfs = useMemo(() => filterAssetsByType(assets, "mf"), [assets]);
+  const properties = useMemo(() => filterAssetsByType(assets, "property"), [assets]);
 
   const metrics = useMemo(() => {
     const topAssetClass = allocation
@@ -550,14 +560,15 @@ export default function MobileDashboard({
           topAssetClass[0] as keyof typeof allocation
         ] ?? topAssetClass[0])
       : "—";
-    const topAssetPct = topAssetClass ? (typeof topAssetClass[1] === "number" && Number.isFinite(topAssetClass[1]) ? topAssetClass[1] : 0) : 0;
-    const stockPct = typeof allocation?.stock === "number" && Number.isFinite(allocation.stock) ? allocation.stock : 0;
+    const topAssetPct = safeNumber(topAssetClass ? topAssetClass[1] : 0);
+    const stockPct = safeNumber(allocation?.stock);
     const riskLabel = stockPct > 60 ? "High" : stockPct > 35 ? "Medium" : "Low";
     const riskColor = stockPct > 60 ? "#f87171" : stockPct > 35 ? "#fbbf24" : "#4ade80";
     return { topAssetLabel, topAssetPct, stockPct, riskLabel, riskColor };
   }, [allocation]);
 
   const { topAssetLabel, topAssetPct, stockPct, riskLabel, riskColor } = metrics;
+  const safeReturnPct = safeNumber(returnPct);
 
   function openAdd() {
     if (activeTab === "stocks") setModal({ type: "stock", mode: "add" });
@@ -636,9 +647,9 @@ export default function MobileDashboard({
                 </p>
                 <p
                   className="text-xs font-semibold"
-                  style={{ color: gainColor(returnPct) }}
+                  style={{ color: gainColor(safeReturnPct) }}
                 >
-                  {gainSign(returnPct)}{(typeof returnPct === "number" && Number.isFinite(returnPct) ? returnPct : 0).toFixed(1)}%
+                  {gainSign(safeReturnPct)}{safeReturnPct.toFixed(1)}%
                 </p>
               </div>
             </>
@@ -721,9 +732,9 @@ export default function MobileDashboard({
                     <p className="text-xs text-gray-400 uppercase tracking-wide">Returns</p>
                     <p
                       className="text-lg font-bold"
-                      style={{ color: gainColor(returnPct) }}
+                      style={{ color: gainColor(safeReturnPct) }}
                     >
-                      {gainSign(returnPct)}{(typeof returnPct === "number" && Number.isFinite(returnPct) ? returnPct : 0).toFixed(1)}%
+                      {gainSign(safeReturnPct)}{safeReturnPct.toFixed(1)}%
                     </p>
                     <p className="text-xs text-gray-500">
                       {fmtCompact(Math.abs(totalReturn))} {totalReturn >= 0 ? "gain" : "loss"}
