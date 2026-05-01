@@ -335,9 +335,14 @@ export async function fetchAssets(
       ? res.data
       : res;
 
+  // Normalize a raw item by mapping asset_type → type
+  const normalizeItem = (item: any): Asset => ({ ...item, type: item.asset_type ?? item.type });
+
   // Backend returns { summary, allocation, assets }
   if (unwrapped && typeof unwrapped === "object" && "assets" in unwrapped) {
-    const assets: Asset[] = Array.isArray(unwrapped.assets) ? unwrapped.assets : [];
+    const rawAssets: any[] = Array.isArray(unwrapped.assets) ? unwrapped.assets : [];
+    const assets: Asset[] = rawAssets.map(normalizeItem);
+    console.log("Normalized assets:", assets);
     return {
       summary: unwrapped.summary ?? {
         total_value: 0,
@@ -350,10 +355,13 @@ export async function fetchAssets(
     };
   }
 
-  // Fallback: handle legacy array response
-  const assets: Asset[] = Array.isArray(unwrapped)
+  // Fallback: handle legacy array response or { data: [...] } from /portfolio
+  const rawList: any[] = Array.isArray(unwrapped)
     ? unwrapped
     : (unwrapped?.assets ?? []);
+
+  const assets: Asset[] = rawList.map(normalizeItem);
+  console.log("Normalized assets:", assets);
 
   const totalValue = assets.reduce(
     (s, a) => s + (a.value ?? a.current_value ?? 0),
