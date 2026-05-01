@@ -137,6 +137,16 @@ export async function fetcher<T>(
   // 🔁 RAW MODE
   if (raw) return json as T;
 
+  // 📦 CHECK { success, data, error } envelope
+  if (json && typeof json === "object" && "success" in json) {
+    if (json.success === false) {
+      throw new ApiError(response.status, json.error || "API error");
+    }
+    if ("data" in json) {
+      return json.data as T;
+    }
+  }
+
   // 📦 UNWRAP { data }
   if (json && typeof json === "object" && "data" in json) {
     return json.data as T;

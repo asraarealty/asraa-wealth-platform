@@ -17,12 +17,6 @@ function fmt(n: number | undefined | null, prefix = "₹") {
   return `${prefix}${new Intl.NumberFormat("en-IN").format(Math.round(n))}`;
 }
 
-function pct(n: number | undefined | null) {
-  if (n == null) return "—";
-  const s = n >= 0 ? "+" : "";
-  return `${s}${n.toFixed(2)}%`;
-}
-
 export default function StocksTab({
   assets,
   onAdd,
@@ -94,7 +88,7 @@ export default function StocksTab({
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
-                {["Symbol", "Name", "Qty", "Avg Price", "Curr Price", "Value", "P&L", "Tags", ""].map(
+                {["Symbol", "Name", "Qty", "Avg Price", "Value", "Tags", ""].map(
                   (h) => (
                     <th
                       key={h}
@@ -112,14 +106,6 @@ export default function StocksTab({
             </thead>
             <tbody>
               {stocks.map((a) => {
-                const pl =
-                  a.current_price != null && a.avg_price != null && a.quantity != null
-                    ? (a.current_price - a.avg_price) * a.quantity
-                    : null;
-                const plPct =
-                  a.current_price != null && a.avg_price != null && a.avg_price > 0
-                    ? ((a.current_price - a.avg_price) / a.avg_price) * 100
-                    : null;
                 const isDeleting = deletingId === a.id;
 
                 return (
@@ -143,27 +129,7 @@ export default function StocksTab({
                     </td>
                     <td className="px-4 py-3 text-gray-300">{a.quantity ?? "—"}</td>
                     <td className="px-4 py-3 text-gray-300">{fmt(a.avg_price)}</td>
-                    <td className="px-4 py-3 text-gray-300">{fmt(a.current_price)}</td>
                     <td className="px-4 py-3 text-white font-medium">{fmt(a.value)}</td>
-                    <td
-                      className="px-4 py-3 font-medium"
-                      style={{
-                        color:
-                          plPct == null
-                            ? "rgba(255,255,255,0.4)"
-                            : plPct >= 0
-                            ? "#4ade80"
-                            : "#f87171",
-                      }}
-                    >
-                      {plPct != null ? pct(plPct) : "—"}
-                      {pl != null && (
-                        <span className="block text-xs opacity-70">
-                          {pl >= 0 ? "+" : ""}
-                          {fmt(pl)}
-                        </span>
-                      )}
-                    </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
                         {(a.tags ?? []).map((tag) => (

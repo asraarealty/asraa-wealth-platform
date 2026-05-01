@@ -1,12 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
-import {
-  getAdminPortfolio,
-  groupAssetsByUserId,
-} from "@/lib/services/portfolioService";
 import { getAdminClients } from "@/lib/services/clientService";
 import {
+  fetchAssets,
   createAsset,
   updateAsset,
   deleteAsset,
@@ -39,60 +36,57 @@ function fmtCurrency(n: number) {
 
 export default function AdminPage() {
   const [clients, setClients] = useState<AdminClient[]>([]);
-  const [grouped, setGrouped] = useState<Record<number, Asset[]>>({});
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [assetsByClient, setAssetsByClient] = useState<Record<number, Asset[]>>({});
   const [activeTab, setActiveTab] = useState<Tab>("stocks");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const reloadGrouped = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const assets = await getAdminPortfolio(signal);
-      const g = groupAssetsByUserId(assets);
-      console.log("grouped portfolio:", g);
-      setGrouped(g);
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      console.error("[AdminPage] reloadGrouped failed:", toErrorMessage(err));
-    }
-  }, []);
-
   useEffect(() => {
     const ac = new AbortController();
-    const { signal } = ac;
 
-    Promise.allSettled([
-      getAdminClients(signal),
-      getAdminPortfolio(signal),
-    ])
-      .then(([clientsRes, portfolioRes]) => {
-        if (clientsRes.status === "fulfilled") setClients(clientsRes.value);
-        if (portfolioRes.status === "fulfilled") {
-          const g = groupAssetsByUserId(portfolioRes.value);
-          console.log("grouped portfolio:", g);
-          setGrouped(g);
-        }
-
-        if (
-          clientsRes.status === "rejected" &&
-          portfolioRes.status === "rejected"
-        ) {
-          setError(toErrorMessage(clientsRes.reason));
-        }
+    getAdminClients(ac.signal)
+      .then((data) => setClients(data))
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(toErrorMessage(err));
       })
       .finally(() => setLoading(false));
 
     return () => ac.abort();
   }, []);
 
+  const loadClient = useCallback(async (client: Client) => {
+    if (assetsByClient[client.id]) return;
+    try {
+      const data = await fetchAssets(client.id);
+      console.log("client", client.id);
+      console.log("assets", data);
+      setAssetsByClient((prev: Record<number, Asset[]>) => ({ ...prev, [client.id]: data }));
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      console.error("[AdminPage] loadClient failed:", toErrorMessage(err));
+    }
+  }, [assetsByClient]);
+
+  const reloadClient = useCallback(async (clientId: number) => {
+    try {
+      const data = await fetchAssets(clientId);
+      setAssetsByClient((prev: Record<number, Asset[]>) => ({ ...prev, [clientId]: data }));
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      console.error("[AdminPage] reloadClient failed:", toErrorMessage(err));
+    }
+  }, []);
+
   // All assets flattened for aggregate stats
   const allAssets = useMemo(
-    () => Object.values(grouped).flat(),
-    [grouped]
+    () => Object.values(assetsByClient).flat(),
+    [assetsByClient]
   );
 
   const totalAUM = useMemo(
-    () => allAssets.reduce((s, a) => s + (a.value ?? a.current_value ?? 0), 0),
+    () => allAssets.reduce((s: number, a: Asset) => s + (a.value ?? 0), 0),
     [allAssets]
   );
 
@@ -100,8 +94,8 @@ export default function AdminPage() {
     if (totalAUM === 0) return undefined;
     const pct = (type: Asset["type"]) => {
       const val = allAssets
-        .filter((a) => a.type === type)
-        .reduce((s, a) => s + (a.value ?? a.current_value ?? 0), 0);
+        .filter((a: Asset) => a.type === type)
+        .reduce((s: number, a: Asset) => s + (a.value ?? 0), 0);
       return parseFloat(((val / totalAUM) * 100).toFixed(1));
     };
     return {
@@ -111,25 +105,25 @@ export default function AdminPage() {
     };
   }, [allAssets, totalAUM]);
 
-  const activeClients = clients.filter((c) => c.is_active).length;
-  const clientAssets: Asset[] = selectedClient
-    ? grouped[selectedClient.id] ?? []
-    : [];
+  const activeClients = clients.filter((c: AdminClient) => c.is_active).length;
+  const assets: Asset[] = assetsByClient[selectedClient?.id ?? -1] ?? [];
 
   async function handleAdd(payload: CreateAssetPayload) {
     if (!selectedClient) return;
     await createAsset({ ...payload, user_id: selectedClient.id });
-    await reloadGrouped();
+    await reloadClient(selectedClient.id);
   }
 
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
+    if (!selectedClient) return;
     await updateAsset(id, payload);
-    await reloadGrouped();
+    await reloadClient(selectedClient.id);
   }
 
   async function handleDelete(id: number) {
+    if (!selectedClient) return;
     await deleteAsset(id);
-    await reloadGrouped();
+    await reloadClient(selectedClient.id);
   }
 
   if (loading) return <Loader />;
@@ -198,6 +192,7 @@ export default function AdminPage() {
             onChange={(client) => {
               setSelectedClient(client);
               setActiveTab("stocks");
+              void loadClient(client);
             }}
           />
         </div>
@@ -214,7 +209,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {selectedClient && clientAssets.length === 0 && (
+        {selectedClient && assets.length === 0 && (
           <div
             className="glass-card rounded-2xl p-10 text-center"
             style={{ border: "1px solid rgba(201,162,39,0.15)" }}
@@ -225,9 +220,9 @@ export default function AdminPage() {
           </div>
         )}
 
-        {selectedClient && clientAssets.length > 0 && (
+        {selectedClient && assets.length > 0 && (
           <AssetTabs
-            assets={clientAssets}
+            assets={assets}
             activeTab={activeTab}
             onTabChange={setActiveTab}
             onAdd={handleAdd}

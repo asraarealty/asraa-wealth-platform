@@ -99,7 +99,6 @@ export interface Portfolio {
   name: string;
   quantity: number;
   avg_price: number;
-  current_price: number;
   value: number;
   allocation?: number;
 }
@@ -213,7 +212,6 @@ export interface AdminPortfolioItem {
   name: string;
   quantity: number;
   avg_price: number;
-  current_price: number;
   value: number;
 }
 
@@ -275,7 +273,6 @@ export interface Asset {
   name: string;
   quantity?: number;
   avg_price?: number;
-  current_price?: number;
   value?: number;
   allocation?: number;
   /** Real estate */
@@ -295,7 +292,7 @@ export interface Asset {
 
 export type CreateAssetPayload = Omit<
   Asset,
-  "id" | "current_price" | "value" | "allocation" | "created_at"
+  "id" | "value" | "allocation" | "created_at"
 >;
 export type UpdateAssetPayload = Partial<CreateAssetPayload>;
 
@@ -321,39 +318,25 @@ export interface AssetsResponse {
 export async function fetchAssets(
   clientId?: number,
   signal?: AbortSignal
-): Promise<AssetsResponse> {
+): Promise<Asset[]> {
   const path =
     clientId !== undefined
       ? `/portfolio?user_id=${encodeURIComponent(clientId)}`
-      : "/assets/me";
+      : "/portfolio/me";
 
-  const res = await fetcher<any>(path, { signal, raw: true });
-  console.log("API raw:", res);
+  const list = await fetcher<any[]>(path, { signal });
+  console.log("client", clientId);
+  console.log("assets", list);
 
-  // Unwrap { success, data } or { data } envelopes; fall back to raw response
-  const unwrapped = res?.data ?? res;
+  if (!Array.isArray(list)) {
+    console.error("fetchAssets: expected array, got", list);
+    return [];
+  }
 
-  // Extract the asset list: raw array → assets key → data key → empty
-  const list: any[] = Array.isArray(unwrapped)
-    ? unwrapped
-    : unwrapped?.assets ?? unwrapped?.data ?? [];
-
-  const assets: Asset[] = list.map((item: any) => ({
-    ...item,
-    type: item.asset_type ?? item.type,
+  return list.map((a: any) => ({
+    ...a,
+    type: a.type ?? a.asset_type,
   }));
-  console.log("Assets final:", assets);
-
-  return {
-    assets,
-    summary: unwrapped?.summary ?? {
-      total_value: 0,
-      total_invested: 0,
-      total_return: 0,
-      return_percentage: 0,
-    },
-    allocation: unwrapped?.allocation ?? { stock: 0, mf: 0, real_estate: 0 },
-  };
 }
 
 export function createAsset(
