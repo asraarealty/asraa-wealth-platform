@@ -24,6 +24,21 @@ import AssetTabs from "./dashboard/AssetTabs";
 import StatBox from "./ui/StatBox";
 import Loader from "./ui/Loader";
 import ErrorState from "./ui/ErrorState";
+import MobileDashboard from "./dashboard/MobileDashboard";
+
+function useIsMobile(breakpoint = 768) {
+  // Always start with `false` so the server-rendered HTML (desktop layout)
+  // matches the client's initial render, avoiding a hydration mismatch.
+  // After mount, measure the actual viewport and track resize events.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < breakpoint);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [breakpoint]);
+  return isMobile;
+}
 
 type Tab = "stocks" | "mutual_funds" | "real_estate";
 
@@ -40,6 +55,7 @@ function fmtCurrency(n: number) {
 export default function Dashboard({ clientId }: { clientId?: string }) {
   const { logout, user } = useAuth();
   const isAdmin = String(user?.role).toLowerCase() === "admin";
+  const isMobile = useIsMobile();
 
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -147,6 +163,31 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
   async function handleDelete(id: number) {
     await deleteAsset(id);
     loadData(resolvedClientId);
+  }
+
+  // Mobile-first render
+  if (isMobile) {
+    return (
+      <MobileDashboard
+        user={user}
+        isAdmin={isAdmin}
+        selectedClient={selectedClient}
+        onClientChange={setSelectedClient}
+        assets={assets}
+        insights={insights}
+        loading={loading}
+        error={error}
+        totalValue={totalValue}
+        totalInvested={totalInvested}
+        totalReturn={totalReturn}
+        returnPct={returnPct}
+        allocation={allocation}
+        onAdd={handleAdd}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onLogout={logout}
+      />
+    );
   }
 
   return (
