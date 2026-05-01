@@ -27,6 +27,9 @@ import ErrorState from "./ui/ErrorState";
 import MobileDashboard from "./dashboard/MobileDashboard";
 
 function useIsMobile(breakpoint = 768) {
+  // Always start with `false` so the server-rendered HTML (desktop layout)
+  // matches the client's initial render, avoiding a hydration mismatch.
+  // After mount, measure the actual viewport and track resize events.
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < breakpoint);
