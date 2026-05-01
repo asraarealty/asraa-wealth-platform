@@ -393,6 +393,53 @@ export function deleteAsset(
   });
 }
 
+/**
+ * Single-fetch admin endpoint.
+ * GET /portfolio/admin → { success: true, data: { [user_id]: Asset[] } }
+ *
+ * Returns a Record keyed by string user_id so it maps directly to the
+ * backend contract.  The `type` field is normalised ("real_estate" → "property")
+ * for consistency with the rest of the codebase.
+ */
+
+interface AdminGroupedResponse {
+  success?: boolean;
+  data?: Record<string, RawAsset[]>;
+}
+
+interface RawAsset {
+  type?: string;
+  asset_type?: string;
+  [key: string]: unknown;
+}
+
+export async function fetchAdminGroupedAssets(
+  signal?: AbortSignal
+): Promise<Record<string, Asset[]>> {
+  const res = await fetcher<AdminGroupedResponse>("/portfolio/admin", {
+    signal,
+    raw: true,
+  });
+
+  // Backend contract: { success: true, data: { [user_id]: Asset[] } }
+  const map: Record<string, RawAsset[]> =
+    res && typeof res === "object" && !Array.isArray(res) && res.data != null
+      ? (res.data as Record<string, RawAsset[]>)
+      : {};
+
+  const result: Record<string, Asset[]> = {};
+  for (const [uid, rawAssets] of Object.entries(map)) {
+    if (!Array.isArray(rawAssets)) continue;
+    result[uid] = rawAssets.map((a) => ({
+      ...(a as Omit<Asset, "type">),
+      type: (a.type === "real_estate"
+        ? "property"
+        : (a.type ?? a.asset_type)) as Asset["type"],
+    }));
+  }
+  return result;
+}
+
 /* ── Insights ───────────────────────────────────────────────────────── */
 
 export interface InsightItem {

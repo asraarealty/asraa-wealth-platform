@@ -1,5 +1,6 @@
 import {
   fetchPortfolioItems,
+  fetchAdminGroupedAssets,
   fetcher,
   type Asset,
   type Portfolio,
@@ -34,40 +35,16 @@ export async function getPortfolioItems(
 }
 
 /**
- * Fetch all portfolio assets for the admin panel.
- * Calls /portfolio (admin sees all users' assets) and normalises the response
- * to a flat Asset[] — handles every envelope shape the backend may return.
+ * Fetch all portfolio assets for the admin panel via the single
+ * GET /portfolio/admin endpoint.
+ *
+ * Returns a flat Asset[] (all clients combined); never throws on non-abort
+ * errors.
  */
 export async function getAdminPortfolio(signal?: AbortSignal): Promise<Asset[]> {
   try {
-    // /portfolio returns one of several shapes depending on backend version:
-    //   - raw array:                 Asset[]
-    //   - data envelope:             { data: Asset[] }
-    //   - assets envelope:           { assets: Asset[] }
-    //   - positions envelope:        { positions: Asset[] }
-    const res = await fetcher<unknown>("/portfolio", { signal, raw: true });
-
-    const obj = res as Record<string, unknown>;
-
-    // Unwrap { data: ... } envelope when present
-    const unwrapped =
-      res && typeof res === "object" && !Array.isArray(res) && obj.data != null
-        ? obj.data
-        : res;
-
-    const list: unknown = Array.isArray(unwrapped)
-      ? unwrapped
-      : (unwrapped as Record<string, unknown>)?.assets ??
-        (unwrapped as Record<string, unknown>)?.positions ??
-        [];
-
-    if (!Array.isArray(list)) {
-      console.warn("[portfolioService] getAdminPortfolio: unexpected shape", list);
-      return [];
-    }
-
-    console.log("Portfolio API (service):", list);
-    return list as Asset[];
+    const grouped = await fetchAdminGroupedAssets(signal);
+    return Object.values(grouped).flat();
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
     console.error("[portfolioService] getAdminPortfolio failed:", toErrorMessage(err));
