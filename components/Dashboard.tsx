@@ -88,7 +88,9 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       console.log("portfolio:", data);
 
       try {
-        const ins = await fetchInsights();
+        // Pass the client id so admins get insights for the selected client,
+        // not for their own portfolio.
+        const ins = await fetchInsights(id);
         setInsights(ins);
       } catch {
         setInsights(null);

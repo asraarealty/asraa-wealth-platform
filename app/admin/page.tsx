@@ -46,7 +46,24 @@ export default function AdminPage() {
     const ac = new AbortController();
 
     getAdminClients(ac.signal)
-      .then((data) => setClients(data))
+      .then(async (data) => {
+        setClients(data);
+
+        // Fetch all clients' assets in parallel so that the AUM and allocation
+        // stats are accurate from the moment the page loads, not just for
+        // clients that have been manually clicked.
+        const results = await Promise.allSettled(
+          data.map((client) => fetchAssets(client.id, ac.signal))
+        );
+
+        const portfolioMap: Record<number, Asset[]> = {};
+        data.forEach((client, i) => {
+          const result = results[i];
+          portfolioMap[client.id] =
+            result.status === "fulfilled" ? result.value : [];
+        });
+        setAssetsByClient(portfolioMap);
+      })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(toErrorMessage(err));
@@ -55,19 +72,6 @@ export default function AdminPage() {
 
     return () => ac.abort();
   }, []);
-
-  const loadClient = useCallback(async (client: Client) => {
-    if (assetsByClient[client.id]) return;
-    try {
-      const data = await fetchAssets(client.id);
-      console.log("client", client.id);
-      console.log("assets", data);
-      setAssetsByClient((prev: Record<number, Asset[]>) => ({ ...prev, [client.id]: data }));
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      console.error("[AdminPage] loadClient failed:", toErrorMessage(err));
-    }
-  }, [assetsByClient]);
 
   const reloadClient = useCallback(async (clientId: number) => {
     try {
@@ -192,7 +196,6 @@ export default function AdminPage() {
             onChange={(client) => {
               setSelectedClient(client);
               setActiveTab("stocks");
-              void loadClient(client);
             }}
           />
         </div>

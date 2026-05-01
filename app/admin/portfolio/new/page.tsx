@@ -2,13 +2,23 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createPortfolioItem } from "@/lib/api";
+import { createAsset } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
+import ClientSelector from "@/components/ClientSelector";
+import type { Client, AssetType } from "@/lib/api";
+
+const ASSET_TYPES: { value: AssetType; label: string }[] = [
+  { value: "stock", label: "Stock" },
+  { value: "mf", label: "Mutual Fund" },
+  { value: "property", label: "Real Estate" },
+];
 
 export default function NewPortfolioPage() {
   const router = useRouter();
 
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [form, setForm] = useState({
+    type: "stock" as AssetType,
     symbol: "",
     name: "",
     quantity: "",
@@ -23,7 +33,7 @@ export default function NewPortfolioPage() {
   };
 
   const validate = () => {
-    if (!form.symbol.trim()) return "Symbol is required";
+    if (!selectedClient) return "Please select a client";
     if (!form.name.trim()) return "Name is required";
     if (!form.quantity || isNaN(Number(form.quantity)) || Number(form.quantity) <= 0)
       return "Valid quantity is required";
@@ -45,11 +55,13 @@ export default function NewPortfolioPage() {
     setLoading(true);
 
     try {
-      await createPortfolioItem({
-        symbol: form.symbol.trim().toUpperCase(),
+      await createAsset({
+        type: form.type,
+        symbol: form.symbol.trim().toUpperCase() || undefined,
         name: form.name.trim(),
         quantity: Number(form.quantity),
         avg_price: Number(form.avg_price),
+        user_id: selectedClient!.id,
       });
 
       router.push("/admin/portfolio");
@@ -69,8 +81,28 @@ export default function NewPortfolioPage() {
           Add Position
         </h1>
         <p className="text-sm text-gray-400 mt-1">
-          Add a new portfolio position
+          Add a new asset to a client&apos;s portfolio
         </p>
+      </div>
+
+      {/* CLIENT SELECTOR */}
+      <div
+        className="p-5 rounded-2xl"
+        style={{
+          background: "rgba(11,61,46,0.6)",
+          border: "1px solid rgba(201,162,39,0.2)",
+        }}
+      >
+        <p
+          className="text-xs font-semibold uppercase tracking-widest mb-3"
+          style={{ color: "#c9a227" }}
+        >
+          Select Client *
+        </p>
+        <ClientSelector
+          selectedId={selectedClient?.id ?? null}
+          onChange={setSelectedClient}
+        />
       </div>
 
       {/* FORM */}
@@ -82,25 +114,56 @@ export default function NewPortfolioPage() {
           border: "1px solid rgba(201,162,39,0.2)",
         }}
       >
+        {/* ASSET TYPE */}
+        <div>
+          <label className="text-sm text-gray-400">Asset Type *</label>
+          <select
+            value={form.type}
+            onChange={(e) => handleChange("type", e.target.value)}
+            className="w-full mt-1 p-2 rounded-xl bg-transparent border border-gray-600 focus:outline-none focus:ring-1 text-white"
+            style={{ background: "rgba(11,61,46,0.8)" }}
+            required
+          >
+            {ASSET_TYPES.map((t) => (
+              <option key={t.value} value={t.value} style={{ background: "#0b3d2e" }}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* SYMBOL */}
         <div>
-          <label className="text-sm text-gray-400">Symbol</label>
+          <label className="text-sm text-gray-400">
+            Symbol{form.type === "property" ? " (optional)" : ""}
+          </label>
           <input
             type="text"
-            placeholder="e.g. AAPL, 120503, PROP-001"
+            placeholder={
+              form.type === "stock"
+                ? "e.g. AAPL, RELIANCE"
+                : form.type === "mf"
+                ? "e.g. 120503"
+                : "e.g. PROP-001"
+            }
             value={form.symbol}
             onChange={(e) => handleChange("symbol", e.target.value)}
             className="w-full mt-1 p-2 rounded-xl bg-transparent border border-gray-600 focus:outline-none focus:ring-1"
-            required
           />
         </div>
 
         {/* NAME */}
         <div>
-          <label className="text-sm text-gray-400">Name</label>
+          <label className="text-sm text-gray-400">Name *</label>
           <input
             type="text"
-            placeholder="e.g. Apple Inc."
+            placeholder={
+              form.type === "stock"
+                ? "e.g. Apple Inc."
+                : form.type === "mf"
+                ? "e.g. HDFC Top 100 Fund"
+                : "e.g. Sunrise Villa"
+            }
             value={form.name}
             onChange={(e) => handleChange("name", e.target.value)}
             className="w-full mt-1 p-2 rounded-xl bg-transparent border border-gray-600 focus:outline-none focus:ring-1"
@@ -110,7 +173,9 @@ export default function NewPortfolioPage() {
 
         {/* QUANTITY */}
         <div>
-          <label className="text-sm text-gray-400">Quantity</label>
+          <label className="text-sm text-gray-400">
+            {form.type === "mf" ? "Units *" : form.type === "property" ? "Quantity (1 for single property) *" : "Quantity *"}
+          </label>
           <input
             type="number"
             min="0"
@@ -125,7 +190,9 @@ export default function NewPortfolioPage() {
 
         {/* AVG PRICE */}
         <div>
-          <label className="text-sm text-gray-400">Average Price</label>
+          <label className="text-sm text-gray-400">
+            {form.type === "mf" ? "Avg NAV (₹) *" : form.type === "property" ? "Purchase Price (₹) *" : "Average Price (₹) *"}
+          </label>
           <input
             type="number"
             min="0"
