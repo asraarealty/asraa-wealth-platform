@@ -51,7 +51,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
 
       searchStocks(query.trim(), controller.signal)
         .then((data) => {
-          setResults(data);
+          setResults(Array.isArray(data) ? data : []);
           setOpen(true);
           setActiveIndex(-1);
         })
@@ -230,7 +230,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
                   }`}
                 >
                   {isPositive(stock.change_percent) ? "+" : ""}
-                  {stock.change_percent.toFixed(2)}%
+                  {typeof stock.change_percent === "number" ? stock.change_percent.toFixed(2) : "0.00"}%
                 </div>
               </div>
               <div className="hidden sm:block text-right shrink-0">

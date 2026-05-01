@@ -56,6 +56,7 @@ function fmt(n: number | undefined | null, prefix = "₹") {
 }
 
 function fmtCompact(n: number) {
+  if (!Number.isFinite(n)) return "₹0";
   if (n >= 1_00_00_000) return `₹${(n / 1_00_00_000).toFixed(1)}Cr`;
   if (n >= 1_00_000) return `₹${(n / 1_00_000).toFixed(1)}L`;
   if (n >= 1_000) return `₹${(n / 1_000).toFixed(1)}K`;
@@ -536,9 +537,9 @@ export default function MobileDashboard({
       ? selectedClient.name
       : user?.name ?? user?.email ?? "Welcome";
 
-  const stocks = useMemo(() => assets.filter((a) => a.type === "stock"), [assets]);
-  const mfs = useMemo(() => assets.filter((a) => a.type === "mf"), [assets]);
-  const properties = useMemo(() => assets.filter((a) => a.type === "property"), [assets]);
+  const stocks = useMemo(() => Array.isArray(assets) ? assets.filter((a) => a.type === "stock") : [], [assets]);
+  const mfs = useMemo(() => Array.isArray(assets) ? assets.filter((a) => a.type === "mf") : [], [assets]);
+  const properties = useMemo(() => Array.isArray(assets) ? assets.filter((a) => a.type === "property") : [], [assets]);
 
   const metrics = useMemo(() => {
     const topAssetClass = allocation
@@ -549,8 +550,8 @@ export default function MobileDashboard({
           topAssetClass[0] as keyof typeof allocation
         ] ?? topAssetClass[0])
       : "—";
-    const topAssetPct = topAssetClass ? topAssetClass[1] : 0;
-    const stockPct = allocation?.stock ?? 0;
+    const topAssetPct = topAssetClass ? (typeof topAssetClass[1] === "number" && Number.isFinite(topAssetClass[1]) ? topAssetClass[1] : 0) : 0;
+    const stockPct = typeof allocation?.stock === "number" && Number.isFinite(allocation.stock) ? allocation.stock : 0;
     const riskLabel = stockPct > 60 ? "High" : stockPct > 35 ? "Medium" : "Low";
     const riskColor = stockPct > 60 ? "#f87171" : stockPct > 35 ? "#fbbf24" : "#4ade80";
     return { topAssetLabel, topAssetPct, stockPct, riskLabel, riskColor };
@@ -637,7 +638,7 @@ export default function MobileDashboard({
                   className="text-xs font-semibold"
                   style={{ color: gainColor(returnPct) }}
                 >
-                  {gainSign(returnPct)}{returnPct.toFixed(1)}%
+                  {gainSign(returnPct)}{(typeof returnPct === "number" && Number.isFinite(returnPct) ? returnPct : 0).toFixed(1)}%
                 </p>
               </div>
             </>
@@ -722,7 +723,7 @@ export default function MobileDashboard({
                       className="text-lg font-bold"
                       style={{ color: gainColor(returnPct) }}
                     >
-                      {gainSign(returnPct)}{returnPct.toFixed(1)}%
+                      {gainSign(returnPct)}{(typeof returnPct === "number" && Number.isFinite(returnPct) ? returnPct : 0).toFixed(1)}%
                     </p>
                     <p className="text-xs text-gray-500">
                       {fmtCompact(Math.abs(totalReturn))} {totalReturn >= 0 ? "gain" : "loss"}
@@ -761,17 +762,17 @@ export default function MobileDashboard({
                 </div>
 
                 {/* Allocation chart */}
-                {assets.length > 0 && (
+                {Array.isArray(assets) && assets.length > 0 && (
                   <AllocationChart allocation={allocation} />
                 )}
 
                 {/* AI Insights */}
-                {assets.length > 0 && (
+                {Array.isArray(assets) && assets.length > 0 && (
                   <AIInsightsPanel insights={insights} />
                 )}
 
                 {/* Empty portfolio */}
-                {assets.length === 0 && (
+                {(!Array.isArray(assets) || assets.length === 0) && (
                   <div
                     className="glass-card rounded-xl p-8 text-center"
                     style={{ borderRadius: 12 }}
