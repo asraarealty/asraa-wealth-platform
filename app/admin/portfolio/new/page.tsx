@@ -34,6 +34,8 @@ export default function NewPortfolioPage() {
 
   const validate = () => {
     if (!selectedClient) return "Please select a client";
+    if (form.type !== "property" && !form.symbol.trim())
+      return "Symbol is required for stocks and mutual funds";
     if (!form.name.trim()) return "Name is required";
     if (!form.quantity || isNaN(Number(form.quantity)) || Number(form.quantity) <= 0)
       return "Valid quantity is required";
@@ -57,7 +59,11 @@ export default function NewPortfolioPage() {
     try {
       await createAsset({
         type: form.type,
-        symbol: form.symbol.trim().toUpperCase() || undefined,
+        // Symbol is required for stocks and MFs; optional for real estate.
+        symbol:
+          form.type !== "property"
+            ? form.symbol.trim().toUpperCase()
+            : form.symbol.trim().toUpperCase() || undefined,
         name: form.name.trim(),
         quantity: Number(form.quantity),
         avg_price: Number(form.avg_price),
