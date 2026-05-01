@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { ReactNode } from "react";
 import type {
   Asset,
@@ -16,19 +16,17 @@ import RealEstateModal from "./modals/RealEstateModal";
 import ClientSelector from "../ClientSelector";
 import AllocationChart from "./AllocationChart";
 import AIInsightsPanel from "./AIInsightsPanel";
-import Loader from "../ui/Loader";
 import ErrorState from "../ui/ErrorState";
 
 /* ── types ──────────────────────────────────────────────────────────── */
 
 type MobileTab = "dashboard" | "stocks" | "mutual_funds" | "real_estate" | "profile";
 
-type ModalKind =
-  | { kind: "add" }
-  | { kind: "edit_stock"; asset: Asset }
-  | { kind: "edit_mf"; asset: Asset }
-  | { kind: "edit_property"; asset: Asset }
-  | null;
+type ModalState = {
+  type: "stock" | "mf" | "property" | null;
+  mode: "add" | "edit";
+  asset?: Asset;
+} | null;
 
 export interface MobileDashboardProps {
   user: { id: number; name?: string; email: string; role?: string } | null;
@@ -58,10 +56,21 @@ function fmt(n: number | undefined | null, prefix = "₹") {
 }
 
 function fmtCompact(n: number) {
+  if (!Number.isFinite(n)) return "₹0";
   if (n >= 1_00_00_000) return `₹${(n / 1_00_00_000).toFixed(1)}Cr`;
   if (n >= 1_00_000) return `₹${(n / 1_00_000).toFixed(1)}L`;
   if (n >= 1_000) return `₹${(n / 1_000).toFixed(1)}K`;
   return `₹${n.toFixed(0)}`;
+}
+
+/** Returns `value` when it is a finite number, otherwise `fallback` (default 0). */
+function safeNumber(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+/** Returns `[] when arr is not an array, applying the filter otherwise. */
+function filterAssetsByType(arr: Asset[], type: Asset["type"]): Asset[] {
+  return Array.isArray(arr) ? arr.filter((a) => a.type === type) : [];
 }
 
 function gainColor(n: number) {
@@ -466,6 +475,49 @@ function MobileEmptyState({
   );
 }
 
+/* ── skeleton loaders ───────────────────────────────────────────────── */
+
+function SkeletonHeader() {
+  return (
+    <div className="animate-pulse flex items-start justify-between gap-2">
+      <div className="space-y-2 min-w-0">
+        <div className="h-3 rounded w-16" style={{ background: "rgba(255,255,255,0.08)" }} />
+        <div className="h-5 rounded w-28" style={{ background: "rgba(255,255,255,0.12)" }} />
+      </div>
+      <div className="space-y-2 shrink-0 text-right">
+        <div className="h-3 rounded w-24 ml-auto" style={{ background: "rgba(255,255,255,0.08)" }} />
+        <div className="h-6 rounded w-20 ml-auto" style={{ background: "rgba(255,255,255,0.12)" }} />
+        <div className="h-3 rounded w-12 ml-auto" style={{ background: "rgba(255,255,255,0.06)" }} />
+      </div>
+    </div>
+  );
+}
+
+function SkeletonCard() {
+  return (
+    <div
+      className="glass-card rounded-xl p-4 flex flex-col gap-3 animate-pulse"
+      style={{ borderRadius: 12 }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 space-y-2">
+          <div className="h-4 rounded w-2/3" style={{ background: "rgba(255,255,255,0.1)" }} />
+          <div className="h-3 rounded w-1/2" style={{ background: "rgba(255,255,255,0.06)" }} />
+        </div>
+        <div className="shrink-0 space-y-2">
+          <div className="h-4 rounded w-20" style={{ background: "rgba(255,255,255,0.1)" }} />
+          <div className="h-3 rounded w-12 ml-auto" style={{ background: "rgba(255,255,255,0.06)" }} />
+        </div>
+      </div>
+      <div className="h-3 rounded w-full" style={{ background: "rgba(255,255,255,0.05)" }} />
+      <div className="flex gap-2 pt-1" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+        <div className="flex-1 h-7 rounded-lg" style={{ background: "rgba(255,255,255,0.06)" }} />
+        <div className="flex-1 h-7 rounded-lg" style={{ background: "rgba(255,255,255,0.06)" }} />
+      </div>
+    </div>
+  );
+}
+
 /* ── main component ─────────────────────────────────────────────────── */
 
 export default function MobileDashboard({
@@ -487,7 +539,7 @@ export default function MobileDashboard({
   onLogout,
 }: MobileDashboardProps) {
   const [activeTab, setActiveTab] = useState<MobileTab>("dashboard");
-  const [modal, setModal] = useState<ModalKind>(null);
+  const [modal, setModal] = useState<ModalState>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const clientName =
@@ -495,19 +547,46 @@ export default function MobileDashboard({
       ? selectedClient.name
       : user?.name ?? user?.email ?? "Welcome";
 
-  const stocks = assets.filter((a) => a.type === "stock");
-  const mfs = assets.filter((a) => a.type === "mf");
-  const properties = assets.filter((a) => a.type === "property");
+  const stocks = useMemo(() => filterAssetsByType(assets, "stock"), [assets]);
+  const mfs = useMemo(() => filterAssetsByType(assets, "mf"), [assets]);
+  const properties = useMemo(() => filterAssetsByType(assets, "property"), [assets]);
 
-  async function handleAddSave(payload: CreateAssetPayload) {
-    await onAdd(payload);
+  const metrics = useMemo(() => {
+    const topAssetClass = allocation
+      ? Object.entries(allocation).sort((a, b) => b[1] - a[1])[0]
+      : null;
+    const topAssetLabel = topAssetClass
+      ? ({ stock: "Stocks", mf: "Funds", real_estate: "Property" }[
+          topAssetClass[0] as keyof typeof allocation
+        ] ?? topAssetClass[0])
+      : "—";
+    const topAssetPct = safeNumber(topAssetClass ? topAssetClass[1] : 0);
+    const stockPct = safeNumber(allocation?.stock);
+    const riskLabel = stockPct > 60 ? "High" : stockPct > 35 ? "Medium" : "Low";
+    const riskColor = stockPct > 60 ? "#f87171" : stockPct > 35 ? "#fbbf24" : "#4ade80";
+    return { topAssetLabel, topAssetPct, stockPct, riskLabel, riskColor };
+  }, [allocation]);
+
+  const { topAssetLabel, topAssetPct, stockPct, riskLabel, riskColor } = metrics;
+  const safeReturnPct = safeNumber(returnPct);
+
+  function openAdd() {
+    if (activeTab === "stocks") setModal({ type: "stock", mode: "add" });
+    else if (activeTab === "mutual_funds") setModal({ type: "mf", mode: "add" });
+    else if (activeTab === "real_estate") setModal({ type: "property", mode: "add" });
+    else setModal({ type: null, mode: "add" });
+  }
+
+  async function handleAddSave(payload: CreateAssetPayload | UpdateAssetPayload) {
+    if (!payload.type || !payload.name) return;
+    await onAdd(payload as CreateAssetPayload);
     setModal(null);
   }
 
   async function handleEditSave(
     payload: CreateAssetPayload | UpdateAssetPayload
   ) {
-    if (!modal || modal.kind === "add") return;
+    if (!modal || modal.mode !== "edit" || !modal.asset) return;
     await onEdit(modal.asset.id, payload as UpdateAssetPayload);
     setModal(null);
   }
@@ -520,26 +599,6 @@ export default function MobileDashboard({
       setDeletingId(null);
     }
   }
-
-  // Metric cards data
-  const topAssetClass =
-    allocation
-      ? Object.entries(allocation).sort((a, b) => b[1] - a[1])[0]
-      : null;
-  const topAssetLabel =
-    topAssetClass
-      ? ({ stock: "Stocks", mf: "Funds", real_estate: "Property" }[
-          topAssetClass[0] as keyof typeof allocation
-        ] ?? topAssetClass[0])
-      : "—";
-  const topAssetPct = topAssetClass ? topAssetClass[1] : 0;
-
-  // Risk: simple heuristic based on stock allocation
-  const stockPct = allocation?.stock ?? 0;
-  const riskLabel =
-    stockPct > 60 ? "High" : stockPct > 35 ? "Medium" : "Low";
-  const riskColor =
-    stockPct > 60 ? "#f87171" : stockPct > 35 ? "#fbbf24" : "#4ade80";
 
   return (
     <div
@@ -557,48 +616,49 @@ export default function MobileDashboard({
         }}
       >
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-xs text-gray-400 truncate">
-              {isAdmin && selectedClient ? "Client" : "Portfolio"}
-            </p>
-            <p className="text-base font-bold text-white truncate leading-tight mt-0.5">
-              {clientName}
-              {isAdmin && (
-                <span
-                  className="ml-2 text-xs px-2 py-0.5 rounded-full font-semibold align-middle"
-                  style={{
-                    background: "rgba(201,162,39,0.12)",
-                    color: "#d4af4a",
-                    border: "1px solid rgba(201,162,39,0.2)",
-                  }}
+          {loading ? (
+            <SkeletonHeader />
+          ) : (
+            <>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-400 truncate">
+                  {isAdmin && selectedClient ? "Client" : "Portfolio"}
+                </p>
+                <p className="text-base font-bold text-white truncate leading-tight mt-0.5">
+                  {clientName}
+                  {isAdmin && (
+                    <span
+                      className="ml-2 text-xs px-2 py-0.5 rounded-full font-semibold align-middle"
+                      style={{
+                        background: "rgba(201,162,39,0.12)",
+                        color: "#d4af4a",
+                        border: "1px solid rgba(201,162,39,0.2)",
+                      }}
+                    >
+                      Admin
+                    </span>
+                  )}
+                </p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-xs text-gray-400">Portfolio Value</p>
+                <p className="text-lg font-bold text-white leading-tight mt-0.5">
+                  {fmtCompact(totalValue)}
+                </p>
+                <p
+                  className="text-xs font-semibold"
+                  style={{ color: gainColor(safeReturnPct) }}
                 >
-                  Admin
-                </span>
-              )}
-            </p>
-          </div>
-          <div className="text-right shrink-0">
-            <p className="text-xs text-gray-400">Portfolio Value</p>
-            <p className="text-lg font-bold text-white leading-tight mt-0.5">
-              {fmtCompact(totalValue)}
-            </p>
-            <p
-              className="text-xs font-semibold"
-              style={{ color: gainColor(returnPct) }}
-            >
-              {gainSign(returnPct)}{returnPct.toFixed(1)}%
-            </p>
-          </div>
+                  {gainSign(safeReturnPct)}{safeReturnPct.toFixed(1)}%
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </header>
 
       {/* ── Scrollable Content ────────────────────────────────────── */}
-      <main className="flex-1 overflow-y-auto" style={{ paddingBottom: 80 }}>
-        {loading && (
-          <div className="p-4">
-            <Loader />
-          </div>
-        )}
+      <main className="flex-1 overflow-y-auto" style={{ paddingBottom: 88 }}>
         {!loading && error && (
           <div className="p-4">
             <ErrorState message={error} />
@@ -627,183 +687,225 @@ export default function MobileDashboard({
         )}
 
         {/* ── Dashboard Tab ──────────────────────────────────────── */}
-        {activeTab === "dashboard" && !loading && !error && (isAdmin ? !!selectedClient : true) && (
+        {activeTab === "dashboard" && !error && (isAdmin ? !!selectedClient : true) && (
           <div className="p-4 space-y-4">
-            {/* Metric scroll cards */}
-            <div
-              className="flex gap-3 overflow-x-auto"
-              style={{ paddingBottom: 4, scrollbarWidth: "none" }}
-            >
-              {/* AUM */}
-              <div
-                className="glass-card rounded-xl p-4 shrink-0 flex flex-col gap-1"
-                style={{ borderRadius: 12, minWidth: 140 }}
-              >
-                <p className="text-xs text-gray-400 uppercase tracking-wide">AUM</p>
-                <p className="text-lg font-bold text-white">{fmtCompact(totalValue)}</p>
-                <p className="text-xs" style={{ color: "#d4af4a" }}>
-                  Total value
-                </p>
-              </div>
-
-              {/* Returns */}
-              <div
-                className="glass-card rounded-xl p-4 shrink-0 flex flex-col gap-1"
-                style={{ borderRadius: 12, minWidth: 140 }}
-              >
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Returns</p>
-                <p
-                  className="text-lg font-bold"
-                  style={{ color: gainColor(returnPct) }}
+            {loading ? (
+              <>
+                <div className="flex gap-3 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+                  {[1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className="glass-card rounded-xl p-4 shrink-0 flex flex-col gap-2 animate-pulse"
+                      style={{ borderRadius: 12, minWidth: 140 }}
+                    >
+                      <div className="h-3 rounded w-12" style={{ background: "rgba(255,255,255,0.08)" }} />
+                      <div className="h-6 rounded w-20" style={{ background: "rgba(255,255,255,0.12)" }} />
+                      <div className="h-3 rounded w-16" style={{ background: "rgba(255,255,255,0.06)" }} />
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Metric scroll cards */}
+                <div
+                  className="flex gap-3 overflow-x-auto"
+                  style={{ paddingBottom: 4, scrollbarWidth: "none" }}
                 >
-                  {gainSign(returnPct)}{returnPct.toFixed(1)}%
-                </p>
-                <p className="text-xs text-gray-500">
-                  {fmtCompact(Math.abs(totalReturn))} {totalReturn >= 0 ? "gain" : "loss"}
-                </p>
-              </div>
+                  {/* AUM */}
+                  <div
+                    className="glass-card rounded-xl p-4 shrink-0 flex flex-col gap-1"
+                    style={{ borderRadius: 12, minWidth: 140 }}
+                  >
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">AUM</p>
+                    <p className="text-lg font-bold text-white">{fmtCompact(totalValue)}</p>
+                    <p className="text-xs" style={{ color: "#d4af4a" }}>
+                      Total value
+                    </p>
+                  </div>
 
-              {/* Allocation */}
-              <div
-                className="glass-card rounded-xl p-4 shrink-0 flex flex-col gap-1"
-                style={{ borderRadius: 12, minWidth: 140 }}
-              >
-                <p className="text-xs text-gray-400 uppercase tracking-wide">
-                  Allocation
-                </p>
-                <p className="text-lg font-bold text-white">
-                  {topAssetPct.toFixed(0)}%
-                </p>
-                <p className="text-xs" style={{ color: "#d4af4a" }}>
-                  {topAssetLabel}
-                </p>
-              </div>
+                  {/* Returns */}
+                  <div
+                    className="glass-card rounded-xl p-4 shrink-0 flex flex-col gap-1"
+                    style={{ borderRadius: 12, minWidth: 140 }}
+                  >
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Returns</p>
+                    <p
+                      className="text-lg font-bold"
+                      style={{ color: gainColor(safeReturnPct) }}
+                    >
+                      {gainSign(safeReturnPct)}{safeReturnPct.toFixed(1)}%
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {fmtCompact(Math.abs(totalReturn))} {totalReturn >= 0 ? "gain" : "loss"}
+                    </p>
+                  </div>
 
-              {/* Risk */}
-              <div
-                className="glass-card rounded-xl p-4 shrink-0 flex flex-col gap-1"
-                style={{ borderRadius: 12, minWidth: 140 }}
-              >
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Risk</p>
-                <p className="text-lg font-bold" style={{ color: riskColor }}>
-                  {riskLabel}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {stockPct.toFixed(0)}% in equities
-                </p>
-              </div>
-            </div>
+                  {/* Allocation */}
+                  <div
+                    className="glass-card rounded-xl p-4 shrink-0 flex flex-col gap-1"
+                    style={{ borderRadius: 12, minWidth: 140 }}
+                  >
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">
+                      Allocation
+                    </p>
+                    <p className="text-lg font-bold text-white">
+                      {topAssetPct.toFixed(0)}%
+                    </p>
+                    <p className="text-xs" style={{ color: "#d4af4a" }}>
+                      {topAssetLabel}
+                    </p>
+                  </div>
 
-            {/* Allocation chart */}
-            {assets.length > 0 && (
-              <AllocationChart allocation={allocation} />
-            )}
+                  {/* Risk */}
+                  <div
+                    className="glass-card rounded-xl p-4 shrink-0 flex flex-col gap-1"
+                    style={{ borderRadius: 12, minWidth: 140 }}
+                  >
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Risk</p>
+                    <p className="text-lg font-bold" style={{ color: riskColor }}>
+                      {riskLabel}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {stockPct.toFixed(0)}% in equities
+                    </p>
+                  </div>
+                </div>
 
-            {/* AI Insights */}
-            {assets.length > 0 && (
-              <AIInsightsPanel insights={insights} />
-            )}
+                {/* Allocation chart */}
+                {Array.isArray(assets) && assets.length > 0 && (
+                  <AllocationChart allocation={allocation} />
+                )}
 
-            {/* Empty portfolio */}
-            {assets.length === 0 && (
-              <div
-                className="glass-card rounded-xl p-8 text-center"
-                style={{ borderRadius: 12 }}
-              >
-                <p className="text-gray-400 text-sm mb-3">
-                  No assets yet. Add your first investment.
-                </p>
-                <button
-                  onClick={() => setModal({ kind: "add" })}
-                  className="px-5 py-2.5 text-sm font-semibold rounded-xl"
-                  style={{ background: "#c9a227", color: "#071a14" }}
-                >
-                  + Add Asset
-                </button>
-              </div>
+                {/* AI Insights */}
+                {Array.isArray(assets) && assets.length > 0 && (
+                  <AIInsightsPanel insights={insights} />
+                )}
+
+                {/* Empty portfolio */}
+                {(!Array.isArray(assets) || assets.length === 0) && (
+                  <div
+                    className="glass-card rounded-xl p-8 text-center"
+                    style={{ borderRadius: 12 }}
+                  >
+                    <p className="text-gray-400 text-sm mb-3">
+                      No assets yet. Add your first investment.
+                    </p>
+                    <button
+                      onClick={openAdd}
+                      className="px-5 py-2.5 text-sm font-semibold rounded-xl"
+                      style={{ background: "#c9a227", color: "#071a14" }}
+                    >
+                      + Add Asset
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
 
         {/* ── Stocks Tab ─────────────────────────────────────────── */}
-        {activeTab === "stocks" && !loading && !error && (isAdmin ? !!selectedClient : true) && (
-          <div className="p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-400">
-                {stocks.length} holding{stocks.length !== 1 ? "s" : ""}
-              </p>
-            </div>
-            {stocks.length === 0 ? (
-              <MobileEmptyState
-                label="Stock"
-                onAdd={() => setModal({ kind: "add" })}
-              />
+        {activeTab === "stocks" && !error && (isAdmin ? !!selectedClient : true) && (
+          <div className="p-4 flex flex-col gap-3">
+            {loading ? (
+              <>
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </>
             ) : (
-              stocks.map((a) => (
-                <StockCard
-                  key={a.id}
-                  asset={a}
-                  deleting={deletingId === a.id}
-                  onEdit={() => { setModal({ kind: "edit_stock", asset: a }); }}
-                  onDelete={() => { void handleDelete(a.id); }}
-                />
-              ))
+              <>
+                <p className="text-sm text-gray-400">
+                  {stocks.length} holding{stocks.length !== 1 ? "s" : ""}
+                </p>
+                {stocks.length === 0 ? (
+                  <MobileEmptyState
+                    label="Stock"
+                    onAdd={() => setModal({ type: "stock", mode: "add" })}
+                  />
+                ) : (
+                  stocks.map((a) => (
+                    <StockCard
+                      key={a.id}
+                      asset={a}
+                      deleting={deletingId === a.id}
+                      onEdit={() => setModal({ type: "stock", mode: "edit", asset: a })}
+                      onDelete={() => { void handleDelete(a.id); }}
+                    />
+                  ))
+                )}
+              </>
             )}
           </div>
         )}
 
         {/* ── Mutual Funds Tab ───────────────────────────────────── */}
-        {activeTab === "mutual_funds" && !loading && !error && (isAdmin ? !!selectedClient : true) && (
-          <div className="p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-400">
-                {mfs.length} fund{mfs.length !== 1 ? "s" : ""}
-              </p>
-            </div>
-            {mfs.length === 0 ? (
-              <MobileEmptyState
-                label="Fund"
-                onAdd={() => setModal({ kind: "add" })}
-              />
+        {activeTab === "mutual_funds" && !error && (isAdmin ? !!selectedClient : true) && (
+          <div className="p-4 flex flex-col gap-3">
+            {loading ? (
+              <>
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </>
             ) : (
-              mfs.map((a) => (
-                <MFCard
-                  key={a.id}
-                  asset={a}
-                  deleting={deletingId === a.id}
-                  onEdit={() => { setModal({ kind: "edit_mf", asset: a }); }}
-                  onDelete={() => { void handleDelete(a.id); }}
-                />
-              ))
+              <>
+                <p className="text-sm text-gray-400">
+                  {mfs.length} fund{mfs.length !== 1 ? "s" : ""}
+                </p>
+                {mfs.length === 0 ? (
+                  <MobileEmptyState
+                    label="Fund"
+                    onAdd={() => setModal({ type: "mf", mode: "add" })}
+                  />
+                ) : (
+                  mfs.map((a) => (
+                    <MFCard
+                      key={a.id}
+                      asset={a}
+                      deleting={deletingId === a.id}
+                      onEdit={() => setModal({ type: "mf", mode: "edit", asset: a })}
+                      onDelete={() => { void handleDelete(a.id); }}
+                    />
+                  ))
+                )}
+              </>
             )}
           </div>
         )}
 
         {/* ── Real Estate Tab ────────────────────────────────────── */}
-        {activeTab === "real_estate" && !loading && !error && (isAdmin ? !!selectedClient : true) && (
-          <div className="p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-400">
-                {properties.length} propert{properties.length !== 1 ? "ies" : "y"}
-              </p>
-            </div>
-            {properties.length === 0 ? (
-              <MobileEmptyState
-                label="Property"
-                onAdd={() => setModal({ kind: "add" })}
-              />
+        {activeTab === "real_estate" && !error && (isAdmin ? !!selectedClient : true) && (
+          <div className="p-4 flex flex-col gap-3">
+            {loading ? (
+              <>
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </>
             ) : (
-              properties.map((a) => (
-                <PropertyCard
-                  key={a.id}
-                  asset={a}
-                  deleting={deletingId === a.id}
-                  onEdit={() => {
-                    setModal({ kind: "edit_property", asset: a });
-                  }}
-                  onDelete={() => { void handleDelete(a.id); }}
-                />
-              ))
+              <>
+                <p className="text-sm text-gray-400">
+                  {properties.length} propert{properties.length !== 1 ? "ies" : "y"}
+                </p>
+                {properties.length === 0 ? (
+                  <MobileEmptyState
+                    label="Property"
+                    onAdd={() => setModal({ type: "property", mode: "add" })}
+                  />
+                ) : (
+                  properties.map((a) => (
+                    <PropertyCard
+                      key={a.id}
+                      asset={a}
+                      deleting={deletingId === a.id}
+                      onEdit={() => setModal({ type: "property", mode: "edit", asset: a })}
+                      onDelete={() => { void handleDelete(a.id); }}
+                    />
+                  ))
+                )}
+              </>
             )}
           </div>
         )}
@@ -882,11 +984,11 @@ export default function MobileDashboard({
       {/* ── FAB ────────────────────────────────────────────────────── */}
       {activeTab !== "profile" && !loading && !error && (isAdmin ? !!selectedClient : true) && (
         <button
-          onClick={() => setModal({ kind: "add" })}
-          className="fixed z-40 flex items-center justify-center shadow-lg"
+          onClick={openAdd}
+          className="fixed z-50 flex items-center justify-center shadow-lg"
           style={{
             bottom: 80,
-            right: 20,
+            right: 16,
             width: 52,
             height: 52,
             borderRadius: "50%",
@@ -936,27 +1038,45 @@ export default function MobileDashboard({
       </nav>
 
       {/* ── Modals ─────────────────────────────────────────────────── */}
-      {modal?.kind === "add" && (
+      {modal?.mode === "add" && modal.type === null && (
         <AddAssetModal
           onClose={() => setModal(null)}
           onSave={handleAddSave}
         />
       )}
-      {modal?.kind === "edit_stock" && (
+      {modal?.mode === "add" && modal.type === "stock" && (
+        <StockModal
+          onClose={() => setModal(null)}
+          onSave={handleAddSave}
+        />
+      )}
+      {modal?.mode === "add" && modal.type === "mf" && (
+        <MFModal
+          onClose={() => setModal(null)}
+          onSave={handleAddSave}
+        />
+      )}
+      {modal?.mode === "add" && modal.type === "property" && (
+        <RealEstateModal
+          onClose={() => setModal(null)}
+          onSave={handleAddSave}
+        />
+      )}
+      {modal?.mode === "edit" && modal.type === "stock" && modal.asset && (
         <StockModal
           asset={modal.asset}
           onClose={() => setModal(null)}
           onSave={handleEditSave}
         />
       )}
-      {modal?.kind === "edit_mf" && (
+      {modal?.mode === "edit" && modal.type === "mf" && modal.asset && (
         <MFModal
           asset={modal.asset}
           onClose={() => setModal(null)}
           onSave={handleEditSave}
         />
       )}
-      {modal?.kind === "edit_property" && (
+      {modal?.mode === "edit" && modal.type === "property" && modal.asset && (
         <RealEstateModal
           asset={modal.asset}
           onClose={() => setModal(null)}

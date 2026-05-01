@@ -471,3 +471,28 @@ export function resetPassword(
     body: payload,
   });
 }
+
+/* ── Safe fetch utility ─────────────────────────────────────────────── */
+
+/**
+ * Wraps any list-fetching function with a try/catch so the UI never receives
+ * an unhandled rejection or a non-array value.  Returns an empty array on any
+ * failure (network error, API error, unexpected response shape, etc.).
+ *
+ * Use this for non-critical data fetches where showing an empty state is
+ * preferable to crashing the component.
+ *
+ * @example
+ * const results = await safeListFetch(() => searchStocks(query, signal));
+ */
+export async function safeListFetch<T>(
+  fetchFn: () => Promise<T[]>,
+  fallback: T[] = []
+): Promise<T[]> {
+  try {
+    const data = await fetchFn();
+    return Array.isArray(data) ? data : fallback;
+  } catch {
+    return fallback;
+  }
+}

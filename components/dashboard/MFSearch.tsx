@@ -41,7 +41,7 @@ export default function MFSearch({ onSelect, initialValue = "" }: MFSearchProps)
 
       searchMutualFunds(query.trim(), controller.signal)
         .then((data) => {
-          setResults(data);
+          setResults(Array.isArray(data) ? data : []);
           setOpen(true);
           setActiveIndex(-1);
         })
@@ -213,7 +213,7 @@ export default function MFSearch({ onSelect, initialValue = "" }: MFSearchProps)
               </div>
               <div className="text-right shrink-0">
                 <div className="text-white font-medium">
-                  ₹{mf.nav.toFixed(2)}
+                  ₹{typeof mf.nav === "number" ? mf.nav.toFixed(2) : "—"}
                 </div>
                 <div
                   className="text-xs"
