@@ -328,65 +328,31 @@ export async function fetchAssets(
       : "/assets/me";
 
   const res = await fetcher<any>(path, { signal, raw: true });
+  console.log("API raw:", res);
 
-  // Unwrap { data: ... } envelope when present (e.g. { data: { assets, summary, allocation } })
-  const unwrapped =
-    res && typeof res === "object" && !Array.isArray(res) && res.data != null
-      ? res.data
-      : res;
+  // Unwrap { success, data } or { data } envelopes; fall back to raw response
+  const unwrapped = res?.data ?? res;
 
-  // Normalize a raw item by mapping asset_type → type
-  const normalizeItem = (item: any): Asset => ({ ...item, type: item.asset_type ?? item.type });
-
-  // Backend returns { summary, allocation, assets }
-  if (unwrapped && typeof unwrapped === "object" && "assets" in unwrapped) {
-    const rawAssets: any[] = Array.isArray(unwrapped.assets) ? unwrapped.assets : [];
-    const assets: Asset[] = rawAssets.map(normalizeItem);
-    console.log("Normalized assets:", assets);
-    return {
-      summary: unwrapped.summary ?? {
-        total_value: 0,
-        total_invested: 0,
-        total_return: 0,
-        return_percentage: 0,
-      },
-      allocation: unwrapped.allocation ?? { stock: 0, mf: 0, real_estate: 0 },
-      assets,
-    };
-  }
-
-  // Fallback: handle legacy array response or { data: [...] } from /portfolio
-  const rawList: any[] = Array.isArray(unwrapped)
+  // Extract the asset list: raw array → assets key → data key → empty
+  const list: any[] = Array.isArray(unwrapped)
     ? unwrapped
-    : (unwrapped?.assets ?? []);
+    : unwrapped?.assets ?? unwrapped?.data ?? [];
 
-  const assets: Asset[] = rawList.map(normalizeItem);
-  console.log("Normalized assets:", assets);
-
-  const totalValue = assets.reduce(
-    (s, a) => s + (a.value ?? a.current_value ?? 0),
-    0
-  );
-  const totalInvested = assets.reduce((s, a) => {
-    const cost =
-      a.type === "property"
-        ? (a.purchase_price ?? 0)
-        : (a.avg_price ?? 0) * (a.quantity ?? 1);
-    return s + cost;
-  }, 0);
+  const assets: Asset[] = list.map((item: any) => ({
+    ...item,
+    type: item.asset_type ?? item.type,
+  }));
+  console.log("Assets final:", assets);
 
   return {
-    summary: {
-      total_value: totalValue,
-      total_invested: totalInvested,
-      total_return: totalValue - totalInvested,
-      return_percentage:
-        totalInvested > 0
-          ? ((totalValue - totalInvested) / totalInvested) * 100
-          : 0,
-    },
-    allocation: { stock: 0, mf: 0, real_estate: 0 },
     assets,
+    summary: unwrapped?.summary ?? {
+      total_value: 0,
+      total_invested: 0,
+      total_return: 0,
+      return_percentage: 0,
+    },
+    allocation: unwrapped?.allocation ?? { stock: 0, mf: 0, real_estate: 0 },
   };
 }
 
