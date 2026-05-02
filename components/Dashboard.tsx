@@ -6,6 +6,8 @@ import {
   fetchAssets,
   fetchMyAssets,
   createAsset,
+  updateAsset,
+  deleteAsset,
   fetchInsights,
   type Asset,
   type AssetsAllocation,
@@ -165,7 +167,8 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
 
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
     try {
-      setAssets((prev) => prev.map((a) => (a.id === id ? { ...a, ...payload } : a)));
+      const updatedAsset = await updateAsset(id, payload);
+      setAssets((prev) => prev.map((a) => (a.id === id ? updatedAsset : a)));
     } catch (err) {
       setError(toErrorMessage(err));
     }
@@ -173,6 +176,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
 
   async function handleDelete(id: number) {
     try {
+      await deleteAsset(id);
       setAssets((prev) => prev.filter((a) => a.id !== id));
     } catch (err) {
       setError(toErrorMessage(err));

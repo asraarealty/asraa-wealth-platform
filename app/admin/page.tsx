@@ -5,6 +5,8 @@ import { getAdminClients } from "@/lib/services/clientService";
 import {
   fetchAdminGroupedAssets,
   createAsset,
+  updateAsset,
+  deleteAsset,
   type AdminClient,
   type Asset,
   type AssetsAllocation,
@@ -108,10 +110,11 @@ export default function AdminPage() {
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
     if (!selectedClient) return;
     try {
+      const updatedAsset = await updateAsset(id, payload);
       setGroupedAssets((prev) => ({
         ...prev,
         [String(selectedClient.id)]: (prev[String(selectedClient.id)] ?? []).map((a) =>
-          a.id === id ? { ...a, ...payload } : a
+          a.id === id ? updatedAsset : a
         ),
       }));
     } catch (err) {
@@ -122,6 +125,7 @@ export default function AdminPage() {
   async function handleDelete(id: number) {
     if (!selectedClient) return;
     try {
+      await deleteAsset(id);
       setGroupedAssets((prev) => ({
         ...prev,
         [String(selectedClient.id)]: (prev[String(selectedClient.id)] ?? []).filter((a) => a.id !== id),

@@ -408,6 +408,28 @@ export function createAsset(
   });
 }
 
+export function updateAsset(
+  id: number,
+  payload: UpdateAssetPayload,
+  signal?: AbortSignal
+): Promise<Asset> {
+  return fetcher<Asset>(`/assets/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: payload,
+    signal,
+  });
+}
+
+export function deleteAsset(
+  id: number,
+  signal?: AbortSignal
+): Promise<void> {
+  return fetcher<void>(`/assets/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    signal,
+  });
+}
+
 
 
 /**
