@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import {
-  fetchAssets,
-  fetchMyAssets,
+  fetchPortfolio,
   createAsset,
   updateAsset,
   deleteAsset,
@@ -14,6 +13,7 @@ import {
   type InsightsResponse,
   type CreateAssetPayload,
   type UpdateAssetPayload,
+  type PortfolioFull,
 } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
 import ClientSelector from "./ClientSelector";
@@ -60,6 +60,10 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
 
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [portfolioMeta, setPortfolioMeta] = useState<Pick<
+    PortfolioFull,
+    "total_value" | "stock_value" | "mf_value" | "property_value" | "roi_percent"
+  > | null>(null);
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,13 +88,18 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     }
     setError(null);
     try {
-      const data = id !== undefined ? await fetchAssets(id) : await fetchMyAssets();
-      setAssets(data);
+      const data = await fetchPortfolio(id);
+      setAssets(data.positions);
+      setPortfolioMeta({
+        total_value: data.total_value,
+        stock_value: data.stock_value,
+        mf_value: data.mf_value,
+        property_value: data.property_value,
+        roi_percent: data.roi_percent,
+      });
       console.log("portfolio:", data);
 
       try {
-        // Pass the client id so admins get insights for the selected client,
-        // not for their own portfolio.
         const ins = await fetchInsights(id);
         setInsights(ins);
       } catch {
@@ -138,19 +147,37 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     };
   }, [user, isAdmin, resolvedClientId, loadData]);
 
-  const totalValue = useMemo(() => assets.reduce((s: number, a: Asset) => s + (a.value ?? 0), 0), [assets]);
   const totalInvested = useMemo(() => assets.reduce((s: number, a: Asset) => s + ((a.quantity ?? 0) * (a.avg_price ?? 0)), 0), [assets]);
+  // Prefer server-provided totals; fall back to client-side computation when omitted.
+  const totalValue = useMemo(
+    () => portfolioMeta?.total_value ?? assets.reduce((s: number, a: Asset) => s + (a.value ?? 0), 0),
+    [assets, portfolioMeta]
+  );
   const totalReturn = totalValue - totalInvested;
-  const returnPct = totalInvested > 0 ? (totalReturn / totalInvested) * 100 : 0;
+  const returnPct = useMemo(
+    () =>
+      portfolioMeta?.roi_percent ??
+      (totalInvested > 0 ? ((totalValue - totalInvested) / totalInvested) * 100 : 0),
+    [portfolioMeta, totalInvested, totalValue]
+  );
 
   const allocation = useMemo<AssetsAllocation | undefined>(() => {
     if (totalValue === 0) return undefined;
-    const pct = (type: Asset["type"]) => {
-      const val = assets.filter((a: Asset) => a.type === type).reduce((s: number, a: Asset) => s + (a.value ?? 0), 0);
-      return parseFloat(((val / totalValue) * 100).toFixed(1));
+    const stockVal =
+      portfolioMeta?.stock_value ??
+      assets.filter((a: Asset) => a.type === "stock").reduce((s: number, a: Asset) => s + (a.value ?? 0), 0);
+    const mfVal =
+      portfolioMeta?.mf_value ??
+      assets.filter((a: Asset) => a.type === "mf").reduce((s: number, a: Asset) => s + (a.value ?? 0), 0);
+    const propVal =
+      portfolioMeta?.property_value ??
+      assets.filter((a: Asset) => a.type === "property").reduce((s: number, a: Asset) => s + (a.value ?? 0), 0);
+    return {
+      stock: parseFloat(((stockVal / totalValue) * 100).toFixed(1)),
+      mf: parseFloat(((mfVal / totalValue) * 100).toFixed(1)),
+      real_estate: parseFloat(((propVal / totalValue) * 100).toFixed(1)),
     };
-    return { stock: pct("stock"), mf: pct("mf"), real_estate: pct("property") };
-  }, [assets, totalValue]);
+  }, [assets, totalValue, portfolioMeta]);
 
   async function handleAdd(payload: CreateAssetPayload) {
     const body: CreateAssetPayload = {
@@ -158,8 +185,8 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       ...(isAdmin && resolvedClientId ? { user_id: resolvedClientId } : {}),
     };
     try {
-      const newAsset = await createAsset(body);
-      setAssets((prev) => [...prev, newAsset]);
+      await createAsset(body);
+      await loadData(resolvedClientId, true);
     } catch (err) {
       setError(toErrorMessage(err));
     }
@@ -167,8 +194,8 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
 
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
     try {
-      const updatedAsset = await updateAsset(id, payload);
-      setAssets((prev) => prev.map((a) => (a.id === id ? updatedAsset : a)));
+      await updateAsset(id, payload);
+      await loadData(resolvedClientId, true);
     } catch (err) {
       setError(toErrorMessage(err));
     }
@@ -177,7 +204,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
   async function handleDelete(id: number) {
     try {
       await deleteAsset(id);
-      setAssets((prev) => prev.filter((a) => a.id !== id));
+      await loadData(resolvedClientId, true);
     } catch (err) {
       setError(toErrorMessage(err));
     }

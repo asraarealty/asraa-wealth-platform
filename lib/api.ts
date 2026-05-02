@@ -397,6 +397,98 @@ export async function fetchMyAssets(signal?: AbortSignal): Promise<Asset[]> {
   return normalizeAssetList(res);
 }
 
+/**
+ * Full portfolio response shape returned by /portfolio/me or /portfolio?user_id=...
+ * Includes aggregate totals from the backend so the UI does not need to recompute them.
+ */
+export interface PortfolioFull {
+  positions: Asset[];
+  total_value: number;
+  stock_value: number;
+  mf_value: number;
+  property_value: number;
+  roi_percent: number;
+}
+
+/**
+ * Fetch the portfolio envelope (positions + pre-computed totals) from the backend.
+ * Uses GET /portfolio/me for regular users and GET /portfolio?user_id=... for admins.
+ * All values fall back to client-side computation when the backend omits them.
+ */
+export async function fetchPortfolio(
+  clientId?: number,
+  signal?: AbortSignal
+): Promise<PortfolioFull> {
+  const path =
+    clientId !== undefined
+      ? `/portfolio?user_id=${encodeURIComponent(clientId)}`
+      : "/portfolio/me";
+
+  let res: any;
+  try {
+    res = await fetcher<any>(path, { signal, raw: true, cache: "no-store" });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      return {
+        positions: [],
+        total_value: 0,
+        stock_value: 0,
+        mf_value: 0,
+        property_value: 0,
+        roi_percent: 0,
+      };
+    }
+    throw err;
+  }
+
+  const rawPositions: unknown = Array.isArray(res)
+    ? res
+    : res?.positions ?? res?.data ?? res?.assets ?? [];
+
+  const positions = normalizeAssetList(rawPositions);
+
+  // Prefer server-provided totals; fall back to client-side computation when omitted.
+  const total_value =
+    typeof res?.total_value === "number"
+      ? res.total_value
+      : positions.reduce((s: number, p: Asset) => s + (p.value ?? 0), 0);
+
+  const totalInvested = positions.reduce(
+    (s: number, p: Asset) => s + (p.quantity ?? 0) * (p.avg_price ?? 0),
+    0
+  );
+
+  const stock_value =
+    typeof res?.stock_value === "number"
+      ? res.stock_value
+      : positions
+          .filter((p: Asset) => p.type === "stock")
+          .reduce((s: number, p: Asset) => s + (p.value ?? 0), 0);
+
+  const mf_value =
+    typeof res?.mf_value === "number"
+      ? res.mf_value
+      : positions
+          .filter((p: Asset) => p.type === "mf")
+          .reduce((s: number, p: Asset) => s + (p.value ?? 0), 0);
+
+  const property_value =
+    typeof res?.property_value === "number"
+      ? res.property_value
+      : positions
+          .filter((p: Asset) => p.type === "property")
+          .reduce((s: number, p: Asset) => s + (p.value ?? 0), 0);
+
+  const roi_percent =
+    typeof res?.roi_percent === "number"
+      ? res.roi_percent
+      : totalInvested > 0
+      ? ((total_value - totalInvested) / totalInvested) * 100
+      : 0;
+
+  return { positions, total_value, stock_value, mf_value, property_value, roi_percent };
+}
+
 export function createAsset(
   payload: CreateAssetPayload,
   signal?: AbortSignal
@@ -505,7 +597,7 @@ export async function fetchInsights(
       ? `/insights?user_id=${encodeURIComponent(clientId)}`
       : "/insights/me";
 
-  const res = await fetcher<any>(path, { signal, raw: true });
+  const res = await fetcher<any>(path, { signal, raw: true, cache: "no-store" });
 
   if (res && typeof res === "object" && "alerts" in res) {
     return {
