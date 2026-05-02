@@ -26,8 +26,8 @@ function formatMarketCap(value: number | null, currency: "INR" | "USD"): string 
   if (value === null || value === 0) return "--";
   const normalized = normalizePrice(value, currency);
   if (normalized >= 1e12) return `₹${(normalized / 1e12).toFixed(2)}T`;
-  if (normalized >= 1e9) return `₹${(normalized / 1e7).toFixed(2)}Cr`;
-  if (normalized >= 1e6) return `₹${(normalized / 1e5).toFixed(2)}L`;
+  if (normalized >= 1e7) return `₹${(normalized / 1e7).toFixed(2)}Cr`;
+  if (normalized >= 1e5) return `₹${(normalized / 1e5).toFixed(2)}L`;
   return `₹${normalized.toLocaleString("en-IN")}`;
 }
 
@@ -69,7 +69,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
             price: item.price ?? null,
             change: item.change ?? 0,
             change_percent: item.change_percent ?? 0,
-            market_cap: item.market_cap ?? 0,
+            market_cap: item.market_cap ?? null,
           }));
           const q = query.trim().toLowerCase();
 

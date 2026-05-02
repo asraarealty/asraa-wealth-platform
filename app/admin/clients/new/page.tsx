@@ -47,10 +47,6 @@ export default function NewClientPage() {
         phone: String(form.phone ?? "").trim() || undefined,
       };
 
-      if (process.env.NODE_ENV !== "production") {
-        console.log("CLIENT PAYLOAD:", payload);
-      }
-
       await createClient(payload);
 
       router.push("/admin/clients");
