@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getAdminClients } from "@/lib/services/clientService";
 import {
   fetchAdminGroupedAssets,
   createAsset,
   updateAsset,
   deleteAsset,
-  fetchAssets,
   type AdminClient,
   type Asset,
   type AssetsAllocation,
@@ -65,19 +64,6 @@ export default function AdminPage() {
     return () => ac.abort();
   }, []);
 
-  // After a mutation, re-fetch only the affected client to keep data fresh.
-  // fetchAssets applies the same "real_estate" → "property" normalisation as
-  // fetchAdminGroupedAssets, so the grouped map stays consistent.
-  const reloadClient = useCallback(async (clientId: number) => {
-    try {
-      const data = await fetchAssets(clientId);
-      setGroupedAssets((prev) => ({ ...prev, [String(clientId)]: data }));
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      console.error("[AdminPage] reloadClient failed:", toErrorMessage(err));
-    }
-  }, []);
-
   // All assets flattened for aggregate stats
   const allAssets = useMemo(
     () => Object.values(groupedAssets).flat(),
@@ -110,20 +96,43 @@ export default function AdminPage() {
 
   async function handleAdd(payload: CreateAssetPayload) {
     if (!selectedClient) return;
-    await createAsset({ ...payload, user_id: selectedClient.id });
-    await reloadClient(selectedClient.id);
+    try {
+      const newAsset = await createAsset({ ...payload, user_id: selectedClient.id });
+      setGroupedAssets((prev) => ({
+        ...prev,
+        [String(selectedClient.id)]: [...(prev[String(selectedClient.id)] ?? []), newAsset],
+      }));
+    } catch (err) {
+      setError(toErrorMessage(err));
+    }
   }
 
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
     if (!selectedClient) return;
-    await updateAsset(id, payload);
-    await reloadClient(selectedClient.id);
+    try {
+      const updatedAsset = await updateAsset(id, payload);
+      setGroupedAssets((prev) => ({
+        ...prev,
+        [String(selectedClient.id)]: (prev[String(selectedClient.id)] ?? []).map((a) =>
+          a.id === id ? updatedAsset : a
+        ),
+      }));
+    } catch (err) {
+      setError(toErrorMessage(err));
+    }
   }
 
   async function handleDelete(id: number) {
     if (!selectedClient) return;
-    await deleteAsset(id);
-    await reloadClient(selectedClient.id);
+    try {
+      await deleteAsset(id);
+      setGroupedAssets((prev) => ({
+        ...prev,
+        [String(selectedClient.id)]: (prev[String(selectedClient.id)] ?? []).filter((a) => a.id !== id),
+      }));
+    } catch (err) {
+      setError(toErrorMessage(err));
+    }
   }
 
   if (loading) return <Loader />;

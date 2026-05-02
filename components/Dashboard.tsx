@@ -157,18 +157,30 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       ...payload,
       ...(isAdmin && resolvedClientId ? { user_id: resolvedClientId } : {}),
     };
-    await createAsset(body);
-    loadData(resolvedClientId);
+    try {
+      const newAsset = await createAsset(body);
+      setAssets((prev) => [...prev, newAsset]);
+    } catch (err) {
+      setError(toErrorMessage(err));
+    }
   }
 
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
-    await updateAsset(id, payload);
-    loadData(resolvedClientId);
+    try {
+      const updatedAsset = await updateAsset(id, payload);
+      setAssets((prev) => prev.map((a) => (a.id === id ? updatedAsset : a)));
+    } catch (err) {
+      setError(toErrorMessage(err));
+    }
   }
 
   async function handleDelete(id: number) {
-    await deleteAsset(id);
-    loadData(resolvedClientId);
+    try {
+      await deleteAsset(id);
+      setAssets((prev) => prev.filter((a) => a.id !== id));
+    } catch (err) {
+      setError(toErrorMessage(err));
+    }
   }
 
   // Mobile-first render
