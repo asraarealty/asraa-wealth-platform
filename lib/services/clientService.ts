@@ -1,9 +1,24 @@
 import {
   fetchClients,
   fetchAdminClients,
+  fetcher,
   type Client,
   type AdminClient,
 } from "@/lib/api";
+
+export interface CreateClientPayload {
+  name: string;
+  email: string;
+  phone?: string;
+}
+
+export const createClient = (
+  data: CreateClientPayload
+): Promise<AdminClient> =>
+  fetcher<AdminClient>("/clients", {
+    method: "POST",
+    body: data,
+  });
 
 /**
  * Fetch the client list for the advisor dashboard sidebar.
