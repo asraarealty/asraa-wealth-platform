@@ -161,25 +161,48 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
         ]);
 
         // The /portfolio/me endpoint may return just a positions array or
-        // the full envelope. Normalise to the envelope shape.
-        const portfolioEnvelope: RawPortfolioResponse =
-          Array.isArray(rawPortfolio)
-            ? {
-                positions: rawPortfolio as RawPortfolioResponse["positions"],
-                total_value: 0,
-                stock_value: 0,
-                mf_value: 0,
-                property_value: 0,
-                roi_percent: 0,
-              }
-            : rawPortfolio ?? {
-                positions: [],
-                total_value: 0,
-                stock_value: 0,
-                mf_value: 0,
-                property_value: 0,
-                roi_percent: 0,
-              };
+        // the full envelope. Normalise to the envelope shape, computing
+        // aggregate totals from positions when the backend omits them so that
+        // KPI values are always correct rather than showing zeros.
+        let portfolioEnvelope: RawPortfolioResponse;
+        if (Array.isArray(rawPortfolio)) {
+          const positions = rawPortfolio as RawPortfolioResponse["positions"];
+          const totalValue = positions.reduce((s, p) => s + (p.value ?? 0), 0);
+          const stockValue = positions
+            .filter((p) => p.type === "stock")
+            .reduce((s, p) => s + (p.value ?? 0), 0);
+          const mfValue = positions
+            .filter((p) => p.type === "mf")
+            .reduce((s, p) => s + (p.value ?? 0), 0);
+          const propertyValue = positions
+            .filter((p) => p.type === "property")
+            .reduce((s, p) => s + (p.value ?? 0), 0);
+          const totalInvested = positions.reduce(
+            (s, p) => s + (p.avg_price ?? 0) * (p.quantity ?? 0),
+            0
+          );
+          const roiPercent =
+            totalInvested > 0
+              ? ((totalValue - totalInvested) / totalInvested) * 100
+              : 0;
+          portfolioEnvelope = {
+            positions,
+            total_value: totalValue,
+            stock_value: stockValue,
+            mf_value: mfValue,
+            property_value: propertyValue,
+            roi_percent: roiPercent,
+          };
+        } else {
+          portfolioEnvelope = rawPortfolio ?? {
+            positions: [],
+            total_value: 0,
+            stock_value: 0,
+            mf_value: 0,
+            property_value: 0,
+            roi_percent: 0,
+          };
+        }
 
         setPortfolio(mapPortfolio(portfolioEnvelope));
 

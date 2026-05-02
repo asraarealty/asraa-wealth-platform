@@ -2,24 +2,11 @@
 
 import { useState } from "react";
 import type { Position } from "@/lib/mappers/mapPortfolio";
+import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 
 interface HoldingsTableProps {
   positions: Position[];
 }
-
-function fmtCurrency(n: number) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(n);
-}
-
-function fmtPercent(n: number, showSign = false) {
-  const sign = showSign && n > 0 ? "+" : "";
-  return `${sign}${n.toFixed(2)}%`;
-}
-
 const TYPE_LABELS: Record<Position["type"], string> = {
   stock: "Stock",
   mf: "Mutual Fund",
@@ -111,15 +98,8 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
             return (
               <tr
                 key={pos.id}
+                className="transition-colors hover:bg-[rgba(201,162,39,0.04)]"
                 style={{ borderBottom: "1px solid rgba(201,162,39,0.07)" }}
-                className="transition-colors"
-                onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLElement).style.background =
-                    "rgba(201,162,39,0.04)")
-                }
-                onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLElement).style.background = "")
-                }
               >
                 {/* Name */}
                 <td className="px-4 py-3">

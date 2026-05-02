@@ -45,15 +45,18 @@ export interface InsightsData {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
+// Only phrases specific enough to reliably indicate a critical issue.
+// Generic words like "risk" or "alert" are intentionally excluded to avoid
+// classifying routine warnings as critical.
 const CRITICAL_KEYWORDS = [
   "critical",
-  "loss",
+  "severe loss",
   "overexposed",
-  "delayed",
-  "breach",
-  "alert",
+  "covenant breach",
+  "immediate action",
   "danger",
-  "risk",
+  "urgent",
+  "margin call",
 ];
 
 function classifyAlert(text: string): AlertSeverity {

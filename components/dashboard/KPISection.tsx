@@ -1,22 +1,10 @@
 "use client";
 
 import type { PortfolioData } from "@/lib/mappers/mapPortfolio";
+import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 
 interface KPISectionProps {
   portfolio: PortfolioData;
-}
-
-function fmtCurrency(n: number) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(n);
-}
-
-function fmtPercent(n: number, showSign = false) {
-  const sign = showSign && n > 0 ? "+" : "";
-  return `${sign}${n.toFixed(2)}%`;
 }
 
 interface KPICardProps {

@@ -1,17 +1,10 @@
 "use client";
 
 import type { PortfolioData } from "@/lib/mappers/mapPortfolio";
+import { fmtCurrency } from "@/lib/formatters";
 
 interface AllocationSectionProps {
   portfolio: PortfolioData;
-}
-
-function fmtCurrency(n: number) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(n);
 }
 
 interface Segment {
