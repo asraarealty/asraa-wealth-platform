@@ -277,6 +277,23 @@ const normalizeType = (type: string | undefined): AssetType => {
   return "stock";
 };
 
+/** Normalise a raw API response into a typed Asset array. */
+const normalizeAssetList = (res: unknown): Asset[] => {
+  const list: unknown = Array.isArray(res)
+    ? res
+    : (res as any)?.data ?? (res as any)?.assets ?? (res as any)?.positions ?? [];
+
+  if (!Array.isArray(list)) {
+    console.error("[normalizeAssetList] expected array, got:", list);
+    return [];
+  }
+
+  return (list as any[]).map((a: any) => ({
+    ...a,
+    type: normalizeType(a.type ?? a.asset_type),
+  }));
+};
+
 export interface Asset {
   id: number;
   type: AssetType;
@@ -350,20 +367,7 @@ export async function fetchAssets(
 
   console.log("[fetchAssets] raw response for clientId=%s:", clientId, res);
 
-  // Normalise: raw array → { data: [] } → { assets: [] } → { positions: [] }
-  const list: unknown = Array.isArray(res)
-    ? res
-    : res?.data ?? res?.assets ?? res?.positions ?? [];
-
-  if (!Array.isArray(list)) {
-    console.error("[fetchAssets] expected array, got:", list);
-    return [];
-  }
-
-  const normalized = (list as any[]).map((a: any) => ({
-    ...a,
-    type: normalizeType(a.type ?? a.asset_type),
-  }));
+  const normalized = normalizeAssetList(res);
 
   console.log(
     "[fetchAssets] normalized %d item(s) for clientId=%s",
@@ -390,19 +394,7 @@ export async function fetchMyAssets(signal?: AbortSignal): Promise<Asset[]> {
     throw err;
   }
 
-  const list: unknown = Array.isArray(res)
-    ? res
-    : res?.data ?? res?.assets ?? res?.positions ?? [];
-
-  if (!Array.isArray(list)) {
-    console.error("[fetchMyAssets] expected array, got:", list);
-    return [];
-  }
-
-  return (list as any[]).map((a: any) => ({
-    ...a,
-    type: normalizeType(a.type ?? a.asset_type),
-  }));
+  return normalizeAssetList(res);
 }
 
 export function createAsset(
