@@ -104,9 +104,8 @@ export default function AdminPortfolioPage() {
   async function handleAdd(payload: CreateAssetPayload) {
     if (!selectedClient) return;
     try {
-      await createAsset({ ...payload, user_id: selectedClient.id });
-      const updated = await fetchAssets(selectedClient.id);
-      setAssets(updated);
+      const newAsset = await createAsset({ ...payload, user_id: selectedClient.id });
+      setAssets((prev) => [...prev, newAsset]);
     } catch (err) {
       setError(toErrorMessage(err));
     }
@@ -115,9 +114,8 @@ export default function AdminPortfolioPage() {
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
     if (!selectedClient) return;
     try {
-      await updateAsset(id, payload);
-      const updated = await fetchAssets(selectedClient.id);
-      setAssets(updated);
+      const updatedAsset = await updateAsset(id, payload);
+      setAssets((prev) => prev.map((a) => (a.id === id ? updatedAsset : a)));
     } catch (err) {
       setError(toErrorMessage(err));
     }
@@ -127,8 +125,7 @@ export default function AdminPortfolioPage() {
     if (!selectedClient) return;
     try {
       await deleteAsset(id);
-      const updated = await fetchAssets(selectedClient.id);
-      setAssets(updated);
+      setAssets((prev) => prev.filter((a) => a.id !== id));
     } catch (err) {
       setError(toErrorMessage(err));
     }
