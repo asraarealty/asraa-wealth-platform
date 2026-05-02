@@ -1,9 +1,3 @@
-import { useEffect } from "react";
-
-useEffect(() => {
-  throw new Error("REAL TEST ERROR");
-}, []);
-
 "use client";
 
 import { useState } from "react";
