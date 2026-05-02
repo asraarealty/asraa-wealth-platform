@@ -1,14 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toErrorMessage } from "@/lib/fetcher";
 import { createClient } from "@/lib/services/clientService";
 
+interface ClientForm {
+  name: string;
+  email: string;
+  phone: string;
+}
+
 export default function NewClientPage() {
   const router = useRouter();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<ClientForm>({
     name: "",
     email: "",
     phone: "",
@@ -17,8 +23,8 @@ export default function NewClientPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleChange = (key: string, value: string) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+  const handleChange = (key: keyof ClientForm, value: string) => {
+    setForm((prev: ClientForm) => ({ ...prev, [key]: value }));
   };
 
   const validate = () => {
@@ -28,7 +34,7 @@ export default function NewClientPage() {
     return null;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
 
@@ -85,7 +91,7 @@ export default function NewClientPage() {
           <input
             type="text"
             value={form.name}
-            onChange={(e) => handleChange("name", e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => handleChange("name", e.target.value)}
             className="w-full mt-1 p-2 rounded-xl bg-transparent border border-gray-600 focus:outline-none focus:ring-1"
             required
           />
@@ -97,7 +103,7 @@ export default function NewClientPage() {
           <input
             type="email"
             value={form.email}
-            onChange={(e) => handleChange("email", e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => handleChange("email", e.target.value)}
             className="w-full mt-1 p-2 rounded-xl bg-transparent border border-gray-600 focus:outline-none focus:ring-1"
             required
           />
@@ -109,7 +115,7 @@ export default function NewClientPage() {
           <input
             type="text"
             value={form.phone}
-            onChange={(e) => handleChange("phone", e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => handleChange("phone", e.target.value)}
             className="w-full mt-1 p-2 rounded-xl bg-transparent border border-gray-600 focus:outline-none focus:ring-1"
           />
         </div>
