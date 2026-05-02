@@ -6,7 +6,7 @@ export {
   toErrorMessage,
 } from "./fetcher";
 
-import { fetcher } from "./fetcher";
+import { fetcher, ApiError } from "./fetcher";
 
 /* ── Auth ───────────────────────────────────────────────────────────── */
 
@@ -277,6 +277,23 @@ const normalizeType = (type: string | undefined): AssetType => {
   return "stock";
 };
 
+/** Normalise a raw API response into a typed Asset array. */
+const normalizeAssetList = (res: unknown): Asset[] => {
+  const list: unknown = Array.isArray(res)
+    ? res
+    : (res as any)?.data ?? (res as any)?.assets ?? (res as any)?.positions ?? [];
+
+  if (!Array.isArray(list)) {
+    console.error("[normalizeAssetList] expected array, got:", list);
+    return [];
+  }
+
+  return (list as any[]).map((a: any) => ({
+    ...a,
+    type: normalizeType(a.type ?? a.asset_type),
+  }));
+};
+
 export interface Asset {
   id: number;
   type: AssetType;
@@ -327,34 +344,30 @@ export interface AssetsResponse {
 }
 
 export async function fetchAssets(
-  clientId?: number,
+  clientId: number,
   signal?: AbortSignal
 ): Promise<Asset[]> {
-  const path =
-    clientId !== undefined
-      ? `/portfolio?user_id=${encodeURIComponent(clientId)}`
-      : "/portfolio/me";
+  const path = `/portfolio?user_id=${encodeURIComponent(clientId)}`;
 
-  // Use raw mode so we can handle every envelope shape the backend may return
-  // without the fetcher silently discarding top-level keys.
-  const res = await fetcher<any>(path, { signal, raw: true });
+  let res: any;
+  try {
+    // Use raw mode so we can handle every envelope shape the backend may return
+    // without the fetcher silently discarding top-level keys.
+    res = await fetcher<any>(path, { signal, raw: true });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      console.error(
+        "[fetchAssets] Asset not found (404) for clientId=%s",
+        clientId
+      );
+      return [];
+    }
+    throw err;
+  }
 
   console.log("[fetchAssets] raw response for clientId=%s:", clientId, res);
 
-  // Normalise: raw array → { data: [] } → { assets: [] } → { positions: [] }
-  const list: unknown = Array.isArray(res)
-    ? res
-    : res?.data ?? res?.assets ?? res?.positions ?? [];
-
-  if (!Array.isArray(list)) {
-    console.error("[fetchAssets] expected array, got:", list);
-    return [];
-  }
-
-  const normalized = (list as any[]).map((a: any) => ({
-    ...a,
-    type: normalizeType(a.type ?? a.asset_type),
-  }));
+  const normalized = normalizeAssetList(res);
 
   console.log(
     "[fetchAssets] normalized %d item(s) for clientId=%s",
@@ -363,6 +376,25 @@ export async function fetchAssets(
   );
 
   return normalized;
+}
+
+/**
+ * Fetch assets for the currently authenticated (non-admin) user.
+ * Uses the /portfolio/me endpoint — do not pass a clientId here.
+ */
+export async function fetchMyAssets(signal?: AbortSignal): Promise<Asset[]> {
+  let res: any;
+  try {
+    res = await fetcher<any>("/portfolio/me", { signal, raw: true });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      console.error("[fetchMyAssets] Portfolio not found (404)");
+      return [];
+    }
+    throw err;
+  }
+
+  return normalizeAssetList(res);
 }
 
 export function createAsset(
