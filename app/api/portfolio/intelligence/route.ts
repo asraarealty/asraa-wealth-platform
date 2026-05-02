@@ -20,8 +20,7 @@ import { computePortfolioMetrics, computeRiskScore } from "@/lib/analytics";
 
 const BACKEND =
   process.env.BACKEND_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "https://api.asraarealty.in";
+  "http://localhost:8000";
 
 // ── Types (local, avoids circular imports) ───────────────────────────────────
 
@@ -112,7 +111,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // 1. Fetch all clients
-    const clients = await backendGet<BackendClient[]>("/clients", authHeader);
+    const clients = await backendGet<BackendClient[]>("/api/v2/clients", authHeader);
     if (!Array.isArray(clients) || clients.length === 0) {
       return NextResponse.json([]);
     }
@@ -121,7 +120,7 @@ export async function GET(request: NextRequest) {
     const portfolioSettled = await Promise.allSettled(
       clients.map(async (client) => {
         const raw = await backendGet<unknown>(
-          `/portfolio?user_id=${client.id}`,
+          `/api/v2/portfolio?user_id=${client.id}`,
           authHeader
         );
         const items = parsePortfolioResponse(raw);
