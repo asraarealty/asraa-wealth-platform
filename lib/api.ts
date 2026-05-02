@@ -536,7 +536,7 @@ export function searchMutualFunds(
   signal?: AbortSignal
 ): Promise<MutualFundResult[]> {
   return fetcher<MutualFundResult[]>(
-    `/mf/search?q=${encodeURIComponent(query)}`,
+    `/mutual-funds/search?q=${encodeURIComponent(query)}`,
     { signal, noRedirectOn401: true }
   );
 }
