@@ -1,3 +1,6 @@
+// @ts-check
+const { withSentryConfig } = require("@sentry/nextjs");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async rewrites() {
@@ -19,4 +22,9 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withSentryConfig(nextConfig, {
+  // Suppresses source map upload logs during build.
+  silent: true,
+  // Automatically tree-shake Sentry logger statements to reduce bundle size.
+  disableLogger: true,
+});
