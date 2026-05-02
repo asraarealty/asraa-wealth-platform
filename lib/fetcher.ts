@@ -68,6 +68,10 @@ export async function fetcher<T>(
     ? path
     : `${API_BASE_URL}${path}`;
 
+  if (process.env.NODE_ENV !== "production") {
+    console.log("API Request:", url, options);
+  }
+
   let response: Response;
 
   try {
@@ -87,6 +91,10 @@ export async function fetcher<T>(
     if (err instanceof DOMException && err.name === "AbortError") throw err;
     console.error("🌐 Network error:", err);
     throw new NetworkError("Unable to reach backend API");
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("API Response:", response.status);
   }
 
   // 🔐 401 → session expired → logout (unless caller opts out)
@@ -114,7 +122,13 @@ export async function fetcher<T>(
 
     try {
       const data = await response.json();
-      message = data?.detail ?? data?.message ?? message;
+      // FastAPI returns validation errors as detail: [{loc, msg, type}, ...]
+      // Fall through each shape until we find a readable string.
+      message =
+        data?.detail?.[0]?.msg ||
+        (typeof data?.detail === "string" ? data.detail : undefined) ||
+        data?.message ||
+        message;
     } catch {}
 
     console.error("❌ API Error:", message);

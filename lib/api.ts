@@ -266,6 +266,17 @@ export async function fetchAdminPortfolio(
 
 export type AssetType = "stock" | "mf" | "property";
 
+// Normalise asset type variants from the backend.
+// The backend may send "real_estate" but the frontend uses "property" throughout.
+const KNOWN_ASSET_TYPES = new Set<string>(["stock", "mf", "property"]);
+
+const normalizeType = (type: string | undefined): AssetType => {
+  if (type === "real_estate") return "property";
+  if (type && KNOWN_ASSET_TYPES.has(type)) return type as AssetType;
+  if (type) console.warn(`[normalizeType] unexpected asset type: "${type}", defaulting to "stock"`);
+  return "stock";
+};
+
 export interface Asset {
   id: number;
   type: AssetType;
@@ -342,13 +353,7 @@ export async function fetchAssets(
 
   const normalized = (list as any[]).map((a: any) => ({
     ...a,
-    // Normalise backend variants: "real_estate" → "property" so that all tab
-    // filters (which test `a.type === "property"`) work regardless of which
-    // field name the backend sends.
-    type:
-      a.type === "real_estate"
-        ? "property"
-        : a.type ?? a.asset_type,
+    type: normalizeType(a.type ?? a.asset_type),
   }));
 
   console.log(
@@ -432,9 +437,7 @@ export async function fetchAdminGroupedAssets(
     if (!Array.isArray(rawAssets)) continue;
     result[uid] = rawAssets.map((a) => ({
       ...(a as Omit<Asset, "type">),
-      type: (a.type === "real_estate"
-        ? "property"
-        : (a.type ?? a.asset_type)) as Asset["type"],
+      type: normalizeType(a.type ?? a.asset_type),
     }));
   }
   return result;
