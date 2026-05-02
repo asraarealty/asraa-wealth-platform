@@ -6,7 +6,7 @@ export {
   toErrorMessage,
 } from "./fetcher";
 
-import { fetcher } from "./fetcher";
+import { fetcher, ApiError } from "./fetcher";
 
 /* ── Auth ───────────────────────────────────────────────────────────── */
 
@@ -327,17 +327,26 @@ export interface AssetsResponse {
 }
 
 export async function fetchAssets(
-  clientId?: number,
+  clientId: number,
   signal?: AbortSignal
 ): Promise<Asset[]> {
-  const path =
-    clientId !== undefined
-      ? `/portfolio?user_id=${encodeURIComponent(clientId)}`
-      : "/portfolio/me";
+  const path = `/portfolio?user_id=${encodeURIComponent(clientId)}`;
 
-  // Use raw mode so we can handle every envelope shape the backend may return
-  // without the fetcher silently discarding top-level keys.
-  const res = await fetcher<any>(path, { signal, raw: true });
+  let res: any;
+  try {
+    // Use raw mode so we can handle every envelope shape the backend may return
+    // without the fetcher silently discarding top-level keys.
+    res = await fetcher<any>(path, { signal, raw: true });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      console.error(
+        "[fetchAssets] Asset not found (404) for clientId=%s",
+        clientId
+      );
+      return [];
+    }
+    throw err;
+  }
 
   console.log("[fetchAssets] raw response for clientId=%s:", clientId, res);
 
@@ -363,6 +372,37 @@ export async function fetchAssets(
   );
 
   return normalized;
+}
+
+/**
+ * Fetch assets for the currently authenticated (non-admin) user.
+ * Uses the /portfolio/me endpoint — do not pass a clientId here.
+ */
+export async function fetchMyAssets(signal?: AbortSignal): Promise<Asset[]> {
+  let res: any;
+  try {
+    res = await fetcher<any>("/portfolio/me", { signal, raw: true });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      console.error("[fetchMyAssets] Portfolio not found (404)");
+      return [];
+    }
+    throw err;
+  }
+
+  const list: unknown = Array.isArray(res)
+    ? res
+    : res?.data ?? res?.assets ?? res?.positions ?? [];
+
+  if (!Array.isArray(list)) {
+    console.error("[fetchMyAssets] expected array, got:", list);
+    return [];
+  }
+
+  return (list as any[]).map((a: any) => ({
+    ...a,
+    type: normalizeType(a.type ?? a.asset_type),
+  }));
 }
 
 export function createAsset(

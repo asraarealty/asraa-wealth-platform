@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://api.asraarealty.in";
+  process.env.NEXT_PUBLIC_API_URL || "/api/v2";
 
 // ── Error types ─────────────────────────────────────────
 

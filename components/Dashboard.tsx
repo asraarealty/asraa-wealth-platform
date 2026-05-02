@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchAssets,
+  fetchMyAssets,
   createAsset,
   updateAsset,
   deleteAsset,
@@ -83,7 +84,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     }
     setError(null);
     try {
-      const data = await fetchAssets(id);
+      const data = id !== undefined ? await fetchAssets(id) : await fetchMyAssets();
       setAssets(data);
       console.log("portfolio:", data);
 
