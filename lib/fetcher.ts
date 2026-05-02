@@ -1,3 +1,5 @@
+import * as Sentry from "@sentry/nextjs";
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "https://api.asraarealty.in";
 
@@ -90,7 +92,9 @@ export async function fetcher<T>(
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
     console.error("🌐 Network error:", err);
-    throw new NetworkError("Unable to reach backend API");
+    const networkErr = new NetworkError("Unable to reach backend API");
+    Sentry.captureException(networkErr, { extra: { url, payload: options?.body } });
+    throw networkErr;
   }
 
   if (process.env.NODE_ENV !== "production") {
@@ -132,7 +136,9 @@ export async function fetcher<T>(
     } catch {}
 
     console.error("❌ API Error:", message);
-    throw new ApiError(response.status, message);
+    const apiErr = new ApiError(response.status, message);
+    Sentry.captureException(apiErr, { extra: { url, payload: options?.body } });
+    throw apiErr;
   }
 
   // ✅ NO CONTENT
