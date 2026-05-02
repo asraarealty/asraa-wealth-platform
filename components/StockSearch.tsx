@@ -51,7 +51,28 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
 
       searchStocks(query.trim(), controller.signal)
         .then((data) => {
-          setResults(Array.isArray(data) ? data : []);
+          const raw = Array.isArray(data) ? data : [];
+          const q = query.trim().toLowerCase();
+
+          // 1. Filter to results whose name contains the query
+          const nameMatches = raw.filter((item) =>
+            item.name?.toLowerCase().includes(q)
+          );
+
+          // 2. Remove junk: no name, or "0P…" mutual-fund tickers
+          const clean = nameMatches.filter(
+            (item) => item.name && !item.symbol?.startsWith("0P")
+          );
+
+          // 3. Sort: exact prefix matches first, then partial; break ties alphabetically
+          clean.sort((a, b) => {
+            const aExact = a.name?.toLowerCase().startsWith(q) ? 1 : 0;
+            const bExact = b.name?.toLowerCase().startsWith(q) ? 1 : 0;
+            return bExact - aExact || a.name.localeCompare(b.name);
+          });
+
+          // 4. Limit to top 10
+          setResults(clean.slice(0, 10));
           setOpen(true);
           setActiveIndex(-1);
         })
@@ -130,7 +151,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => results.length > 0 && setOpen(true)}
-          placeholder="Search stocks — AAPL, TSLA, MSFT…"
+          placeholder="Search stocks — Kotak, Reliance, Apple…"
           className="w-full pl-10 pr-4 py-2.5 text-sm text-white placeholder-white/30 rounded-xl transition focus:outline-none"
           style={{
             background: "rgba(255,255,255,0.06)",
@@ -213,9 +234,9 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
               }}
             >
               <div className="min-w-0">
-                <span className="font-semibold text-white">{stock.symbol}</span>
+                <span className="font-semibold text-white">{stock.name}</span>
                 <span className="ml-2 text-xs truncate" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  {stock.name}
+                  {stock.symbol}
                 </span>
               </div>
               <div className="text-right shrink-0">
