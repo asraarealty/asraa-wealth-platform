@@ -3,19 +3,32 @@
 import { useState, useEffect, useRef, type KeyboardEvent } from "react";
 import { searchStocks, type StockQuote } from "@/lib/api";
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  }).format(value);
+const USD_TO_INR = 83;
+
+function getCurrency(symbol: string): "INR" | "USD" {
+  if (symbol.endsWith(".NS") || symbol.endsWith(".BO")) return "INR";
+  return "USD";
 }
 
-function formatMarketCap(value: number): string {
-  if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
-  if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
-  if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
-  return formatCurrency(value);
+function normalizePrice(price: number | null, currency: "INR" | "USD"): number {
+  if (price === null) return 0;
+  if (currency === "USD") return price * USD_TO_INR;
+  return price;
+}
+
+function formatPrice(price: number | null, currency: "INR" | "USD"): string {
+  if (price === null) return "--";
+  const normalized = normalizePrice(price, currency);
+  return `₹${normalized.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+}
+
+function formatMarketCap(value: number | null, currency: "INR" | "USD"): string {
+  if (value === null || value === 0) return "--";
+  const normalized = normalizePrice(value, currency);
+  if (normalized >= 1e12) return `₹${(normalized / 1e12).toFixed(2)}T`;
+  if (normalized >= 1e9) return `₹${(normalized / 1e7).toFixed(2)}Cr`;
+  if (normalized >= 1e6) return `₹${(normalized / 1e5).toFixed(2)}L`;
+  return `₹${normalized.toLocaleString("en-IN")}`;
 }
 
 interface StockSearchProps {
@@ -53,31 +66,37 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
         .then((data) => {
           const raw = (Array.isArray(data) ? data : []).map((item) => ({
             ...item,
-            price: item.price ?? 0,
+            price: item.price ?? null,
             change: item.change ?? 0,
             change_percent: item.change_percent ?? 0,
             market_cap: item.market_cap ?? 0,
           }));
           const q = query.trim().toLowerCase();
 
-          // 1. Filter to results whose name contains the query
-          const nameMatches = raw.filter((item) =>
-            item.name?.toLowerCase().includes(q)
+          // 1. Filter to Indian stocks (.NS or .BO)
+          const indian = raw.filter(
+            (item) =>
+              item.symbol?.endsWith(".NS") || item.symbol?.endsWith(".BO")
           );
 
-          // 2. Remove junk: no name, or "0P…" mutual-fund tickers
+          // 2. Filter to results whose name contains the query
+          const nameMatches = (indian.length > 0 ? indian : raw).filter(
+            (item) => item.name?.toLowerCase().includes(q)
+          );
+
+          // 3. Remove junk: no name, or "0P…" mutual-fund tickers
           const clean = nameMatches.filter(
             (item) => item.name && !item.symbol?.startsWith("0P")
           );
 
-          // 3. Sort: exact prefix matches first, then partial; break ties alphabetically
+          // 4. Sort: exact prefix matches first, then partial; break ties alphabetically
           clean.sort((a, b) => {
             const aExact = a.name?.toLowerCase().startsWith(q) ? 1 : 0;
             const bExact = b.name?.toLowerCase().startsWith(q) ? 1 : 0;
             return bExact - aExact || a.name.localeCompare(b.name);
           });
 
-          // 4. Limit to top 10
+          // 5. Limit to top 10
           setResults(clean.slice(0, 10));
           setOpen(true);
           setActiveIndex(-1);
@@ -247,7 +266,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
               </div>
               <div className="text-right shrink-0">
                 <div className="text-white font-medium">
-                  {formatCurrency(stock.price)}
+                  {formatPrice(stock.price, getCurrency(stock.symbol))}
                 </div>
                 <div
                   className={`text-xs font-medium ${
@@ -263,7 +282,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
               <div className="hidden sm:block text-right shrink-0">
                 <div className="text-xs" style={{ color: "rgba(201,162,39,0.5)" }}>Mkt Cap</div>
                 <div className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
-                  {formatMarketCap(stock.market_cap)}
+                  {formatMarketCap(stock.market_cap, getCurrency(stock.symbol))}
                 </div>
               </div>
             </li>

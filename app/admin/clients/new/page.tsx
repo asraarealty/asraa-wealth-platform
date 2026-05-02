@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { fetcher, toErrorMessage } from "@/lib/fetcher";
+import { toErrorMessage } from "@/lib/fetcher";
+import { createClient } from "@/lib/services/clientService";
 
 export default function NewClientPage() {
   const router = useRouter();
@@ -21,8 +22,9 @@ export default function NewClientPage() {
   };
 
   const validate = () => {
-    if (!form.name.trim()) return "Name is required";
-    if (!form.email.includes("@")) return "Valid email required";
+    if (!form.name || form.name.trim().length < 2) return "Name too short";
+    if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) return "Invalid email";
+    if (form.phone && !/^\d{10,15}$/.test(form.phone.trim())) return "Invalid phone (10–15 digits)";
     return null;
   };
 
@@ -40,15 +42,16 @@ export default function NewClientPage() {
 
     try {
       const payload = {
-        name: form.name.trim(),
-        email: form.email.trim(),
-        phone: String(form.phone).trim(),
+        name: String(form.name ?? "").trim(),
+        email: String(form.email ?? "").trim(),
+        phone: String(form.phone ?? "").trim() || undefined,
       };
 
-      await fetcher("/clients", {
-        method: "POST",
-        body: payload,
-      });
+      if (process.env.NODE_ENV !== "production") {
+        console.log("CLIENT PAYLOAD:", payload);
+      }
+
+      await createClient(payload);
 
       router.push("/admin/clients");
     } catch (err: unknown) {
