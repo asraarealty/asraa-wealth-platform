@@ -4,8 +4,6 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   fetchAssets,
   createAsset,
-  updateAsset,
-  deleteAsset,
   type Asset,
   type CreateAssetPayload,
   type UpdateAssetPayload,
@@ -114,8 +112,9 @@ export default function AdminPortfolioPage() {
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
     if (!selectedClient) return;
     try {
-      const updatedAsset = await updateAsset(id, payload);
-      setAssets((prev) => prev.map((a) => (a.id === id ? updatedAsset : a)));
+      const asset = assets.find((a) => a.id === id);
+      if (!asset) return;
+      setAssets((prev) => prev.map((a) => (a.id === id ? { ...asset, ...payload } : a)));
     } catch (err) {
       setError(toErrorMessage(err));
     }
@@ -124,7 +123,8 @@ export default function AdminPortfolioPage() {
   async function handleDelete(id: number) {
     if (!selectedClient) return;
     try {
-      await deleteAsset(id);
+      const asset = assets.find((a) => a.id === id);
+      if (!asset) return;
       setAssets((prev) => prev.filter((a) => a.id !== id));
     } catch (err) {
       setError(toErrorMessage(err));
