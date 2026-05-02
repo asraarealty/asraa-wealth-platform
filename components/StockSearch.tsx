@@ -51,7 +51,13 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
 
       searchStocks(query.trim(), controller.signal)
         .then((data) => {
-          const raw = Array.isArray(data) ? data : [];
+          const raw = (Array.isArray(data) ? data : []).map((item) => ({
+            ...item,
+            price: item.price ?? 0,
+            change: item.change ?? 0,
+            change_percent: item.change_percent ?? 0,
+            market_cap: item.market_cap ?? 0,
+          }));
           const q = query.trim().toLowerCase();
 
           // 1. Filter to results whose name contains the query

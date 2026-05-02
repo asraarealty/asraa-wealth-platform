@@ -39,13 +39,19 @@ export default function NewClientPage() {
     setLoading(true);
 
     try {
+      const payload = {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: String(form.phone).trim(),
+      };
+
       await fetcher("/clients", {
         method: "POST",
-        body: form,
+        body: payload,
       });
 
       router.push("/admin/clients");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setError(toErrorMessage(err));
     } finally {
