@@ -112,9 +112,7 @@ export default function AdminPortfolioPage() {
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
     if (!selectedClient) return;
     try {
-      const asset = assets.find((a) => a.id === id);
-      if (!asset) return;
-      setAssets((prev) => prev.map((a) => (a.id === id ? { ...asset, ...payload } : a)));
+      setAssets((prev) => prev.map((a) => (a.id === id ? { ...a, ...payload } : a)));
     } catch (err) {
       setError(toErrorMessage(err));
     }
@@ -123,8 +121,6 @@ export default function AdminPortfolioPage() {
   async function handleDelete(id: number) {
     if (!selectedClient) return;
     try {
-      const asset = assets.find((a) => a.id === id);
-      if (!asset) return;
       setAssets((prev) => prev.filter((a) => a.id !== id));
     } catch (err) {
       setError(toErrorMessage(err));

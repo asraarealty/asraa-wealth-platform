@@ -108,12 +108,10 @@ export default function AdminPage() {
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
     if (!selectedClient) return;
     try {
-      const asset = assets.find((a) => a.id === id);
-      if (!asset) return;
       setGroupedAssets((prev) => ({
         ...prev,
         [String(selectedClient.id)]: (prev[String(selectedClient.id)] ?? []).map((a) =>
-          a.id === id ? { ...asset, ...payload } : a
+          a.id === id ? { ...a, ...payload } : a
         ),
       }));
     } catch (err) {
@@ -124,8 +122,6 @@ export default function AdminPage() {
   async function handleDelete(id: number) {
     if (!selectedClient) return;
     try {
-      const asset = assets.find((a) => a.id === id);
-      if (!asset) return;
       setGroupedAssets((prev) => ({
         ...prev,
         [String(selectedClient.id)]: (prev[String(selectedClient.id)] ?? []).filter((a) => a.id !== id),
