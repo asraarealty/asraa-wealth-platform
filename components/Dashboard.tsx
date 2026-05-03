@@ -235,21 +235,24 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
   }
 
   return (
-    <div className="min-h-screen text-white bg-[#071a14] p-6 space-y-6">
+    <div
+      className="min-h-screen text-white p-6 space-y-6"
+      style={{ background: "linear-gradient(160deg, #050b18 0%, #071426 100%)" }}
+    >
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-white">Portfolio Dashboard</h1>
-          <p className="text-sm text-gray-400 mt-0.5">
+          <h1 className="text-2xl font-bold text-white tracking-tight">Portfolio Dashboard</h1>
+          <p className="text-sm text-white/40 mt-0.5">
             {user?.name ?? user?.email ?? "Welcome back"}
             {isAdmin && (
               <span
                 className="ml-2 text-xs px-2 py-0.5 rounded-full font-semibold"
                 style={{
-                  background: "rgba(201,162,39,0.12)",
-                  color: "#d4af4a",
-                  border: "1px solid rgba(201,162,39,0.2)",
+                  background: "rgba(0,229,255,0.08)",
+                  color: "#00E5FF",
+                  border: "1px solid rgba(0,229,255,0.2)",
                 }}
               >
                 Admin
@@ -260,11 +263,11 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
         <div className="flex items-center gap-3">
           {isAdmin && (
             <button
-              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-300 hover:-translate-y-0.5"
               style={{
-                background: "rgba(201,162,39,0.15)",
-                color: "#d4af4a",
-                border: "1px solid rgba(201,162,39,0.25)",
+                background: "rgba(0,229,255,0.08)",
+                color: "#00E5FF",
+                border: "1px solid rgba(0,229,255,0.2)",
               }}
               onClick={() => {
                 window.location.href = "/admin/clients/new";
@@ -278,10 +281,11 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
           )}
           <button
             onClick={() => logout()}
-            className="px-4 py-2 text-sm rounded-xl transition-colors text-gray-300 hover:text-white"
+            className="px-4 py-2 text-sm rounded-xl transition-all duration-300 hover:-translate-y-0.5"
             style={{
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.09)",
+              color: "rgba(255,255,255,0.55)",
             }}
           >
             Logout
@@ -291,8 +295,12 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
 
       {/* Admin client selector */}
       {isAdmin && !clientId && (
-        <div className="glass-card rounded-2xl p-5">
-          <p className="text-xs font-semibold uppercase tracking-widest text-gold-light mb-3">
+        <div
+          className="glass-card rounded-2xl p-5"
+          style={{ border: "1px solid rgba(0,229,255,0.08)" }}
+        >
+          <p className="text-xs font-semibold uppercase tracking-widest mb-3"
+            style={{ color: "rgba(0,229,255,0.55)" }}>
             Select Client
           </p>
           <ClientSelector
@@ -319,10 +327,19 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
             {shouldShowEmptyState && (
               <div
                 className="glass-card rounded-2xl p-10 text-center"
-                style={{ border: "1px solid rgba(201,162,39,0.15)" }}
+                style={{ border: "1px solid rgba(0,229,255,0.08)" }}
               >
-                <p className="text-gray-400 text-sm">
-                  No assets yet. Add your first investment.
+                <div
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                  style={{ background: "rgba(0,229,255,0.07)", border: "1px solid rgba(0,229,255,0.15)" }}
+                >
+                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="#00E5FF" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m6-6H6" />
+                  </svg>
+                </div>
+                <p className="text-white font-semibold mb-1">No assets yet</p>
+                <p className="text-sm text-white/40">
+                  Add your first investment to start tracking your portfolio.
                 </p>
               </div>
             )}
@@ -417,9 +434,9 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       {!loading && !error && isAdmin && resolvedClientId === undefined && (
         <div
           className="glass-card rounded-2xl p-10 text-center"
-          style={{ border: "1px solid rgba(201,162,39,0.15)" }}
+          style={{ border: "1px solid rgba(0,229,255,0.08)" }}
         >
-          <p className="text-gray-400 text-sm">
+          <p className="text-white/40 text-sm">
             Select a client above to view their portfolio.
           </p>
         </div>
