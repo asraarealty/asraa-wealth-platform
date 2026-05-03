@@ -91,6 +91,7 @@ export function toggleClientStatus(
   id: number,
   isActive: boolean
 ): Promise<unknown> {
+  // Backend expects snake_case in the request body per API contract
   return fetcher(`/clients/${id}/status`, {
     method: "PATCH",
     body: JSON.stringify({ is_active: isActive }),

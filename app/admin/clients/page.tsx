@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getAdminClients } from "@/lib/services/clientService";
 import { toggleClientStatus, toErrorMessage } from "@/lib/api";
@@ -16,11 +16,15 @@ export default function ClientsPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [toggling, setToggling] = useState<number | null>(null);
+  const acRef = useRef<AbortController | null>(null);
 
-  const loadClients = useCallback((signal?: AbortSignal) => {
+  const loadClients = useCallback(() => {
+    acRef.current?.abort();
+    const ac = new AbortController();
+    acRef.current = ac;
     setLoading(true);
     setError(null);
-    getAdminClients(signal)
+    getAdminClients(ac.signal)
       .then(setClients)
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -31,16 +35,15 @@ export default function ClientsPage() {
   }, []);
 
   useEffect(() => {
-    const ac = new AbortController();
-    loadClients(ac.signal);
-    return () => ac.abort();
+    loadClients();
+    return () => acRef.current?.abort();
   }, [loadClients]);
 
   async function handleToggle(client: AdminClient) {
     setToggling(client.id);
     try {
       await toggleClientStatus(client.id, !client.isActive);
-      await loadClients();
+      loadClients();
     } catch (err) {
       console.error("[ClientsPage] Failed to toggle client status:", err);
     } finally {
