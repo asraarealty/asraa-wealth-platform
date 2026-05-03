@@ -15,7 +15,8 @@ import {
   type UpdateAssetPayload,
   type PortfolioFull,
 } from "@/lib/api";
-import { toErrorMessage } from "@/lib/fetcher";
+import { toErrorMessage, ApiError } from "@/lib/fetcher";
+import { mapPortfolioResponse, PortfolioData } from "@/lib/mappers";
 import ClientSelector from "./ClientSelector";
 import PortfolioGrowthChart from "./dashboard/PortfolioGrowthChart";
 import AllocationChart from "./dashboard/AllocationChart";
@@ -59,11 +60,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
   const isMobile = useIsMobile();
 
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [portfolioMeta, setPortfolioMeta] = useState<Pick<
-    PortfolioFull,
-    "total_value" | "stock_value" | "mf_value" | "property_value" | "roi_percent"
-  > | null>(null);
+  const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,15 +86,9 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     setError(null);
     try {
       const data = await fetchPortfolio(id);
-      setAssets(data.positions);
-      setPortfolioMeta({
-        total_value: data.total_value,
-        stock_value: data.stock_value,
-        mf_value: data.mf_value,
-        property_value: data.property_value,
-        roi_percent: data.roi_percent,
-      });
-      console.log("portfolio:", data);
+      setPortfolio(mapPortfolioResponse(data));
+      // Silence noisy logs in prod
+      if (process.env.NODE_ENV === 'development') console.log("portfolio:", data);
 
       try {
         const ins = await fetchInsights(id);
@@ -197,6 +188,12 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       await updateAsset(id, payload);
       await loadData(resolvedClientId, true);
     } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        // Remove the ghost asset from local state immediately
+        setAssets((prev) => prev.filter((a) => a.id !== id));
+        await loadData(resolvedClientId, true);
+        return;
+      }
       setError(toErrorMessage(err));
     }
   }
@@ -206,6 +203,11 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       await deleteAsset(id);
       await loadData(resolvedClientId, true);
     } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        setAssets((prev) => prev.filter((a) => a.id !== id));
+        await loadData(resolvedClientId, true);
+        return;
+      }
       setError(toErrorMessage(err));
     }
   }
@@ -428,4 +430,3 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     </div>
   );
 }
-

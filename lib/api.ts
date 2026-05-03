@@ -365,16 +365,7 @@ export async function fetchAssets(
     throw err;
   }
 
-  console.log("[fetchAssets] raw response for clientId=%s:", clientId, res);
-
   const normalized = normalizeAssetList(res);
-
-  console.log(
-    "[fetchAssets] normalized %d item(s) for clientId=%s",
-    normalized.length,
-    clientId
-  );
-
   return normalized;
 }
 

@@ -2,11 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, NetworkError } from "@/lib/fetcher";
 
 export default function LoginForm() {
   const { login } = useAuth();
+  const router = useRouter();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,9 +38,9 @@ export default function LoginForm() {
 
       // 🔥 safe redirect (replace avoids back button going to login)
       if (role === "admin") {
-        window.location.replace("/admin");
+        router.replace("/admin");
       } else {
-        window.location.replace("/dashboard");
+        router.replace("/dashboard");
       }
 
     } catch (err) {
