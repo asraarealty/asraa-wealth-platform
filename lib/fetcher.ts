@@ -69,10 +69,6 @@ export async function fetcher<T>(
     ? path
     : `${API_BASE_URL}${path}`;
 
-  if (process.env.NODE_ENV !== "production") {
-    console.log("API Request:", url, options);
-  }
-
   let response: Response;
 
   try {
@@ -90,15 +86,12 @@ export async function fetcher<T>(
     });
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
-    console.error("🌐 Network error:", err);
     const networkErr = new NetworkError("Unable to reach backend API");
     Sentry.captureException(networkErr, { extra: { url, payload: options?.body } });
     throw networkErr;
   }
 
-  if (process.env.NODE_ENV !== "production") {
-    console.log("API Response:", response.status);
-  }
+  // Removed console.log("API Response:", response.status);
 
   // 🔐 401 → session expired → logout (unless caller opts out)
   if (response.status === 401) {
@@ -133,8 +126,6 @@ export async function fetcher<T>(
         data?.message ||
         message;
     } catch {}
-
-    console.error("❌ API Error:", message);
     const apiErr = new ApiError(response.status, message);
     Sentry.captureException(apiErr, { extra: { url, payload: options?.body } });
     throw apiErr;

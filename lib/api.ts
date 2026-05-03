@@ -56,6 +56,15 @@ export interface Client {
   createdAt: string;
 }
 
+// Type definition for AdminClient as requested
+export type AdminClient = {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+  createdAt?: string;
+};
+
 export function fetchClients(signal?: AbortSignal): Promise<Client[]> {
   return fetcher<Client[]>("/clients", { signal });
 }
@@ -191,25 +200,6 @@ export type CreateAssetPayload = Omit<
   "id" | "value" | "allocation" | "createdAt"
 >;
 export type UpdateAssetPayload = Partial<CreateAssetPayload>;
-
-export interface AssetsSummary {
-  totalValue: number;
-  totalInvested: number;
-  totalReturn: number;
-  returnPercentage: number;
-}
-
-export interface AssetsAllocation {
-  stock: number;
-  mf: number;
-  realEstate: number;
-}
-
-export interface AssetsResponse {
-  summary: AssetsSummary;
-  allocation: AssetsAllocation;
-  assets: Asset[];
-}
 
 /**
  * Full portfolio response shape returned by /portfolio/me or /portfolio?user_id=...

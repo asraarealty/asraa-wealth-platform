@@ -13,8 +13,8 @@
 export interface PortfolioItem {
   symbol: string;
   quantity: number;
-  avg_price: number;
-  current_price: number;
+  avgPrice: number;
+  currentPrice: number;
 }
 
 // ── Asset-class helpers ──────────────────────────────────────────────────────
@@ -33,7 +33,7 @@ function isEquity(symbol: string): boolean {
 
 /** Return the effective current price, falling back to avg_price when missing */
 function effectivePrice(item: PortfolioItem): number {
-  return item.current_price > 0 ? item.current_price : item.avg_price;
+  return item.currentPrice > 0 ? item.currentPrice : item.avgPrice;
 }
 
 // ── Task 2 — Portfolio Metrics ───────────────────────────────────────────────
@@ -60,7 +60,7 @@ export function computePortfolioMetrics(
   }
 
   const invested = items.reduce(
-    (sum, item) => sum + item.quantity * item.avg_price,
+    (sum, item) => sum + item.quantity * item.avgPrice,
     0
   );
   const current = items.reduce(
@@ -84,7 +84,7 @@ export function computePortfolioMetrics(
 export interface Allocation {
   equity: number;     // percentage
   mf: number;         // percentage
-  realEstate: number; // percentage
+  real_estate: number; // percentage
 }
 
 export type RiskLevel = "Low" | "Medium" | "High";
@@ -100,7 +100,7 @@ export interface RiskResult {
  */
 export function computeAllocation(items: PortfolioItem[]): Allocation {
   if (items.length === 0) {
-    return { equity: 0, mf: 0, realEstate: 0 };
+    return { equity: 0, mf: 0, real_estate: 0 };
   }
 
   let equityVal = 0;
@@ -119,14 +119,14 @@ export function computeAllocation(items: PortfolioItem[]): Allocation {
   }
 
   const total = equityVal + mfVal + reVal;
-  if (total === 0) return { equity: 0, mf: 0, realEstate: 0 };
+  if (total === 0) return { equity: 0, mf: 0, real_estate: 0 };
 
   const equity = parseFloat(((equityVal / total) * 100).toFixed(1));
   const mf = parseFloat(((mfVal / total) * 100).toFixed(1));
   // Derive the third from the remainder to avoid floating-point drift
-  const realEstate = parseFloat((100 - equity - mf).toFixed(1));
+  const real_estate = parseFloat((100 - equity - mf).toFixed(1));
 
-  return { equity, mf, realEstate };
+  return { equity, mf, real_estate };
 }
 
 /**
@@ -205,11 +205,11 @@ export function generateRecommendations(
     });
   }
 
-  if (allocation.realEstate < 20) {
+  if (allocation.real_estate < 20) {
     recs.push({
       message: "Add real estate investment",
       type: "buy",
-      priority: allocation.realEstate < 5 ? "high" : "medium",
+      priority: allocation.real_estate < 5 ? "high" : "medium",
     });
   }
 
@@ -291,7 +291,7 @@ export function deriveClientAlerts(
   const classCount = [
     allocation.equity > 0,
     allocation.mf > 0,
-    allocation.realEstate > 0,
+    allocation.real_estate > 0,
   ].filter(Boolean).length;
 
   if (classCount <= 1) {

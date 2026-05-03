@@ -24,7 +24,7 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      const me = await login(email, password);
+      const me = await login(email, password); // Keep this line
 
       if (!me) {
         setError("Unable to fetch user data");
@@ -40,10 +40,7 @@ export default function LoginForm() {
       } else {
         router.replace("/dashboard");
       }
-
     } catch (err) {
-      console.error("❌ LOGIN ERROR:", err);
-
       if (err instanceof NetworkError) {
         setError("Server not reachable. Try again.");
       } else if (err instanceof ApiError) {

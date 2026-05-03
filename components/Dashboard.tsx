@@ -14,10 +14,10 @@ import {
   type PortfolioFull,
   type InsightsResponse,
 } from "@/lib/api";
+import { Tab } from "@/lib/types"; // Import the shared Tab type
 import { toErrorMessage, ApiError } from "@/lib/fetcher";
-import ClientSelector from "./ClientSelector";
+import ClientSelector from "./ClientSelector"; // Keep this import
 import PortfolioGrowthChart from "./dashboard/PortfolioGrowthChart";
-import AllocationChart from "./dashboard/AllocationChart";
 import AIInsightsPanel from "./dashboard/AIInsightsPanel";
 import ClientRecommendations from "./dashboard/ClientRecommendations";
 import AssetTabs from "./dashboard/AssetTabs";
@@ -39,8 +39,6 @@ function useIsMobile(breakpoint = 768) {
   }, [breakpoint]);
   return isMobile;
 }
-
-type Tab = "stocks" | "mutual_funds" | "realEstate";
 
 function fmtCurrency(n: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -158,7 +156,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     return {
       stock: parseFloat(((portfolio.stockValue / portfolio.totalValue) * 100).toFixed(1)),
       mf: parseFloat(((portfolio.mfValue / portfolio.totalValue) * 100).toFixed(1)),
-      realEstate: parseFloat(((portfolio.propertyValue / portfolio.totalValue) * 100).toFixed(1)),
+      real_estate: parseFloat(((portfolio.propertyValue / portfolio.totalValue) * 100).toFixed(1)),
     };
   }, [portfolio]);
 
@@ -386,7 +384,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2">
               <PortfolioGrowthChart
-                totalValue={totalValue}
+                totalValue={totalValue} // This is already camelCase
                 gainPercent={returnPct}
               />
             </div>
@@ -403,7 +401,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
           <AssetTabs
             assets={assets}
             activeTab={activeTab}
-            onTabChange={setActiveTab}
+            onTabChange={(tab) => setActiveTab(tab)}
             onAdd={handleAdd}
             onEdit={handleEdit}
             onDelete={handleDelete}
