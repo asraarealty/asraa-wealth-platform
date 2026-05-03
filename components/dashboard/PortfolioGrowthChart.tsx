@@ -74,10 +74,20 @@ export default function PortfolioGrowthChart({ totalValue, gainPercent }: Props)
   const displayGain = gainPercent;
 
   return (
-    <div className="glass-card card-hover rounded-2xl p-5">
+    <div
+      className="card-hover rounded-2xl p-5"
+      style={{
+        background: "rgba(255,255,255,0.03)",
+        border: "1px solid rgba(255,255,255,0.07)",
+        boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
+      }}
+    >
       <div className="flex items-start justify-between mb-4">
         <div>
-          <p className="text-xs uppercase tracking-widest font-semibold mb-1" style={{ color: "rgba(201,162,39,0.65)" }}>
+          <p
+            className="text-xs uppercase tracking-widest font-semibold mb-1"
+            style={{ color: "rgba(0,229,255,0.55)" }}
+          >
             Portfolio Growth
           </p>
           <p className="text-xl font-bold text-white tracking-tight">
@@ -90,11 +100,20 @@ export default function PortfolioGrowthChart({ totalValue, gainPercent }: Props)
         </div>
         <div className="flex items-center gap-2">
           <span
-            className={`text-sm font-semibold px-3 py-1 rounded-full border ${
+            className="text-sm font-semibold px-3 py-1 rounded-full border"
+            style={
               displayGain >= 0
-                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                : "bg-red-500/10 text-red-400 border-red-500/20"
-            }`}
+                ? {
+                    background: "rgba(0,255,159,0.08)",
+                    color: "#00ff9f",
+                    borderColor: "rgba(0,255,159,0.2)",
+                  }
+                : {
+                    background: "rgba(255,77,109,0.08)",
+                    color: "#ff4d6d",
+                    borderColor: "rgba(255,77,109,0.2)",
+                  }
+            }
           >
             {displayGain >= 0 ? "+" : ""}{displayGain.toFixed(1)}%
           </span>
@@ -108,19 +127,19 @@ export default function PortfolioGrowthChart({ totalValue, gainPercent }: Props)
         aria-label="Portfolio growth line chart"
       >
         <defs>
-          <linearGradient id="areaGradientGreen" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#10b981" stopOpacity="0.22" />
-            <stop offset="75%" stopColor="#10b981" stopOpacity="0.04" />
-            <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+          <linearGradient id="areaGradientCyan" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#00E5FF" stopOpacity="0.18" />
+            <stop offset="60%" stopColor="#00E5FF" stopOpacity="0.04" />
+            <stop offset="100%" stopColor="#00E5FF" stopOpacity="0" />
           </linearGradient>
-          <filter id="lineGlow">
+          <filter id="lineGlowCyan">
             <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
             <feMerge>
               <feMergeNode in="coloredBlur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <filter id="dotGlow">
+          <filter id="dotGlowCyan">
             <feGaussianBlur stdDeviation="3" result="coloredBlur" />
             <feMerge>
               <feMergeNode in="coloredBlur" />
@@ -137,24 +156,24 @@ export default function PortfolioGrowthChart({ totalValue, gainPercent }: Props)
             y1={padY + t * (height - padY * 2)}
             x2={width - padX}
             y2={padY + t * (height - padY * 2)}
-            stroke="rgba(16,185,129,0.07)"
+            stroke="rgba(0,229,255,0.06)"
             strokeWidth={1}
             strokeDasharray={t === 0 || t === 1 ? "none" : "4 6"}
           />
         ))}
 
         {/* Area fill */}
-        <path d={areaPath} fill="url(#areaGradientGreen)" />
+        <path d={areaPath} fill="url(#areaGradientCyan)" />
 
-        {/* Main green line with draw animation */}
+        {/* Main cyan line with draw animation */}
         <path
           d={smoothPath}
           fill="none"
-          stroke="#10b981"
-          strokeWidth={2.5}
+          stroke="#00E5FF"
+          strokeWidth={2}
           strokeLinejoin="round"
           strokeLinecap="round"
-          filter="url(#lineGlow)"
+          filter="url(#lineGlowCyan)"
           strokeDasharray="1200"
           className="animate-draw-line"
         />
@@ -168,46 +187,46 @@ export default function PortfolioGrowthChart({ totalValue, gainPercent }: Props)
               y={height - 2}
               textAnchor="middle"
               fontSize={10}
-              fill="rgba(255,255,255,0.2)"
+              fill="rgba(255,255,255,0.18)"
             >
               {d.month}
             </text>
           ) : null
         )}
 
-        {/* Peak highlight point (gold) */}
+        {/* Peak highlight point */}
         <circle
           cx={toX(peakIdx)}
           cy={toY(data[peakIdx].value)}
-          r={5}
-          fill="#c9a227"
-          filter="url(#dotGlow)"
+          r={4.5}
+          fill="#4F8CFF"
+          filter="url(#dotGlowCyan)"
         />
         <circle
           cx={toX(peakIdx)}
           cy={toY(data[peakIdx].value)}
           r={9}
           fill="none"
-          stroke="#c9a227"
-          strokeOpacity={0.25}
+          stroke="#4F8CFF"
+          strokeOpacity={0.2}
           strokeWidth={1.5}
         />
 
-        {/* Latest data point dot (emerald) */}
+        {/* Latest data point dot (cyan) */}
         <circle
           cx={toX(data.length - 1)}
           cy={toY(latestValue)}
-          r={5}
-          fill="#10b981"
-          filter="url(#lineGlow)"
+          r={4.5}
+          fill="#00E5FF"
+          filter="url(#lineGlowCyan)"
         />
         <circle
           cx={toX(data.length - 1)}
           cy={toY(latestValue)}
           r={9}
           fill="none"
-          stroke="#10b981"
-          strokeOpacity={0.3}
+          stroke="#00E5FF"
+          strokeOpacity={0.25}
           strokeWidth={1.5}
         />
       </svg>

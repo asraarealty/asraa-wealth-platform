@@ -29,7 +29,7 @@ function Section({ title, children, action }: SectionProps) {
   return (
     <div className="glass-card rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
-        <p className="text-xs font-semibold uppercase tracking-widest text-gold-light">
+        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(0,229,255,0.6)" }}>
           {title}
         </p>
         {action}
@@ -45,24 +45,23 @@ function EmptyPortfolio({ onAdd }: { onAdd: () => void }) {
   return (
     <div
       className="glass-card rounded-2xl p-12 text-center animate-fade-in"
-      style={{ border: "1px solid rgba(201,162,39,0.15)" }}
+      style={{ border: "1px solid rgba(0,229,255,0.1)" }}
     >
       <div
         className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-        style={{ background: "rgba(201,162,39,0.1)", border: "1px solid rgba(201,162,39,0.2)" }}
+        style={{ background: "rgba(0,229,255,0.08)", border: "1px solid rgba(0,229,255,0.18)" }}
       >
-        <svg className="w-7 h-7 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="#00E5FF" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m6-6H6" />
         </svg>
       </div>
       <p className="text-white font-semibold mb-1">No holdings yet</p>
-      <p className="text-sm text-gray-400 mb-5">
+      <p className="text-sm text-white/40 mb-5">
         Add your first investment to start tracking your portfolio.
       </p>
       <button
         onClick={onAdd}
-        className="px-5 py-2.5 text-sm font-semibold rounded-xl transition-colors"
-        style={{ background: "#c9a227", color: "#071a14" }}
+        className="px-5 py-2.5 text-sm font-semibold rounded-xl transition-all duration-300 hover:-translate-y-0.5 neon-btn"
       >
         + Add Asset
       </button>
@@ -99,11 +98,11 @@ function SyncButton({ syncing, onClick }: { syncing: boolean; onClick: () => voi
     <button
       onClick={onClick}
       disabled={syncing}
-      className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all disabled:opacity-60"
+      className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all duration-300 disabled:opacity-60 hover:-translate-y-0.5"
       style={{
-        background: "rgba(255,255,255,0.06)",
-        border: "1px solid rgba(255,255,255,0.1)",
-        color: "rgba(255,255,255,0.75)",
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.09)",
+        color: "rgba(255,255,255,0.65)",
       }}
     >
       <svg
@@ -207,7 +206,10 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#071a14] flex items-center justify-center">
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "linear-gradient(160deg, #050b18 0%, #071426 100%)" }}
+      >
         <Loader />
       </div>
     );
@@ -217,12 +219,15 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
     (portfolio?.positions?.length ?? 0) > 0;
 
   return (
-    <div className="min-h-screen text-white bg-[#071a14] p-6 space-y-6 animate-fade-in">
+    <div
+      className="min-h-screen text-white p-6 space-y-6 animate-fade-in"
+      style={{ background: "linear-gradient(160deg, #050b18 0%, #071426 100%)" }}
+    >
       {/* ── Page header ──────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-white">Portfolio Dashboard</h1>
-          <p className="text-sm text-gray-400 mt-0.5">
+          <h1 className="text-2xl font-bold text-white tracking-tight">Portfolio Dashboard</h1>
+          <p className="text-sm text-white/40 mt-0.5">
             Real-time overview of your wealth portfolio
           </p>
         </div>
@@ -230,8 +235,12 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
           <SyncButton syncing={syncing} onClick={handleSync} />
           <button
             onClick={() => setAddModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl transition-colors"
-            style={{ background: "#c9a227", color: "#071a14" }}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-300 hover:-translate-y-0.5"
+            style={{
+              background: "linear-gradient(135deg, #00E5FF, #4F8CFF)",
+              color: "#020912",
+              boxShadow: "0 0 20px rgba(0,229,255,0.2)",
+            }}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />

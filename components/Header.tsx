@@ -16,23 +16,24 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.06] bg-[#0A0F0D]/90 backdrop-blur-md">
+    <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.05]" style={{ background: "rgba(5,11,24,0.85)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 shrink-0">
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm text-black shadow-md"
+              className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shadow-md"
               style={{
-                background: "linear-gradient(135deg, #C9A227, #e8d08a)",
-                boxShadow: "0 0 12px rgba(201,162,39,0.35)",
+                background: "linear-gradient(135deg, #00E5FF, #4F8CFF)",
+                boxShadow: "0 0 16px rgba(0,229,255,0.4)",
+                color: "#020912",
               }}
             >
               A
             </div>
             <span className="text-white font-semibold text-[17px] tracking-tight">
               Asraa{" "}
-              <span style={{ color: "#C9A227" }}>Realty</span>
+              <span style={{ color: "#00E5FF" }}>Wealth</span>
             </span>
           </Link>
 
@@ -53,10 +54,11 @@ export default function Header() {
           <div className="flex items-center gap-3">
             <Link
               href="/signup"
-              className="hidden md:inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg text-black transition-opacity duration-200 hover:opacity-90"
+              className="hidden md:inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-300 hover:-translate-y-0.5"
               style={{
-                background: "linear-gradient(90deg, #C9A227, #d4af4a)",
-                boxShadow: "0 4px 14px rgba(201,162,39,0.25)",
+                background: "linear-gradient(135deg, #00E5FF, #4F8CFF)",
+                boxShadow: "0 0 20px rgba(0,229,255,0.2)",
+                color: "#020912",
               }}
             >
               Get Free Plan
@@ -112,9 +114,11 @@ export default function Header() {
               <Link
                 href="/signup"
                 onClick={() => setMenuOpen(false)}
-                className="block px-4 py-2.5 text-sm font-semibold text-center rounded-lg text-black"
+                className="block px-4 py-2.5 text-sm font-semibold text-center rounded-lg transition-all duration-300"
                 style={{
-                  background: "linear-gradient(90deg, #C9A227, #d4af4a)",
+                  background: "linear-gradient(135deg, #00E5FF, #4F8CFF)",
+                  color: "#020912",
+                  boxShadow: "0 0 20px rgba(0,229,255,0.2)",
                 }}
               >
                 Get Free Plan

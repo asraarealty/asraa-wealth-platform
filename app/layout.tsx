@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full bg-gray-950 text-white">
+      <body className="min-h-full text-white" style={{ background: "linear-gradient(160deg, #050b18 0%, #071426 100%)" }}>
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
