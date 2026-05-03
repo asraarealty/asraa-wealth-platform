@@ -56,22 +56,45 @@ export interface Client {
   createdAt: string;
 }
 
-// Type definition for AdminClient as requested
 export type AdminClient = {
   id: number;
   name: string;
   email: string;
   phone?: string;
   createdAt?: string;
-  is_active?: boolean;
+  isActive: boolean;
 };
+
+function mapAdminClient(raw: any): AdminClient {
+  return {
+    id: raw.id,
+    name: raw.name,
+    email: raw.email,
+    phone: raw.phone,
+    createdAt: raw.createdAt ?? raw.created_at,
+    isActive: raw.isActive ?? raw.is_active ?? false,
+  };
+}
 
 export function fetchClients(signal?: AbortSignal): Promise<Client[]> {
   return fetcher<Client[]>("/clients", { signal });
 }
 
-export function fetchAdminClients(signal?: AbortSignal): Promise<AdminClient[]> {
-  return fetcher<AdminClient[]>("/clients", { signal });
+export async function fetchAdminClients(
+  signal?: AbortSignal
+): Promise<AdminClient[]> {
+  const data = await fetcher<any[]>("/clients", { signal });
+  return Array.isArray(data) ? data.map(mapAdminClient) : [];
+}
+
+export function toggleClientStatus(
+  id: number,
+  isActive: boolean
+): Promise<unknown> {
+  return fetcher(`/clients/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ is_active: isActive }),
+  });
 }
 
 /* ── Stocks ────────────────────────────────────────────────────────── */

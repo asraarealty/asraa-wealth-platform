@@ -233,12 +233,12 @@ export default function AdminPortfolioPage() {
               <span
                 className="text-xs px-2.5 py-1 rounded-full font-medium"
                 style={
-                  selectedClient.is_active
+                  selectedClient.isActive
                     ? { background: "rgba(74,222,128,0.1)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.2)" }
                     : { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.1)" }
                 }
               >
-                {selectedClient.is_active ? "Active" : "Inactive"}
+                {selectedClient.isActive ? "Active" : "Inactive"}
               </span>
               <button
                 onClick={() => setAddModalOpen(true)}

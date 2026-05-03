@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { getAdminClients } from "@/lib/services/clientService";
-import { toErrorMessage } from "@/lib/fetcher";
+import { toggleClientStatus, toErrorMessage } from "@/lib/api";
 import type { AdminClient } from "@/lib/api";
 import Table from "@/components/ui/Table";
 import Loader from "@/components/ui/Loader";
@@ -15,11 +15,12 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [toggling, setToggling] = useState<number | null>(null);
 
-  useEffect(() => {
-    const ac = new AbortController();
-
-    getAdminClients(ac.signal)
+  const loadClients = useCallback((signal?: AbortSignal) => {
+    setLoading(true);
+    setError(null);
+    getAdminClients(signal)
       .then(setClients)
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -27,9 +28,25 @@ export default function ClientsPage() {
         setError(toErrorMessage(err));
       })
       .finally(() => setLoading(false));
-
-    return () => ac.abort();
   }, []);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    loadClients(ac.signal);
+    return () => ac.abort();
+  }, [loadClients]);
+
+  async function handleToggle(client: AdminClient) {
+    setToggling(client.id);
+    try {
+      await toggleClientStatus(client.id, !client.isActive);
+      await loadClients();
+    } catch (err) {
+      console.error("[ClientsPage] Failed to toggle client status:", err);
+    } finally {
+      setToggling(null);
+    }
+  }
 
   if (loading) return <Loader />;
   if (error) return <ErrorState message={error} />;
@@ -141,31 +158,61 @@ export default function ClientsPage() {
             { key: "email", header: "Email" },
             { key: "phone", header: "Phone" },
             {
-              key: "is_active",
+              key: "isActive",
               header: "Status",
               render: (row) => (
                 <span
                   className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold"
                   style={
-                    row.is_active
+                    row.isActive
                       ? {
                           background: "rgba(46,204,113,0.12)",
                           color: "#2ecc71",
                         }
                       : {
-                          background: "rgba(239,68,68,0.1)",
-                          color: "#ef4444",
+                          background: "rgba(148,163,184,0.12)",
+                          color: "#94a3b8",
                         }
                   }
                 >
                   <span
                     className="w-1.5 h-1.5 rounded-full"
                     style={{
-                      background: row.is_active ? "#2ecc71" : "#ef4444",
+                      background: row.isActive ? "#2ecc71" : "#94a3b8",
                     }}
                   />
-                  {row.is_active ? "Active" : "Inactive"}
+                  {row.isActive ? "Active" : "Inactive"}
                 </span>
+              ),
+            },
+            {
+              key: "id",
+              header: "Actions",
+              render: (row) => (
+                <button
+                  onClick={() => handleToggle(row)}
+                  disabled={toggling === row.id}
+                  className="px-3 py-1 text-xs font-semibold rounded-lg transition-opacity hover:opacity-80 disabled:opacity-50"
+                  style={
+                    row.isActive
+                      ? {
+                          background: "rgba(239,68,68,0.12)",
+                          color: "#ef4444",
+                          border: "1px solid rgba(239,68,68,0.25)",
+                        }
+                      : {
+                          background: "rgba(46,204,113,0.12)",
+                          color: "#2ecc71",
+                          border: "1px solid rgba(46,204,113,0.25)",
+                        }
+                  }
+                >
+                  {toggling === row.id
+                    ? "…"
+                    : row.isActive
+                    ? "Deactivate"
+                    : "Activate"}
+                </button>
               ),
             },
           ]}

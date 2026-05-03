@@ -90,7 +90,7 @@ export default function AdminPage() {
     };
   }, [allAssets, totalAUM]);
 
-  const activeClients = clients.filter((c: AdminClient) => c.is_active).length;
+  const activeClients = clients.filter((c: AdminClient) => c.isActive).length;
   // Derive selected client's assets from the grouped map — no separate fetch
   const assets: Asset[] = groupedAssets[String(selectedClient?.id ?? "")] ?? [];
 
