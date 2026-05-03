@@ -170,7 +170,7 @@ export default function ClientSelector({
                     <span
                       className="inline-block text-xs px-2 py-0.5 rounded-full"
                       style={
-                        client.is_active
+                        client.isActive
                           ? {
                               background: "rgba(46,204,113,0.1)",
                               color: "#2ecc71",
@@ -183,7 +183,7 @@ export default function ClientSelector({
                             }
                       }
                     >
-                      {client.is_active ? "Active" : "Inactive"}
+                      {client.isActive ? "Active" : "Inactive"}
                     </span>
                   </div>
                 </div>
@@ -195,4 +195,3 @@ export default function ClientSelector({
     </div>
   );
 }
-

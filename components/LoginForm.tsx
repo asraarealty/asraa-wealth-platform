@@ -26,8 +26,6 @@ export default function LoginForm() {
     try {
       const me = await login(email, password);
 
-      console.log("✅ USER:", me);
-
       if (!me) {
         setError("Unable to fetch user data");
         return;

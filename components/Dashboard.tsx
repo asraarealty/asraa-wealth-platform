@@ -9,18 +9,16 @@ import {
   deleteAsset,
   fetchInsights,
   type Asset,
-  type AssetsAllocation,
   type CreateAssetPayload,
   type UpdateAssetPayload,
   type PortfolioFull,
+  type InsightsResponse,
 } from "@/lib/api";
 import { toErrorMessage, ApiError } from "@/lib/fetcher";
-import { mapPortfolioResponse, PortfolioData } from "@/lib/mappers";
 import ClientSelector from "./ClientSelector";
 import PortfolioGrowthChart from "./dashboard/PortfolioGrowthChart";
 import AllocationChart from "./dashboard/AllocationChart";
 import AIInsightsPanel from "./dashboard/AIInsightsPanel";
-import { InsightsResponse } from "@/lib/api";
 import ClientRecommendations from "./dashboard/ClientRecommendations";
 import AssetTabs from "./dashboard/AssetTabs";
 import StatBox from "./ui/StatBox";
@@ -42,7 +40,7 @@ function useIsMobile(breakpoint = 768) {
   return isMobile;
 }
 
-type Tab = "stocks" | "mutual_funds" | "real_estate";
+type Tab = "stocks" | "mutual_funds" | "realEstate";
 
 function fmtCurrency(n: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -60,7 +58,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
   const isMobile = useIsMobile();
 
   const [selectedClient, setSelectedClient] = useState<any | null>(null);
-  const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
+  const [portfolio, setPortfolio] = useState<PortfolioFull | null>(null);
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +70,8 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     return selectedClient?.id ?? undefined;
   }, [isAdmin, clientId, selectedClient]);
 
+  const fetchInProgress = useRef(false);
+
   /**
    * Load assets (and insights) for the given client id.
    * @param id       - client id (admin only; omit for self)
@@ -79,6 +79,9 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
    *                   don't cause a full page re-render
    */
   const loadData = useCallback(async (id?: number, silent = false) => {
+    if (fetchInProgress.current) return;
+    fetchInProgress.current = true;
+
     if (!silent) {
       setLoading(true);
       setPortfolio(null); // clear stale data before loading the new client
@@ -86,9 +89,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     setError(null);
     try {
       const data = await fetchPortfolio(id);
-      setPortfolio(mapPortfolioResponse(data));
-      // Silence noisy logs in prod
-      if (process.env.NODE_ENV === 'development') console.log("portfolio:", data);
+      setPortfolio(data);
 
       try {
         const ins = await fetchInsights(id);
@@ -101,6 +102,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       if (!silent) setError(toErrorMessage(err));
     } finally {
       if (!silent) setLoading(false);
+      fetchInProgress.current = false;
     }
   }, []);
 
@@ -139,16 +141,31 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
   }, [user, isAdmin, resolvedClientId, loadData]);
 
   const assets = portfolio?.positions ?? [];
+
+  // Compute only totalInvested from positions as requested
+  const totalInvested = useMemo(
+    () => assets.reduce((s: number, a: Asset) => s + (a.quantity ?? 0) * a.avgPrice, 0),
+    [assets]
+  );
+
   const totalValue = portfolio?.totalValue ?? 0;
-  const totalInvested = assets.reduce((s: number, a: Asset) => s + (a.quantity * a.avgPrice), 0);
   const totalReturn = totalValue - totalInvested;
   const returnPct = portfolio?.roiPercent ?? 0;
-  const allocation = portfolio?.allocation;
+
+  // Derive allocation percentages for the chart from portfolio totals
+  const allocation = useMemo(() => {
+    if (!portfolio || portfolio.totalValue === 0) return undefined;
+    return {
+      stock: parseFloat(((portfolio.stockValue / portfolio.totalValue) * 100).toFixed(1)),
+      mf: parseFloat(((portfolio.mfValue / portfolio.totalValue) * 100).toFixed(1)),
+      realEstate: parseFloat(((portfolio.propertyValue / portfolio.totalValue) * 100).toFixed(1)),
+    };
+  }, [portfolio]);
 
   async function handleAdd(payload: CreateAssetPayload) {
     const body: CreateAssetPayload = {
       ...payload,
-      ...(isAdmin && resolvedClientId ? { user_id: resolvedClientId } : {}),
+      ...(isAdmin && resolvedClientId ? { userId: resolvedClientId } : {}),
     };
     try {
       await createAsset(body);

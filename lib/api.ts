@@ -16,9 +16,9 @@ export interface LoginPayload {
 }
 
 export interface LoginResponse {
-  access_token: string;
-  token_type?: string;
-  refresh_token?: string;
+  accessToken: string;
+  tokenType?: string;
+  refreshToken?: string;
   user?: MeResponse;
 }
 
@@ -34,7 +34,7 @@ export interface MeResponse {
   name?: string;
   email: string;
   role: string;
-  is_active: boolean;
+  isActive: boolean;
 }
 
 export function getMe(): Promise<MeResponse> {
@@ -52,8 +52,8 @@ export interface Client {
   name: string;
   email: string;
   phone?: string;
-  is_active: boolean;
-  created_at: string;
+  isActive: boolean;
+  createdAt: string;
 }
 
 export function fetchClients(signal?: AbortSignal): Promise<Client[]> {
@@ -67,9 +67,9 @@ export interface StockQuote {
   name: string;
   price: number;
   change: number;
-  change_percent: number;
+  changePercent: number;
   volume: number;
-  market_cap: number;
+  marketCap: number;
 }
 
 export function searchStocks(
@@ -95,7 +95,7 @@ export function fetchStockQuote(
 
 export interface Transaction {
   id: string;
-  client_id: string;
+  clientId: string;
   symbol: string;
   type: "buy" | "sell";
   quantity: number;
@@ -105,11 +105,11 @@ export interface Transaction {
 }
 
 export function fetchTransactions(
-  clientId?: string,
+  userId?: string,
   signal?: AbortSignal
 ): Promise<Transaction[]> {
-  const qs = clientId
-    ? `?client_id=${encodeURIComponent(clientId)}`
+  const qs = userId
+    ? `?client_id=${encodeURIComponent(userId)}`
     : "";
 
   return fetcher<Transaction[]>(`/transactions${qs}`, { signal });
@@ -122,64 +122,11 @@ export interface User {
   name?: string;
   email: string;
   role: string;
-  is_active: boolean;
+  isActive: boolean;
 }
 
 export function fetchUsers(signal?: AbortSignal): Promise<User[]> {
   return fetcher<User[]>("/users", { signal });
-}
-
-/* ── Admin: Clients ───────────────────────────────────────────────── */
-
-export interface AdminClient {
-  id: number;
-  name: string;
-  email: string;
-  phone?: string;
-  is_active: boolean;
-  created_at: string;
-}
-
-export function fetchAdminClients(
-  signal?: AbortSignal
-): Promise<AdminClient[]> {
-  return fetcher<AdminClient[]>("/clients", { signal });
-}
-
-export interface PortfolioResponse {
-  success: boolean;
-  data: AdminPortfolioItem[];
-}
-
-export interface CreatePortfolioItemPayload {
-  symbol: string;
-  name: string;
-  quantity: number;
-  avg_price: number;
-  /** Admin only: assign the position to a specific client */
-  user_id?: number;
-}
-
-export async function fetchAdminPortfolio(
-  signal?: AbortSignal
-): Promise<Asset[]> {
-  const res = await fetcher<PortfolioResponse | Asset[]>("/portfolio", {
-    signal,
-    raw: true,
-  });
-
-  const data: unknown = Array.isArray(res)
-    ? res
-    : (res as PortfolioResponse)?.data ?? (res as any)?.positions ?? [];
-
-  if (!Array.isArray(data)) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error("Admin portfolio invalid:", data);
-    }
-    return [];
-  }
-
-  return data as Asset[];
 }
 
 /* ── Assets ─────────────────────────────────────────────────────────── */
@@ -193,7 +140,6 @@ const KNOWN_ASSET_TYPES = new Set<string>(["stock", "mf", "property"]);
 const normalizeType = (type: string | undefined): AssetType => {
   if (type === "real_estate") return "property";
   if (type && KNOWN_ASSET_TYPES.has(type)) return type as AssetType;
-  if (type) console.warn(`[normalizeType] unexpected asset type: "${type}", defaulting to "stock"`);
   return "stock";
 };
 
@@ -204,12 +150,13 @@ const normalizeAssetList = (res: unknown): Asset[] => {
     : (res as any)?.data ?? (res as any)?.assets ?? (res as any)?.positions ?? [];
 
   if (!Array.isArray(list)) {
-    console.error("[normalizeAssetList] expected array, got:", list);
     return [];
   }
 
   return (list as any[]).map((a: any) => ({
     ...a,
+    avgPrice: Number(a.avgPrice ?? a.avg_price ?? 0),
+    currentPrice: Number(a.currentPrice ?? a.current_price ?? 0),
     type: normalizeType(a.type ?? a.asset_type),
   }));
 };
@@ -221,6 +168,7 @@ export interface Asset {
   name: string;
   quantity?: number;
   avgPrice: number;
+  currentPrice?: number;
   value: number;
   allocation: number;
   /** Real estate */
@@ -234,27 +182,27 @@ export interface Asset {
   tenantEmail?: string;
   /** Common */
   tags?: string[];
-  user_id?: number;
-  created_at?: string;
+  userId?: number;
+  createdAt?: string;
 }
 
 export type CreateAssetPayload = Omit<
   Asset,
   "id" | "value" | "allocation" | "createdAt"
 >;
-export type UpdateAssetPayload = Partial<Omit<Asset, "id" | "createdAt">>;
+export type UpdateAssetPayload = Partial<CreateAssetPayload>;
 
 export interface AssetsSummary {
-  total_value: number;
-  total_invested: number;
-  total_return: number;
-  return_percentage: number;
+  totalValue: number;
+  totalInvested: number;
+  totalReturn: number;
+  returnPercentage: number;
 }
 
 export interface AssetsAllocation {
   stock: number;
   mf: number;
-  real_estate: number;
+  realEstate: number;
 }
 
 export interface AssetsResponse {
@@ -278,16 +226,14 @@ export interface PortfolioFull {
 
 /**
  * Fetch the portfolio envelope (positions + pre-computed totals) from the backend.
- * Uses GET /portfolio/me for regular users and GET /portfolio?user_id=... for admins.
- * All values fall back to client-side computation when the backend omits them.
  */
 export async function fetchPortfolio(
-  clientId?: number,
+  userId?: number,
   signal?: AbortSignal
 ): Promise<PortfolioFull> {
   const path =
-    clientId !== undefined
-      ? `/portfolio?user_id=${encodeURIComponent(clientId)}`
+    userId !== undefined
+      ? `/portfolio?user_id=${encodeURIComponent(userId)}`
       : "/portfolio/me";
 
   let res: any;
@@ -297,11 +243,11 @@ export async function fetchPortfolio(
     if (err instanceof ApiError && err.status === 404) {
       return {
         positions: [],
-        total_value: 0,
-        stock_value: 0,
-        mf_value: 0,
-        property_value: 0,
-        roi_percent: 0,
+        totalValue: 0,
+        stockValue: 0,
+        mfValue: 0,
+        propertyValue: 0,
+        roiPercent: 0,
       };
     }
     throw err;
@@ -314,51 +260,51 @@ export async function fetchPortfolio(
   const positions = normalizeAssetList(rawPositions);
 
   // Prefer server-provided totals; fall back to client-side computation when omitted.
-  const total_value =
+  const totalVal =
     typeof res?.total_value === "number"
       ? res.total_value
-      : positions.reduce((s: number, p: Asset) => s + (p.value ?? 0), 0);
+      : positions.reduce((s: number, p: Asset) => s + Number(p.value ?? 0), 0);
 
   const totalInvested = positions.reduce(
-    (s: number, p: Asset) => s + (p.quantity ?? 0) * (p.avg_price ?? 0),
+    (s: number, p: Asset) => s + Number(p.quantity ?? 0) * Number(p.avgPrice ?? 0),
     0
   );
 
-  const stock_value =
+  const stockVal =
     typeof res?.stock_value === "number"
       ? res.stock_value
       : positions
           .filter((p: Asset) => p.type === "stock")
-          .reduce((s: number, p: Asset) => s + (p.value ?? 0), 0);
+          .reduce((s: number, p: Asset) => s + Number(p.value ?? 0), 0);
 
-  const mf_value =
+  const mfVal =
     typeof res?.mf_value === "number"
       ? res.mf_value
       : positions
           .filter((p: Asset) => p.type === "mf")
-          .reduce((s: number, p: Asset) => s + (p.value ?? 0), 0);
+          .reduce((s: number, p: Asset) => s + Number(p.value ?? 0), 0);
 
-  const property_value =
+  const propertyVal =
     typeof res?.property_value === "number"
       ? res.property_value
       : positions
           .filter((p: Asset) => p.type === "property")
-          .reduce((s: number, p: Asset) => s + (p.value ?? 0), 0);
+          .reduce((s: number, p: Asset) => s + Number(p.value ?? 0), 0);
 
-  const roi_percent =
+  const roiVal =
     typeof res?.roi_percent === "number"
       ? res.roi_percent
       : totalInvested > 0
-      ? ((total_value - totalInvested) / totalInvested) * 100
+      ? ((totalVal - totalInvested) / totalInvested) * 100
       : 0;
 
   return {
     positions,
-    totalValue: total_value,
-    stockValue: stock_value,
-    mfValue: mf_value,
-    propertyValue: property_value,
-    roiPercent: roi_percent,
+    totalValue: totalVal,
+    stockValue: Number(stockVal ?? 0),
+    mfValue: Number(mfVal ?? 0),
+    propertyValue: Number(propertyVal ?? 0),
+    roiPercent: Number(roiVal ?? 0),
   };
 }
 
@@ -395,53 +341,6 @@ export function deleteAsset(
   });
 }
 
-
-
-/**
- * Single-fetch admin endpoint.
- * GET /portfolio/admin → { success: true, data: { [user_id]: Asset[] } }
- *
- * Returns a Record keyed by string user_id so it maps directly to the
- * backend contract.  The `type` field is normalised ("real_estate" → "property")
- * for consistency with the rest of the codebase.
- */
-
-interface AdminGroupedResponse {
-  success?: boolean;
-  data?: Record<string, RawAsset[]>;
-}
-
-interface RawAsset {
-  type?: string;
-  asset_type?: string;
-  [key: string]: unknown;
-}
-
-export async function fetchAdminGroupedAssets(
-  signal?: AbortSignal
-): Promise<Record<string, Asset[]>> {
-  const res = await fetcher<AdminGroupedResponse>("/portfolio/admin", {
-    signal,
-    raw: true,
-  });
-
-  // Backend contract: { success: true, data: { [user_id]: Asset[] } }
-  const map: Record<string, RawAsset[]> =
-    res && typeof res === "object" && !Array.isArray(res) && res.data != null
-      ? (res.data as Record<string, RawAsset[]>)
-      : {};
-
-  const result: Record<string, Asset[]> = {};
-  for (const [uid, rawAssets] of Object.entries(map)) {
-    if (!Array.isArray(rawAssets)) continue;
-    result[uid] = rawAssets.map((a) => ({
-      ...(a as Omit<Asset, "type">),
-      type: normalizeType(a.type ?? a.asset_type),
-    }));
-  }
-  return result;
-}
-
 /* ── Insights ───────────────────────────────────────────────────────── */
 
 export interface InsightItem {
@@ -453,8 +352,8 @@ export interface InsightItem {
 }
 
 export interface InsightsResponse {
-  equity_percentage: number;
-  real_estate_percentage: number;
+  equityPercentage: number;
+  realEstatePercentage: number;
   /** Backend may return plain strings or structured InsightItem objects */
   alerts: (string | InsightItem)[];
 }
@@ -474,18 +373,18 @@ export async function fetchInsights(
 
   if (res && typeof res === "object" && "alerts" in res) {
     return {
-      equity_percentage: res.equity_percentage ?? 0,
-      real_estate_percentage: res.real_estate_percentage ?? 0,
+      equityPercentage: Number(res.equity_percentage ?? 0),
+      realEstatePercentage: Number(res.real_estate_percentage ?? 0),
       alerts: Array.isArray(res.alerts) ? res.alerts : [],
     };
   }
 
   // Fallback: if backend returns an array of InsightItem objects
   if (Array.isArray(res)) {
-    return { equity_percentage: 0, real_estate_percentage: 0, alerts: [] };
+    return { equityPercentage: 0, realEstatePercentage: 0, alerts: [] };
   }
 
-  return { equity_percentage: 0, real_estate_percentage: 0, alerts: [] };
+  return { equityPercentage: 0, realEstatePercentage: 0, alerts: [] };
 }
 
 /* ── Mutual Funds ───────────────────────────────────────────────────── */
@@ -495,7 +394,7 @@ export interface MutualFundResult {
   name: string;
   nav: number;
   category?: string;
-  fund_house?: string;
+  fundHouse?: string;
 }
 
 export function searchMutualFunds(

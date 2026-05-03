@@ -1,71 +1,56 @@
-// ── Raw API types (snake_case — never leak into UI) ────────────────────────
+import { Asset, PortfolioFull } from "../api";
+
+// ── Raw API types (snake_case from Backend) ───────────────────────────────
 
 export interface RawPosition {
   id: number;
-  type: "stock" | "mf" | "property";
-  name: string;
-  symbol: string;
-  quantity: number;
-  avg_price: number;
-  current_price: number;
-  value: number;
+  type?: string;
+  name?: string;
+  symbol?: string;
+  quantity?: number;
+  avg_price?: number;
+  current_price?: number;
+  value?: number;
+  allocation?: number;
 }
 
 export interface RawPortfolioResponse {
-  positions: RawPosition[];
-  total_value: number;
-  stock_value: number;
-  mf_value: number;
-  property_value: number;
-  roi_percent: number;
-}
-
-// ── Mapped types (camelCase — safe for UI consumption) ──────────────────────
-
-export interface Position {
-  id: number;
-  type: "stock" | "mf" | "property";
-  name: string;
-  symbol: string;
-  quantity: number;
-  avgPrice: number;
-  currentPrice: number;
-  value: number;
-  /** Calculated: ((currentPrice - avgPrice) / avgPrice) * 100 */
-  returnPercent: number;
-}
-
-export interface PortfolioData {
-  positions: Position[];
-  totalValue: number;
-  stockValue: number;
-  mfValue: number;
-  propertyValue: number;
-  roiPercent: number;
+  positions?: RawPosition[];
+  total_value?: number;
+  stock_value?: number;
+  mf_value?: number;
+  property_value?: number;
+  roi_percent?: number;
 }
 
 // ── Mapper functions ────────────────────────────────────────────────────────
 
-export function mapPosition(raw: RawPosition): Position {
-  const avgPrice = raw.avg_price ?? 0;
-  const currentPrice = raw.current_price ?? 0;
-  const returnPercent =
-    avgPrice > 0 ? ((currentPrice - avgPrice) / avgPrice) * 100 : 0;
+/**
+ * Maps a single backend position to the frontend Asset type.
+ * Converts snake_case keys and ensures numeric fields default to 0.
+ */
+export function mapPosition(raw: RawPosition): Asset {
+  // Handle property/real_estate naming variance
+  const type = raw.type === "real_estate" ? "property" : (raw.type as Asset["type"]);
 
   return {
     id: raw.id,
-    type: raw.type,
+    type: type || "stock",
     name: raw.name ?? "",
     symbol: raw.symbol ?? "",
     quantity: raw.quantity ?? 0,
-    avgPrice,
-    currentPrice,
+    avgPrice: raw.avg_price ?? 0,
+    currentPrice: raw.current_price ?? 0,
     value: raw.value ?? 0,
-    returnPercent,
+    allocation: raw.allocation ?? 0,
   };
 }
 
-export function mapPortfolio(raw: RawPortfolioResponse): PortfolioData {
+/**
+ * Maps the full portfolio response to the frontend PortfolioFull type.
+ * Handles top-level snake_case fields and iterates through positions.
+ */
+export function mapPortfolio(raw: RawPortfolioResponse): PortfolioFull {
   return {
     positions: Array.isArray(raw.positions)
       ? raw.positions.map(mapPosition)

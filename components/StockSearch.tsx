@@ -68,8 +68,8 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
             ...item,
             price: item.price ?? null,
             change: item.change ?? 0,
-            change_percent: item.change_percent ?? 0,
-            market_cap: item.market_cap ?? null,
+            changePercent: item.changePercent ?? 0,
+            marketCap: item.marketCap ?? null,
           }));
           const q = query.trim().toLowerCase();
 
@@ -270,19 +270,19 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
                 </div>
                 <div
                   className={`text-xs font-medium ${
-                    isPositive(stock.change_percent)
+                    isPositive(stock.changePercent)
                       ? "text-emerald-400"
                       : "text-red-400"
                   }`}
                 >
-                  {isPositive(stock.change_percent) ? "+" : ""}
-                  {typeof stock.change_percent === "number" ? stock.change_percent.toFixed(2) : "0.00"}%
+                  {isPositive(stock.changePercent) ? "+" : ""}
+                  {typeof stock.changePercent === "number" ? stock.changePercent.toFixed(2) : "0.00"}%
                 </div>
               </div>
               <div className="hidden sm:block text-right shrink-0">
                 <div className="text-xs" style={{ color: "rgba(201,162,39,0.5)" }}>Mkt Cap</div>
                 <div className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
-                  {formatMarketCap(stock.market_cap, getCurrency(stock.symbol))}
+                  {formatMarketCap(stock.marketCap, getCurrency(stock.symbol))}
                 </div>
               </div>
             </li>

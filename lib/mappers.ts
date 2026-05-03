@@ -1,4 +1,4 @@
-import { PortfolioFull, Asset, AssetType } from "./api";
+import { PortfolioFull, Asset } from "./api";
 
 export interface Position {
   id: number;
