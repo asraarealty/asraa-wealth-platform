@@ -160,17 +160,6 @@ export interface CreatePortfolioItemPayload {
   user_id?: number;
 }
 
-export function createAsset(
-  payload: CreateAssetPayload,
-  signal?: AbortSignal
-): Promise<Asset> {
-  return fetcher<Asset>("/assets", {
-    method: "POST",
-    body: payload,
-    signal,
-  });
-}
-
 export async function fetchAdminPortfolio(
   signal?: AbortSignal
 ): Promise<Asset[]> {
@@ -363,7 +352,14 @@ export async function fetchPortfolio(
       ? ((total_value - totalInvested) / totalInvested) * 100
       : 0;
 
-  return { positions, total_value, stock_value, mf_value, property_value, roi_percent };
+  return {
+    positions,
+    totalValue: total_value,
+    stockValue: stock_value,
+    mfValue: mf_value,
+    propertyValue: property_value,
+    roiPercent: roi_percent,
+  };
 }
 
 export function createAsset(
