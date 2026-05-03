@@ -63,10 +63,15 @@ export type AdminClient = {
   email: string;
   phone?: string;
   createdAt?: string;
+  is_active?: boolean;
 };
 
 export function fetchClients(signal?: AbortSignal): Promise<Client[]> {
   return fetcher<Client[]>("/clients", { signal });
+}
+
+export function fetchAdminClients(signal?: AbortSignal): Promise<AdminClient[]> {
+  return fetcher<AdminClient[]>("/clients", { signal });
 }
 
 /* ── Stocks ────────────────────────────────────────────────────────── */
@@ -192,6 +197,7 @@ export interface Asset {
   /** Common */
   tags?: string[];
   userId?: number;
+  user_id?: number;
   createdAt?: string;
 }
 
@@ -200,6 +206,12 @@ export type CreateAssetPayload = Omit<
   "id" | "value" | "allocation" | "createdAt"
 >;
 export type UpdateAssetPayload = Partial<CreateAssetPayload>;
+
+export interface AssetsAllocation {
+  stock: number;
+  mf: number;
+  real_estate: number;
+}
 
 /**
  * Full portfolio response shape returned by /portfolio/me or /portfolio?user_id=...
@@ -212,6 +224,22 @@ export interface PortfolioFull {
   mfValue: number;
   propertyValue: number;
   roiPercent: number;
+}
+
+/** Alias kept for backwards-compatibility. */
+export type Portfolio = PortfolioFull;
+
+export interface PortfolioMeta {
+  totalValue?: number;
+  stockValue?: number;
+  mfValue?: number;
+  propertyValue?: number;
+  roiPercent?: number;
+}
+
+export interface PortfolioResult {
+  items: Asset[];
+  meta: PortfolioMeta;
 }
 
 /**
@@ -296,6 +324,64 @@ export async function fetchPortfolio(
     propertyValue: Number(propertyVal ?? 0),
     roiPercent: Number(roiVal ?? 0),
   };
+}
+
+/**
+ * Fetch portfolio items and return them in the `{ items, meta }` shape.
+ */
+export async function fetchPortfolioItems(
+  clientId?: number,
+  signal?: AbortSignal
+): Promise<PortfolioResult> {
+  const full = await fetchPortfolio(clientId, signal);
+  return {
+    items: full.positions,
+    meta: {
+      totalValue: full.totalValue,
+      stockValue: full.stockValue,
+      mfValue: full.mfValue,
+      propertyValue: full.propertyValue,
+      roiPercent: full.roiPercent,
+    },
+  };
+}
+
+/**
+ * Fetch all client assets from the admin endpoint and return them grouped by
+ * string user_id.  Supports both a pre-grouped object response and a flat
+ * array response (assets are grouped client-side in the latter case).
+ */
+export async function fetchAdminGroupedAssets(
+  signal?: AbortSignal
+): Promise<Record<string, Asset[]>> {
+  const res = await fetcher<any>("/portfolio/admin", {
+    signal,
+    raw: true,
+    cache: "no-store",
+  });
+
+  if (res && typeof res === "object" && !Array.isArray(res)) {
+    // Backend returned { "<user_id>": [...assets], ... }
+    const grouped: Record<string, Asset[]> = {};
+    for (const [key, val] of Object.entries(res)) {
+      grouped[key] = normalizeAssetList(val);
+    }
+    return grouped;
+  }
+
+  // Backend returned a flat array — group by user_id / userId
+  if (Array.isArray(res)) {
+    const grouped: Record<string, Asset[]> = {};
+    for (const asset of normalizeAssetList(res)) {
+      const key = String((asset as any).user_id ?? asset.userId ?? "");
+      if (!key) continue;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(asset);
+    }
+    return grouped;
+  }
+
+  return {};
 }
 
 export function createAsset(
