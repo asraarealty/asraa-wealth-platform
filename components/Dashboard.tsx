@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchPortfolio,
@@ -10,7 +10,6 @@ import {
   fetchInsights,
   type Asset,
   type AssetsAllocation,
-  type InsightsResponse,
   type CreateAssetPayload,
   type UpdateAssetPayload,
   type PortfolioFull,
@@ -21,6 +20,7 @@ import ClientSelector from "./ClientSelector";
 import PortfolioGrowthChart from "./dashboard/PortfolioGrowthChart";
 import AllocationChart from "./dashboard/AllocationChart";
 import AIInsightsPanel from "./dashboard/AIInsightsPanel";
+import { InsightsResponse } from "@/lib/api";
 import ClientRecommendations from "./dashboard/ClientRecommendations";
 import AssetTabs from "./dashboard/AssetTabs";
 import StatBox from "./ui/StatBox";
@@ -81,7 +81,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
   const loadData = useCallback(async (id?: number, silent = false) => {
     if (!silent) {
       setLoading(true);
-      setAssets([]); // clear stale data before loading the new client
+      setPortfolio(null); // clear stale data before loading the new client
     }
     setError(null);
     try {
@@ -138,37 +138,12 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     };
   }, [user, isAdmin, resolvedClientId, loadData]);
 
-  const totalInvested = useMemo(() => assets.reduce((s: number, a: Asset) => s + ((a.quantity ?? 0) * (a.avg_price ?? 0)), 0), [assets]);
-  // Prefer server-provided totals; fall back to client-side computation when omitted.
-  const totalValue = useMemo(
-    () => portfolioMeta?.total_value ?? assets.reduce((s: number, a: Asset) => s + (a.value ?? 0), 0),
-    [assets, portfolioMeta]
-  );
+  const assets = portfolio?.positions ?? [];
+  const totalValue = portfolio?.totalValue ?? 0;
+  const totalInvested = assets.reduce((s: number, a: Asset) => s + (a.quantity * a.avgPrice), 0);
   const totalReturn = totalValue - totalInvested;
-  const returnPct = useMemo(
-    () =>
-      portfolioMeta?.roi_percent ??
-      (totalInvested > 0 ? ((totalValue - totalInvested) / totalInvested) * 100 : 0),
-    [portfolioMeta, totalInvested, totalValue]
-  );
-
-  const allocation = useMemo<AssetsAllocation | undefined>(() => {
-    if (totalValue === 0) return undefined;
-    const stockVal =
-      portfolioMeta?.stock_value ??
-      assets.filter((a: Asset) => a.type === "stock").reduce((s: number, a: Asset) => s + (a.value ?? 0), 0);
-    const mfVal =
-      portfolioMeta?.mf_value ??
-      assets.filter((a: Asset) => a.type === "mf").reduce((s: number, a: Asset) => s + (a.value ?? 0), 0);
-    const propVal =
-      portfolioMeta?.property_value ??
-      assets.filter((a: Asset) => a.type === "property").reduce((s: number, a: Asset) => s + (a.value ?? 0), 0);
-    return {
-      stock: parseFloat(((stockVal / totalValue) * 100).toFixed(1)),
-      mf: parseFloat(((mfVal / totalValue) * 100).toFixed(1)),
-      real_estate: parseFloat(((propVal / totalValue) * 100).toFixed(1)),
-    };
-  }, [assets, totalValue, portfolioMeta]);
+  const returnPct = portfolio?.roiPercent ?? 0;
+  const allocation = portfolio?.allocation;
 
   async function handleAdd(payload: CreateAssetPayload) {
     const body: CreateAssetPayload = {
@@ -190,7 +165,10 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
         // Remove the ghost asset from local state immediately
-        setAssets((prev) => prev.filter((a) => a.id !== id));
+        setPortfolio((prev) => prev ? { 
+          ...prev, 
+          positions: prev.positions.filter((p) => p.id !== id) 
+        } : null);
         await loadData(resolvedClientId, true);
         return;
       }
@@ -204,7 +182,10 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       await loadData(resolvedClientId, true);
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
-        setAssets((prev) => prev.filter((a) => a.id !== id));
+        setPortfolio((prev) => prev ? { 
+          ...prev, 
+          positions: prev.positions.filter((p) => p.id !== id) 
+        } : null);
         await loadData(resolvedClientId, true);
         return;
       }

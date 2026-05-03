@@ -1,4 +1,4 @@
-import { PortfolioFull, Asset } from "./api";
+import { PortfolioFull, Asset, AssetType } from "./api";
 
 export interface Position {
   id: number;
@@ -31,35 +31,35 @@ export interface PortfolioData {
 }
 
 export function mapPortfolioResponse(raw: PortfolioFull): PortfolioData {
-  const positions: Position[] = (raw.positions || []).map((p: any) => ({
+  const positions: Position[] = (raw.positions || []).map((p: Asset) => ({
     id: p.id,
-    type: p.type === "real_estate" ? "property" : p.type,
+    type: p.type,
     symbol: p.symbol,
     name: p.name,
     quantity: p.quantity || 0,
-    avgPrice: p.avg_price || 0,
+    avgPrice: p.avgPrice,
     value: p.value || 0,
     allocation: p.allocation || 0,
     location: p.location,
-    purchasePrice: p.purchase_price,
-    currentValue: p.current_value,
-    rentAmount: p.rent_amount,
+    purchasePrice: p.purchasePrice,
+    currentValue: p.currentValue,
+    rentAmount: p.rentAmount,
     tags: p.tags || [],
   }));
 
-  const total = raw.total_value || 1; // avoid div by zero
+  const total = raw.totalValue || 1; // avoid div by zero
 
   return {
     positions,
-    totalValue: raw.total_value || 0,
-    stockValue: raw.stock_value || 0,
-    mfValue: raw.mf_value || 0,
-    propertyValue: raw.property_value || 0,
-    roiPercent: raw.roi_percent || 0,
+    totalValue: raw.totalValue || 0,
+    stockValue: raw.stockValue || 0,
+    mfValue: raw.mfValue || 0,
+    propertyValue: raw.propertyValue || 0,
+    roiPercent: raw.roiPercent || 0,
     allocation: {
-      stock: parseFloat(((raw.stock_value / total) * 100).toFixed(1)),
-      mf: parseFloat(((raw.mf_value / total) * 100).toFixed(1)),
-      realEstate: parseFloat(((raw.property_value / total) * 100).toFixed(1)),
+      stock: parseFloat(((raw.stockValue / total) * 100).toFixed(1)),
+      mf: parseFloat(((raw.mfValue / total) * 100).toFixed(1)),
+      realEstate: parseFloat(((raw.propertyValue / total) * 100).toFixed(1)),
     },
   };
 }

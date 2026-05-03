@@ -91,64 +91,6 @@ export function fetchStockQuote(
   });
 }
 
-/* ── Portfolio ─────────────────────────────────────────────────────── */
-
-export interface Portfolio {
-  id: number;
-  symbol: string;
-  name: string;
-  quantity: number;
-  avg_price: number;
-  value: number;
-  allocation?: number;
-}
-
-export interface PortfolioMeta {
-  total_value: number;
-  stock_value: number;
-  mf_value: number;
-  property_value: number;
-  roi_percent: number;
-}
-
-export interface PortfolioResult {
-  items: Portfolio[];
-  meta: Partial<PortfolioMeta>;
-}
-
-/**
- * ✅ FIXED VERSION
- * - Uses correct query param: user_id
- * - Matches backend route: /portfolio
- * - Prevents client from sending ID
- */
-export async function fetchPortfolioItems(
-  clientId?: number,
-  signal?: AbortSignal
-): Promise<PortfolioResult> {
-  let path = "/portfolio";
-
-  // ✅ Only admin should pass user_id
-  if (clientId !== undefined) {
-    path += `?user_id=${encodeURIComponent(clientId)}`;
-  }
-
-  const res = await fetcher<any>(path, { signal, raw: true });
-
-  const data: unknown = Array.isArray(res)
-    ? res
-    : res?.data ?? res?.positions ?? [];
-
-  const meta: Partial<PortfolioMeta> = res?.meta ?? {};
-
-  if (!Array.isArray(data)) {
-    console.error("Portfolio data invalid:", data);
-    return { items: [], meta };
-  }
-
-  return { items: data as Portfolio[], meta };
-}
-
 /* ── Transactions ─────────────────────────────────────────────────── */
 
 export interface Transaction {
@@ -204,17 +146,6 @@ export function fetchAdminClients(
   return fetcher<AdminClient[]>("/clients", { signal });
 }
 
-/* ── Admin: Portfolio ─────────────────────────────────────────────── */
-
-export interface AdminPortfolioItem {
-  id: number;
-  symbol: string;
-  name: string;
-  quantity: number;
-  avg_price: number;
-  value: number;
-}
-
 export interface PortfolioResponse {
   success: boolean;
   data: AdminPortfolioItem[];
@@ -229,11 +160,11 @@ export interface CreatePortfolioItemPayload {
   user_id?: number;
 }
 
-export function createPortfolioItem(
-  payload: CreatePortfolioItemPayload,
+export function createAsset(
+  payload: CreateAssetPayload,
   signal?: AbortSignal
-): Promise<AdminPortfolioItem> {
-  return fetcher<AdminPortfolioItem>("/portfolio", {
+): Promise<Asset> {
+  return fetcher<Asset>("/assets", {
     method: "POST",
     body: payload,
     signal,
@@ -242,24 +173,24 @@ export function createPortfolioItem(
 
 export async function fetchAdminPortfolio(
   signal?: AbortSignal
-): Promise<AdminPortfolioItem[]> {
-  const res = await fetcher<PortfolioResponse | AdminPortfolioItem[]>("/portfolio", {
+): Promise<Asset[]> {
+  const res = await fetcher<PortfolioResponse | Asset[]>("/portfolio", {
     signal,
     raw: true,
   });
-
-  console.log("Portfolio API:", res);
 
   const data: unknown = Array.isArray(res)
     ? res
     : (res as PortfolioResponse)?.data ?? (res as any)?.positions ?? [];
 
   if (!Array.isArray(data)) {
-    console.error("Admin portfolio invalid:", data);
+    if (process.env.NODE_ENV === 'development') {
+      console.error("Admin portfolio invalid:", data);
+    }
     return [];
   }
 
-  return data as AdminPortfolioItem[];
+  return data as Asset[];
 }
 
 /* ── Assets ─────────────────────────────────────────────────────────── */
@@ -296,22 +227,22 @@ const normalizeAssetList = (res: unknown): Asset[] => {
 
 export interface Asset {
   id: number;
-  type: AssetType;
+  type: "stock" | "mf" | "property";
   symbol?: string;
   name: string;
   quantity?: number;
-  avg_price?: number;
-  value?: number;
-  allocation?: number;
+  avgPrice: number;
+  value: number;
+  allocation: number;
   /** Real estate */
   location?: string;
-  purchase_price?: number;
-  current_value?: number;
-  rent_amount?: number;
-  rent_due_date?: string;
-  tenant_name?: string;
-  tenant_phone?: string;
-  tenant_email?: string;
+  purchasePrice?: number;
+  currentValue?: number;
+  rentAmount?: number;
+  rentDueDate?: string;
+  tenantName?: string;
+  tenantPhone?: string;
+  tenantEmail?: string;
   /** Common */
   tags?: string[];
   user_id?: number;
@@ -320,9 +251,9 @@ export interface Asset {
 
 export type CreateAssetPayload = Omit<
   Asset,
-  "id" | "value" | "allocation" | "created_at"
+  "id" | "value" | "allocation" | "createdAt"
 >;
-export type UpdateAssetPayload = Partial<CreateAssetPayload>;
+export type UpdateAssetPayload = Partial<Omit<Asset, "id" | "createdAt">>;
 
 export interface AssetsSummary {
   total_value: number;
@@ -343,62 +274,17 @@ export interface AssetsResponse {
   assets: Asset[];
 }
 
-export async function fetchAssets(
-  clientId: number,
-  signal?: AbortSignal
-): Promise<Asset[]> {
-  const path = `/portfolio?user_id=${encodeURIComponent(clientId)}`;
-
-  let res: any;
-  try {
-    // Use raw mode so we can handle every envelope shape the backend may return
-    // without the fetcher silently discarding top-level keys.
-    res = await fetcher<any>(path, { signal, raw: true });
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 404) {
-      console.error(
-        "[fetchAssets] Asset not found (404) for clientId=%s",
-        clientId
-      );
-      return [];
-    }
-    throw err;
-  }
-
-  const normalized = normalizeAssetList(res);
-  return normalized;
-}
-
-/**
- * Fetch assets for the currently authenticated (non-admin) user.
- * Uses the /portfolio/me endpoint — do not pass a clientId here.
- */
-export async function fetchMyAssets(signal?: AbortSignal): Promise<Asset[]> {
-  let res: any;
-  try {
-    res = await fetcher<any>("/portfolio/me", { signal, raw: true });
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 404) {
-      console.error("[fetchMyAssets] Portfolio not found (404)");
-      return [];
-    }
-    throw err;
-  }
-
-  return normalizeAssetList(res);
-}
-
 /**
  * Full portfolio response shape returned by /portfolio/me or /portfolio?user_id=...
  * Includes aggregate totals from the backend so the UI does not need to recompute them.
  */
 export interface PortfolioFull {
   positions: Asset[];
-  total_value: number;
-  stock_value: number;
-  mf_value: number;
-  property_value: number;
-  roi_percent: number;
+  totalValue: number;
+  stockValue: number;
+  mfValue: number;
+  propertyValue: number;
+  roiPercent: number;
 }
 
 /**
