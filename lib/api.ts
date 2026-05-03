@@ -263,6 +263,8 @@ export async function fetchPortfolio(
 
   let res: any;
   try {
+    // `raw` is omitted intentionally: the fetcher automatically unwraps the
+    // { success, data } envelope so res arrives as { assets, summary, allocation }.
     res = await fetcher<any>(path, { signal, cache: "no-store" });
   } catch (err) {
     if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {

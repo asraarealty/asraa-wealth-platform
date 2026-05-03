@@ -56,7 +56,7 @@ export async function getAdminPortfolio(userIds: number[], signal?: AbortSignal)
 export function groupAssetsByUserId(assets: Asset[]): Record<number, Asset[]> {
   const grouped: Record<number, Asset[]> = {};
   for (const asset of assets) {
-    const uid = asset.userId ?? (asset as any).user_id;
+    const uid = asset.userId;
     if (uid === undefined || uid === null) continue;
     if (!grouped[uid]) grouped[uid] = [];
     grouped[uid].push(asset);
