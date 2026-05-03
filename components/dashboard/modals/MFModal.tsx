@@ -40,7 +40,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
         symbol: asset.symbol ?? "",
         name: asset.name ?? "",
         units: asset.quantity != null ? String(asset.quantity) : "",
-        avg_price: asset.avg_price != null ? String(asset.avg_price) : "",
+        avg_price: asset.avgPrice != null ? String(asset.avgPrice) : "",
         tags: asset.tags ?? [],
       });
     } else {
@@ -82,7 +82,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
         symbol: symbol || undefined,
         name,
         quantity,
-        avg_price,
+        avgPrice: avg_price,
         tags: form.tags,
       });
     } catch (err) {

@@ -122,7 +122,7 @@ interface AIInsightsPanelProps {
 
 export default function AIInsightsPanel({ insights }: AIInsightsPanelProps) {
   const equityPct = insights?.equity_percentage ?? 0;
-  const rePct = insights?.real_estate_percentage ?? 0;
+  const rePct = insights?.realEstatePercentage ?? 0;
   const items = alertsToInsights(insights ?? null, equityPct, rePct);
 
   return (

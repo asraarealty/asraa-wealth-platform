@@ -172,6 +172,14 @@ const normalizeAssetList = (res: unknown): Asset[] => {
     avgPrice: Number(a.avgPrice ?? a.avg_price ?? 0),
     currentPrice: Number(a.currentPrice ?? a.current_price ?? 0),
     type: normalizeType(a.type ?? a.asset_type),
+    // Real estate camelCase normalization (backend may return snake_case)
+    purchasePrice: a.purchasePrice ?? a.purchase_price,
+    currentValue: a.currentValue ?? a.current_value,
+    rentAmount: a.rentAmount ?? a.rent_amount,
+    rentDueDate: a.rentDueDate ?? a.rent_due_date,
+    tenantName: a.tenantName ?? a.tenant_name,
+    tenantPhone: a.tenantPhone ?? a.tenant_phone,
+    tenantEmail: a.tenantEmail ?? a.tenant_email,
   }));
 };
 
@@ -384,13 +392,34 @@ export async function fetchAdminGroupedAssets(
   return {};
 }
 
+/** Fetch all assets (positions) for a specific client. */
+export async function fetchAssets(
+  userId: number,
+  signal?: AbortSignal
+): Promise<Asset[]> {
+  const full = await fetchPortfolio(userId, signal);
+  return full.positions;
+}
+
+/** Convert a camelCase asset payload to the snake_case format expected by the backend. */
+function toApiPayload(payload: CreateAssetPayload | UpdateAssetPayload): Record<string, unknown> {
+  const p = payload as Record<string, unknown>;
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(p)) {
+    if (value === undefined) continue;
+    const snakeKey = key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+    result[snakeKey] = value;
+  }
+  return result;
+}
+
 export function createAsset(
   payload: CreateAssetPayload,
   signal?: AbortSignal
 ): Promise<Asset> {
   return fetcher<Asset>("/assets", {
     method: "POST",
-    body: payload,
+    body: toApiPayload(payload),
     signal,
   });
 }
@@ -402,7 +431,7 @@ export function updateAsset(
 ): Promise<Asset> {
   return fetcher<Asset>(`/assets/${encodeURIComponent(id)}`, {
     method: "PUT",
-    body: payload,
+    body: toApiPayload(payload),
     signal,
   });
 }

@@ -97,7 +97,7 @@ export default function AdminPortfolioPage() {
   }, [selectedClient, loadData]);
 
   const totalValue = useMemo(() => assets.reduce((s: number, a: Asset) => s + (a.value ?? 0), 0), [assets]);
-  const totalInvested = useMemo(() => assets.reduce((s: number, a: Asset) => s + ((a.quantity ?? 0) * (a.avg_price ?? 0)), 0), [assets]);
+  const totalInvested = useMemo(() => assets.reduce((s: number, a: Asset) => s + ((a.quantity ?? 0) * (a.avgPrice ?? 0)), 0), [assets]);
   const totalReturn = totalValue - totalInvested;
   const returnPct = totalInvested > 0 ? (totalReturn / totalInvested) * 100 : 0;
 

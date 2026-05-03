@@ -22,7 +22,7 @@ function buildRecs(assets: Asset[]): Rec[] {
   if (assets.length === 0) return [];
 
   const recs: Rec[] = [];
-  const total = assets.reduce((s, a) => s + (a.value ?? a.current_value ?? 0), 0);
+  const total = assets.reduce((s, a) => s + (a.value ?? a.currentValue ?? 0), 0);
   if (total === 0) return [];
 
   const stockVal = assets
@@ -33,7 +33,7 @@ function buildRecs(assets: Asset[]): Rec[] {
     .reduce((s, a) => s + (a.value ?? 0), 0);
   const reVal = assets
     .filter((a) => a.type === "property")
-    .reduce((s, a) => s + (a.current_value ?? 0), 0);
+    .reduce((s, a) => s + (a.currentValue ?? 0), 0);
 
   const stockPct = (stockVal / total) * 100;
   const mfPct = (mfVal / total) * 100;
