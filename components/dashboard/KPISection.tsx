@@ -1,10 +1,10 @@
 "use client";
 
-import type { PortfolioData } from "@/lib/mappers/mapPortfolio";
+import type { PortfolioFull } from "@/lib/api";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 
 interface KPISectionProps {
-  portfolio: PortfolioData;
+  portfolio: PortfolioFull;
 }
 
 interface KPICardProps {

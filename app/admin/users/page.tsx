@@ -44,10 +44,10 @@ export default function UsersPage() {
             { key: "email", header: "Email" },
             { key: "role", header: "Role" },
             {
-              key: "is_active",
+              key: "isActive",
               header: "Status",
               render: (row) =>
-                row.is_active ? (
+                row.isActive ? (
                   <Badge label="Active" variant="green" />
                 ) : (
                   <Badge label="Inactive" variant="gray" />

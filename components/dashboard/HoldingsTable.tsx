@@ -1,19 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import type { Position } from "@/lib/mappers/mapPortfolio";
+import type { Asset } from "@/lib/api";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 
 interface HoldingsTableProps {
-  positions: Position[];
+  positions: Asset[];
 }
-const TYPE_LABELS: Record<Position["type"], string> = {
+const TYPE_LABELS: Record<Asset["type"], string> = {
   stock: "Stock",
   mf: "Mutual Fund",
   property: "Property",
 };
 
-const TYPE_BADGE_STYLES: Record<Position["type"], string> = {
+const TYPE_BADGE_STYLES: Record<Asset["type"], string> = {
   stock: "bg-gold/10 text-gold-light border-gold/20",
   mf: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   property: "bg-sky-500/10 text-sky-400 border-sky-500/20",
@@ -21,6 +21,17 @@ const TYPE_BADGE_STYLES: Record<Position["type"], string> = {
 
 type SortKey = "name" | "type" | "value" | "returnPercent";
 type SortDir = "asc" | "desc";
+
+function computeReturnPercent(pos: Asset): number {
+  const cost = (pos.avgPrice ?? 0) * (pos.quantity ?? 0);
+  if (cost === 0) return 0;
+  return ((pos.value - cost) / cost) * 100;
+}
+
+function getSortValue(pos: Asset, key: SortKey): string | number {
+  if (key === "returnPercent") return computeReturnPercent(pos);
+  return pos[key] ?? 0;
+}
 
 const COLUMNS: { key: SortKey | null; label: string }[] = [
   { key: "name", label: "Name" },
@@ -47,8 +58,8 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
   }
 
   const sorted = [...positions].sort((a, b) => {
-    let av: string | number = a[sortKey];
-    let bv: string | number = b[sortKey];
+    let av: string | number = getSortValue(a, sortKey);
+    let bv: string | number = getSortValue(b, sortKey);
     if (typeof av === "string") av = av.toLowerCase();
     if (typeof bv === "string") bv = bv.toLowerCase();
     if (av < bv) return sortDir === "asc" ? -1 : 1;
@@ -94,7 +105,8 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
         </thead>
         <tbody>
           {sorted.map((pos) => {
-            const isPositive = pos.returnPercent >= 0;
+            const returnPercent = computeReturnPercent(pos);
+            const isPositive = returnPercent >= 0;
             return (
               <tr
                 key={pos.id}
@@ -124,7 +136,7 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
                 </td>
                 {/* Qty */}
                 <td className="px-4 py-3 text-gray-300 tabular-nums">
-                  {pos.quantity.toLocaleString("en-IN")}
+                  {(pos.quantity ?? 0).toLocaleString("en-IN")}
                 </td>
                 {/* Avg Price */}
                 <td className="px-4 py-3 text-gray-300 tabular-nums whitespace-nowrap">
@@ -132,7 +144,7 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
                 </td>
                 {/* Current Price */}
                 <td className="px-4 py-3 text-white font-medium tabular-nums whitespace-nowrap">
-                  {fmtCurrency(pos.currentPrice)}
+                  {fmtCurrency(pos.currentPrice ?? 0)}
                 </td>
                 {/* Value */}
                 <td className="px-4 py-3 text-white font-semibold tabular-nums whitespace-nowrap">
@@ -144,7 +156,7 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
                     isPositive ? "text-emerald-400" : "text-red-400"
                   }`}
                 >
-                  {isPositive ? "▲" : "▼"} {fmtPercent(Math.abs(pos.returnPercent))}
+                  {isPositive ? "▲" : "▼"} {fmtPercent(Math.abs(returnPercent))}
                 </td>
               </tr>
             );

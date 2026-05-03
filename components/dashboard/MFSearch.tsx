@@ -206,7 +206,7 @@ export default function MFSearch({ onSelect, initialValue = "" }: MFSearchProps)
                     className="text-xs truncate"
                     style={{ color: "rgba(255,255,255,0.4)" }}
                   >
-                    {mf.fund_house ? `${mf.fund_house} · ` : ""}
+                    {mf.fundHouse ? `${mf.fundHouse} · ` : ""}
                     {mf.category}
                   </span>
                 )}
