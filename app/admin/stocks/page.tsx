@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 export default function StocksRedirect() {
   const router = useRouter();
   useEffect(() => {
-    router.replace("/admin/portfolio");
+    router.replace("/admin/assets");
   }, [router]);
   return null;
 }
