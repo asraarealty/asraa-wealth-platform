@@ -63,6 +63,7 @@ export type AdminClient = {
   email: string;
   phone?: string;
   createdAt?: string;
+  is_active?: boolean;
 };
 
 export function fetchClients(signal?: AbortSignal): Promise<Client[]> {
