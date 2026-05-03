@@ -18,6 +18,7 @@ import { Tab } from "@/lib/types"; // Import the shared Tab type
 import { toErrorMessage, ApiError } from "@/lib/fetcher";
 import ClientSelector from "./ClientSelector"; // Keep this import
 import PortfolioGrowthChart from "./dashboard/PortfolioGrowthChart";
+import AllocationChart from "./dashboard/AllocationChart";
 import AIInsightsPanel from "./dashboard/AIInsightsPanel";
 import ClientRecommendations from "./dashboard/ClientRecommendations";
 import AssetTabs from "./dashboard/AssetTabs";

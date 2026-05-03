@@ -266,7 +266,7 @@ export async function fetchPortfolio(
   try {
     res = await fetcher<any>(path, { signal, raw: true, cache: "no-store" });
   } catch (err) {
-    if (err instanceof ApiError && err.status === 404) {
+    if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
       return {
         positions: [],
         totalValue: 0,

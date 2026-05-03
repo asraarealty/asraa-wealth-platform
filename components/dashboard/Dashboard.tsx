@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { fetcher } from "@/lib/fetcher";
+import { fetcher, ApiError } from "@/lib/fetcher";
 import { toErrorMessage } from "@/lib/fetcher";
 import {
   mapPortfolio,
@@ -154,7 +154,14 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
       setError(null);
       try {
         const [rawPortfolio, rawInsights] = await Promise.all([
-          fetcher<RawPortfolioResponse>(portfolioPath, { raw: true }),
+          fetcher<RawPortfolioResponse>(portfolioPath, { raw: true }).catch(
+            (err) => {
+              if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
+                return null;
+              }
+              throw err;
+            }
+          ),
           fetcher<RawInsightsResponse>(insightsPath, { raw: true }).catch(
             () => null
           ),
