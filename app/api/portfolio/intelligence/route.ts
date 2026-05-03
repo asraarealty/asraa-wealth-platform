@@ -164,8 +164,16 @@ export async function GET(request: NextRequest) {
         };
       });
 
-      const metrics = computePortfolioMetrics(enrichedItems);
-      const { allocation, riskLevel } = computeRiskScore(enrichedItems);
+      // Map snake_case backend items to the camelCase PortfolioItem shape expected by analytics
+      const portfolioItems = enrichedItems.map((item) => ({
+        symbol: item.symbol,
+        quantity: item.quantity,
+        avgPrice: item.avg_price,
+        currentPrice: item.current_price,
+      }));
+
+      const metrics = computePortfolioMetrics(portfolioItems);
+      const { allocation, riskLevel } = computeRiskScore(portfolioItems);
 
       return {
         clientId: client.id,
@@ -177,11 +185,11 @@ export async function GET(request: NextRequest) {
         riskLevel,
         equityPct: allocation.equity,
         mfPct: allocation.mf,
-        realEstatePct: allocation.realEstate,
+        realEstatePct: allocation.real_estate,
         suggestedAction: toSuggestedAction(
           allocation.equity,
           allocation.mf,
-          allocation.realEstate
+          allocation.real_estate
         ),
       };
     });

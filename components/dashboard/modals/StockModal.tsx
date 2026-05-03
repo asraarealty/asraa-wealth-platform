@@ -42,7 +42,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
         symbol: asset.symbol ?? "",
         name: asset.name ?? "",
         quantity: asset.quantity != null ? String(asset.quantity) : "",
-        avg_price: asset.avg_price != null ? String(asset.avg_price) : "",
+        avg_price: asset.avgPrice != null ? String(asset.avgPrice) : "",
         tags: asset.tags ?? [],
       });
     } else {
@@ -85,7 +85,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
         symbol,
         name,
         quantity,
-        avg_price,
+        avgPrice: avg_price,
         tags: form.tags,
       });
     } catch (err) {

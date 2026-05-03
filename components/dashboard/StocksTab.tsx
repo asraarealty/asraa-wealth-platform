@@ -128,7 +128,7 @@ export default function StocksTab({
                       {a.name}
                     </td>
                     <td className="px-4 py-3 text-gray-300">{a.quantity ?? "—"}</td>
-                    <td className="px-4 py-3 text-gray-300">{fmt(a.avg_price)}</td>
+                    <td className="px-4 py-3 text-gray-300">{fmt(a.avgPrice)}</td>
                     <td className="px-4 py-3 text-white font-medium">{fmt(a.value)}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">

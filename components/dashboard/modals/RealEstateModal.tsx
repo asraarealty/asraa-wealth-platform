@@ -53,15 +53,15 @@ export default function RealEstateModal({
         name: asset.name ?? "",
         location: asset.location ?? "",
         purchase_price:
-          asset.purchase_price != null ? String(asset.purchase_price) : "",
+          asset.purchasePrice != null ? String(asset.purchasePrice) : "",
         current_value:
-          asset.current_value != null ? String(asset.current_value) : "",
+          asset.currentValue != null ? String(asset.currentValue) : "",
         rent_amount:
-          asset.rent_amount != null ? String(asset.rent_amount) : "",
-        rent_due_date: asset.rent_due_date ?? "",
-        tenant_name: asset.tenant_name ?? "",
-        tenant_phone: asset.tenant_phone ?? "",
-        tenant_email: asset.tenant_email ?? "",
+          asset.rentAmount != null ? String(asset.rentAmount) : "",
+        rent_due_date: asset.rentDueDate ?? "",
+        tenant_name: asset.tenantName ?? "",
+        tenant_phone: asset.tenantPhone ?? "",
+        tenant_email: asset.tenantEmail ?? "",
         tags: asset.tags ?? [],
       });
     } else {
@@ -104,15 +104,15 @@ export default function RealEstateModal({
         type: "property",
         name,
         location: form.location.trim() || undefined,
-        purchase_price,
-        current_value,
-        avg_price: purchase_price,
+        purchasePrice: purchase_price,
+        currentValue: current_value,
+        avgPrice: purchase_price,
         quantity: 1,
-        rent_amount,
-        rent_due_date: form.rent_due_date || undefined,
-        tenant_name: form.tenant_name.trim() || undefined,
-        tenant_phone: form.tenant_phone.trim() || undefined,
-        tenant_email: form.tenant_email.trim() || undefined,
+        rentAmount: rent_amount,
+        rentDueDate: form.rent_due_date || undefined,
+        tenantName: form.tenant_name.trim() || undefined,
+        tenantPhone: form.tenant_phone.trim() || undefined,
+        tenantEmail: form.tenant_email.trim() || undefined,
         tags: form.tags,
       });
     } catch (err) {

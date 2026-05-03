@@ -121,11 +121,11 @@ export default function RealEstateTab({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {properties.map((a) => {
-            const rentStatus = getRentStatus(a.rent_due_date);
-            const yieldPct = getYield(a.rent_amount, a.current_value);
+            const rentStatus = getRentStatus(a.rentDueDate);
+            const yieldPct = getYield(a.rentAmount, a.currentValue);
             const appreciation =
-              a.current_value != null && a.purchase_price != null && a.purchase_price > 0
-                ? ((a.current_value - a.purchase_price) / a.purchase_price) * 100
+              a.currentValue != null && a.purchasePrice != null && a.purchasePrice > 0
+                ? ((a.currentValue - a.purchasePrice) / a.purchasePrice) * 100
                 : null;
             const isDeleting = deletingId === a.id;
 
@@ -180,7 +180,7 @@ export default function RealEstateTab({
                     style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
                   >
                     <p className="text-xs text-gray-500 mb-1">Current Value</p>
-                    <p className="text-base font-bold text-white">{fmt(a.current_value)}</p>
+                    <p className="text-base font-bold text-white">{fmt(a.currentValue)}</p>
                     {appreciation != null && (
                       <p
                         className="text-xs font-medium mt-0.5"
@@ -196,7 +196,7 @@ export default function RealEstateTab({
                   >
                     <p className="text-xs text-gray-500 mb-1">Monthly Rent</p>
                     <p className="text-base font-bold text-white">
-                      {a.rent_amount ? fmt(a.rent_amount) : "—"}
+                      {a.rentAmount ? fmt(a.rentAmount) : "—"}
                     </p>
                     {yieldPct != null && (
                       <p className="text-xs font-medium mt-0.5" style={{ color: "#d4af4a" }}>
@@ -221,7 +221,7 @@ export default function RealEstateTab({
                 </div>
 
                 {/* Tenant info */}
-                {a.tenant_name && (
+                {a.tenantName && (
                   <div
                     className="rounded-xl p-3 space-y-1"
                     style={{
@@ -232,12 +232,12 @@ export default function RealEstateTab({
                     <p className="text-xs font-semibold" style={{ color: "#d4af4a" }}>
                       Tenant
                     </p>
-                    <p className="text-sm text-white">{a.tenant_name}</p>
-                    {a.tenant_phone && (
-                      <p className="text-xs text-gray-400">{a.tenant_phone}</p>
+                    <p className="text-sm text-white">{a.tenantName}</p>
+                    {a.tenantPhone && (
+                      <p className="text-xs text-gray-400">{a.tenantPhone}</p>
                     )}
-                    {a.tenant_email && (
-                      <p className="text-xs text-gray-400 truncate">{a.tenant_email}</p>
+                    {a.tenantEmail && (
+                      <p className="text-xs text-gray-400 truncate">{a.tenantEmail}</p>
                     )}
                   </div>
                 )}
