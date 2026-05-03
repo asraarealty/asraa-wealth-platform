@@ -1,10 +1,10 @@
 "use client";
 
-import type { PortfolioData } from "@/lib/mappers/mapPortfolio";
+import type { PortfolioFull } from "@/lib/api";
 import { fmtCurrency } from "@/lib/formatters";
 
 interface AllocationSectionProps {
-  portfolio: PortfolioData;
+  portfolio: PortfolioFull;
 }
 
 interface Segment {

@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { fetcher, ApiError, toErrorMessage } from "@/lib/fetcher";
 import {
   mapPortfolio,
-  type PortfolioData,
+  type RawPosition,
   type RawPortfolioResponse,
 } from "@/lib/mappers/mapPortfolio";
+import type { PortfolioFull, CreateAssetPayload } from "@/lib/api";
 import {
   mapInsights,
   type InsightsData,
@@ -18,7 +19,6 @@ import HoldingsTable from "./HoldingsTable";
 import AllocationSection from "./AllocationSection";
 import AddAssetModal from "./modals/AddAssetModal";
 import Loader from "@/components/ui/Loader";
-import type { CreateAssetPayload } from "@/lib/api";
 import { createAsset } from "@/lib/api";
 
 // ── Section wrapper ─────────────────────────────────────────────────────────
@@ -132,7 +132,7 @@ interface DashboardProps {
 }
 
 export default function PortfolioDashboard({ clientId }: DashboardProps) {
-  const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
+  const [portfolio, setPortfolio] = useState<PortfolioFull | null>(null);
   const [insights, setInsights] = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -172,7 +172,7 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
         // KPI values are always correct rather than showing zeros.
         let portfolioEnvelope: RawPortfolioResponse;
         if (Array.isArray(rawPortfolio)) {
-          const positions = rawPortfolio as RawPortfolioResponse["positions"];
+          const positions = rawPortfolio as RawPosition[];
           const totalValue = positions.reduce((s, p) => s + (p.value ?? 0), 0);
           const stockValue = positions
             .filter((p) => p.type === "stock")
