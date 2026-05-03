@@ -46,13 +46,12 @@ export default function AdminPage() {
   useEffect(() => {
     const ac = new AbortController();
 
-    // Single parallel fetch: client list + all assets grouped by user_id
-    Promise.all([
-      getAdminClients(ac.signal),
-      fetchAdminGroupedAssets(ac.signal),
-    ])
-      .then(([clientData, grouped]) => {
+    // Sequential fetch: load client list first, then fetch each client's assets
+    getAdminClients(ac.signal)
+      .then(async (clientData) => {
         setClients(clientData);
+        const userIds = clientData.map((c: AdminClient) => c.id);
+        const grouped = await fetchAdminGroupedAssets(userIds, ac.signal);
         setGroupedAssets(grouped);
       })
       .catch((err) => {
@@ -86,18 +85,18 @@ export default function AdminPage() {
     return {
       stock: pct("stock"),
       mf: pct("mf"),
-      real_estate: pct("property"),
+      realEstate: pct("property"),
     };
   }, [allAssets, totalAUM]);
 
-  const activeClients = clients.filter((c: AdminClient) => c.is_active).length;
+  const activeClients = clients.filter((c: AdminClient) => c.isActive).length;
   // Derive selected client's assets from the grouped map — no separate fetch
   const assets: Asset[] = groupedAssets[String(selectedClient?.id ?? "")] ?? [];
 
   async function handleAdd(payload: CreateAssetPayload) {
     if (!selectedClient) return;
     try {
-      const newAsset = await createAsset({ ...payload, user_id: selectedClient.id });
+      const newAsset = await createAsset({ ...payload, userId: selectedClient.id });
       setGroupedAssets((prev) => ({
         ...prev,
         [String(selectedClient.id)]: [...(prev[String(selectedClient.id)] ?? []), newAsset],

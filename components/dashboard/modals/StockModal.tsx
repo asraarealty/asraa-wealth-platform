@@ -18,7 +18,7 @@ interface StockForm {
   symbol: string;
   name: string;
   quantity: string;
-  avg_price: string;
+  avgPrice: string;
   tags: string[];
 }
 
@@ -26,7 +26,7 @@ const EMPTY: StockForm = {
   symbol: "",
   name: "",
   quantity: "",
-  avg_price: "",
+  avgPrice: "",
   tags: [],
 };
 
@@ -42,7 +42,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
         symbol: asset.symbol ?? "",
         name: asset.name ?? "",
         quantity: asset.quantity != null ? String(asset.quantity) : "",
-        avg_price: asset.avgPrice != null ? String(asset.avgPrice) : "",
+        avgPrice: asset.avgPrice != null ? String(asset.avgPrice) : "",
         tags: asset.tags ?? [],
       });
     } else {
@@ -56,7 +56,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
       ...f,
       symbol: stock.symbol,
       name: stock.name,
-      avg_price: stock.price ? String(stock.price) : f.avg_price,
+      avgPrice: stock.price ? String(stock.price) : f.avgPrice,
     }));
   }
 
@@ -64,7 +64,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
     const symbol = form.symbol.trim().toUpperCase();
     const name = form.name.trim();
     const quantity = Number(form.quantity);
-    const avg_price = Number(form.avg_price);
+    const avgPrice = Number(form.avgPrice);
 
     if (!symbol) { setError("Symbol is required"); return; }
     if (!name) { setError("Name is required"); return; }
@@ -72,7 +72,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
       setError("Quantity must be a positive number");
       return;
     }
-    if (!Number.isFinite(avg_price) || avg_price <= 0) {
+    if (!Number.isFinite(avgPrice) || avgPrice <= 0) {
       setError("Average price must be a positive number");
       return;
     }
@@ -85,7 +85,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
         symbol,
         name,
         quantity,
-        avgPrice: avg_price,
+        avgPrice,
         tags: form.tags,
       });
     } catch (err) {
@@ -139,8 +139,8 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
               min="0"
               step="0.01"
               placeholder="1500.00"
-              value={form.avg_price}
-              onChange={(v) => setForm((f) => ({ ...f, avg_price: v }))}
+              value={form.avgPrice}
+              onChange={(v) => setForm((f) => ({ ...f, avgPrice: v }))}
             />
           </FormField>
         </div>

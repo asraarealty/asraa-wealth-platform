@@ -46,7 +46,7 @@ export default function AllocationChart({ allocation }: Props) {
     const candidates: Slice[] = [
       { label: "Stocks", value: allocation.stock ?? 0, color: SLICE_COLORS[0] },
       { label: "Mutual Funds", value: allocation.mf ?? 0, color: SLICE_COLORS[1] },
-      { label: "Real Estate", value: allocation.real_estate ?? 0, color: SLICE_COLORS[2] },
+      { label: "Real Estate", value: allocation.realEstate ?? 0, color: SLICE_COLORS[2] },
     ].filter((s) => s.value > 0);
 
     if (candidates.length === 0) return FALLBACK_SLICES;

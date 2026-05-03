@@ -16,7 +16,7 @@ interface MFForm {
   symbol: string;
   name: string;
   units: string;
-  avg_price: string;
+  avgPrice: string;
   tags: string[];
 }
 
@@ -24,7 +24,7 @@ const EMPTY: MFForm = {
   symbol: "",
   name: "",
   units: "",
-  avg_price: "",
+  avgPrice: "",
   tags: [],
 };
 
@@ -40,7 +40,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
         symbol: asset.symbol ?? "",
         name: asset.name ?? "",
         units: asset.quantity != null ? String(asset.quantity) : "",
-        avg_price: asset.avgPrice != null ? String(asset.avgPrice) : "",
+        avgPrice: asset.avgPrice != null ? String(asset.avgPrice) : "",
         tags: asset.tags ?? [],
       });
     } else {
@@ -54,7 +54,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
       ...f,
       symbol: mf.code,
       name: mf.name,
-      avg_price: mf.nav ? String(mf.nav) : f.avg_price,
+      avgPrice: mf.nav ? String(mf.nav) : f.avgPrice,
     }));
   }
 
@@ -62,14 +62,14 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
     const symbol = form.symbol.trim().toUpperCase();
     const name = form.name.trim();
     const quantity = Number(form.units);
-    const avg_price = Number(form.avg_price);
+    const avgPrice = Number(form.avgPrice);
 
     if (!name) { setError("Fund name is required"); return; }
     if (!Number.isFinite(quantity) || quantity <= 0) {
       setError("Units must be a positive number");
       return;
     }
-    if (!Number.isFinite(avg_price) || avg_price <= 0) {
+    if (!Number.isFinite(avgPrice) || avgPrice <= 0) {
       setError("Average NAV must be a positive number");
       return;
     }
@@ -82,7 +82,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
         symbol: symbol || undefined,
         name,
         quantity,
-        avgPrice: avg_price,
+        avgPrice,
         tags: form.tags,
       });
     } catch (err) {
@@ -136,8 +136,8 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
               min="0"
               step="0.01"
               placeholder="250.00"
-              value={form.avg_price}
-              onChange={(v) => setForm((f) => ({ ...f, avg_price: v }))}
+              value={form.avgPrice}
+              onChange={(v) => setForm((f) => ({ ...f, avgPrice: v }))}
             />
           </FormField>
         </div>

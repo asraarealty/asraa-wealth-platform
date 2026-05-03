@@ -22,7 +22,7 @@ export default function NewPortfolioPage() {
     symbol: "",
     name: "",
     quantity: "",
-    avg_price: "",
+    avgPrice: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -39,7 +39,7 @@ export default function NewPortfolioPage() {
     if (!form.name.trim()) return "Name is required";
     if (!form.quantity || isNaN(Number(form.quantity)) || Number(form.quantity) <= 0)
       return "Valid quantity is required";
-    if (!form.avg_price || isNaN(Number(form.avg_price)) || Number(form.avg_price) <= 0)
+    if (!form.avgPrice || isNaN(Number(form.avgPrice)) || Number(form.avgPrice) <= 0)
       return "Valid average price is required";
     return null;
   };
@@ -66,13 +66,12 @@ export default function NewPortfolioPage() {
             : form.symbol.trim().toUpperCase() || undefined,
         name: form.name.trim(),
         quantity: Number(form.quantity),
-        avgPrice: Number(form.avg_price),
-        user_id: selectedClient!.id,
+        avgPrice: Number(form.avgPrice),
+        userId: selectedClient!.id,
       });
 
       router.push("/admin/portfolio");
     } catch (err: unknown) {
-      console.error(err);
       setError(toErrorMessage(err));
     } finally {
       setLoading(false);
@@ -204,8 +203,8 @@ export default function NewPortfolioPage() {
             min="0"
             step="any"
             placeholder="0.00"
-            value={form.avg_price}
-            onChange={(e) => handleChange("avg_price", e.target.value)}
+            value={form.avgPrice}
+            onChange={(e) => handleChange("avgPrice", e.target.value)}
             className="w-full mt-1 p-2 rounded-xl bg-transparent border border-gray-600 focus:outline-none focus:ring-1"
             required
           />
