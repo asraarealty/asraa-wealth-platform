@@ -157,7 +157,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     return {
       stock: parseFloat(((portfolio.stockValue / portfolio.totalValue) * 100).toFixed(1)),
       mf: parseFloat(((portfolio.mfValue / portfolio.totalValue) * 100).toFixed(1)),
-      real_estate: parseFloat(((portfolio.propertyValue / portfolio.totalValue) * 100).toFixed(1)),
+      realEstate: parseFloat(((portfolio.propertyValue / portfolio.totalValue) * 100).toFixed(1)),
     };
   }, [portfolio]);
 

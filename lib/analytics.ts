@@ -84,7 +84,7 @@ export function computePortfolioMetrics(
 export interface Allocation {
   equity: number;     // percentage
   mf: number;         // percentage
-  real_estate: number; // percentage
+  realEstate: number; // percentage
 }
 
 export type RiskLevel = "Low" | "Medium" | "High";
@@ -100,7 +100,7 @@ export interface RiskResult {
  */
 export function computeAllocation(items: PortfolioItem[]): Allocation {
   if (items.length === 0) {
-    return { equity: 0, mf: 0, real_estate: 0 };
+    return { equity: 0, mf: 0, realEstate: 0 };
   }
 
   let equityVal = 0;
@@ -119,14 +119,14 @@ export function computeAllocation(items: PortfolioItem[]): Allocation {
   }
 
   const total = equityVal + mfVal + reVal;
-  if (total === 0) return { equity: 0, mf: 0, real_estate: 0 };
+  if (total === 0) return { equity: 0, mf: 0, realEstate: 0 };
 
   const equity = parseFloat(((equityVal / total) * 100).toFixed(1));
   const mf = parseFloat(((mfVal / total) * 100).toFixed(1));
   // Derive the third from the remainder to avoid floating-point drift
-  const real_estate = parseFloat((100 - equity - mf).toFixed(1));
+  const realEstate = parseFloat((100 - equity - mf).toFixed(1));
 
-  return { equity, mf, real_estate };
+  return { equity, mf, realEstate };
 }
 
 /**
@@ -205,11 +205,11 @@ export function generateRecommendations(
     });
   }
 
-  if (allocation.real_estate < 20) {
+  if (allocation.realEstate < 20) {
     recs.push({
       message: "Add real estate investment",
       type: "buy",
-      priority: allocation.real_estate < 5 ? "high" : "medium",
+      priority: allocation.realEstate < 5 ? "high" : "medium",
     });
   }
 
@@ -291,7 +291,7 @@ export function deriveClientAlerts(
   const classCount = [
     allocation.equity > 0,
     allocation.mf > 0,
-    allocation.real_estate > 0,
+    allocation.realEstate > 0,
   ].filter(Boolean).length;
 
   if (classCount <= 1) {

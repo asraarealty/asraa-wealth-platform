@@ -104,7 +104,7 @@ export default function AdminPortfolioPage() {
   async function handleAdd(payload: CreateAssetPayload) {
     if (!selectedClient) return;
     try {
-      const newAsset = await createAsset({ ...payload, user_id: selectedClient.id });
+      const newAsset = await createAsset({ ...payload, userId: selectedClient.id });
       setAssets((prev) => [...prev, newAsset]);
     } catch (err) {
       setError(toErrorMessage(err));

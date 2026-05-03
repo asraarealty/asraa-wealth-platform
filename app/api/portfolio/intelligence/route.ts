@@ -28,7 +28,7 @@ interface BackendClient {
   id: number;
   name: string;
   email: string;
-  is_active: boolean;
+  isActive: boolean;
 }
 
 interface BackendPortfolioItem {
@@ -36,8 +36,8 @@ interface BackendPortfolioItem {
   symbol: string;
   name: string;
   quantity: number;
-  avg_price: number;
-  current_price: number;
+  avgPrice: number;
+  currentPrice: number;
   value: number;
 }
 
@@ -95,7 +95,13 @@ function parsePortfolioResponse(raw: unknown): BackendPortfolioItem[] {
   if (Array.isArray(raw)) return raw as BackendPortfolioItem[];
   if (raw !== null && typeof raw === "object") {
     const obj = raw as Record<string, unknown>;
-    if (Array.isArray(obj.data)) return obj.data as BackendPortfolioItem[];
+    // New format: { data: { assets: [...] } } or already-unwrapped { assets: [...] }
+    if (obj.assets && Array.isArray(obj.assets)) return obj.assets as BackendPortfolioItem[];
+    if (obj.data && typeof obj.data === "object") {
+      const data = obj.data as Record<string, unknown>;
+      if (Array.isArray(data.assets)) return data.assets as BackendPortfolioItem[];
+      if (Array.isArray(data)) return data as BackendPortfolioItem[];
+    }
     if (Array.isArray(obj.positions)) return obj.positions as BackendPortfolioItem[];
   }
   return [];
@@ -120,7 +126,7 @@ export async function GET(request: NextRequest) {
     const portfolioSettled = await Promise.allSettled(
       clients.map(async (client) => {
         const raw = await backendGet<unknown>(
-          `/api/v2/portfolio?user_id=${client.id}`,
+          `/api/v2/assets?user_id=${client.id}`,
           authHeader
         );
         const items = parsePortfolioResponse(raw);
@@ -152,24 +158,24 @@ export async function GET(request: NextRequest) {
     const intelligenceRows = clients.map((client) => {
       const rawItems = clientPortfolios.get(client.id) ?? [];
 
-      // Enrich: replace current_price with live price for equity symbols
+      // Enrich: replace currentPrice with live price for equity symbols
       const enrichedItems = rawItems.map((item) => {
         if (!isStockSymbol(item.symbol)) return item;
         const livePrice = priceMap.get(item.symbol);
         if (livePrice === undefined) return item; // keep backend value or avg fallback
         return {
           ...item,
-          current_price: livePrice,
+          currentPrice: livePrice,
           value: livePrice * item.quantity,
         };
       });
 
-      // Map snake_case backend items to the camelCase PortfolioItem shape expected by analytics
+      // Map backend items to the camelCase PortfolioItem shape expected by analytics
       const portfolioItems = enrichedItems.map((item) => ({
         symbol: item.symbol,
         quantity: item.quantity,
-        avgPrice: item.avg_price,
-        currentPrice: item.current_price,
+        avgPrice: item.avgPrice,
+        currentPrice: item.currentPrice,
       }));
 
       const metrics = computePortfolioMetrics(portfolioItems);
@@ -179,17 +185,17 @@ export async function GET(request: NextRequest) {
         clientId: client.id,
         name: client.name,
         email: client.email,
-        isActive: client.is_active,
+        isActive: client.isActive,
         portfolioValue: metrics.current,
         returnPercent: parseFloat(metrics.returnPct.toFixed(1)),
         riskLevel,
         equityPct: allocation.equity,
         mfPct: allocation.mf,
-        realEstatePct: allocation.real_estate,
+        realEstatePct: allocation.realEstate,
         suggestedAction: toSuggestedAction(
           allocation.equity,
           allocation.mf,
-          allocation.real_estate
+          allocation.realEstate
         ),
       };
     });

@@ -23,9 +23,6 @@ export async function getPortfolioItems(
 ): Promise<PortfolioResult> {
   try {
     const result = await fetchPortfolioItems(clientId, signal);
-
-    console.log("NORMALIZED:", result);
-
     return result;
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
@@ -35,15 +32,15 @@ export async function getPortfolioItems(
 }
 
 /**
- * Fetch all portfolio assets for the admin panel via the single
- * GET /portfolio/admin endpoint.
+ * Fetch all portfolio assets for the admin panel by fetching each user's
+ * assets via GET /assets?user_id=<id>.
  *
  * Returns a flat Asset[] (all clients combined); never throws on non-abort
  * errors.
  */
-export async function getAdminPortfolio(signal?: AbortSignal): Promise<Asset[]> {
+export async function getAdminPortfolio(userIds: number[], signal?: AbortSignal): Promise<Asset[]> {
   try {
-    const grouped = await fetchAdminGroupedAssets(signal);
+    const grouped = await fetchAdminGroupedAssets(userIds, signal);
     return Object.values(grouped).flat();
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
@@ -53,13 +50,13 @@ export async function getAdminPortfolio(signal?: AbortSignal): Promise<Asset[]> 
 }
 
 /**
- * Group a flat array of assets by their user_id.
- * Assets without a user_id are omitted.
+ * Group a flat array of assets by their userId.
+ * Assets without a userId are omitted.
  */
 export function groupAssetsByUserId(assets: Asset[]): Record<number, Asset[]> {
   const grouped: Record<number, Asset[]> = {};
   for (const asset of assets) {
-    const uid = asset.user_id;
+    const uid = asset.userId ?? (asset as any).user_id;
     if (uid === undefined || uid === null) continue;
     if (!grouped[uid]) grouped[uid] = [];
     grouped[uid].push(asset);
@@ -69,14 +66,14 @@ export function groupAssetsByUserId(assets: Asset[]): Record<number, Asset[]> {
 
 /**
  * Fetch portfolio data from the backend and return computed client intelligence.
- * Uses the authenticated backend /portfolio endpoint directly.
+ * Uses the authenticated backend /assets endpoint directly.
  *
  * Returns an empty array (never throws) on non-abort errors.
  */
 export async function getPortfolioIntelligence(
   _signal?: AbortSignal
 ): Promise<ClientIntelligence[]> {
-  // The backend /portfolio endpoint returns the current user's portfolio items,
+  // The /assets/me endpoint returns the current user's assets,
   // not the per-client aggregated intelligence shape needed by the admin page.
   // Return an empty array so the admin page renders gracefully.
   return [];

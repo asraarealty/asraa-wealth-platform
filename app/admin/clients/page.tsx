@@ -141,13 +141,13 @@ export default function ClientsPage() {
             { key: "email", header: "Email" },
             { key: "phone", header: "Phone" },
             {
-              key: "is_active",
+              key: "isActive",
               header: "Status",
               render: (row) => (
                 <span
                   className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold"
                   style={
-                    row.is_active
+                    row.isActive
                       ? {
                           background: "rgba(46,204,113,0.12)",
                           color: "#2ecc71",
@@ -161,10 +161,10 @@ export default function ClientsPage() {
                   <span
                     className="w-1.5 h-1.5 rounded-full"
                     style={{
-                      background: row.is_active ? "#2ecc71" : "#ef4444",
+                      background: row.isActive ? "#2ecc71" : "#ef4444",
                     }}
                   />
-                  {row.is_active ? "Active" : "Inactive"}
+                  {row.isActive ? "Active" : "Inactive"}
                 </span>
               ),
             },

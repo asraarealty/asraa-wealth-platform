@@ -1,12 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { fetcher, ApiError, toErrorMessage } from "@/lib/fetcher";
-import {
-  mapPortfolio,
-  type RawPosition,
-  type RawPortfolioResponse,
-} from "@/lib/mappers/mapPortfolio";
+import { ApiError, toErrorMessage, fetcher } from "@/lib/fetcher";
+import { fetchPortfolio } from "@/lib/api";
 import type { PortfolioFull, CreateAssetPayload } from "@/lib/api";
 import {
   mapInsights,
@@ -139,10 +135,6 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
   const [syncing, setSyncing] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
 
-  const portfolioPath = clientId !== undefined
-    ? `/portfolio?user_id=${encodeURIComponent(clientId)}`
-    : "/portfolio/me";
-
   const insightsPath = clientId !== undefined
     ? `/insights?user_id=${encodeURIComponent(clientId)}`
     : "/insights/me";
@@ -152,65 +144,30 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
       if (!silent) setLoading(true);
       setError(null);
       try {
-        const [rawPortfolio, rawInsights] = await Promise.all([
-          fetcher<RawPortfolioResponse>(portfolioPath, { raw: true }).catch(
-            (err) => {
-              if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
-                return null;
-              }
-              throw err;
+        const [fullPortfolio, rawInsights] = await Promise.all([
+          fetchPortfolio(clientId).catch((err) => {
+            if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
+              return null;
             }
-          ),
+            throw err;
+          }),
           fetcher<RawInsightsResponse>(insightsPath, { raw: true }).catch(
             () => null
           ),
         ]);
 
-        // The /portfolio/me endpoint may return just a positions array or
-        // the full envelope. Normalise to the envelope shape, computing
-        // aggregate totals from positions when the backend omits them so that
-        // KPI values are always correct rather than showing zeros.
-        let portfolioEnvelope: RawPortfolioResponse;
-        if (Array.isArray(rawPortfolio)) {
-          const positions = rawPortfolio as RawPosition[];
-          const totalValue = positions.reduce((s, p) => s + (p.value ?? 0), 0);
-          const stockValue = positions
-            .filter((p) => p.type === "stock")
-            .reduce((s, p) => s + (p.value ?? 0), 0);
-          const mfValue = positions
-            .filter((p) => p.type === "mf")
-            .reduce((s, p) => s + (p.value ?? 0), 0);
-          const propertyValue = positions
-            .filter((p) => p.type === "property")
-            .reduce((s, p) => s + (p.value ?? 0), 0);
-          const totalInvested = positions.reduce(
-            (s, p) => s + (p.avg_price ?? 0) * (p.quantity ?? 0),
-            0
-          );
-          const roiPercent =
-            totalInvested > 0
-              ? ((totalValue - totalInvested) / totalInvested) * 100
-              : 0;
-          portfolioEnvelope = {
-            positions,
-            total_value: totalValue,
-            stock_value: stockValue,
-            mf_value: mfValue,
-            property_value: propertyValue,
-            roi_percent: roiPercent,
-          };
+        if (fullPortfolio) {
+          setPortfolio(fullPortfolio);
         } else {
-          portfolioEnvelope = rawPortfolio ?? {
+          setPortfolio({
             positions: [],
-            total_value: 0,
-            stock_value: 0,
-            mf_value: 0,
-            property_value: 0,
-            roi_percent: 0,
-          };
+            totalValue: 0,
+            stockValue: 0,
+            mfValue: 0,
+            propertyValue: 0,
+            roiPercent: 0,
+          });
         }
-
-        setPortfolio(mapPortfolio(portfolioEnvelope));
 
         if (rawInsights) {
           setInsights(mapInsights(rawInsights));
@@ -221,7 +178,7 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
         if (!silent) setLoading(false);
       }
     },
-    [portfolioPath, insightsPath]
+    [clientId, insightsPath]
   );
 
   useEffect(() => {
@@ -240,7 +197,7 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
   async function handleAdd(payload: CreateAssetPayload) {
     await createAsset({
       ...payload,
-      ...(clientId !== undefined ? { user_id: clientId } : {}),
+      ...(clientId !== undefined ? { userId: clientId } : {}),
     });
     await loadData(true);
     setAddModalOpen(false);
