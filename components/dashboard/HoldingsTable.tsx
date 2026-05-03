@@ -112,16 +112,8 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
             return (
               <tr
                 key={pos.id}
-                className="transition-all duration-200"
-                style={{
-                  borderBottom: "1px solid rgba(255,255,255,0.04)",
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLTableRowElement).style.background = "rgba(0,229,255,0.03)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLTableRowElement).style.background = "transparent";
-                }}
+                className="neon-table-row"
+                style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
               >
                 {/* Name */}
                 <td className="px-4 py-3.5">

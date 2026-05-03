@@ -169,6 +169,14 @@ body {
   background: rgba(0, 229, 255, 0.03);
 }
 
+/* Neon table row hover */
+.neon-table-row {
+  transition: background 0.2s ease;
+}
+.neon-table-row:hover {
+  background: rgba(0, 229, 255, 0.025);
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 5px;

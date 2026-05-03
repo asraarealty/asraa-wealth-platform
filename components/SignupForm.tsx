@@ -63,9 +63,10 @@ export default function SignupForm() {
               />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
+          <h1 className="text-2xl font-bold text-white tracking-tight" aria-label="Asraa Wealth">
             Asraa{" "}
             <span
+              aria-hidden="true"
               style={{
                 background: "linear-gradient(135deg, #00E5FF, #4F8CFF)",
                 WebkitBackgroundClip: "text",
