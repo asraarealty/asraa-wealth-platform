@@ -103,11 +103,11 @@ function NeonInput({
   label,
   required,
   error,
-  id: providedId,
+  id,
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement> & { label: string; required?: boolean; error?: string }) {
   const autoId = useId();
-  const inputId = providedId ?? autoId;
+  const inputId = id ?? autoId;
   return (
     <div>
       <label htmlFor={inputId} className="block text-sm font-medium mb-1.5" style={{ color: "rgba(255,255,255,0.6)" }}>
