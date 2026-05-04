@@ -81,7 +81,10 @@ export default function InvestmentRules() {
   useEffect(() => {
     const ac = new AbortController();
     getAllocationRules(ac.signal)
-      .then((data) => setRules(data))
+      .then((data) => {
+        if (data) setRules(data);
+        else console.warn("getAllocationRules: received null/empty response");
+      })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(toErrorMessage(err));

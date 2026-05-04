@@ -31,7 +31,10 @@ export default function MarketDataSettings() {
   useEffect(() => {
     const ac = new AbortController();
     getStockConfig(ac.signal)
-      .then((data) => setConfig(data))
+      .then((data) => {
+        if (data) setConfig(data);
+        else console.warn("getStockConfig: received null/empty response");
+      })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(toErrorMessage(err));

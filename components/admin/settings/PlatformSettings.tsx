@@ -37,7 +37,10 @@ export default function PlatformSettings() {
   useEffect(() => {
     const ac = new AbortController();
     getPlatformSettings(ac.signal)
-      .then((data) => setConfig(data))
+      .then((data) => {
+        if (data) setConfig(data);
+        else console.warn("getPlatformSettings: received null/empty response");
+      })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(toErrorMessage(err));
