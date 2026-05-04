@@ -42,9 +42,10 @@ export default function AdminControls() {
     getUsers(ac.signal)
       .then((users) => {
         // Map existing users to admin format; default role based on their existing role
+        const validRoles = ROLES.map((r) => r.value);
         const mapped: AdminUser[] = users.map((u) => ({
           ...u,
-          role: (["super_admin", "advisor", "viewer"].includes(u.role)
+          role: (validRoles.includes(u.role as AdminRole)
             ? u.role
             : "viewer") as AdminRole,
         }));
@@ -60,10 +61,6 @@ export default function AdminControls() {
 
   function patchAdmin(id: number, partial: Partial<AdminUser>) {
     setAdmins((prev) => prev.map((a) => (a.id === id ? { ...a, ...partial } : a)));
-  }
-
-  function handleDisable(id: number) {
-    patchAdmin(id, { isActive: false });
   }
 
   async function handleAddAdmin(e: React.FormEvent) {
@@ -273,7 +270,7 @@ export default function AdminControls() {
                   {admin.isActive && (
                     <button
                       type="button"
-                      onClick={() => handleDisable(admin.id)}
+                      onClick={() => patchAdmin(admin.id, { isActive: false })}
                       className="shrink-0 transition-colors hover:opacity-80"
                       style={{ color: "rgba(255,77,109,0.6)" }}
                       title="Disable admin"

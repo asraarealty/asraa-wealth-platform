@@ -40,13 +40,8 @@ export default function SectionCard({
       className="glass-card rounded-2xl relative overflow-hidden"
       style={{ border: "1px solid rgba(255,255,255,0.08)" }}
     >
-      {/* Header */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-6 py-5 text-left md:cursor-default"
-        style={{ background: "transparent" }}
-      >
+      {/* Header — accordion trigger on mobile only */}
+      <div className="w-full flex items-center justify-between px-6 py-5">
         <div className="flex items-center gap-3">
           {icon && (
             <div
@@ -66,18 +61,27 @@ export default function SectionCard({
             {title}
           </p>
         </div>
-        {/* Chevron — visible only on mobile */}
-        <svg
-          className={`w-4 h-4 md:hidden transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-          style={{ color: "rgba(255,255,255,0.3)" }}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
+        {/* Chevron toggle — mobile only */}
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-label={open ? "Collapse section" : "Expand section"}
+          onClick={() => setOpen((v) => !v)}
+          className="md:hidden flex items-center justify-center w-7 h-7 rounded-lg transition-colors"
+          style={{ background: "rgba(255,255,255,0.04)" }}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+          <svg
+            className={`w-4 h-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+            style={{ color: "rgba(255,255,255,0.3)" }}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
 
       {/* Body — always open on desktop, collapsible on mobile */}
       <div className={`${open ? "block" : "hidden"} md:block`}>

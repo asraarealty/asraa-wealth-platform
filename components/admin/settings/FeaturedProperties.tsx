@@ -91,9 +91,12 @@ const MOCK_PROPERTIES: Property[] = [
 
 const MAX_FEATURED = 6;
 
+const CRORE = 10_000_000;
+const LAKH = 100_000;
+
 function fmtPrice(n: number) {
-  if (n >= 10000000) return `₹${(n / 10000000).toFixed(1)}Cr`;
-  if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
+  if (n >= CRORE) return `₹${(n / CRORE).toFixed(1)}Cr`;
+  if (n >= LAKH) return `₹${(n / LAKH).toFixed(1)}L`;
   return `₹${n.toLocaleString("en-IN")}`;
 }
 

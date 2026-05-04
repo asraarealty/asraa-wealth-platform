@@ -10,8 +10,7 @@ interface ToggleProps {
 
 export default function Toggle({ checked, onChange, label, id, disabled = false }: ToggleProps) {
   return (
-    <label
-      htmlFor={id}
+    <div
       className="flex items-center gap-3"
       style={{ cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1 }}
     >
@@ -43,6 +42,6 @@ export default function Toggle({ checked, onChange, label, id, disabled = false 
           {label}
         </span>
       )}
-    </label>
+    </div>
   );
 }
