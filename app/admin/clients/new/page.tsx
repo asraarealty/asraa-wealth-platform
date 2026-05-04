@@ -69,10 +69,10 @@ const GOAL_OPTIONS: { key: GoalKey; label: string; emoji: string }[] = [
   { key: "property_purchase", label: "Property Purchase", emoji: "🏠" },
 ];
 
-const RISK_OPTIONS: { value: RiskAnswer; label: string; sublabel: string; riskLevel: RiskLevel }[] = [
-  { value: "sell", label: "Sell immediately", sublabel: "Cut losses fast", riskLevel: "LOW" },
-  { value: "hold", label: "Hold and wait", sublabel: "Stay the course", riskLevel: "MEDIUM" },
-  { value: "invest_more", label: "Buy the dip", sublabel: "Opportunity knocks", riskLevel: "HIGH" },
+const RISK_OPTIONS: { value: RiskAnswer; label: string; sublabel: string }[] = [
+  { value: "sell", label: "Sell immediately", sublabel: "Cut losses fast" },
+  { value: "hold", label: "Hold and wait", sublabel: "Stay the course" },
+  { value: "invest_more", label: "Buy the dip", sublabel: "Opportunity knocks" },
 ];
 
 const STEP_LABELS = [
@@ -457,7 +457,8 @@ function Step3({
       <div className="space-y-3">
         {RISK_OPTIONS.map((opt) => {
           const selected = value === opt.value;
-          const riskColor = opt.riskLevel === "LOW" ? "#00ff9f" : opt.riskLevel === "HIGH" ? "#ff4d6d" : "#00E5FF";
+          const optRisk = computeRiskLevel(opt.value) ?? "MEDIUM";
+          const riskColor = optRisk === "LOW" ? "#00ff9f" : optRisk === "HIGH" ? "#ff4d6d" : "#00E5FF";
           return (
             <button
               key={opt.value}
@@ -486,7 +487,7 @@ function Step3({
                 className="text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0"
                 style={{ color: riskColor, background: `${riskColor}15`, border: `1px solid ${riskColor}30` }}
               >
-                {opt.riskLevel}
+                {optRisk}
               </span>
             </button>
           );
@@ -652,7 +653,8 @@ function Step5({ form }: { form: FormState }) {
         <Section title="Goals">
           <div className="flex flex-wrap gap-2">
             {form.goals.map((g) => {
-              const opt = GOAL_OPTIONS.find((o) => o.key === g)!;
+              const opt = GOAL_OPTIONS.find((o) => o.key === g);
+              if (!opt) return null;
               return (
                 <span
                   key={g}
@@ -781,8 +783,9 @@ export default function NewClientPage() {
         investmentHorizon: (form.financial.investmentHorizon as InvestmentHorizon) || undefined,
         riskLevel: risk ?? undefined,
         goals: form.goals.length > 0 ? form.goals : undefined,
-      }).catch(() => {
+      }).catch((profileErr) => {
         // Profile endpoint may not be live yet — don't block the redirect
+        console.error("[NewClientPage] Profile creation failed:", profileErr);
       });
 
       router.push(`/admin/portfolio?clientId=${client.id}`);
