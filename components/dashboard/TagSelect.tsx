@@ -100,6 +100,7 @@ export default function TagSelect({
         <input
           ref={inputRef}
           type="text"
+          name="tags"
           value={input}
           onChange={(e) => {
             setInput(e.target.value);

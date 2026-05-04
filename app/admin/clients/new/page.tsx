@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useId } from "react";
 import { useRouter } from "next/navigation";
 import { toErrorMessage } from "@/lib/fetcher";
 import {
@@ -103,15 +103,19 @@ function NeonInput({
   label,
   required,
   error,
+  id: providedId,
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement> & { label: string; required?: boolean; error?: string }) {
+  const autoId = useId();
+  const inputId = providedId ?? autoId;
   return (
     <div>
-      <label className="block text-sm font-medium mb-1.5" style={{ color: "rgba(255,255,255,0.6)" }}>
+      <label htmlFor={inputId} className="block text-sm font-medium mb-1.5" style={{ color: "rgba(255,255,255,0.6)" }}>
         {label}
         {required && <span className="ml-1" style={{ color: "#00E5FF" }}>*</span>}
       </label>
       <input
+        id={inputId}
         {...props}
         className="w-full neon-input rounded-xl px-4 py-3 text-sm text-white"
         style={{ outline: "none" }}
@@ -374,11 +378,12 @@ function Step1({
       />
       {/* Password */}
       <div>
-        <label className="block text-sm font-medium mb-1.5" style={{ color: "rgba(255,255,255,0.6)" }}>
+        <label htmlFor="client-password" className="block text-sm font-medium mb-1.5" style={{ color: "rgba(255,255,255,0.6)" }}>
           Password <span className="ml-1" style={{ color: "#00E5FF" }}>*</span>
         </label>
         <div className="relative">
           <input
+            id="client-password"
             type={showPassword ? "text" : "password"}
             placeholder="Min. 8 characters"
             value={data.password}
@@ -408,11 +413,12 @@ function Step1({
       </div>
       {/* Confirm Password */}
       <div>
-        <label className="block text-sm font-medium mb-1.5" style={{ color: "rgba(255,255,255,0.6)" }}>
+        <label htmlFor="client-confirm-password" className="block text-sm font-medium mb-1.5" style={{ color: "rgba(255,255,255,0.6)" }}>
           Confirm Password <span className="ml-1" style={{ color: "#00E5FF" }}>*</span>
         </label>
         <div className="relative">
           <input
+            id="client-confirm-password"
             type={showConfirm ? "text" : "password"}
             placeholder="Repeat password"
             value={data.confirmPassword}
@@ -480,10 +486,11 @@ function Step2({
         error={errors.investmentCapacity}
       />
       <div>
-        <label className="block text-sm font-medium mb-1.5" style={{ color: "rgba(255,255,255,0.6)" }}>
+        <label htmlFor="investment-horizon" className="block text-sm font-medium mb-1.5" style={{ color: "rgba(255,255,255,0.6)" }}>
           Investment Horizon
         </label>
         <select
+          id="investment-horizon"
           value={data.investmentHorizon}
           onChange={(e) => onChange("investmentHorizon", e.target.value)}
           className="w-full neon-input rounded-xl px-4 py-3 text-sm text-white"

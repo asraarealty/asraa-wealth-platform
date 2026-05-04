@@ -117,6 +117,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Symbol" required>
             <FieldInput
+              name="stock-symbol"
               placeholder="AAPL or RELIANCE.NS"
               value={form.symbol}
               onChange={(v) => setForm((f) => ({ ...f, symbol: v.toUpperCase() }))}
@@ -124,6 +125,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
           </FormField>
           <FormField label="Name" required>
             <FieldInput
+              name="stock-name"
               placeholder="Apple Inc."
               value={form.name}
               onChange={(v) => setForm((f) => ({ ...f, name: v }))}
@@ -134,6 +136,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Quantity" required>
             <FieldInput
+              name="stock-quantity"
               type="number"
               min="0"
               step="0.01"
@@ -144,6 +147,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
           </FormField>
           <FormField label="Avg Price (₹)" required>
             <FieldInput
+              name="stock-avg-price"
               type="number"
               min="0"
               step="0.01"

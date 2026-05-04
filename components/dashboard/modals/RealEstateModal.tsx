@@ -133,6 +133,7 @@ export default function RealEstateModal({
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Property Name" required>
             <FieldInput
+              name="property-name"
               placeholder="Sunrise Villa"
               value={form.name}
               onChange={set("name")}
@@ -140,6 +141,7 @@ export default function RealEstateModal({
           </FormField>
           <FormField label="Location">
             <FieldInput
+              name="property-location"
               placeholder="Mumbai, Maharashtra"
               value={form.location}
               onChange={set("location")}
@@ -151,6 +153,7 @@ export default function RealEstateModal({
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Purchase Price (₹)" required>
             <FieldInput
+              name="purchase-price"
               type="number"
               min="0"
               step="1000"
@@ -161,6 +164,7 @@ export default function RealEstateModal({
           </FormField>
           <FormField label="Current Value (₹)" required>
             <FieldInput
+              name="current-value"
               type="number"
               min="0"
               step="1000"
@@ -175,6 +179,7 @@ export default function RealEstateModal({
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Monthly Rent (₹)">
             <FieldInput
+              name="rent-amount"
               type="number"
               min="0"
               step="100"
@@ -185,6 +190,7 @@ export default function RealEstateModal({
           </FormField>
           <FormField label="Rent Due Date">
             <FieldInput
+              name="rent-due-date"
               type="date"
               value={form.rent_due_date}
               onChange={set("rent_due_date")}
@@ -204,6 +210,7 @@ export default function RealEstateModal({
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Tenant Name">
             <FieldInput
+              name="tenant-name"
               placeholder="John Doe"
               value={form.tenant_name}
               onChange={set("tenant_name")}
@@ -211,6 +218,7 @@ export default function RealEstateModal({
           </FormField>
           <FormField label="Tenant Phone">
             <FieldInput
+              name="tenant-phone"
               type="tel"
               placeholder="+91 98765 43210"
               value={form.tenant_phone}
@@ -221,6 +229,7 @@ export default function RealEstateModal({
 
         <FormField label="Tenant Email">
           <FieldInput
+            name="tenant-email"
             type="email"
             placeholder="tenant@example.com"
             value={form.tenant_email}

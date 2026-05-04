@@ -102,6 +102,8 @@ export function FieldInput({
   onChange,
   min,
   step,
+  name,
+  id,
 }: {
   placeholder?: string;
   type?: string;
@@ -109,6 +111,8 @@ export function FieldInput({
   onChange: (v: string) => void;
   min?: string;
   step?: string;
+  name?: string;
+  id?: string;
 }) {
   return (
     <input
@@ -117,6 +121,8 @@ export function FieldInput({
       value={value}
       min={min}
       step={step}
+      name={name}
+      id={id}
       onChange={(e) => onChange(e.target.value)}
       className="w-full px-3 py-2.5 text-sm text-white placeholder-white/30 rounded-xl transition focus:outline-none"
       style={{

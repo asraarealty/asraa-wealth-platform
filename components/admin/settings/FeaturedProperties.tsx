@@ -260,8 +260,9 @@ export default function FeaturedProperties() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Title</label>
+              <label htmlFor="fp-title" className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Title</label>
               <input
+                id="fp-title"
                 type="text"
                 required
                 className={inputCls}
@@ -271,8 +272,9 @@ export default function FeaturedProperties() {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Location</label>
+              <label htmlFor="fp-location" className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Location</label>
               <input
+                id="fp-location"
                 type="text"
                 required
                 className={inputCls}
@@ -282,8 +284,9 @@ export default function FeaturedProperties() {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Price (₹)</label>
+              <label htmlFor="fp-price" className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Price (₹)</label>
               <input
+                id="fp-price"
                 type="number"
                 required
                 min={0}
@@ -293,8 +296,9 @@ export default function FeaturedProperties() {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>ROI (%)</label>
+              <label htmlFor="fp-roi" className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>ROI (%)</label>
               <input
+                id="fp-roi"
                 type="number"
                 required
                 step={0.1}
@@ -305,8 +309,9 @@ export default function FeaturedProperties() {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Image URL</label>
+              <label htmlFor="fp-image-url" className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Image URL</label>
               <input
+                id="fp-image-url"
                 type="text"
                 className={inputCls}
                 placeholder="https://..."
@@ -315,8 +320,9 @@ export default function FeaturedProperties() {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Redirect URL</label>
+              <label htmlFor="fp-redirect-url" className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Redirect URL</label>
               <input
+                id="fp-redirect-url"
                 type="text"
                 className={inputCls}
                 placeholder="https://... or /path"

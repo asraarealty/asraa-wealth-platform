@@ -111,6 +111,7 @@ export default function MFSearch({ onSelect, initialValue = "" }: MFSearchProps)
         </svg>
         <input
           type="text"
+          name="mf-search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}

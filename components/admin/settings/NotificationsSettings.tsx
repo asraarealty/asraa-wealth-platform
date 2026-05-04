@@ -122,11 +122,12 @@ export default function NotificationsSettings() {
         </p>
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
+            <label htmlFor="notif-profit-threshold" className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
               Profit Alert (%)
             </label>
             <div className="flex items-center gap-2">
               <input
+                id="notif-profit-threshold"
                 type="range"
                 min={1}
                 max={100}
@@ -147,11 +148,12 @@ export default function NotificationsSettings() {
             </p>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
+            <label htmlFor="notif-loss-threshold" className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
               Loss Alert (%)
             </label>
             <div className="flex items-center gap-2">
               <input
+                id="notif-loss-threshold"
                 type="range"
                 min={1}
                 max={100}

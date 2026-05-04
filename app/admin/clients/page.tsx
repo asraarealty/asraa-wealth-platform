@@ -102,6 +102,7 @@ export default function ClientsPage() {
           </svg>
           <input
             type="text"
+            name="client-search"
             placeholder="Search by name, email or phone…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

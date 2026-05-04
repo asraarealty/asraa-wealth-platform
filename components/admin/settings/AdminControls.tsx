@@ -161,8 +161,9 @@ export default function AdminControls() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Name</label>
+              <label htmlFor="new-admin-name" className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Name</label>
               <input
+                id="new-admin-name"
                 type="text"
                 required
                 className="w-full rounded-xl px-3 py-2.5 text-sm neon-input"
@@ -172,8 +173,9 @@ export default function AdminControls() {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Email</label>
+              <label htmlFor="new-admin-email" className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Email</label>
               <input
+                id="new-admin-email"
                 type="email"
                 required
                 className="w-full rounded-xl px-3 py-2.5 text-sm neon-input"
@@ -184,8 +186,9 @@ export default function AdminControls() {
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Role</label>
+            <label htmlFor="new-admin-role" className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Role</label>
             <select
+              id="new-admin-role"
               className={selectCls}
               value={form.role}
               onChange={(e) => setForm((p) => ({ ...p, role: e.target.value as AdminRole }))}
@@ -272,6 +275,7 @@ export default function AdminControls() {
                   {/* Role selector */}
                   <select
                     className="rounded-lg px-2.5 py-1.5 text-xs neon-input appearance-none shrink-0"
+                    name={`admin-role-${admin.id}`}
                     style={{
                       color: roleInfo.color,
                       minWidth: "100px",
