@@ -1,16 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SectionCard from "./SectionCard";
-import Toggle from "./Toggle";
 import Input from "@/components/ui/Input";
-
-interface PlatformConfig {
-  platformName: string;
-  defaultCurrency: "INR" | "USD";
-  currencyConversion: boolean;
-  timezone: string;
-}
+import {
+  getPlatformSettings,
+  updatePlatformSettings,
+  type PlatformSettings as PlatformConfig,
+} from "@/lib/api";
+import { toErrorMessage } from "@/lib/fetcher";
 
 const TIMEZONES = [
   "Asia/Kolkata",
@@ -25,20 +23,35 @@ const TIMEZONES = [
 const selectClass =
   "w-full rounded-xl px-4 py-3 text-sm neon-input appearance-none";
 
+const CURRENCIES = ["INR", "USD", "AED", "SGD", "GBP"];
+
 export default function PlatformSettings() {
   const [config, setConfig] = useState<PlatformConfig>({
-    platformName: "Asraa Wealth Platform",
+    platformName: "",
     defaultCurrency: "INR",
-    currencyConversion: false,
     timezone: "Asia/Kolkata",
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    getPlatformSettings(ac.signal)
+      .then((data) => setConfig(data))
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(toErrorMessage(err));
+      })
+      .finally(() => setLoading(false));
+    return () => ac.abort();
+  }, []);
 
   function patch(partial: Partial<PlatformConfig>) {
     setConfig((prev) => ({ ...prev, ...partial }));
   }
 
   async function handleSave() {
-    await new Promise<void>((resolve) => setTimeout(resolve, 600));
+    await updatePlatformSettings(config);
   }
 
   return (
@@ -51,7 +64,17 @@ export default function PlatformSettings() {
         </svg>
       }
       onSave={handleSave}
+      loading={loading}
     >
+      {error && (
+        <div
+          className="rounded-xl px-4 py-3 text-sm"
+          style={{ background: "rgba(255,77,109,0.08)", border: "1px solid rgba(255,77,109,0.2)", color: "#ff4d6d" }}
+        >
+          {error}
+        </div>
+      )}
+
       {/* Platform Name */}
       <Input
         label="Platform Name"
@@ -68,36 +91,13 @@ export default function PlatformSettings() {
         <select
           className={selectClass}
           value={config.defaultCurrency}
-          onChange={(e) =>
-            patch({ defaultCurrency: e.target.value as "INR" | "USD" })
-          }
+          onChange={(e) => patch({ defaultCurrency: e.target.value })}
         >
-          <option value="INR">INR — Indian Rupee</option>
-          <option value="USD">USD — US Dollar</option>
+          {CURRENCIES.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
         </select>
       </div>
-
-      {/* Currency Conversion toggle — only when USD is selected */}
-      {config.defaultCurrency === "USD" && (
-        <div
-          className="flex items-center justify-between rounded-xl px-4 py-3"
-          style={{
-            background: "rgba(0,229,255,0.04)",
-            border: "1px solid rgba(0,229,255,0.1)",
-          }}
-        >
-          <div>
-            <p className="text-sm font-medium text-white">Currency Conversion</p>
-            <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.45)" }}>
-              Auto-convert INR values to USD
-            </p>
-          </div>
-          <Toggle
-            checked={config.currencyConversion}
-            onChange={(v) => patch({ currencyConversion: v })}
-          />
-        </div>
-      )}
 
       {/* Timezone */}
       <div className="flex flex-col gap-1.5">

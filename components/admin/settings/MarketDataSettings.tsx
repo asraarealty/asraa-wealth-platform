@@ -1,42 +1,51 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SectionCard from "./SectionCard";
 import Toggle from "./Toggle";
 import Input from "@/components/ui/Input";
+import { getStockConfig, updateStockConfig, type StockConfig } from "@/lib/api";
+import { toErrorMessage } from "@/lib/fetcher";
 
 type DataProvider = "Yahoo" | "AlphaVantage" | "Custom";
 type Exchange = "NSE" | "BSE" | "US";
 type CurrencyMode = "INR" | "USD" | "Auto";
 type RateSource = "manual" | "API";
 
-interface MarketDataConfig {
-  dataProvider: DataProvider;
-  defaultExchange: Exchange;
-  autoSymbolSuffix: boolean;
-  currencyMode: CurrencyMode;
-  exchangeRateSource: RateSource;
-  manualRate: number;
-}
-
 const selectCls = "w-full rounded-xl px-4 py-3 text-sm neon-input appearance-none";
 
-export default function MarketDataSettings() {
-  const [config, setConfig] = useState<MarketDataConfig>({
-    dataProvider: "Yahoo",
-    defaultExchange: "NSE",
-    autoSymbolSuffix: true,
-    currencyMode: "INR",
-    exchangeRateSource: "API",
-    manualRate: 83.5,
-  });
+const DEFAULT_CONFIG: StockConfig = {
+  dataProvider: "Yahoo",
+  defaultExchange: "NSE",
+  autoSymbolSuffix: true,
+  currencyMode: "INR",
+  exchangeRateSource: "API",
+  manualRate: 83.5,
+};
 
-  function patch(partial: Partial<MarketDataConfig>) {
+export default function MarketDataSettings() {
+  const [config, setConfig] = useState<StockConfig>(DEFAULT_CONFIG);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    getStockConfig(ac.signal)
+      .then((data) => setConfig(data))
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(toErrorMessage(err));
+      })
+      .finally(() => setLoading(false));
+    return () => ac.abort();
+  }, []);
+
+  function patch(partial: Partial<StockConfig>) {
     setConfig((prev) => ({ ...prev, ...partial }));
   }
 
   async function handleSave() {
-    await new Promise<void>((resolve) => setTimeout(resolve, 600));
+    await updateStockConfig(config);
   }
 
   const suffixPreview =
@@ -55,7 +64,17 @@ export default function MarketDataSettings() {
         </svg>
       }
       onSave={handleSave}
+      loading={loading}
     >
+      {error && (
+        <div
+          className="rounded-xl px-4 py-3 text-sm"
+          style={{ background: "rgba(255,77,109,0.08)", border: "1px solid rgba(255,77,109,0.2)", color: "#ff4d6d" }}
+        >
+          {error}
+        </div>
+      )}
+
       {/* Data Provider */}
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>

@@ -3,16 +3,17 @@
 import { useEffect, useState } from "react";
 import SectionCard from "./SectionCard";
 import Toggle from "./Toggle";
-import { getUsers } from "@/lib/services/userService";
+import {
+  getAdminUsers,
+  createAdminUser,
+  updateAdminUser,
+  deleteAdminUser,
+  type AdminUser,
+} from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
-import type { User } from "@/lib/api";
 import Badge from "@/components/ui/Badge";
 
 type AdminRole = "super_admin" | "advisor" | "viewer";
-
-interface AdminUser extends User {
-  role: AdminRole;
-}
 
 const ROLES: { value: AdminRole; label: string; color: string }[] = [
   { value: "super_admin", label: "Super Admin", color: "#ff4d6d" },
@@ -33,24 +34,17 @@ export default function AdminControls() {
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState<NewAdminForm>({ name: "", email: "", role: "viewer" });
   const [saving, setSaving] = useState(false);
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     const ac = new AbortController();
-    getUsers(ac.signal)
-      .then((users) => {
-        // Map existing users to admin format; default role based on their existing role
-        const validRoles = ROLES.map((r) => r.value);
-        const mapped: AdminUser[] = users.map((u) => ({
-          ...u,
-          role: (validRoles.includes(u.role as AdminRole)
-            ? u.role
-            : "viewer") as AdminRole,
-        }));
-        setAdmins(mapped);
-      })
+    getAdminUsers(ac.signal)
+      .then((users) => setAdmins(Array.isArray(users) ? users : []))
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(toErrorMessage(err));
@@ -59,34 +53,68 @@ export default function AdminControls() {
     return () => ac.abort();
   }, []);
 
-  function patchAdmin(id: number, partial: Partial<AdminUser>) {
-    setAdmins((prev) => prev.map((a) => (a.id === id ? { ...a, ...partial } : a)));
-  }
-
   async function handleAddAdmin(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    setActionError(null);
     try {
-      // Simulate API call
-      await new Promise<void>((resolve) => setTimeout(resolve, 600));
-      const newAdmin: AdminUser = {
-        id: Date.now(),
+      const created = await createAdminUser({
         name: form.name,
         email: form.email,
         role: form.role,
         isActive: true,
-      };
-      setAdmins((prev) => [...prev, newAdmin]);
+      });
+      setAdmins((prev) => [...prev, created]);
       setForm({ name: "", email: "", role: "viewer" });
       setShowAddForm(false);
+    } catch (err) {
+      setActionError(toErrorMessage(err));
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleSave() {
-    await new Promise<void>((resolve) => setTimeout(resolve, 600));
+  async function handleRoleChange(id: number, role: string) {
+    setUpdatingId(id);
+    setActionError(null);
+    try {
+      const updated = await updateAdminUser(id, { role });
+      setAdmins((prev) => prev.map((a) => (a.id === id ? { ...a, role: updated.role } : a)));
+    } catch (err) {
+      setActionError(toErrorMessage(err));
+    } finally {
+      setUpdatingId(null);
+    }
   }
+
+  async function handleToggleActive(id: number, isActive: boolean) {
+    setUpdatingId(id);
+    setActionError(null);
+    try {
+      const updated = await updateAdminUser(id, { isActive });
+      setAdmins((prev) => prev.map((a) => (a.id === id ? { ...a, isActive: updated.isActive } : a)));
+    } catch (err) {
+      setActionError(toErrorMessage(err));
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function handleDelete(id: number) {
+    setDeletingId(id);
+    setActionError(null);
+    try {
+      await deleteAdminUser(id);
+      setAdmins((prev) => prev.filter((a) => a.id !== id));
+    } catch (err) {
+      setActionError(toErrorMessage(err));
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  // onSave is a no-op — mutations happen inline per-user
+  async function handleSave() {}
 
   return (
     <SectionCard
@@ -97,6 +125,7 @@ export default function AdminControls() {
         </svg>
       }
       onSave={handleSave}
+      loading={loading}
     >
       {/* Add admin button */}
       <div className="flex items-center justify-between">
@@ -181,17 +210,17 @@ export default function AdminControls() {
       )}
 
       {/* Error state */}
-      {error && (
+      {(error || actionError) && (
         <div
           className="rounded-xl px-4 py-3 text-sm"
           style={{ background: "rgba(255,77,109,0.08)", border: "1px solid rgba(255,77,109,0.2)", color: "#ff4d6d" }}
         >
-          {error}
+          {error || actionError}
         </div>
       )}
 
       {/* Admin list */}
-      {!loading && !error && (
+      {!loading && (
         <div className="space-y-2">
           {admins.length === 0 ? (
             <p className="text-sm text-center py-6" style={{ color: "rgba(255,255,255,0.35)" }}>
@@ -199,7 +228,8 @@ export default function AdminControls() {
             </p>
           ) : (
             admins.map((admin) => {
-              const roleInfo = ROLES.find((r) => r.value === admin.role) ?? ROLES[2];
+              const validRole = ROLES.find((r) => r.value === admin.role);
+              const roleInfo = validRole ?? ROLES[2];
               return (
                 <div
                   key={admin.id}
@@ -249,9 +279,8 @@ export default function AdminControls() {
                       borderColor: `${roleInfo.color}30`,
                     }}
                     value={admin.role}
-                    onChange={(e) =>
-                      patchAdmin(admin.id, { role: e.target.value as AdminRole })
-                    }
+                    disabled={updatingId === admin.id}
+                    onChange={(e) => handleRoleChange(admin.id, e.target.value)}
                   >
                     {ROLES.map((r) => (
                       <option key={r.value} value={r.value}>
@@ -263,23 +292,30 @@ export default function AdminControls() {
                   {/* Active toggle */}
                   <Toggle
                     checked={admin.isActive}
-                    onChange={(v) => patchAdmin(admin.id, { isActive: v })}
+                    disabled={updatingId === admin.id}
+                    onChange={(v) => handleToggleActive(admin.id, v)}
                   />
 
-                  {/* Disable button */}
-                  {admin.isActive && (
-                    <button
-                      type="button"
-                      onClick={() => patchAdmin(admin.id, { isActive: false })}
-                      className="shrink-0 transition-colors hover:opacity-80"
-                      style={{ color: "rgba(255,77,109,0.6)" }}
-                      title="Disable admin"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
+                  {/* Delete button */}
+                  <button
+                    type="button"
+                    disabled={deletingId === admin.id}
+                    onClick={() => handleDelete(admin.id)}
+                    className="shrink-0 transition-colors hover:opacity-80 disabled:opacity-40"
+                    style={{ color: "rgba(255,77,109,0.6)" }}
+                    title="Delete admin"
+                  >
+                    {deletingId === admin.id ? (
+                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
-                    </button>
-                  )}
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
               );
             })

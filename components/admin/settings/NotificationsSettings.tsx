@@ -1,33 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SectionCard from "./SectionCard";
 import Toggle from "./Toggle";
-import Input from "@/components/ui/Input";
+import {
+  getNotificationSettings,
+  updateNotificationSettings,
+  type NotificationSettings,
+} from "@/lib/api";
+import { toErrorMessage } from "@/lib/fetcher";
 
-interface NotificationConfig {
-  enableEmailAlerts: boolean;
-  enableWhatsAppAlerts: boolean;
-  profitAlertThreshold: number;
-  lossAlertThreshold: number;
-  portfolioRebalanceAlert: boolean;
-}
+const DEFAULT_CONFIG: NotificationSettings = {
+  emailEnabled: false,
+  whatsappEnabled: false,
+  rebalanceAlert: false,
+  profitThreshold: 15,
+  lossThreshold: 10,
+};
 
 export default function NotificationsSettings() {
-  const [config, setConfig] = useState<NotificationConfig>({
-    enableEmailAlerts: true,
-    enableWhatsAppAlerts: false,
-    profitAlertThreshold: 15,
-    lossAlertThreshold: 10,
-    portfolioRebalanceAlert: true,
-  });
+  const [config, setConfig] = useState<NotificationSettings>(DEFAULT_CONFIG);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  function patch(partial: Partial<NotificationConfig>) {
+  useEffect(() => {
+    const ac = new AbortController();
+    getNotificationSettings(ac.signal)
+      .then((data) => setConfig(data))
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(toErrorMessage(err));
+      })
+      .finally(() => setLoading(false));
+    return () => ac.abort();
+  }, []);
+
+  function patch(partial: Partial<NotificationSettings>) {
     setConfig((prev) => ({ ...prev, ...partial }));
   }
 
   async function handleSave() {
-    await new Promise<void>((resolve) => setTimeout(resolve, 600));
+    await updateNotificationSettings(config);
   }
 
   const toggleRow = (
@@ -63,7 +76,17 @@ export default function NotificationsSettings() {
         </svg>
       }
       onSave={handleSave}
+      loading={loading}
     >
+      {error && (
+        <div
+          className="rounded-xl px-4 py-3 text-sm"
+          style={{ background: "rgba(255,77,109,0.08)", border: "1px solid rgba(255,77,109,0.2)", color: "#ff4d6d" }}
+        >
+          {error}
+        </div>
+      )}
+
       {/* Channels */}
       <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>
@@ -72,20 +95,20 @@ export default function NotificationsSettings() {
         {toggleRow(
           "Email Alerts",
           "Send portfolio alerts via email",
-          config.enableEmailAlerts,
-          (v) => patch({ enableEmailAlerts: v })
+          config.emailEnabled,
+          (v) => patch({ emailEnabled: v })
         )}
         {toggleRow(
           "WhatsApp Alerts",
           "Send alerts via WhatsApp Business API",
-          config.enableWhatsAppAlerts,
-          (v) => patch({ enableWhatsAppAlerts: v })
+          config.whatsappEnabled,
+          (v) => patch({ whatsappEnabled: v })
         )}
         {toggleRow(
           "Rebalance Alerts",
           "Notify when portfolio drifts from target allocation",
-          config.portfolioRebalanceAlert,
-          (v) => patch({ portfolioRebalanceAlert: v })
+          config.rebalanceAlert,
+          (v) => patch({ rebalanceAlert: v })
         )}
       </div>
 
@@ -105,15 +128,15 @@ export default function NotificationsSettings() {
                 min={1}
                 max={100}
                 step={1}
-                value={config.profitAlertThreshold}
-                onChange={(e) => patch({ profitAlertThreshold: Number(e.target.value) })}
+                value={config.profitThreshold}
+                onChange={(e) => patch({ profitThreshold: Number(e.target.value) })}
                 className="flex-1 accent-emerald-400"
               />
               <span
                 className="text-sm font-semibold w-10 text-right shrink-0"
                 style={{ color: "#00ff9f" }}
               >
-                {config.profitAlertThreshold}%
+                {config.profitThreshold}%
               </span>
             </div>
             <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
@@ -130,15 +153,15 @@ export default function NotificationsSettings() {
                 min={1}
                 max={100}
                 step={1}
-                value={config.lossAlertThreshold}
-                onChange={(e) => patch({ lossAlertThreshold: Number(e.target.value) })}
+                value={config.lossThreshold}
+                onChange={(e) => patch({ lossThreshold: Number(e.target.value) })}
                 className="flex-1 accent-red-400"
               />
               <span
                 className="text-sm font-semibold w-10 text-right shrink-0"
                 style={{ color: "#ff4d6d" }}
               >
-                {config.lossAlertThreshold}%
+                {config.lossThreshold}%
               </span>
             </div>
             <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
@@ -167,14 +190,14 @@ export default function NotificationsSettings() {
             Sending via{" "}
             <span style={{ color: "#00E5FF" }}>
               {[
-                config.enableEmailAlerts && "Email",
-                config.enableWhatsAppAlerts && "WhatsApp",
+                config.emailEnabled && "Email",
+                config.whatsappEnabled && "WhatsApp",
               ]
                 .filter(Boolean)
                 .join(" & ") || "no channel"}
             </span>
-            . Alerts fire at <span style={{ color: "#00ff9f" }}>+{config.profitAlertThreshold}%</span>{" "}
-            profit or <span style={{ color: "#ff4d6d" }}>-{config.lossAlertThreshold}%</span> loss.
+            . Alerts fire at <span style={{ color: "#00ff9f" }}>+{config.profitThreshold}%</span>{" "}
+            profit or <span style={{ color: "#ff4d6d" }}>-{config.lossThreshold}%</span> loss.
           </p>
         </div>
       </div>
