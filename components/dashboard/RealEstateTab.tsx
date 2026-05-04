@@ -13,7 +13,7 @@ interface RealEstateTabProps {
 }
 
 function fmt(n: number | undefined | null) {
-  if (n == null) return "—";
+  if (n == null) return "₹0";
   return `₹${new Intl.NumberFormat("en-IN").format(Math.round(n))}`;
 }
 
