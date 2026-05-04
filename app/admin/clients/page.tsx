@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getAdminClients } from "@/lib/services/clientService";
-import { toErrorMessage } from "@/lib/fetcher";
+import { toggleClientStatus, toErrorMessage } from "@/lib/api";
 import type { AdminClient } from "@/lib/api";
 import Loader from "@/components/ui/Loader";
 import ErrorState from "@/components/ui/ErrorState";
@@ -16,9 +16,15 @@ export default function ClientsPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [toggling, setToggling] = useState<number | null>(null);
+  const acRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
+  const loadClients = useCallback(() => {
+    acRef.current?.abort();
     const ac = new AbortController();
+    acRef.current = ac;
+    setLoading(true);
+    setError(null);
     getAdminClients(ac.signal)
       .then(setClients)
       .catch((err) => {
@@ -26,8 +32,24 @@ export default function ClientsPage() {
         setError(toErrorMessage(err));
       })
       .finally(() => setLoading(false));
-    return () => ac.abort();
   }, []);
+
+  useEffect(() => {
+    loadClients();
+    return () => acRef.current?.abort();
+  }, [loadClients]);
+
+  async function handleToggle(client: AdminClient) {
+    setToggling(client.id);
+    try {
+      await toggleClientStatus(client.id, !client.isActive);
+      loadClients();
+    } catch (err) {
+      console.error("[ClientsPage] Failed to toggle client status:", err);
+    } finally {
+      setToggling(null);
+    }
+  }
 
   if (loading) return <Loader />;
   if (error) return <ErrorState message={error} />;
@@ -205,6 +227,18 @@ export default function ClientsPage() {
                         >
                           Assets
                         </Link>
+                        <button
+                          onClick={() => handleToggle(client)}
+                          disabled={toggling === client.id}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg font-medium transition-all hover:opacity-90 disabled:opacity-50"
+                          style={
+                            client.isActive
+                              ? { background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }
+                              : { background: "rgba(46,204,113,0.1)", color: "#2ecc71", border: "1px solid rgba(46,204,113,0.2)" }
+                          }
+                        >
+                          {toggling === client.id ? "…" : client.isActive ? "Deactivate" : "Activate"}
+                        </button>
                       </div>
                     </td>
                   </tr>
