@@ -32,7 +32,7 @@ export default function ClientSelector({
       .then((data) => {
         setClients(data);
         // Auto-select when an autoSelectId is provided and not yet selected
-        if (autoSelectId != null && !autoSelected.current) {
+        if (autoSelectId !== null && autoSelectId !== undefined && !autoSelected.current) {
           const match = data.find((c) => c.id === autoSelectId);
           if (match) {
             autoSelected.current = true;

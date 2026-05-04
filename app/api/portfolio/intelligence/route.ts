@@ -141,8 +141,9 @@ export async function GET(request: NextRequest) {
     try {
       const raw = await backendGet<BackendClient[]>("/clients", authHeader);
       clients = Array.isArray(raw) ? raw : [];
-    } catch {
+    } catch (err) {
       // Backend unreachable or returned an error — return empty intelligence
+      console.error("[/api/portfolio/intelligence] Failed to fetch clients:", err);
       return NextResponse.json([]);
     }
 
