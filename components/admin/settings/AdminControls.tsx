@@ -79,7 +79,7 @@ export default function AdminControls() {
     setActionError(null);
     try {
       const updated = await updateAdminUser(id, { role });
-      setAdmins((prev) => prev.map((a) => (a.id === id ? { ...a, ...updated } : a)));
+      setAdmins((prev) => prev.map((a) => (a.id === id ? { ...a, role: updated.role } : a)));
     } catch (err) {
       setActionError(toErrorMessage(err));
     } finally {
@@ -92,7 +92,7 @@ export default function AdminControls() {
     setActionError(null);
     try {
       const updated = await updateAdminUser(id, { isActive });
-      setAdmins((prev) => prev.map((a) => (a.id === id ? { ...a, ...updated } : a)));
+      setAdmins((prev) => prev.map((a) => (a.id === id ? { ...a, isActive: updated.isActive } : a)));
     } catch (err) {
       setActionError(toErrorMessage(err));
     } finally {
