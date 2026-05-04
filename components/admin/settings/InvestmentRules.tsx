@@ -82,8 +82,15 @@ export default function InvestmentRules() {
     const ac = new AbortController();
     getAllocationRules(ac.signal)
       .then((data) => {
-        if (data) setRules(data);
-        else console.warn("getAllocationRules: received null/empty response");
+        if (data) {
+          setRules({
+            LOW: { ...DEFAULT_RULES.LOW, ...(data.LOW ?? {}) },
+            MEDIUM: { ...DEFAULT_RULES.MEDIUM, ...(data.MEDIUM ?? {}) },
+            HIGH: { ...DEFAULT_RULES.HIGH, ...(data.HIGH ?? {}) },
+          });
+        } else {
+          console.warn("getAllocationRules: received null/empty response");
+        }
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
