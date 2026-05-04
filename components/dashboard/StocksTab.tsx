@@ -15,12 +15,11 @@ interface StocksTabProps {
 // ── Formatters ───────────────────────────────────────────────────────────────
 
 function fmtINR(n: number | undefined | null) {
-  if (n == null) return "—";
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-  }).format(Math.round(n));
+  }).format(n ?? 0);
 }
 
 function fmtPct(n: number, withSign = false) {
@@ -946,7 +945,7 @@ export default function StocksTab({
         <KPIItem
           label="Today Change"
           value={<span className="text-white/40 text-base">—</span>}
-          sub="requires live feed"
+          sub="Data unavailable"
           accent="#4F8CFF"
         />
         <KPIItem
@@ -1193,7 +1192,7 @@ export default function StocksTab({
                           border: "1px solid rgba(255,77,109,0.15)",
                         }}
                       >
-                        {isDeleting ? "…" : "Del"}
+                        {isDeleting ? "…" : "Delete"}
                       </button>
                     </div>
                   </td>

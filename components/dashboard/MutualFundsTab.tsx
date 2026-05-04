@@ -13,7 +13,7 @@ interface MutualFundsTabProps {
 }
 
 function fmt(n: number | undefined | null, prefix = "₹") {
-  if (n == null) return "—";
+  if (n == null) return `${prefix}0`;
   return `${prefix}${new Intl.NumberFormat("en-IN").format(Math.round(n))}`;
 }
 

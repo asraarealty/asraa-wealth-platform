@@ -30,13 +30,11 @@ function polarToCartesian(cx: number, cy: number, r: number, angle: number) {
   };
 }
 
-// Fallback slices shown only when no allocation data is available
+// Fallback slices shown only when no allocation data is available (equal-weight 33/33/34)
 const FALLBACK_SLICES: Slice[] = [
-  { label: "Equities", value: 45, color: SLICE_COLORS[0] },
-  { label: "Bonds", value: 25, color: SLICE_COLORS[1] },
-  { label: "Real Estate", value: 15, color: SLICE_COLORS[2] },
-  { label: "Cash", value: 10, color: SLICE_COLORS[3] },
-  { label: "Alts", value: 5, color: SLICE_COLORS[4] },
+  { label: "Stocks", value: 33, color: SLICE_COLORS[0] },
+  { label: "Mutual Funds", value: 33, color: SLICE_COLORS[1] },
+  { label: "Real Estate", value: 34, color: SLICE_COLORS[2] },
 ];
 
 export default function AllocationChart({ allocation }: Props) {

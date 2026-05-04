@@ -20,8 +20,12 @@ export default function ClientSelector({
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState("");
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
   const autoSelected = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const selectedClient = clients.find((c) => c.id === selectedId) ?? null;
 
   const load = useCallback((): AbortController => {
     const controller = new AbortController();
@@ -31,7 +35,6 @@ export default function ClientSelector({
     getClients(controller.signal)
       .then((data) => {
         setClients(data);
-        // Auto-select when an autoSelectId is provided and not yet selected
         if (autoSelectId !== null && autoSelectId !== undefined && !autoSelected.current) {
           const match = data.find((c) => c.id === autoSelectId);
           if (match) {
@@ -56,34 +59,35 @@ export default function ClientSelector({
     return () => controller.abort();
   }, [load]);
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
   const filtered = clients.filter(
     (c) =>
-      c.name.toLowerCase().includes(filter.toLowerCase()) ||
-      c.email.toLowerCase().includes(filter.toLowerCase())
+      c.name.toLowerCase().includes(query.toLowerCase()) ||
+      c.email.toLowerCase().includes(query.toLowerCase())
   );
+
+  function handleSelect(client: Client) {
+    onChange(client);
+    setQuery("");
+    setOpen(false);
+  }
 
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-sm py-4" style={{ color: "rgba(201,162,39,0.6)" }}>
-        <svg
-          className="animate-spin h-4 w-4"
-          fill="none"
-          viewBox="0 0 24 24"
-          style={{ color: "#c9a227" }}
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          />
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z"
-          />
+        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24" style={{ color: "#c9a227" }}>
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
         Loading clients…
       </div>
@@ -97,11 +101,7 @@ export default function ClientSelector({
         <button
           onClick={load}
           className="text-sm font-medium text-left px-3 py-1.5 rounded-lg transition"
-          style={{
-            color: "#c9a227",
-            background: "rgba(201,162,39,0.1)",
-            border: "1px solid rgba(201,162,39,0.2)",
-          }}
+          style={{ color: "#c9a227", background: "rgba(201,162,39,0.1)", border: "1px solid rgba(201,162,39,0.2)" }}
         >
           Retry
         </button>
@@ -110,101 +110,135 @@ export default function ClientSelector({
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <input
-        type="text"
-        name="client-filter"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-        placeholder="Filter clients…"
-        className="w-full px-4 py-2 text-sm text-white placeholder-white/30 rounded-lg transition focus:outline-none"
+    <div ref={containerRef} className="relative w-full">
+      {/* Combobox trigger */}
+      <button
+        type="button"
+        onClick={() => {
+          setOpen((v) => !v);
+          setQuery("");
+        }}
+        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm rounded-xl transition focus:outline-none"
         style={{
           background: "rgba(255,255,255,0.05)",
           border: "1px solid rgba(201,162,39,0.2)",
+          color: selectedClient ? "white" : "rgba(255,255,255,0.35)",
         }}
-        onFocus={(e) => {
-          e.currentTarget.style.borderColor = "rgba(201,162,39,0.5)";
-          e.currentTarget.style.boxShadow = "0 0 0 2px rgba(201,162,39,0.15)";
-        }}
-        onBlur={(e) => {
-          e.currentTarget.style.borderColor = "rgba(201,162,39,0.2)";
-          e.currentTarget.style.boxShadow = "none";
-        }}
-      />
-
-      <ul className="space-y-1.5 max-h-96 overflow-y-auto pr-1">
-        {filtered.length === 0 && (
-          <li className="text-sm py-2 text-center" style={{ color: "rgba(255,255,255,0.3)" }}>
-            No clients found
-          </li>
-        )}
-        {filtered.map((client) => {
-          const isSelected = client.id === selectedId;
-          return (
-            <li key={client.id}>
-              <button
-                onClick={() => onChange(client)}
-                className="w-full text-left rounded-xl px-4 py-3 transition"
-                style={
-                  isSelected
-                    ? {
-                        background: "rgba(201,162,39,0.12)",
-                        borderLeft: "3px solid #c9a227",
-                        border: "1px solid rgba(201,162,39,0.25)",
-                        color: "white",
-                      }
-                    : {
-                        background: "rgba(255,255,255,0.03)",
-                        border: "1px solid rgba(255,255,255,0.06)",
-                        color: "rgba(255,255,255,0.75)",
-                      }
-                }
-                onMouseEnter={(e) => {
-                  if (!isSelected) {
-                    e.currentTarget.style.background = "rgba(201,162,39,0.07)";
-                    e.currentTarget.style.borderColor = "rgba(201,162,39,0.15)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isSelected) {
-                    e.currentTarget.style.background = "rgba(255,255,255,0.03)";
-                    e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
-                  }
-                }}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {selectedClient ? (
+            <>
+              <div
+                className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                style={{ background: "rgba(201,162,39,0.15)", color: "#c9a227", border: "1px solid rgba(201,162,39,0.2)" }}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="font-medium text-sm truncate">{client.name}</div>
-                    <div className="text-xs truncate" style={{ color: "rgba(255,255,255,0.35)" }}>
-                      {client.email}
-                    </div>
-                  </div>
-                  <div className="shrink-0">
-                    <span
-                      className="inline-block text-xs px-2 py-0.5 rounded-full"
-                      style={
-                        client.isActive
-                          ? {
-                              background: "rgba(46,204,113,0.1)",
-                              color: "#2ecc71",
-                              border: "1px solid rgba(46,204,113,0.2)",
-                            }
-                          : {
-                              background: "rgba(255,255,255,0.05)",
-                              color: "rgba(255,255,255,0.35)",
-                              border: "1px solid rgba(255,255,255,0.1)",
-                            }
-                      }
+                {selectedClient.name.charAt(0).toUpperCase()}
+              </div>
+              <span className="truncate font-medium">{selectedClient.name}</span>
+              <span className="text-xs shrink-0" style={{ color: "rgba(255,255,255,0.35)" }}>
+                {selectedClient.email}
+              </span>
+            </>
+          ) : (
+            <span>Select a client…</span>
+          )}
+        </div>
+        <svg
+          className={`w-4 h-4 shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          fill="none" viewBox="0 0 24 24" stroke="rgba(201,162,39,0.6)" strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+        </svg>
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div
+          className="absolute z-50 mt-1.5 w-full rounded-xl shadow-2xl overflow-hidden"
+          style={{
+            background: "rgba(8,22,18,0.98)",
+            border: "1px solid rgba(201,162,39,0.2)",
+            backdropFilter: "blur(20px)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+          }}
+        >
+          {/* Search input */}
+          <div className="p-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="relative">
+              <svg
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none"
+                fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.3)" strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+              </svg>
+              <input
+                autoFocus
+                type="text"
+                name="client-search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by name or email…"
+                className="w-full pl-8 pr-3 py-2 text-sm text-white placeholder-white/25 rounded-lg focus:outline-none"
+                style={{ background: "rgba(255,255,255,0.05)" }}
+              />
+            </div>
+          </div>
+
+          {/* Options */}
+          <ul className="max-h-72 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <li className="px-4 py-3 text-sm text-center" style={{ color: "rgba(255,255,255,0.3)" }}>
+                No clients found
+              </li>
+            ) : (
+              filtered.map((client) => {
+                const isSelected = client.id === selectedId;
+                return (
+                  <li key={client.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleSelect(client)}
+                      className="w-full text-left px-4 py-3 transition flex items-center gap-2.5"
+                      style={{
+                        background: isSelected ? "rgba(201,162,39,0.12)" : "transparent",
+                        borderLeft: isSelected ? "3px solid #c9a227" : "3px solid transparent",
+                        color: "rgba(255,255,255,0.8)",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected) e.currentTarget.style.background = "rgba(201,162,39,0.07)";
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected) e.currentTarget.style.background = "transparent";
+                      }}
                     >
-                      {client.isActive ? "Active" : "Inactive"}
-                    </span>
-                  </div>
-                </div>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                        style={{ background: "rgba(201,162,39,0.15)", color: "#c9a227", border: "1px solid rgba(201,162,39,0.2)" }}
+                      >
+                        {client.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-sm truncate text-white">{client.name}</div>
+                        <div className="text-xs truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{client.email}</div>
+                      </div>
+                      <span
+                        className="shrink-0 text-xs px-2 py-0.5 rounded-full"
+                        style={
+                          client.isActive
+                            ? { background: "rgba(46,204,113,0.1)", color: "#2ecc71", border: "1px solid rgba(46,204,113,0.2)" }
+                            : { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.1)" }
+                        }
+                      >
+                        {client.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

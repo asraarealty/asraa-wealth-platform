@@ -4,6 +4,8 @@ import type { Asset } from "@/lib/api";
 
 interface Props {
   assets: Asset[];
+  /** Overall portfolio return %, used to trigger rebalance recommendation */
+  returnPercent?: number;
 }
 
 interface Rec {
@@ -15,10 +17,12 @@ interface Rec {
 
 /** Allocation thresholds that drive portfolio recommendations */
 const MAX_EQUITY_ALLOCATION_PCT = 60;
+const MIN_EQUITY_ALLOCATION_PCT = 50;
 const MIN_MF_ALLOCATION_PCT = 20;
-const MIN_RE_ALLOCATION_PCT = 10;
+const MIN_RE_ALLOCATION_PCT = 20;
+const MIN_HEALTHY_RETURN_PCT = 6;
 
-function buildRecs(assets: Asset[]): Rec[] {
+function buildRecs(assets: Asset[], returnPercent?: number): Rec[] {
   if (assets.length === 0) return [];
 
   const recs: Rec[] = [];
@@ -51,6 +55,18 @@ function buildRecs(assets: Asset[]): Rec[] {
       ),
     });
 
+  if (stockPct < MIN_EQUITY_ALLOCATION_PCT)
+    recs.push({
+      id: "increase-equity",
+      label: "Increase equity exposure — stocks below 50% target allocation",
+      color: "text-amber-400",
+      icon: (
+        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.307a11.95 11.95 0 0 1 5.814-5.519l2.74-1.22m0 0-5.94-2.28m5.94 2.28-2.28 5.941" />
+        </svg>
+      ),
+    });
+
   if (mfPct < MIN_MF_ALLOCATION_PCT)
     recs.push({
       id: "add-mf",
@@ -66,11 +82,23 @@ function buildRecs(assets: Asset[]): Rec[] {
   if (rePct < MIN_RE_ALLOCATION_PCT)
     recs.push({
       id: "invest-re",
-      label: "Consider real estate for stable income and inflation hedge",
+      label: "Add real estate — below 20% target for stable income and inflation hedge",
       color: "text-sky-400",
       icon: (
         <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+        </svg>
+      ),
+    });
+
+  if (returnPercent !== undefined && returnPercent < MIN_HEALTHY_RETURN_PCT)
+    recs.push({
+      id: "rebalance-returns",
+      label: `Rebalance portfolio — returns at ${returnPercent.toFixed(1)}% are below the 6% target`,
+      color: "text-orange-400",
+      icon: (
+        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
         </svg>
       ),
     });
@@ -90,8 +118,8 @@ function buildRecs(assets: Asset[]): Rec[] {
   return recs;
 }
 
-export default function ClientRecommendations({ assets }: Props) {
-  const recs = buildRecs(assets);
+export default function ClientRecommendations({ assets, returnPercent }: Props) {
+  const recs = buildRecs(assets, returnPercent);
 
   return (
     <div className="glass-card card-hover rounded-2xl p-5 h-full">

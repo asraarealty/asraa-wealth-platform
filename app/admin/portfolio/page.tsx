@@ -12,6 +12,7 @@ import {
   type UpdateAssetPayload,
 } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
+import { fmtCurrency } from "@/lib/formatters";
 import type { Client } from "@/lib/api";
 import ClientSelector from "@/components/ClientSelector";
 import AssetTabs from "@/components/dashboard/AssetTabs";
@@ -25,14 +26,6 @@ import type { AssetsAllocation } from "@/lib/api";
 
 type Tab = "stocks" | "mutual_funds" | "real_estate";
 type PortfolioTab = "overview" | "holdings" | "performance" | "risk" | "transactions";
-
-function fmtCurrency(n: number) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(n);
-}
 
 function whatsAppLink(phone: string) {
   const digits = phone.replace(/\D/g, "");

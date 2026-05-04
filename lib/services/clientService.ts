@@ -54,9 +54,22 @@ export const createClientProfile = (
   });
 };
 
+/** Basic email format check (filter out test/garbage data from the backend). */
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+/** Returns true if the client looks like real data (not a test/seed record). */
+function isRealClient(c: { name: string; email: string }): boolean {
+  if (c.name.trim().toLowerCase() === "string") return false;
+  if (!isValidEmail(c.email)) return false;
+  return true;
+}
+
 /**
  * Fetch the client list for the advisor dashboard sidebar.
  * Returns an empty array and logs a warning when the API returns a non-array.
+ * Filters out test/seed records (name === "string" or invalid emails).
  */
 export async function getClients(signal?: AbortSignal): Promise<Client[]> {
   const data = await fetchClients(signal);
@@ -64,12 +77,13 @@ export async function getClients(signal?: AbortSignal): Promise<Client[]> {
     console.warn("[clientService] getClients: expected array, got", typeof data);
     return [];
   }
-  return data;
+  return data.filter(isRealClient);
 }
 
 /**
  * Fetch the full client list for the admin panel.
  * Returns an empty array and logs a warning when the API returns a non-array.
+ * Filters out test/seed records (name === "string" or invalid emails).
  */
 export async function getAdminClients(
   signal?: AbortSignal
@@ -82,5 +96,5 @@ export async function getAdminClients(
     );
     return [];
   }
-  return data;
+  return data.filter(isRealClient);
 }
