@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getClients } from "@/lib/services/clientService";
 import { toErrorMessage } from "@/lib/fetcher";
 import type { Client } from "@/lib/api";
@@ -8,16 +8,20 @@ import type { Client } from "@/lib/api";
 interface ClientSelectorProps {
   selectedId: number | null;
   onChange: (client: Client) => void;
+  /** When set, automatically selects the matching client once the list loads. */
+  autoSelectId?: number | null;
 }
 
 export default function ClientSelector({
   selectedId,
   onChange,
+  autoSelectId,
 }: ClientSelectorProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  const autoSelected = useRef(false);
 
   const load = useCallback((): AbortController => {
     const controller = new AbortController();
@@ -27,6 +31,14 @@ export default function ClientSelector({
     getClients(controller.signal)
       .then((data) => {
         setClients(data);
+        // Auto-select when an autoSelectId is provided and not yet selected
+        if (autoSelectId != null && !autoSelected.current) {
+          const match = data.find((c) => c.id === autoSelectId);
+          if (match) {
+            autoSelected.current = true;
+            onChange(match);
+          }
+        }
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -37,7 +49,7 @@ export default function ClientSelector({
       });
 
     return controller;
-  }, []);
+  }, [autoSelectId, onChange]);
 
   useEffect(() => {
     const controller = load();

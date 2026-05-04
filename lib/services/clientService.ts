@@ -9,6 +9,7 @@ import {
 export interface CreateClientPayload {
   name: string;
   email: string;
+  password: string;
   phone?: string;
 }
 
@@ -39,11 +40,19 @@ export interface ClientProfilePayload {
 export const createClientProfile = (
   clientId: number,
   data: ClientProfilePayload
-): Promise<unknown> =>
-  fetcher<unknown>(`/clients/${clientId}/profile`, {
+): Promise<unknown> => {
+  // Backend expects snake_case keys
+  const body: Record<string, unknown> = {};
+  if (data.monthlyIncome !== undefined) body.monthly_income = data.monthlyIncome;
+  if (data.investmentCapacity !== undefined) body.investment_capacity = data.investmentCapacity;
+  if (data.investmentHorizon !== undefined) body.investment_horizon = data.investmentHorizon;
+  if (data.riskLevel !== undefined) body.risk_level = data.riskLevel;
+  if (data.goals !== undefined) body.goals = data.goals;
+  return fetcher<unknown>(`/clients/${clientId}/profile`, {
     method: "POST",
-    body: data,
+    body,
   });
+};
 
 /**
  * Fetch the client list for the advisor dashboard sidebar.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   fetchAssets,
   createAsset,
@@ -48,6 +49,10 @@ const PORTFOLIO_TABS: { id: PortfolioTab; label: string }[] = [
 ];
 
 export default function AdminPortfolioPage() {
+  const searchParams = useSearchParams();
+  const urlClientId = searchParams.get("clientId");
+  const autoSelectId = urlClientId ? Number(urlClientId) : null;
+
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(false);
@@ -184,6 +189,7 @@ export default function AdminPortfolioPage() {
         </p>
         <ClientSelector
           selectedId={selectedClient?.id ?? null}
+          autoSelectId={autoSelectId}
           onChange={(client) => {
             setSelectedClient(client);
             setActiveTab("stocks");
