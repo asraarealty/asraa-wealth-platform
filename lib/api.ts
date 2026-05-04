@@ -596,6 +596,172 @@ export function resetPassword(
   });
 }
 
+/* ── Settings: Platform ─────────────────────────────────────────────── */
+
+export interface PlatformSettings {
+  platformName: string;
+  defaultCurrency: string;
+  timezone: string;
+}
+
+export function getPlatformSettings(signal?: AbortSignal): Promise<PlatformSettings> {
+  return fetcher<PlatformSettings>("/settings/platform", { signal });
+}
+
+export function updatePlatformSettings(payload: PlatformSettings): Promise<PlatformSettings> {
+  return fetcher<PlatformSettings>("/settings/platform", { method: "PUT", body: payload });
+}
+
+/* ── Settings: Pricing Plans ─────────────────────────────────────────── */
+
+export interface PricingPlan {
+  id: number | string;
+  name: string;
+  monthlyPrice: number;
+  maxClients: number;
+  maxAssets: number;
+  features: string[];
+}
+
+export function getPricingPlans(signal?: AbortSignal): Promise<PricingPlan[]> {
+  return fetcher<PricingPlan[]>("/settings/pricing", { signal });
+}
+
+export function createPricingPlan(payload: Omit<PricingPlan, "id">): Promise<PricingPlan> {
+  return fetcher<PricingPlan>("/settings/pricing", { method: "POST", body: payload });
+}
+
+export function updatePricingPlan(id: PricingPlan["id"], payload: Partial<Omit<PricingPlan, "id">>): Promise<PricingPlan> {
+  return fetcher<PricingPlan>(`/settings/pricing/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+}
+
+export function deletePricingPlan(id: PricingPlan["id"]): Promise<void> {
+  return fetcher<void>(`/settings/pricing/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+/* ── Settings: Allocation Rules ─────────────────────────────────────── */
+
+export interface AllocationProfile {
+  stocksPercent: number;
+  mutualFundsPercent: number;
+  realEstatePercent: number;
+}
+
+export interface AllocationRules {
+  LOW: AllocationProfile;
+  MEDIUM: AllocationProfile;
+  HIGH: AllocationProfile;
+}
+
+export function getAllocationRules(signal?: AbortSignal): Promise<AllocationRules> {
+  return fetcher<AllocationRules>("/settings/allocation", { signal });
+}
+
+export function updateAllocationRules(payload: AllocationRules): Promise<AllocationRules> {
+  return fetcher<AllocationRules>("/settings/allocation", { method: "PUT", body: payload });
+}
+
+/* ── Settings: Stock Config ──────────────────────────────────────────── */
+
+export interface StockConfig {
+  dataProvider: string;
+  defaultExchange: string;
+  autoSymbolSuffix: boolean;
+  currencyMode: string;
+  exchangeRateSource: string;
+  manualRate: number;
+}
+
+export function getStockConfig(signal?: AbortSignal): Promise<StockConfig> {
+  return fetcher<StockConfig>("/settings/stock", { signal });
+}
+
+export function updateStockConfig(payload: StockConfig): Promise<StockConfig> {
+  return fetcher<StockConfig>("/settings/stock", { method: "PUT", body: payload });
+}
+
+/* ── Settings: Featured Properties ──────────────────────────────────── */
+
+export interface FeaturedProperty {
+  id: number | string;
+  title: string;
+  location: string;
+  price: number;
+  roi: number;
+  imageUrl: string;
+  redirectUrl: string;
+  isActive: boolean;
+  displayOrder: number;
+}
+
+export function getFeaturedProperties(signal?: AbortSignal): Promise<FeaturedProperty[]> {
+  return fetcher<FeaturedProperty[]>("/settings/featured-properties", { signal });
+}
+
+export function createFeaturedProperty(payload: Omit<FeaturedProperty, "id">): Promise<FeaturedProperty> {
+  return fetcher<FeaturedProperty>("/settings/featured-properties", { method: "POST", body: payload });
+}
+
+export function updateFeaturedProperty(id: FeaturedProperty["id"], payload: Partial<Omit<FeaturedProperty, "id">>): Promise<FeaturedProperty> {
+  return fetcher<FeaturedProperty>(`/settings/featured-properties/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+}
+
+export function deleteFeaturedProperty(id: FeaturedProperty["id"]): Promise<void> {
+  return fetcher<void>(`/settings/featured-properties/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export function toggleFeaturedProperty(id: FeaturedProperty["id"]): Promise<FeaturedProperty> {
+  return fetcher<FeaturedProperty>(`/settings/featured-properties/${encodeURIComponent(id)}/toggle`, { method: "PATCH" });
+}
+
+export function reorderFeaturedProperties(orderedIds: Array<FeaturedProperty["id"]>): Promise<void> {
+  return fetcher<void>("/settings/featured-properties/reorder", { method: "PATCH", body: { orderedIds } });
+}
+
+/* ── Settings: Notifications ─────────────────────────────────────────── */
+
+export interface NotificationSettings {
+  emailEnabled: boolean;
+  whatsappEnabled: boolean;
+  rebalanceAlert: boolean;
+  profitThreshold: number;
+  lossThreshold: number;
+}
+
+export function getNotificationSettings(signal?: AbortSignal): Promise<NotificationSettings> {
+  return fetcher<NotificationSettings>("/settings/notifications", { signal });
+}
+
+export function updateNotificationSettings(payload: NotificationSettings): Promise<NotificationSettings> {
+  return fetcher<NotificationSettings>("/settings/notifications", { method: "PUT", body: payload });
+}
+
+/* ── Settings: Admin Users ───────────────────────────────────────────── */
+
+export interface AdminUser {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  isActive: boolean;
+}
+
+export function getAdminUsers(signal?: AbortSignal): Promise<AdminUser[]> {
+  return fetcher<AdminUser[]>("/settings/admin-users", { signal });
+}
+
+export function createAdminUser(payload: Omit<AdminUser, "id">): Promise<AdminUser> {
+  return fetcher<AdminUser>("/settings/admin-users", { method: "POST", body: payload });
+}
+
+export function updateAdminUser(id: number, payload: Partial<Omit<AdminUser, "id">>): Promise<AdminUser> {
+  return fetcher<AdminUser>(`/settings/admin-users/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+}
+
+export function deleteAdminUser(id: number): Promise<void> {
+  return fetcher<void>(`/settings/admin-users/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
 /* ── Safe fetch utility ─────────────────────────────────────────────── */
 
 /**

@@ -1,22 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SectionCard from "./SectionCard";
+import {
+  getAllocationRules,
+  updateAllocationRules,
+  type AllocationRules,
+  type AllocationProfile,
+} from "@/lib/api";
+import { toErrorMessage } from "@/lib/fetcher";
 
 type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
-type RebalanceFrequency = "monthly" | "quarterly";
-
-interface AllocationProfile {
-  stocks: number;
-  mutualFunds: number;
-  realEstate: number;
-}
-
-interface InvestmentConfig {
-  profiles: Record<RiskLevel, AllocationProfile>;
-  maxStockAllocation: number;
-  rebalanceFrequency: RebalanceFrequency;
-}
 
 const RISK_ACCENT: Record<RiskLevel, { color: string; bg: string; border: string }> = {
   LOW: { color: "#00ff9f", bg: "rgba(0,255,159,0.06)", border: "rgba(0,255,159,0.15)" },
@@ -24,8 +18,11 @@ const RISK_ACCENT: Record<RiskLevel, { color: string; bg: string; border: string
   HIGH: { color: "#ff4d6d", bg: "rgba(255,77,109,0.06)", border: "rgba(255,77,109,0.15)" },
 };
 
-const selectCls = "w-full rounded-xl px-4 py-3 text-sm neon-input appearance-none";
-const inputCls = "w-full rounded-xl px-3 py-2.5 text-sm neon-input";
+const DEFAULT_RULES: AllocationRules = {
+  LOW: { stocksPercent: 20, mutualFundsPercent: 50, realEstatePercent: 30 },
+  MEDIUM: { stocksPercent: 40, mutualFundsPercent: 40, realEstatePercent: 20 },
+  HIGH: { stocksPercent: 70, mutualFundsPercent: 20, realEstatePercent: 10 },
+};
 
 function AllocationRow({
   label,
@@ -77,38 +74,40 @@ function AllocationRow({
 }
 
 export default function InvestmentRules() {
-  const [config, setConfig] = useState<InvestmentConfig>({
-    profiles: {
-      LOW: { stocks: 20, mutualFunds: 50, realEstate: 30 },
-      MEDIUM: { stocks: 40, mutualFunds: 40, realEstate: 20 },
-      HIGH: { stocks: 70, mutualFunds: 20, realEstate: 10 },
-    },
-    maxStockAllocation: 75,
-    rebalanceFrequency: "quarterly",
-  });
+  const [rules, setRules] = useState<AllocationRules>(DEFAULT_RULES);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    getAllocationRules(ac.signal)
+      .then((data) => setRules(data))
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(toErrorMessage(err));
+      })
+      .finally(() => setLoading(false));
+    return () => ac.abort();
+  }, []);
 
   function patchProfile(level: RiskLevel, partial: Partial<AllocationProfile>) {
-    setConfig((prev) => ({
+    setRules((prev) => ({
       ...prev,
-      profiles: {
-        ...prev.profiles,
-        [level]: { ...prev.profiles[level], ...partial },
-      },
+      [level]: { ...prev[level], ...partial },
     }));
   }
 
   function getTotal(profile: AllocationProfile) {
-    return profile.stocks + profile.mutualFunds + profile.realEstate;
+    return profile.stocksPercent + profile.mutualFundsPercent + profile.realEstatePercent;
   }
 
   async function handleSave() {
-    // Validate all profiles sum to 100 before saving
-    for (const level of Object.keys(config.profiles) as RiskLevel[]) {
-      if (getTotal(config.profiles[level]) !== 100) {
+    for (const level of Object.keys(rules) as RiskLevel[]) {
+      if (getTotal(rules[level]) !== 100) {
         throw new Error(`${level} profile must sum to 100%`);
       }
     }
-    await new Promise<void>((resolve) => setTimeout(resolve, 600));
+    await updateAllocationRules(rules);
   }
 
   return (
@@ -120,11 +119,21 @@ export default function InvestmentRules() {
         </svg>
       }
       onSave={handleSave}
+      loading={loading}
     >
+      {error && (
+        <div
+          className="rounded-xl px-4 py-3 text-sm"
+          style={{ background: "rgba(255,77,109,0.08)", border: "1px solid rgba(255,77,109,0.2)", color: "#ff4d6d" }}
+        >
+          {error}
+        </div>
+      )}
+
       {/* Risk profile cards */}
       <div className="space-y-4">
         {(["LOW", "MEDIUM", "HIGH"] as RiskLevel[]).map((level) => {
-          const profile = config.profiles[level];
+          const profile = rules[level];
           const total = getTotal(profile);
           const accent = RISK_ACCENT[level];
           const isValid = total === 100;
@@ -167,80 +176,26 @@ export default function InvestmentRules() {
               <div className="space-y-2.5 pt-1">
                 <AllocationRow
                   label="Stocks"
-                  value={profile.stocks}
-                  onChange={(v) => patchProfile(level, { stocks: v })}
+                  value={profile.stocksPercent}
+                  onChange={(v) => patchProfile(level, { stocksPercent: v })}
                   total={total}
                 />
                 <AllocationRow
                   label="Mutual Funds"
-                  value={profile.mutualFunds}
-                  onChange={(v) => patchProfile(level, { mutualFunds: v })}
+                  value={profile.mutualFundsPercent}
+                  onChange={(v) => patchProfile(level, { mutualFundsPercent: v })}
                   total={total}
                 />
                 <AllocationRow
                   label="Real Estate"
-                  value={profile.realEstate}
-                  onChange={(v) => patchProfile(level, { realEstate: v })}
+                  value={profile.realEstatePercent}
+                  onChange={(v) => patchProfile(level, { realEstatePercent: v })}
                   total={total}
                 />
               </div>
             </div>
           );
         })}
-      </div>
-
-      {/* Advanced settings */}
-      <div
-        className="rounded-xl p-4 space-y-3"
-        style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
-      >
-        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
-          Advanced
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
-              Max Stock Allocation (%)
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="range"
-                min={10}
-                max={100}
-                step={5}
-                value={config.maxStockAllocation}
-                onChange={(e) =>
-                  setConfig((p) => ({ ...p, maxStockAllocation: Number(e.target.value) }))
-                }
-                className="flex-1 accent-cyan-400"
-              />
-              <span
-                className="text-sm font-semibold w-10 text-right"
-                style={{ color: "#00E5FF" }}
-              >
-                {config.maxStockAllocation}%
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
-              Rebalance Frequency
-            </label>
-            <select
-              className={`${selectCls}`}
-              value={config.rebalanceFrequency}
-              onChange={(e) =>
-                setConfig((p) => ({
-                  ...p,
-                  rebalanceFrequency: e.target.value as RebalanceFrequency,
-                }))
-              }
-            >
-              <option value="monthly">Monthly</option>
-              <option value="quarterly">Quarterly</option>
-            </select>
-          </div>
-        </div>
       </div>
     </SectionCard>
   );
