@@ -91,7 +91,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
       await onSave({
         type: "stock",
         symbol,
-        exchange: symbolValidation.exchange ?? undefined,
+        exchange: symbolValidation.exchange,
         name,
         quantity,
         avgPrice,

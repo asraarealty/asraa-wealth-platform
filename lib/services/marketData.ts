@@ -83,10 +83,10 @@ async function toStockPriceResult(
   price: number,
   nativeCurrency: "USD" | "INR"
 ): Promise<StockPriceResult> {
-  if (nativeCurrency === "INR") {
-    return { price, currency: "INR", priceINR: price, priceUSD: price / (await getUsdToInrRate()) };
-  }
   const rate = await getUsdToInrRate();
+  if (nativeCurrency === "INR") {
+    return { price, currency: "INR", priceINR: price, priceUSD: rate > 0 ? price / rate : 0 };
+  }
   return { price, currency: "USD", priceINR: price * rate, priceUSD: price };
 }
 

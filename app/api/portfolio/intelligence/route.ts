@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
         const livePrice = priceMap.get(item.symbol);
         if (livePrice === undefined) return item;
         // Always use INR for portfolio value calculations
-        const priceInr = livePrice.priceINR;
+        const priceInr = safeNum(livePrice.priceINR);
         return {
           ...item,
           currentPrice: priceInr,

@@ -34,8 +34,11 @@ function isEquity(symbol: string): boolean {
 /** Return the effective current price, falling back to avg_price when missing or zero */
 function effectivePrice(item: PortfolioItem): number {
   const current = Number(item.currentPrice);
+  if (Number.isFinite(current) && current > 0) {
+    return current;
+  }
   const avg = Number(item.avgPrice);
-  return Number.isFinite(current) && current > 0 ? current : (Number.isFinite(avg) ? avg : 0);
+  return Number.isFinite(avg) ? avg : 0;
 }
 
 // ── Task 2 — Portfolio Metrics ───────────────────────────────────────────────
