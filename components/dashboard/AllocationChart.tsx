@@ -10,12 +10,12 @@ interface Slice {
 }
 
 const SLICE_COLORS = [
+  "#00E5FF",
+  "#00ff9f",
+  "#4F8CFF",
   "#c9a227",
-  "#2ecc71",
-  "#3498db",
-  "#9b59b6",
-  "#e74c3c",
-  "#f39c12",
+  "#ff4d6d",
+  "#a855f7",
 ];
 
 interface Props {
@@ -46,7 +46,7 @@ export default function AllocationChart({ allocation }: Props) {
     const candidates: Slice[] = [
       { label: "Stocks", value: allocation.stock ?? 0, color: SLICE_COLORS[0] },
       { label: "Mutual Funds", value: allocation.mf ?? 0, color: SLICE_COLORS[1] },
-      { label: "Real Estate", value: allocation.real_estate ?? 0, color: SLICE_COLORS[2] },
+      { label: "Real Estate", value: allocation.realEstate ?? 0, color: SLICE_COLORS[2] },
     ].filter((s) => s.value > 0);
 
     if (candidates.length === 0) return FALLBACK_SLICES;
@@ -70,7 +70,7 @@ export default function AllocationChart({ allocation }: Props) {
 
   return (
     <div className="glass-card card-hover rounded-2xl p-5">
-      <p className="text-xs uppercase tracking-widest font-semibold mb-4" style={{ color: "rgba(201,162,39,0.65)" }}>
+      <p className="text-xs uppercase tracking-widest font-semibold mb-4" style={{ color: "rgba(0,229,255,0.55)" }}>
         Allocation
       </p>
 
@@ -84,8 +84,8 @@ export default function AllocationChart({ allocation }: Props) {
           aria-label="Portfolio allocation donut chart"
         >
           <defs>
-            <filter id="sliceGlow">
-              <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+            <filter id="sliceGlowNeon">
+              <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
               <feMerge>
                 <feMergeNode in="coloredBlur" />
                 <feMergeNode in="SourceGraphic" />
@@ -128,10 +128,10 @@ export default function AllocationChart({ allocation }: Props) {
                 key={arc.label}
                 d={d}
                 fill={arc.color}
-                opacity={0.85}
-                stroke="rgba(7,26,20,0.9)"
+                opacity={0.88}
+                stroke="rgba(5,11,24,0.8)"
                 strokeWidth={2}
-                filter="url(#sliceGlow)"
+                filter="url(#sliceGlowNeon)"
               />
             );
           })}
@@ -139,19 +139,19 @@ export default function AllocationChart({ allocation }: Props) {
           {/* Center text */}
           <text
             x={cx}
-            y={cy - 6}
+            y={cy - 8}
             textAnchor="middle"
-            fill="white"
-            fontSize={13}
+            fill="rgba(255,255,255,0.9)"
+            fontSize={14}
             fontWeight="bold"
           >
             AUM
           </text>
           <text
             x={cx}
-            y={cy + 10}
+            y={cy + 8}
             textAnchor="middle"
-            fill="rgba(201,162,39,0.8)"
+            fill="rgba(0,229,255,0.7)"
             fontSize={9}
           >
             Diversified
@@ -159,15 +159,21 @@ export default function AllocationChart({ allocation }: Props) {
         </svg>
 
         {/* Legend */}
-        <ul className="space-y-2 flex-1 min-w-0">
+        <ul className="space-y-2.5 flex-1 min-w-0">
           {arcs.map((arc) => (
             <li key={arc.label} className="flex items-center gap-2 text-xs">
               <span
                 className="w-2.5 h-2.5 rounded-full shrink-0"
-                style={{ background: arc.color }}
+                style={{
+                  background: arc.color,
+                  boxShadow: `0 0 6px ${arc.color}88`,
+                }}
               />
-              <span className="text-gray-300 truncate">{arc.label}</span>
-              <span className="ml-auto text-gold-light font-medium shrink-0">
+              <span className="text-white/60 truncate">{arc.label}</span>
+              <span
+                className="ml-auto font-semibold shrink-0"
+                style={{ color: arc.color }}
+              >
                 {arc.value.toFixed(1)}%
               </span>
             </li>

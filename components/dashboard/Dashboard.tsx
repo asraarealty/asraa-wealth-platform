@@ -1,13 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { fetcher } from "@/lib/fetcher";
-import { toErrorMessage } from "@/lib/fetcher";
-import {
-  mapPortfolio,
-  type PortfolioData,
-  type RawPortfolioResponse,
-} from "@/lib/mappers/mapPortfolio";
+import { ApiError, toErrorMessage, fetcher } from "@/lib/fetcher";
+import { fetchPortfolio } from "@/lib/api";
+import type { PortfolioFull, CreateAssetPayload } from "@/lib/api";
 import {
   mapInsights,
   type InsightsData,
@@ -19,7 +15,6 @@ import HoldingsTable from "./HoldingsTable";
 import AllocationSection from "./AllocationSection";
 import AddAssetModal from "./modals/AddAssetModal";
 import Loader from "@/components/ui/Loader";
-import type { CreateAssetPayload } from "@/lib/api";
 import { createAsset } from "@/lib/api";
 
 // ── Section wrapper ─────────────────────────────────────────────────────────
@@ -34,7 +29,7 @@ function Section({ title, children, action }: SectionProps) {
   return (
     <div className="glass-card rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
-        <p className="text-xs font-semibold uppercase tracking-widest text-gold-light">
+        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(0,229,255,0.6)" }}>
           {title}
         </p>
         {action}
@@ -50,24 +45,23 @@ function EmptyPortfolio({ onAdd }: { onAdd: () => void }) {
   return (
     <div
       className="glass-card rounded-2xl p-12 text-center animate-fade-in"
-      style={{ border: "1px solid rgba(201,162,39,0.15)" }}
+      style={{ border: "1px solid rgba(0,229,255,0.1)" }}
     >
       <div
         className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-        style={{ background: "rgba(201,162,39,0.1)", border: "1px solid rgba(201,162,39,0.2)" }}
+        style={{ background: "rgba(0,229,255,0.08)", border: "1px solid rgba(0,229,255,0.18)" }}
       >
-        <svg className="w-7 h-7 text-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="#00E5FF" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m6-6H6" />
         </svg>
       </div>
       <p className="text-white font-semibold mb-1">No holdings yet</p>
-      <p className="text-sm text-gray-400 mb-5">
+      <p className="text-sm text-white/40 mb-5">
         Add your first investment to start tracking your portfolio.
       </p>
       <button
         onClick={onAdd}
-        className="px-5 py-2.5 text-sm font-semibold rounded-xl transition-colors"
-        style={{ background: "#c9a227", color: "#071a14" }}
+        className="px-5 py-2.5 text-sm font-semibold rounded-xl transition-all duration-300 hover:-translate-y-0.5 neon-btn"
       >
         + Add Asset
       </button>
@@ -104,11 +98,11 @@ function SyncButton({ syncing, onClick }: { syncing: boolean; onClick: () => voi
     <button
       onClick={onClick}
       disabled={syncing}
-      className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all disabled:opacity-60"
+      className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all duration-300 disabled:opacity-60 hover:-translate-y-0.5"
       style={{
-        background: "rgba(255,255,255,0.06)",
-        border: "1px solid rgba(255,255,255,0.1)",
-        color: "rgba(255,255,255,0.75)",
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.09)",
+        color: "rgba(255,255,255,0.65)",
       }}
     >
       <svg
@@ -133,16 +127,12 @@ interface DashboardProps {
 }
 
 export default function PortfolioDashboard({ clientId }: DashboardProps) {
-  const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
+  const [portfolio, setPortfolio] = useState<PortfolioFull | null>(null);
   const [insights, setInsights] = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
-
-  const portfolioPath = clientId !== undefined
-    ? `/portfolio?user_id=${encodeURIComponent(clientId)}`
-    : "/portfolio/me";
 
   const insightsPath = clientId !== undefined
     ? `/insights?user_id=${encodeURIComponent(clientId)}`
@@ -153,58 +143,30 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
       if (!silent) setLoading(true);
       setError(null);
       try {
-        const [rawPortfolio, rawInsights] = await Promise.all([
-          fetcher<RawPortfolioResponse>(portfolioPath, { raw: true }),
+        const [fullPortfolio, rawInsights] = await Promise.all([
+          fetchPortfolio(clientId).catch((err) => {
+            if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
+              return null;
+            }
+            throw err;
+          }),
           fetcher<RawInsightsResponse>(insightsPath, { raw: true }).catch(
             () => null
           ),
         ]);
 
-        // The /portfolio/me endpoint may return just a positions array or
-        // the full envelope. Normalise to the envelope shape, computing
-        // aggregate totals from positions when the backend omits them so that
-        // KPI values are always correct rather than showing zeros.
-        let portfolioEnvelope: RawPortfolioResponse;
-        if (Array.isArray(rawPortfolio)) {
-          const positions = rawPortfolio as RawPortfolioResponse["positions"];
-          const totalValue = positions.reduce((s, p) => s + (p.value ?? 0), 0);
-          const stockValue = positions
-            .filter((p) => p.type === "stock")
-            .reduce((s, p) => s + (p.value ?? 0), 0);
-          const mfValue = positions
-            .filter((p) => p.type === "mf")
-            .reduce((s, p) => s + (p.value ?? 0), 0);
-          const propertyValue = positions
-            .filter((p) => p.type === "property")
-            .reduce((s, p) => s + (p.value ?? 0), 0);
-          const totalInvested = positions.reduce(
-            (s, p) => s + (p.avg_price ?? 0) * (p.quantity ?? 0),
-            0
-          );
-          const roiPercent =
-            totalInvested > 0
-              ? ((totalValue - totalInvested) / totalInvested) * 100
-              : 0;
-          portfolioEnvelope = {
-            positions,
-            total_value: totalValue,
-            stock_value: stockValue,
-            mf_value: mfValue,
-            property_value: propertyValue,
-            roi_percent: roiPercent,
-          };
+        if (fullPortfolio) {
+          setPortfolio(fullPortfolio);
         } else {
-          portfolioEnvelope = rawPortfolio ?? {
+          setPortfolio({
             positions: [],
-            total_value: 0,
-            stock_value: 0,
-            mf_value: 0,
-            property_value: 0,
-            roi_percent: 0,
-          };
+            totalValue: 0,
+            stockValue: 0,
+            mfValue: 0,
+            propertyValue: 0,
+            roiPercent: 0,
+          });
         }
-
-        setPortfolio(mapPortfolio(portfolioEnvelope));
 
         if (rawInsights) {
           setInsights(mapInsights(rawInsights));
@@ -215,7 +177,7 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
         if (!silent) setLoading(false);
       }
     },
-    [portfolioPath, insightsPath]
+    [clientId, insightsPath]
   );
 
   useEffect(() => {
@@ -234,7 +196,7 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
   async function handleAdd(payload: CreateAssetPayload) {
     await createAsset({
       ...payload,
-      ...(clientId !== undefined ? { user_id: clientId } : {}),
+      ...(clientId !== undefined ? { userId: clientId } : {}),
     });
     await loadData(true);
     setAddModalOpen(false);
@@ -244,7 +206,10 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#071a14] flex items-center justify-center">
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "linear-gradient(160deg, #050b18 0%, #071426 100%)" }}
+      >
         <Loader />
       </div>
     );
@@ -254,12 +219,15 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
     (portfolio?.positions?.length ?? 0) > 0;
 
   return (
-    <div className="min-h-screen text-white bg-[#071a14] p-6 space-y-6 animate-fade-in">
+    <div
+      className="min-h-screen text-white p-6 space-y-6 animate-fade-in"
+      style={{ background: "linear-gradient(160deg, #050b18 0%, #071426 100%)" }}
+    >
       {/* ── Page header ──────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-white">Portfolio Dashboard</h1>
-          <p className="text-sm text-gray-400 mt-0.5">
+          <h1 className="text-2xl font-bold text-white tracking-tight">Portfolio Dashboard</h1>
+          <p className="text-sm text-white/40 mt-0.5">
             Real-time overview of your wealth portfolio
           </p>
         </div>
@@ -267,8 +235,12 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
           <SyncButton syncing={syncing} onClick={handleSync} />
           <button
             onClick={() => setAddModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl transition-colors"
-            style={{ background: "#c9a227", color: "#071a14" }}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-300 hover:-translate-y-0.5"
+            style={{
+              background: "linear-gradient(135deg, #00E5FF, #4F8CFF)",
+              color: "#020912",
+              boxShadow: "0 0 20px rgba(0,229,255,0.2)",
+            }}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />

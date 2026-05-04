@@ -229,7 +229,6 @@ export interface Asset {
   /** Common */
   tags?: string[];
   userId?: number;
-  user_id?: number;
   createdAt?: string;
 }
 
@@ -242,11 +241,11 @@ export type UpdateAssetPayload = Partial<CreateAssetPayload>;
 export interface AssetsAllocation {
   stock: number;
   mf: number;
-  real_estate: number;
+  realEstate: number;
 }
 
 /**
- * Full portfolio response shape returned by /portfolio/me or /portfolio?user_id=...
+ * Full portfolio response shape returned by /assets/me or /assets?user_id=...
  * Includes aggregate totals from the backend so the UI does not need to recompute them.
  */
 export interface PortfolioFull {
@@ -283,14 +282,16 @@ export async function fetchPortfolio(
 ): Promise<PortfolioFull> {
   const path =
     userId !== undefined
-      ? `/portfolio?user_id=${encodeURIComponent(userId)}`
-      : "/portfolio/me";
+      ? `/assets?user_id=${encodeURIComponent(userId)}`
+      : "/assets/me";
 
   let res: any;
   try {
-    res = await fetcher<any>(path, { signal, raw: true, cache: "no-store" });
+    // `raw` is omitted intentionally: the fetcher automatically unwraps the
+    // { success, data } envelope so res arrives as { assets, summary, allocation }.
+    res = await fetcher<any>(path, { signal, cache: "no-store" });
   } catch (err) {
-    if (err instanceof ApiError && err.status === 404) {
+    if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
       return {
         positions: [],
         totalValue: 0,
@@ -303,15 +304,20 @@ export async function fetchPortfolio(
     throw err;
   }
 
+  // After fetcher auto-unwraps { success, data }, res is { assets, summary, allocation }
+  // Support both new camelCase format and old snake_case format as fallback.
   const rawPositions: unknown = Array.isArray(res)
     ? res
-    : res?.positions ?? res?.data ?? res?.assets ?? [];
+    : res?.assets ?? res?.positions ?? res?.data ?? [];
 
   const positions = normalizeAssetList(rawPositions);
+  const summary = res?.summary ?? {};
 
-  // Prefer server-provided totals; fall back to client-side computation when omitted.
+  // Prefer server-provided totals from summary; fall back to client-side computation.
   const totalVal =
-    typeof res?.total_value === "number"
+    typeof summary.totalValue === "number"
+      ? summary.totalValue
+      : typeof res?.total_value === "number"
       ? res.total_value
       : positions.reduce((s: number, p: Asset) => s + Number(p.value ?? 0), 0);
 
@@ -321,28 +327,36 @@ export async function fetchPortfolio(
   );
 
   const stockVal =
-    typeof res?.stock_value === "number"
+    typeof summary.stockValue === "number"
+      ? summary.stockValue
+      : typeof res?.stock_value === "number"
       ? res.stock_value
       : positions
           .filter((p: Asset) => p.type === "stock")
           .reduce((s: number, p: Asset) => s + Number(p.value ?? 0), 0);
 
   const mfVal =
-    typeof res?.mf_value === "number"
+    typeof summary.mfValue === "number"
+      ? summary.mfValue
+      : typeof res?.mf_value === "number"
       ? res.mf_value
       : positions
           .filter((p: Asset) => p.type === "mf")
           .reduce((s: number, p: Asset) => s + Number(p.value ?? 0), 0);
 
   const propertyVal =
-    typeof res?.property_value === "number"
+    typeof summary.propertyValue === "number"
+      ? summary.propertyValue
+      : typeof res?.property_value === "number"
       ? res.property_value
       : positions
           .filter((p: Asset) => p.type === "property")
           .reduce((s: number, p: Asset) => s + Number(p.value ?? 0), 0);
 
   const roiVal =
-    typeof res?.roi_percent === "number"
+    typeof summary.roiPercent === "number"
+      ? summary.roiPercent
+      : typeof res?.roi_percent === "number"
       ? res.roi_percent
       : totalInvested > 0
       ? ((totalVal - totalInvested) / totalInvested) * 100
@@ -379,41 +393,33 @@ export async function fetchPortfolioItems(
 }
 
 /**
- * Fetch all client assets from the admin endpoint and return them grouped by
- * string user_id.  Supports both a pre-grouped object response and a flat
- * array response (assets are grouped client-side in the latter case).
+ * Fetch all client assets by fetching each user's assets individually via
+ * GET /assets?user_id=<id>.  Returns assets grouped by string user id.
  */
 export async function fetchAdminGroupedAssets(
+  userIds: number[],
   signal?: AbortSignal
 ): Promise<Record<string, Asset[]>> {
-  const res = await fetcher<any>("/portfolio/admin", {
-    signal,
-    raw: true,
-    cache: "no-store",
-  });
+  if (userIds.length === 0) return {};
 
-  if (res && typeof res === "object" && !Array.isArray(res)) {
-    // Backend returned { "<user_id>": [...assets], ... }
-    const grouped: Record<string, Asset[]> = {};
-    for (const [key, val] of Object.entries(res)) {
-      grouped[key] = normalizeAssetList(val);
+  const results = await Promise.allSettled(
+    userIds.map(async (uid) => {
+      const res = await fetcher<any>(`/assets?user_id=${encodeURIComponent(uid)}`, {
+        signal,
+        cache: "no-store",
+      });
+      const assets = normalizeAssetList(res?.assets ?? res);
+      return { uid, assets };
+    })
+  );
+
+  const grouped: Record<string, Asset[]> = {};
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      grouped[String(result.value.uid)] = result.value.assets;
     }
-    return grouped;
   }
-
-  // Backend returned a flat array — group by user_id / userId
-  if (Array.isArray(res)) {
-    const grouped: Record<string, Asset[]> = {};
-    for (const asset of normalizeAssetList(res)) {
-      const key = String((asset as any).user_id ?? asset.userId ?? "");
-      if (!key) continue;
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(asset);
-    }
-    return grouped;
-  }
-
-  return {};
+  return grouped;
 }
 
 /** Fetch all assets (positions) for a specific client. */
