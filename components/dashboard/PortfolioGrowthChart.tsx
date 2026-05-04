@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { formatINR } from "@/lib/formatters";
 
 interface DataPoint {
   month: string;
@@ -91,11 +92,7 @@ export default function PortfolioGrowthChart({ totalValue, gainPercent }: Props)
             Portfolio Growth
           </p>
           <p className="text-xl font-bold text-white tracking-tight">
-            {new Intl.NumberFormat("en-US", {
-              style: "currency",
-              currency: "USD",
-              maximumFractionDigits: 0,
-            }).format(latestValue)}
+            {formatINR(latestValue)}
           </p>
         </div>
         <div className="flex items-center gap-2">
