@@ -61,14 +61,21 @@ async function backendGet<T>(path: string, authHeader: string): Promise<T> {
 
   const json: unknown = await res.json();
 
-  // Unwrap { data: [...] } envelope if present
+  // Unwrap { success, data } or { data } envelope if present
   if (
     json !== null &&
     typeof json === "object" &&
-    !Array.isArray(json) &&
-    "data" in json
+    !Array.isArray(json)
   ) {
-    return (json as { data: T }).data;
+    const obj = json as Record<string, unknown>;
+    // { success: true, data: T }
+    if ("success" in obj && "data" in obj) {
+      return obj.data as T;
+    }
+    // { data: T }
+    if ("data" in obj) {
+      return obj.data as T;
+    }
   }
 
   return json as T;
@@ -127,8 +134,20 @@ export async function GET(request: NextRequest) {
 
   try {
     // 1. Fetch all clients
-    const clients = await backendGet<BackendClient[]>("/api/v2/clients", authHeader);
-    if (!Array.isArray(clients) || clients.length === 0) {
+    // NOTE: The BACKEND_URL already points at the raw backend (e.g. http://localhost:8000).
+    // Next.js rewrites strip the /api/v2 prefix, so when calling the backend directly
+    // we must NOT include that prefix in the path.
+    let clients: BackendClient[];
+    try {
+      const raw = await backendGet<BackendClient[]>("/clients", authHeader);
+      clients = Array.isArray(raw) ? raw : [];
+    } catch (err) {
+      // Backend unreachable or returned an error — return empty intelligence
+      console.error("[/api/portfolio/intelligence] Failed to fetch clients:", err);
+      return NextResponse.json([]);
+    }
+
+    if (clients.length === 0) {
       return NextResponse.json([]);
     }
 
@@ -136,7 +155,7 @@ export async function GET(request: NextRequest) {
     const portfolioSettled = await Promise.allSettled(
       clients.map(async (client) => {
         const raw = await backendGet<unknown>(
-          `/api/v2/assets?user_id=${client.id}`,
+          `/assets?user_id=${client.id}`,
           authHeader
         );
         const items = parsePortfolioResponse(raw);

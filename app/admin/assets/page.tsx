@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   fetchAssets,
   createAsset,
@@ -20,6 +21,10 @@ import ErrorState from "@/components/ui/ErrorState";
 type Tab = "stocks" | "mutual_funds" | "real_estate";
 
 export default function AssetsPage() {
+  const searchParams = useSearchParams();
+  const urlClientId = searchParams.get("clientId");
+  const autoSelectId = urlClientId ? Number(urlClientId) : null;
+
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(false);
@@ -124,6 +129,7 @@ export default function AssetsPage() {
         </p>
         <ClientSelector
           selectedId={selectedClient?.id ?? null}
+          autoSelectId={autoSelectId}
           onChange={(client) => {
             setSelectedClient(client);
             setActiveTab("stocks");

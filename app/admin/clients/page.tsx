@@ -214,14 +214,14 @@ export default function ClientsPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <Link
-                          href="/admin/portfolio"
+                          href={`/admin/portfolio?clientId=${client.id}`}
                           className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg font-medium transition-all hover:opacity-90"
                           style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}
                         >
                           Portfolio
                         </Link>
                         <Link
-                          href="/admin/assets"
+                          href={`/admin/assets?clientId=${client.id}`}
                           className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg font-medium transition-all hover:opacity-90"
                           style={{ background: "rgba(0,229,255,0.08)", color: "#00E5FF", border: "1px solid rgba(0,229,255,0.2)" }}
                         >
