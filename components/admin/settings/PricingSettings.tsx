@@ -200,8 +200,9 @@ export default function PricingSettings() {
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Name</label>
+              <label htmlFor="ps-plan-name" className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Name</label>
               <input
+                id="ps-plan-name"
                 type="text"
                 required
                 className={inputCls}
@@ -211,8 +212,9 @@ export default function PricingSettings() {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Monthly Price</label>
+              <label htmlFor="ps-monthly-price" className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Monthly Price</label>
               <input
+                id="ps-monthly-price"
                 type="number"
                 required
                 min={0}
@@ -222,8 +224,9 @@ export default function PricingSettings() {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Max Clients (-1 = ∞)</label>
+              <label htmlFor="ps-max-clients" className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Max Clients (-1 = ∞)</label>
               <input
+                id="ps-max-clients"
                 type="number"
                 required
                 className={inputCls}
@@ -232,8 +235,9 @@ export default function PricingSettings() {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Max Assets (-1 = ∞)</label>
+              <label htmlFor="ps-max-assets" className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Max Assets (-1 = ∞)</label>
               <input
+                id="ps-max-assets"
                 type="number"
                 required
                 className={inputCls}
@@ -249,6 +253,7 @@ export default function PricingSettings() {
               <div key={i} className="flex items-center gap-2">
                 <input
                   type="text"
+                  name={`plan-feature-${i}`}
                   className={`${inputCls} flex-1`}
                   value={f}
                   placeholder="Feature description…"

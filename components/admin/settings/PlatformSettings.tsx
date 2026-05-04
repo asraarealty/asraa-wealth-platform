@@ -88,10 +88,11 @@ export default function PlatformSettings() {
 
       {/* Default Currency */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
+        <label htmlFor="platform-default-currency" className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
           Default Currency
         </label>
         <select
+          id="platform-default-currency"
           className={selectClass}
           value={config.defaultCurrency}
           onChange={(e) => patch({ defaultCurrency: e.target.value })}
@@ -104,10 +105,11 @@ export default function PlatformSettings() {
 
       {/* Timezone */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
+        <label htmlFor="platform-timezone" className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
           Timezone
         </label>
         <select
+          id="platform-timezone"
           className={selectClass}
           value={config.timezone}
           onChange={(e) => patch({ timezone: e.target.value })}

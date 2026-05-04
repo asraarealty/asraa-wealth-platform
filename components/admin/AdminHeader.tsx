@@ -49,6 +49,7 @@ export default function AdminHeader() {
           </svg>
           <input
             type="search"
+            name="admin-search"
             placeholder="Search clients, assets…"
             className="w-full pl-9 pr-4 py-2 text-sm rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
             style={{

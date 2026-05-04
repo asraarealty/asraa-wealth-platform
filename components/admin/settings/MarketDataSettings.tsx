@@ -80,10 +80,11 @@ export default function MarketDataSettings() {
 
       {/* Data Provider */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
+        <label htmlFor="market-data-provider" className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
           Data Provider
         </label>
         <select
+          id="market-data-provider"
           className={selectCls}
           value={config.dataProvider}
           onChange={(e) => patch({ dataProvider: e.target.value as DataProvider })}
@@ -96,10 +97,11 @@ export default function MarketDataSettings() {
 
       {/* Default Exchange */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
+        <label htmlFor="market-default-exchange" className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
           Default Exchange
         </label>
         <select
+          id="market-default-exchange"
           className={selectCls}
           value={config.defaultExchange}
           onChange={(e) => patch({ defaultExchange: e.target.value as Exchange })}
@@ -146,10 +148,11 @@ export default function MarketDataSettings() {
 
       {/* Currency Mode */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
+        <label htmlFor="market-currency-mode" className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
           Currency Mode
         </label>
         <select
+          id="market-currency-mode"
           className={selectCls}
           value={config.currencyMode}
           onChange={(e) => patch({ currencyMode: e.target.value as CurrencyMode })}

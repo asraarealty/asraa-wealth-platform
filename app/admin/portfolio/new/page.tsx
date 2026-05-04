@@ -121,8 +121,9 @@ export default function NewPortfolioPage() {
       >
         {/* ASSET TYPE */}
         <div>
-          <label className="text-sm text-gray-400">Asset Type *</label>
+          <label htmlFor="asset-type" className="text-sm text-gray-400">Asset Type *</label>
           <select
+            id="asset-type"
             value={form.type}
             onChange={(e) => handleChange("type", e.target.value)}
             className="w-full mt-1 p-2 rounded-xl bg-transparent border border-gray-600 focus:outline-none focus:ring-1 text-white"
@@ -139,10 +140,11 @@ export default function NewPortfolioPage() {
 
         {/* SYMBOL */}
         <div>
-          <label className="text-sm text-gray-400">
+          <label htmlFor="asset-symbol" className="text-sm text-gray-400">
             Symbol{form.type === "property" ? " (optional)" : ""}
           </label>
           <input
+            id="asset-symbol"
             type="text"
             placeholder={
               form.type === "stock"
@@ -159,8 +161,9 @@ export default function NewPortfolioPage() {
 
         {/* NAME */}
         <div>
-          <label className="text-sm text-gray-400">Name *</label>
+          <label htmlFor="asset-name" className="text-sm text-gray-400">Name *</label>
           <input
+            id="asset-name"
             type="text"
             placeholder={
               form.type === "stock"
@@ -178,10 +181,11 @@ export default function NewPortfolioPage() {
 
         {/* QUANTITY */}
         <div>
-          <label className="text-sm text-gray-400">
+          <label htmlFor="asset-quantity" className="text-sm text-gray-400">
             {form.type === "mf" ? "Units *" : form.type === "property" ? "Quantity (1 for single property) *" : "Quantity *"}
           </label>
           <input
+            id="asset-quantity"
             type="number"
             min="0"
             step="any"
@@ -195,10 +199,11 @@ export default function NewPortfolioPage() {
 
         {/* AVG PRICE */}
         <div>
-          <label className="text-sm text-gray-400">
+          <label htmlFor="asset-avg-price" className="text-sm text-gray-400">
             {form.type === "mf" ? "Avg NAV (₹) *" : form.type === "property" ? "Purchase Price (₹) *" : "Average Price (₹) *"}
           </label>
           <input
+            id="asset-avg-price"
             type="number"
             min="0"
             step="any"

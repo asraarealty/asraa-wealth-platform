@@ -61,6 +61,7 @@ function AllocationRow({
       <div className="flex items-center gap-1 shrink-0">
         <input
           type="number"
+          name={label.toLowerCase().replace(/\s+/g, "-")}
           className="w-16 rounded-lg px-2 py-1 text-sm text-center neon-input"
           value={value}
           min={0}

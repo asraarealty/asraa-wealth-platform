@@ -172,6 +172,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
         </svg>
         <input
           type="text"
+          name="stock-search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}

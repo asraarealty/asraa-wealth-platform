@@ -105,6 +105,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Fund Code">
             <FieldInput
+              name="mf-symbol"
               placeholder="HDFC001"
               value={form.symbol}
               onChange={(v) => setForm((f) => ({ ...f, symbol: v }))}
@@ -112,6 +113,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
           </FormField>
           <FormField label="Fund Name" required>
             <FieldInput
+              name="mf-name"
               placeholder="HDFC Top 100 Fund"
               value={form.name}
               onChange={(v) => setForm((f) => ({ ...f, name: v }))}
@@ -122,6 +124,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Units" required>
             <FieldInput
+              name="mf-units"
               type="number"
               min="0"
               step="0.001"
@@ -132,6 +135,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
           </FormField>
           <FormField label="Avg NAV (₹)" required>
             <FieldInput
+              name="mf-avg-nav"
               type="number"
               min="0"
               step="0.01"

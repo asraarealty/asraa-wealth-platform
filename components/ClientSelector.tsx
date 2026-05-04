@@ -113,6 +113,7 @@ export default function ClientSelector({
     <div className="flex flex-col gap-3">
       <input
         type="text"
+        name="client-filter"
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
         placeholder="Filter clients…"
