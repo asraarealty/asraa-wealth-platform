@@ -1,5 +1,4 @@
 // @ts-check
-const { withSentryConfig } = require("@sentry/nextjs");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -26,11 +25,4 @@ const nextConfig = {
   },
 };
 
-module.exports = withSentryConfig(nextConfig, {
-  // Suppresses source map upload logs during build.
-  silent: true,
-  sentry: {
-    // Automatically tree-shake Sentry logger statements to reduce bundle size.
-    webpack: { treeshake: { removeDebugLogging: true } },
-  },
-});
+module.exports = nextConfig;

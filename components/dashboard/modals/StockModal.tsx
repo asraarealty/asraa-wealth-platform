@@ -6,6 +6,7 @@ import TagSelect from "../TagSelect";
 import StockSearch from "@/components/StockSearch";
 import type { Asset, CreateAssetPayload, UpdateAssetPayload } from "@/lib/api";
 import type { StockQuote } from "@/lib/api";
+import { validateStockSymbol } from "@/lib/services/symbolValidator";
 
 interface StockModalProps {
   /** When provided, the modal is in edit mode */
@@ -67,6 +68,13 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
     const avgPrice = Number(form.avgPrice);
 
     if (!symbol) { setError("Symbol is required"); return; }
+
+    const symbolValidation = validateStockSymbol(symbol);
+    if (!symbolValidation.valid) {
+      setError(symbolValidation.error ?? "Invalid symbol format");
+      return;
+    }
+
     if (!name) { setError("Name is required"); return; }
     if (!Number.isFinite(quantity) || quantity <= 0) {
       setError("Quantity must be a positive number");
@@ -83,6 +91,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
       await onSave({
         type: "stock",
         symbol,
+        exchange: symbolValidation.exchange ?? undefined,
         name,
         quantity,
         avgPrice,
@@ -108,7 +117,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
         <div className="grid grid-cols-2 gap-3">
           <FormField label="Symbol" required>
             <FieldInput
-              placeholder="AAPL"
+              placeholder="AAPL or RELIANCE.NS"
               value={form.symbol}
               onChange={(v) => setForm((f) => ({ ...f, symbol: v.toUpperCase() }))}
             />

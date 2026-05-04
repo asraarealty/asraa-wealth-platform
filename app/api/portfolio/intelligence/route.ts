@@ -5,11 +5,12 @@
  *   1. Fetches all clients from the backend
  *   2. Fetches each client's portfolio in parallel
  *   3. Batch-fetches live stock prices from Yahoo Finance (with caching)
- *   4. Enriches portfolio items with live prices (falls back to avg_price)
+ *   4. Enriches portfolio items with live INR prices (falls back to avg_price)
  *   5. Runs portfolio analytics per client
  *   6. Returns a ClientIntelligence-shaped JSON array
  *
  * The caller must forward the user's Bearer token in the Authorization header.
+ * All portfolio values are expressed in INR.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -107,6 +108,15 @@ function parsePortfolioResponse(raw: unknown): BackendPortfolioItem[] {
   return [];
 }
 
+/**
+ * Safely convert a value to a finite number, defaulting to 0 when null/
+ * undefined/NaN/Infinity is encountered.
+ */
+function safeNum(v: unknown): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
 // ── Route Handler ─────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -158,24 +168,27 @@ export async function GET(request: NextRequest) {
     const intelligenceRows = clients.map((client) => {
       const rawItems = clientPortfolios.get(client.id) ?? [];
 
-      // Enrich: replace currentPrice with live price for equity symbols
+      // Enrich: replace currentPrice with live INR price for equity symbols
       const enrichedItems = rawItems.map((item) => {
         if (!isStockSymbol(item.symbol)) return item;
         const livePrice = priceMap.get(item.symbol);
-        if (livePrice === undefined) return item; // keep backend value or avg fallback
+        if (livePrice === undefined) return item;
+        // Always use INR for portfolio value calculations
+        const priceInr = safeNum(livePrice.priceINR);
         return {
           ...item,
-          currentPrice: livePrice,
-          value: livePrice * item.quantity,
+          currentPrice: priceInr,
+          value: priceInr * safeNum(item.quantity),
         };
       });
 
-      // Map backend items to the camelCase PortfolioItem shape expected by analytics
+      // Map backend items to the camelCase PortfolioItem shape expected by analytics.
+      // Use safeNum() to ensure null/undefined fields default to 0.
       const portfolioItems = enrichedItems.map((item) => ({
-        symbol: item.symbol,
-        quantity: item.quantity,
-        avgPrice: item.avgPrice,
-        currentPrice: item.currentPrice,
+        symbol: item.symbol ?? "",
+        quantity: safeNum(item.quantity),
+        avgPrice: safeNum(item.avgPrice),
+        currentPrice: safeNum(item.currentPrice),
       }));
 
       const metrics = computePortfolioMetrics(portfolioItems);
