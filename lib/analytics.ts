@@ -31,9 +31,11 @@ function isEquity(symbol: string): boolean {
   return !isMutualFund(symbol) && !isRealEstate(symbol);
 }
 
-/** Return the effective current price, falling back to avg_price when missing */
+/** Return the effective current price, falling back to avg_price when missing or zero */
 function effectivePrice(item: PortfolioItem): number {
-  return item.currentPrice > 0 ? item.currentPrice : item.avgPrice;
+  const current = Number(item.currentPrice);
+  const avg = Number(item.avgPrice);
+  return Number.isFinite(current) && current > 0 ? current : (Number.isFinite(avg) ? avg : 0);
 }
 
 // ── Task 2 — Portfolio Metrics ───────────────────────────────────────────────
@@ -60,11 +62,11 @@ export function computePortfolioMetrics(
   }
 
   const invested = items.reduce(
-    (sum, item) => sum + item.quantity * item.avgPrice,
+    (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.avgPrice) || 0),
     0
   );
   const current = items.reduce(
-    (sum, item) => sum + item.quantity * effectivePrice(item),
+    (sum, item) => sum + (Number(item.quantity) || 0) * effectivePrice(item),
     0
   );
 
@@ -108,7 +110,7 @@ export function computeAllocation(items: PortfolioItem[]): Allocation {
   let reVal = 0;
 
   for (const item of items) {
-    const val = item.quantity * effectivePrice(item);
+    const val = (Number(item.quantity) || 0) * effectivePrice(item);
     if (isRealEstate(item.symbol)) {
       reVal += val;
     } else if (isMutualFund(item.symbol)) {
@@ -152,12 +154,12 @@ export function computeRiskScore(items: PortfolioItem[]): RiskResult {
   // Concentration-risk upgrade
   if (riskLevel !== "High" && items.length > 0) {
     const total = items.reduce(
-      (sum, item) => sum + item.quantity * effectivePrice(item),
+      (sum, item) => sum + (Number(item.quantity) || 0) * effectivePrice(item),
       0
     );
     if (total > 0) {
       const maxConcentration = items.reduce((max, item) => {
-        const pct = (item.quantity * effectivePrice(item)) / total;
+        const pct = ((Number(item.quantity) || 0) * effectivePrice(item)) / total;
         return Math.max(max, pct);
       }, 0);
 
@@ -271,12 +273,12 @@ export function deriveClientAlerts(
   // Concentration risk: single asset > 50 % of total
   if (items.length > 0) {
     const total = items.reduce(
-      (sum, item) => sum + item.quantity * effectivePrice(item),
+      (sum, item) => sum + (Number(item.quantity) || 0) * effectivePrice(item),
       0
     );
     if (total > 0) {
       const concentrated = items.find(
-        (item) => (item.quantity * effectivePrice(item)) / total > 0.5
+        (item) => ((Number(item.quantity) || 0) * effectivePrice(item)) / total > 0.5
       );
       if (concentrated) {
         alerts.push({

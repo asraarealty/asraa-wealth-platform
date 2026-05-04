@@ -196,6 +196,10 @@ const normalizeAssetList = (res: unknown): Asset[] => {
     avgPrice: Number(a.avgPrice ?? a.avg_price ?? 0),
     currentPrice: Number(a.currentPrice ?? a.current_price ?? 0),
     type: normalizeType(a.type ?? a.asset_type),
+    exchange: a.exchange ?? undefined,
+    currency: a.currency ?? undefined,
+    priceUSD: a.priceUSD ?? a.price_usd ?? undefined,
+    priceINR: a.priceINR ?? a.price_inr ?? undefined,
     // Real estate camelCase normalization (backend may return snake_case)
     purchasePrice: a.purchasePrice ?? a.purchase_price,
     currentValue: a.currentValue ?? a.current_value,
@@ -211,10 +215,18 @@ export interface Asset {
   id: number;
   type: "stock" | "mf" | "property";
   symbol?: string;
+  /** Exchange the stock trades on ("NSE" for Indian stocks, "US" for US stocks). */
+  exchange?: "NSE" | "US";
+  /** Native currency of the stock price. */
+  currency?: "USD" | "INR";
   name: string;
   quantity?: number;
   avgPrice: number;
   currentPrice?: number;
+  /** Current price in USD (stocks only). */
+  priceUSD?: number;
+  /** Current price in INR (stocks only). All portfolio calculations use this. */
+  priceINR?: number;
   value: number;
   allocation: number;
   /** Real estate */
