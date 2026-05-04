@@ -20,6 +20,31 @@ export const createClient = (
     body: data,
   });
 
+export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
+export type InvestmentHorizon = "<1y" | "1-3y" | "3-5y" | "5y+";
+export type GoalKey =
+  | "wealth_growth"
+  | "passive_income"
+  | "retirement"
+  | "property_purchase";
+
+export interface ClientProfilePayload {
+  monthlyIncome?: number;
+  investmentCapacity?: number;
+  investmentHorizon?: InvestmentHorizon;
+  riskLevel?: RiskLevel;
+  goals?: GoalKey[];
+}
+
+export const createClientProfile = (
+  clientId: number,
+  data: ClientProfilePayload
+): Promise<unknown> =>
+  fetcher<unknown>(`/clients/${clientId}/profile`, {
+    method: "POST",
+    body: data,
+  });
+
 /**
  * Fetch the client list for the advisor dashboard sidebar.
  * Returns an empty array and logs a warning when the API returns a non-array.
