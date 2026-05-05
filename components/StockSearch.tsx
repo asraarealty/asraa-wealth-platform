@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, type KeyboardEvent } from "react";
-import { searchStocks, type StockQuote } from "@/lib/api";
+import { searchStocks, type StockQuote, ApiError } from "@/lib/api";
 
 const USD_TO_INR = 83;
 
@@ -40,6 +40,8 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
   const [results, setResults] = useState<StockQuote[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isRetryable, setIsRetryable] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [open, setOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -61,6 +63,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
 
       setLoading(true);
       setError(null);
+      setIsRetryable(false);
 
       searchStocks(query.trim(), controller.signal)
         .then((data) => {
@@ -103,7 +106,26 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
         })
         .catch((err) => {
           if (err instanceof DOMException && err.name === "AbortError") return;
-          setError(err instanceof Error ? err.message : "Search failed");
+          if (err instanceof ApiError) {
+            if (err.status === 404) {
+              setError("Stock not found");
+              setIsRetryable(false);
+            } else if (err.status === 401) {
+              // Redirect to login — token is already cleared by fetcher
+              if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+                window.location.assign("/login");
+              }
+            } else if (err.status >= 500) {
+              setError("Server error — please retry");
+              setIsRetryable(true);
+            } else {
+              setError(err.message || "Search failed");
+              setIsRetryable(false);
+            }
+          } else {
+            setError(err instanceof Error ? err.message : "Search failed");
+            setIsRetryable(false);
+          }
         })
         .finally(() => {
           setLoading(false);
@@ -114,7 +136,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       abortRef.current?.abort();
     };
-  }, [query]);
+  }, [query, retryKey]);
 
   // Close on outside click
   useEffect(() => {
@@ -221,7 +243,19 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
       </div>
 
       {error && (
-        <p className="mt-1.5 text-xs text-red-400">{error}</p>
+        <div className="mt-1.5 flex items-center gap-2">
+          <p className="text-xs text-red-400">{error}</p>
+          {isRetryable && (
+            <button
+              type="button"
+              onClick={() => setRetryKey((k) => k + 1)}
+              className="text-xs underline"
+              style={{ color: "#c9a227" }}
+            >
+              Retry
+            </button>
+          )}
+        </div>
       )}
 
       {open && (

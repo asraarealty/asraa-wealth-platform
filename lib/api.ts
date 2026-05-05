@@ -100,6 +100,20 @@ export function toggleClientStatus(
 
 /* ── Stocks ────────────────────────────────────────────────────────── */
 
+/**
+ * Centralized stock endpoint paths (relative to API_BASE_URL).
+ *
+ * Full request URLs after proxy rewrite:
+ *   Frontend  →  /api/v2/stocks/{symbol}
+ *   Proxy     →  /stocks/{symbol}       (strips /api/v2)
+ *   Backend   →  /stocks/{symbol}
+ */
+export const stockEndpoints = {
+  quote: (symbol: string) => `/stocks/${encodeURIComponent(symbol)}`,
+  search: (q: string) => `/stocks/search?q=${encodeURIComponent(q)}`,
+  bulk: `/stocks/bulk`,
+} as const;
+
 export interface StockQuote {
   symbol: string;
   name: string;
@@ -114,17 +128,26 @@ export function searchStocks(
   query: string,
   signal?: AbortSignal
 ): Promise<StockQuote[]> {
-  return fetcher<StockQuote[]>(
-    `/stocks/search?q=${encodeURIComponent(query)}`,
-    { signal, noRedirectOn401: true }
-  );
+  return fetcher<StockQuote[]>(stockEndpoints.search(query), {
+    signal,
+    noRedirectOn401: true,
+  });
 }
 
 export function fetchStockQuote(
   symbol: string,
   signal?: AbortSignal
 ): Promise<StockQuote> {
-  return fetcher<StockQuote>(`/stocks/${encodeURIComponent(symbol)}`, {
+  return fetcher<StockQuote>(stockEndpoints.quote(symbol), { signal });
+}
+
+export function fetchStocksBulk(
+  symbols: string[],
+  signal?: AbortSignal
+): Promise<StockQuote[]> {
+  return fetcher<StockQuote[]>(stockEndpoints.bulk, {
+    method: "POST",
+    body: { symbols },
     signal,
   });
 }
