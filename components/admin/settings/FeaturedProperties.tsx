@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import SectionCard from "./SectionCard";
 import Toggle from "./Toggle";
-import Input from "@/components/ui/Input";
 import {
   getFeaturedProperties,
   createFeaturedProperty,
@@ -11,6 +10,7 @@ import {
   deleteFeaturedProperty,
   toggleFeaturedProperty,
   reorderFeaturedProperties,
+  uploadImage,
   type FeaturedProperty,
 } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
@@ -24,6 +24,13 @@ function fmtPrice(n: number) {
   if (n >= CRORE) return `₹${(n / CRORE).toFixed(1)}Cr`;
   if (n >= LAKH) return `₹${(n / LAKH).toFixed(1)}L`;
   return `₹${n.toLocaleString("en-IN")}`;
+}
+
+/** Resolve a potentially relative image URL to an absolute-for-browser path. */
+function resolveImageUrl(url: string): string {
+  if (!url) return "";
+  if (url.startsWith("http") || url.startsWith("//")) return url;
+  return `/api/v2${url.startsWith("/") ? url : `/${url}`}`;
 }
 
 const emptyForm = (): Omit<FeaturedProperty, "id"> => ({
@@ -46,8 +53,15 @@ export default function FeaturedProperties() {
   const [editingId, setEditingId] = useState<FeaturedProperty["id"] | "new" | null>(null);
   const [editForm, setEditForm] = useState<Omit<FeaturedProperty, "id">>(emptyForm());
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<FeaturedProperty["id"] | null>(null);
   const [togglingId, setTogglingId] = useState<FeaturedProperty["id"] | null>(null);
+
+  // Image upload state
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const [isDragOver, setIsDragOver] = useState(false);
+  const imagePreviewRef = useRef<string>("");
 
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const dragOverIndex = useRef<number | null>(null);
@@ -84,17 +98,31 @@ export default function FeaturedProperties() {
     });
     setEditingId(prop.id);
     setActionError(null);
+    setImageFile(null);
+    const resolved = resolveImageUrl(prop.imageUrl);
+    imagePreviewRef.current = resolved;
+    setImagePreview(resolved);
   }
 
   function openNew() {
     setEditForm({ ...emptyForm(), displayOrder: properties.length });
     setEditingId("new");
     setActionError(null);
+    setImageFile(null);
+    imagePreviewRef.current = "";
+    setImagePreview("");
   }
 
   function closeEdit() {
     setEditingId(null);
     setActionError(null);
+    // Revoke object URL if we created one
+    if (imageFile && imagePreview.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setImageFile(null);
+    imagePreviewRef.current = "";
+    setImagePreview("");
   }
 
   function patchForm(partial: Partial<Omit<FeaturedProperty, "id">>) {
@@ -103,14 +131,44 @@ export default function FeaturedProperties() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Validate redirectUrl
+    const redirectVal = editForm.redirectUrl.trim();
+    if (!redirectVal) {
+      setActionError("Redirect URL is required.");
+      return;
+    }
+    if (!redirectVal.startsWith("http://") && !redirectVal.startsWith("https://") && !redirectVal.startsWith("/")) {
+      setActionError("Redirect URL must start with http://, https://, or /.");
+      return;
+    }
+
     setSubmitting(true);
     setActionError(null);
+
+    let finalForm = { ...editForm };
+
+    // Upload image file first (if a new file was selected)
+    if (imageFile) {
+      setUploading(true);
+      try {
+        const { url } = await uploadImage(imageFile);
+        finalForm = { ...finalForm, imageUrl: url };
+      } catch (err) {
+        setActionError("Image upload failed: " + toErrorMessage(err));
+        setSubmitting(false);
+        return;
+      } finally {
+        setUploading(false);
+      }
+    }
+
     try {
       if (editingId === "new") {
-        const created = await createFeaturedProperty(editForm);
+        const created = await createFeaturedProperty(finalForm);
         setProperties((prev) => sortByOrder([...prev, created]));
       } else if (editingId !== null) {
-        const updated = await updateFeaturedProperty(editingId, editForm);
+        const updated = await updateFeaturedProperty(editingId, finalForm);
         setProperties((prev) =>
           sortByOrder(prev.map((p) => (p.id === editingId ? updated : p)))
         );
@@ -149,6 +207,27 @@ export default function FeaturedProperties() {
     } finally {
       setTogglingId(null);
     }
+  }
+
+  // Image file select helper
+  function handleFileSelect(file: File) {
+    if (imageFile && imagePreview.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setImageFile(file);
+    const objectUrl = URL.createObjectURL(file);
+    imagePreviewRef.current = objectUrl;
+    setImagePreview(objectUrl);
+  }
+
+  function clearImagePreview() {
+    if (imageFile && imagePreview.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setImageFile(null);
+    patchForm({ imageUrl: "" });
+    imagePreviewRef.current = "";
+    setImagePreview("");
   }
 
   // Drag-and-drop handlers
@@ -308,16 +387,80 @@ export default function FeaturedProperties() {
                 onChange={(e) => patchForm({ roi: Number(e.target.value) })}
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="fp-image-url" className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Image URL</label>
-              <input
-                id="fp-image-url"
-                type="text"
-                className={inputCls}
-                placeholder="https://..."
-                value={editForm.imageUrl}
-                onChange={(e) => patchForm({ imageUrl: e.target.value })}
-              />
+            <div className="flex flex-col gap-1 sm:col-span-2">
+              <label className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>
+                Property Image
+                {imageFile && <span style={{ color: "rgba(0,229,255,0.7)" }}> — new file selected</span>}
+              </label>
+              {/* Drop zone */}
+              <div
+                className="relative rounded-xl overflow-hidden transition-all duration-150"
+                style={{
+                  border: isDragOver ? "1.5px dashed #00E5FF" : "1px dashed rgba(0,229,255,0.3)",
+                  background: isDragOver ? "rgba(0,229,255,0.06)" : "rgba(0,229,255,0.02)",
+                  minHeight: "100px",
+                }}
+                onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                onDragLeave={() => setIsDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragOver(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file && file.type.startsWith("image/")) handleFileSelect(file);
+                }}
+              >
+                {imagePreview ? (
+                  <div className="relative h-28">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={clearImagePreview}
+                      className="absolute top-1.5 right-1.5 rounded-full p-1 transition-opacity"
+                      style={{ background: "rgba(0,0,0,0.65)" }}
+                      title="Remove image"
+                    >
+                      <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                    <label
+                      htmlFor="fp-image-file"
+                      className="absolute bottom-1.5 right-1.5 text-xs px-2 py-1 rounded-lg cursor-pointer"
+                      style={{ background: "rgba(0,0,0,0.65)", color: "rgba(0,229,255,0.9)" }}
+                    >
+                      Change
+                    </label>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="fp-image-file"
+                    className="flex flex-col items-center justify-center h-28 cursor-pointer gap-2"
+                  >
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: "rgba(0,229,255,0.45)" }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                    </svg>
+                    <span className="text-xs text-center" style={{ color: "rgba(255,255,255,0.35)" }}>
+                      Click or drag &amp; drop image here
+                    </span>
+                  </label>
+                )}
+                <input
+                  id="fp-image-file"
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileSelect(file);
+                    e.target.value = "";
+                  }}
+                />
+              </div>
             </div>
             <div className="flex flex-col gap-1">
               <label htmlFor="fp-redirect-url" className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Redirect URL</label>
@@ -349,10 +492,10 @@ export default function FeaturedProperties() {
             </button>
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || uploading}
               className="neon-btn text-xs font-semibold px-4 py-1.5 rounded-lg disabled:opacity-50"
             >
-              {submitting ? "Saving…" : "Save Property"}
+              {uploading ? "Uploading…" : submitting ? "Saving…" : "Save Property"}
             </button>
           </div>
         </form>
