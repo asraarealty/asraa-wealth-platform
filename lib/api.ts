@@ -548,9 +548,19 @@ export function searchMutualFunds(
   query: string,
   signal?: AbortSignal
 ): Promise<MutualFundResult[]> {
-  return fetcher<MutualFundResult[]>(
+  return fetcher<any[]>(
     `/mutual-funds/search?q=${encodeURIComponent(query)}`,
     { signal, noRedirectOn401: true }
+  ).then((results) =>
+    (Array.isArray(results) ? results : []).map((item): MutualFundResult => ({
+      code: item.code ?? item.scheme_code ?? item.schemeCode ?? "",
+      name: item.name ?? item.schemeName ?? item.scheme_name ?? item.schemeFullName ?? item.scheme_full_name ?? "",
+      nav: typeof item.nav === "number" ? item.nav
+        : typeof item.latestNav === "number" ? item.latestNav
+        : parseFloat(item.nav ?? item.latestNav ?? "") || 0,
+      category: item.category ?? item.schemeCategory ?? item.scheme_category,
+      fundHouse: item.fundHouse ?? item.amc ?? item.fund_house,
+    }))
   );
 }
 

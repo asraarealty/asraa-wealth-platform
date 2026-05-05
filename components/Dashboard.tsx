@@ -22,6 +22,7 @@ import AllocationChart from "./dashboard/AllocationChart";
 import AIInsightsPanel from "./dashboard/AIInsightsPanel";
 import ClientRecommendations from "./dashboard/ClientRecommendations";
 import AssetTabs from "./dashboard/AssetTabs";
+import FeaturedSlider from "./dashboard/FeaturedSlider";
 import StatBox from "./ui/StatBox";
 import Loader from "./ui/Loader";
 import ErrorState from "./ui/ErrorState";
@@ -313,6 +314,9 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       {/* Loading / Error */}
       {loading && <Loader />}
       {!loading && error && <ErrorState message={error} />}
+
+      {/* Featured Properties Slider — always shown when page is ready */}
+      {!loading && !error && <FeaturedSlider />}
 
       {/* Shared guard: data is loaded, no error, and (if admin) a client is selected */}
       {(() => {
