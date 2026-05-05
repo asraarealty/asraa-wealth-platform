@@ -804,6 +804,9 @@ export interface PublicFeaturedProperty {
   title: string;
   imageUrl: string;
   redirectUrl: string;
+  location?: string;
+  price?: number;
+  roi?: number;
 }
 
 export function getPublicFeaturedProperties(signal?: AbortSignal): Promise<PublicFeaturedProperty[]> {
