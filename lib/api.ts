@@ -6,7 +6,7 @@ export {
   toErrorMessage,
 } from "./fetcher";
 
-import { fetcher, ApiError } from "./fetcher";
+import { fetcher, ApiError, API_BASE_URL, getToken } from "./fetcher";
 
 /* ── Auth ───────────────────────────────────────────────────────────── */
 
@@ -760,6 +760,54 @@ export function updateAdminUser(id: number, payload: Partial<Omit<AdminUser, "id
 
 export function deleteAdminUser(id: number): Promise<void> {
   return fetcher<void>(`/settings/admin-users/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+/* ── Image Upload ────────────────────────────────────────────────────── */
+
+export async function uploadImage(file: File): Promise<{ url: string }> {
+  const token = getToken();
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_BASE_URL}/upload/image`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let message = `HTTP ${response.status}`;
+    try {
+      const data = await response.json();
+      message =
+        (typeof data?.detail === "string" ? data.detail : data?.detail?.[0]?.msg) ||
+        data?.message ||
+        message;
+    } catch {}
+    throw new ApiError(response.status, message);
+  }
+
+  const json = await response.json();
+  if (json && typeof json === "object" && "data" in json) return json.data as { url: string };
+  return json as { url: string };
+}
+
+/* ── Public Featured Properties (client dashboard) ───────────────────── */
+
+export interface PublicFeaturedProperty {
+  id: number | string;
+  title: string;
+  imageUrl: string;
+  redirectUrl: string;
+}
+
+export function getPublicFeaturedProperties(signal?: AbortSignal): Promise<PublicFeaturedProperty[]> {
+  return fetcher<PublicFeaturedProperty[]>("/properties/featured", { signal });
 }
 
 /* ── Safe fetch utility ─────────────────────────────────────────────── */

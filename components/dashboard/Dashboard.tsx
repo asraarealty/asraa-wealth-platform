@@ -14,6 +14,7 @@ import InsightsPanel from "./InsightsPanel";
 import HoldingsTable from "./HoldingsTable";
 import AllocationSection from "./AllocationSection";
 import AddAssetModal from "./modals/AddAssetModal";
+import FeaturedSlider from "./FeaturedSlider";
 import Loader from "@/components/ui/Loader";
 import { createAsset } from "@/lib/api";
 
@@ -293,6 +294,9 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
           </Section>
         </>
       )}
+
+      {/* ── Featured Properties Slider (always shown when data available) ── */}
+      <FeaturedSlider />
 
       {/* ── Add Asset modal ─────────────────────────────────────────── */}
       {addModalOpen && (
