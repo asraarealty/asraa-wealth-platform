@@ -6,6 +6,11 @@ import { getPublicFeaturedProperties, type PublicFeaturedProperty } from "@/lib/
 const CRORE = 10_000_000;
 const LAKH = 100_000;
 
+const CARD_WIDTH = 280;
+const CARD_GAP = 12;
+const CARD_STRIDE = CARD_WIDTH + CARD_GAP;
+const SCROLL_THRESHOLD = 4;
+
 function fmtPrice(n: number) {
   if (n >= CRORE) return `₹${(n / CRORE).toFixed(1)}Cr`;
   if (n >= LAKH) return `₹${(n / LAKH).toFixed(1)}L`;
@@ -26,7 +31,7 @@ function SkeletonCard() {
     <div
       className="shrink-0 rounded-2xl animate-pulse"
       style={{
-        width: "280px",
+        width: `${CARD_WIDTH}px`,
         height: "200px",
         background: "rgba(255,255,255,0.05)",
         border: "1px solid rgba(255,255,255,0.07)",
@@ -52,7 +57,7 @@ function PropertyCard({ property }: { property: PublicFeaturedProperty }) {
       onClick={handleClick}
       className="shrink-0 rounded-2xl overflow-hidden relative group transition-transform duration-200 hover:scale-[1.02]"
       style={{
-        width: "280px",
+        width: `${CARD_WIDTH}px`,
         height: "200px",
         cursor: hasLink ? "pointer" : "default",
         border: "1px solid rgba(255,255,255,0.08)",
@@ -212,8 +217,8 @@ export default function FeaturedSlider() {
   function updateScrollState() {
     const el = scrollRef.current;
     if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 4);
-    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+    setCanScrollLeft(el.scrollLeft > SCROLL_THRESHOLD);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - SCROLL_THRESHOLD);
   }
 
   useEffect(() => {
@@ -256,8 +261,8 @@ export default function FeaturedSlider() {
         {/* Arrow controls */}
         {!loading && properties.length > 1 && (
           <div className="flex items-center gap-1.5">
-            <NavArrow direction="left" onClick={() => scrollBy(-300)} hidden={!canScrollLeft} />
-            <NavArrow direction="right" onClick={() => scrollBy(300)} hidden={!canScrollRight} />
+            <NavArrow direction="left" onClick={() => scrollBy(-CARD_STRIDE)} hidden={!canScrollLeft} />
+            <NavArrow direction="right" onClick={() => scrollBy(CARD_STRIDE)} hidden={!canScrollRight} />
           </div>
         )}
       </div>
@@ -265,8 +270,8 @@ export default function FeaturedSlider() {
       {/* Scroll track */}
       <div
         ref={scrollRef}
-        className="flex gap-3 overflow-x-auto pb-1"
-        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        className="flex overflow-x-auto pb-1"
+        style={{ gap: `${CARD_GAP}px`, scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {loading
           ? Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)
@@ -286,7 +291,7 @@ export default function FeaturedSlider() {
               onClick={() => {
                 const el = scrollRef.current;
                 if (!el) return;
-                el.scrollTo({ left: i * 292, behavior: "smooth" });
+                el.scrollTo({ left: i * CARD_STRIDE, behavior: "smooth" });
               }}
               className="rounded-full transition-all duration-200"
               style={{
