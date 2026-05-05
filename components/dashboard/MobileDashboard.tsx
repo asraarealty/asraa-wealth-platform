@@ -17,6 +17,7 @@ import ClientSelector from "../ClientSelector";
 import AllocationChart from "./AllocationChart";
 import AIInsightsPanel from "./AIInsightsPanel";
 import ErrorState from "../ui/ErrorState";
+import FeaturedSlider from "./FeaturedSlider";
 
 /* ── types ──────────────────────────────────────────────────────────── */
 
@@ -771,6 +772,9 @@ export default function MobileDashboard({
                     </p>
                   </div>
                 </div>
+
+                {/* Featured Properties Slider */}
+                <FeaturedSlider />
 
                 {/* Allocation chart */}
                 {Array.isArray(assets) && assets.length > 0 && (
