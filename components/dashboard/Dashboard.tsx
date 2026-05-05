@@ -256,6 +256,9 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
         <ErrorBanner message={error} onRetry={() => loadData()} />
       )}
 
+      {/* ── Featured Properties Slider (always shown when data available) ── */}
+      <FeaturedSlider />
+
       {/* ── Empty state ────────────────────────────────────────────── */}
       {!error && !hasPositions && (
         <EmptyPortfolio onAdd={() => setAddModalOpen(true)} />
@@ -294,9 +297,6 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
           </Section>
         </>
       )}
-
-      {/* ── Featured Properties Slider (always shown when data available) ── */}
-      <FeaturedSlider />
 
       {/* ── Add Asset modal ─────────────────────────────────────────── */}
       {addModalOpen && (

@@ -26,10 +26,10 @@ function fmtPrice(n: number) {
   return `₹${n.toLocaleString("en-IN")}`;
 }
 
-/** Resolve a potentially relative image URL to an absolute-for-browser path. */
+/** Resolve a potentially relative, absolute, or data URL to a browser path. */
 function resolveImageUrl(url: string): string {
   if (!url) return "";
-  if (url.startsWith("http") || url.startsWith("//")) return url;
+  if (url.startsWith("http") || url.startsWith("//") || url.startsWith("data:")) return url;
   return `/api/v2${url.startsWith("/") ? url : `/${url}`}`;
 }
 
@@ -551,6 +551,28 @@ export default function FeaturedProperties() {
               >
                 {i + 1}
               </span>
+
+              {/* Thumbnail */}
+              <div
+                className="shrink-0 rounded-lg overflow-hidden"
+                style={{ width: "44px", height: "32px", background: "rgba(0,229,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                {prop.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={resolveImageUrl(prop.imageUrl)}
+                    alt={prop.title}
+                    className="w-full h-full object-cover"
+                    draggable={false}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: "rgba(0,229,255,0.3)" }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5" />
+                    </svg>
+                  </div>
+                )}
+              </div>
 
               {/* Info */}
               <div className="flex-1 min-w-0">
