@@ -40,6 +40,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
   const [results, setResults] = useState<StockQuote[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isRetryable, setIsRetryable] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [open, setOpen] = useState(false);
@@ -62,6 +63,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
 
       setLoading(true);
       setError(null);
+      setIsRetryable(false);
 
       searchStocks(query.trim(), controller.signal)
         .then((data) => {
@@ -107,6 +109,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
           if (err instanceof ApiError) {
             if (err.status === 404) {
               setError("Stock not found");
+              setIsRetryable(false);
             } else if (err.status === 401) {
               // Redirect to login — token is already cleared by fetcher
               if (typeof window !== "undefined" && window.location.pathname !== "/login") {
@@ -114,11 +117,14 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
               }
             } else if (err.status >= 500) {
               setError("Server error — please retry");
+              setIsRetryable(true);
             } else {
               setError(err.message || "Search failed");
+              setIsRetryable(false);
             }
           } else {
             setError(err instanceof Error ? err.message : "Search failed");
+            setIsRetryable(false);
           }
         })
         .finally(() => {
@@ -239,7 +245,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
       {error && (
         <div className="mt-1.5 flex items-center gap-2">
           <p className="text-xs text-red-400">{error}</p>
-          {error.includes("retry") && (
+          {isRetryable && (
             <button
               type="button"
               onClick={() => setRetryKey((k) => k + 1)}
