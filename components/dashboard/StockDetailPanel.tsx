@@ -35,6 +35,13 @@ function formatMarketCap(value: number | null | undefined, currency: "INR" | "US
   return `₹${v.toLocaleString("en-IN")}`;
 }
 
+function defaultAvgPrice(stock: StockQuote): string {
+  if (!stock.price) return "";
+  const normalized = normalizePrice(stock.price, getCurrency(stock.symbol));
+  // Round to 2 decimal places
+  return String(Math.round(normalized * 100) / 100);
+}
+
 function fmtFundamental(value: number | null | undefined, decimals = 2): string {
   if (value == null) return "--";
   return value.toFixed(decimals);
@@ -53,39 +60,64 @@ interface AIScore {
   recColor: string;
 }
 
+// ── AI scoring thresholds ─────────────────────────────────────────────────────
+
+// Momentum: day-change % thresholds that adjust the base score
+const MOMENTUM_STRONG_UP = 5;   // +2 score: strong positive day
+const MOMENTUM_WEAK_UP = 2;     // +1 score: mild positive day
+const MOMENTUM_WEAK_DOWN = -2;  // -1 score: mild negative day
+const MOMENTUM_STRONG_DOWN = -5; // -2 score: strong negative day
+
+// Valuation: PE ratio brackets (lower PE = better value for Indian equities)
+const PE_VALUE_MAX = 15;        // PE < 15 → +2 (deep value)
+const PE_FAIR_MAX = 30;         // 15 ≤ PE < 30 → +1 (fair value)
+const PE_EXPENSIVE_MIN = 50;    // PE ≥ 50 → -1 (expensive / speculative)
+
+// Profitability: ROE/ROCE thresholds (higher = better capital efficiency)
+const PROFITABILITY_HIGH = 20;  // > 20% → +1 (strong returns on equity/capital)
+const ROE_LOW = 5;              // ROE < 5% → -1 (weak equity returns)
+const ROCE_LOW = 8;             // ROCE < 8% → -1 (poor capital utilisation)
+
+// Recommendation cutoffs on the 1–10 scale
+const SCORE_BUY_MIN = 7;   // ≥ 7 → BUY
+const SCORE_HOLD_MIN = 4;  // 4–6 → HOLD; < 4 → REDUCE
+
+// Delay (ms) before closing the "Add to client" sub-form after a successful add
+const SUCCESS_CLOSE_DELAY_MS = 1200;
+
 function computeAIScore(stock: StockQuote): AIScore {
   let score = 5; // baseline
 
   // Price momentum
   const cp = stock.changePercent ?? 0;
-  if (cp > 5) score += 2;
-  else if (cp > 2) score += 1;
-  else if (cp < -5) score -= 2;
-  else if (cp < -2) score -= 1;
+  if (cp > MOMENTUM_STRONG_UP) score += 2;
+  else if (cp > MOMENTUM_WEAK_UP) score += 1;
+  else if (cp < MOMENTUM_STRONG_DOWN) score -= 2;
+  else if (cp < MOMENTUM_WEAK_DOWN) score -= 1;
 
   // Valuation (PE) — lower is better for value; very high PE is a risk
   if (stock.pe != null) {
-    if (stock.pe > 0 && stock.pe < 15) score += 2;
-    else if (stock.pe >= 15 && stock.pe < 30) score += 1;
-    else if (stock.pe >= 50) score -= 1;
+    if (stock.pe > 0 && stock.pe < PE_VALUE_MAX) score += 2;
+    else if (stock.pe >= PE_VALUE_MAX && stock.pe < PE_FAIR_MAX) score += 1;
+    else if (stock.pe >= PE_EXPENSIVE_MIN) score -= 1;
   }
 
-  // Profitability (ROE) — higher is better
+  // Profitability (ROE) — higher return on equity is better
   if (stock.roe != null) {
-    if (stock.roe > 20) score += 1;
-    else if (stock.roe < 5) score -= 1;
+    if (stock.roe > PROFITABILITY_HIGH) score += 1;
+    else if (stock.roe < ROE_LOW) score -= 1;
   }
 
-  // ROCE — similar to ROE
+  // Capital efficiency (ROCE) — higher return on capital employed is better
   if (stock.roce != null) {
-    if (stock.roce > 20) score += 1;
-    else if (stock.roce < 8) score -= 1;
+    if (stock.roce > PROFITABILITY_HIGH) score += 1;
+    else if (stock.roce < ROCE_LOW) score -= 1;
   }
 
   score = Math.max(1, Math.min(10, score));
 
   const recommendation: "BUY" | "HOLD" | "REDUCE" =
-    score >= 7 ? "BUY" : score >= 4 ? "HOLD" : "REDUCE";
+    score >= SCORE_BUY_MIN ? "BUY" : score >= SCORE_HOLD_MIN ? "HOLD" : "REDUCE";
 
   const recMap = {
     BUY: {
@@ -231,9 +263,7 @@ function AddToClientForm({ stock, onDone }: AddToClientFormProps) {
   const [clientsLoading, setClientsLoading] = useState(true);
   const [selectedClientId, setSelectedClientId] = useState<number | "">("");
   const [quantity, setQuantity] = useState("");
-  const [avgPrice, setAvgPrice] = useState(
-    stock.price ? String(Math.round(normalizePrice(stock.price, getCurrency(stock.symbol)) * 100) / 100) : ""
-  );
+  const [avgPrice, setAvgPrice] = useState(defaultAvgPrice(stock));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -255,11 +285,11 @@ function AddToClientForm({ stock, onDone }: AddToClientFormProps) {
   }, []);
 
   async function handleAdd() {
-    if (!selectedClientId) { setError("Select a client"); return; }
+    if (!selectedClientId) { setError("Please select a client"); return; }
     const qty = Number(quantity);
     const price = Number(avgPrice);
-    if (!Number.isFinite(qty) || qty <= 0) { setError("Enter a valid quantity"); return; }
-    if (!Number.isFinite(price) || price <= 0) { setError("Enter a valid price"); return; }
+    if (!Number.isFinite(qty) || qty <= 0) { setError("Quantity must be a positive number"); return; }
+    if (!Number.isFinite(price) || price <= 0) { setError("Price must be a positive amount"); return; }
 
     setError(null);
     setSaving(true);
@@ -273,7 +303,7 @@ function AddToClientForm({ stock, onDone }: AddToClientFormProps) {
         userId: selectedClientId as number,
       });
       setSuccess(true);
-      setTimeout(onDone, 1200);
+      setTimeout(onDone, SUCCESS_CLOSE_DELAY_MS);
     } catch (err) {
       setError(toErrorMessage(err));
     } finally {
