@@ -122,6 +122,11 @@ export interface StockQuote {
   changePercent: number;
   volume: number;
   marketCap: number;
+  /** Fundamental data — may not be present for all symbols */
+  pe?: number | null;
+  roe?: number | null;
+  roce?: number | null;
+  bookValue?: number | null;
 }
 
 export function searchStocks(
@@ -140,6 +145,25 @@ export function fetchStockQuote(
 ): Promise<StockQuote> {
   return fetcher<StockQuote>(stockEndpoints.quote(symbol), { signal });
 }
+
+export interface RecommendedStock {
+  symbol: string;
+  name: string;
+  price?: number;
+  note?: string;
+}
+
+export function saveRecommendedStock(
+  payload: RecommendedStock,
+  signal?: AbortSignal
+): Promise<RecommendedStock> {
+  return fetcher<RecommendedStock>("/stocks/recommended", {
+    method: "POST",
+    body: payload,
+    signal,
+  });
+}
+
 
 export function fetchStocksBulk(
   symbols: string[],
