@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -23,10 +24,12 @@ type ToastContextValue = {
 };
 
 const ToastContext = createContext<ToastContextValue | null>(null);
+const TOAST_DURATION_MS = 3500;
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const idRef = useRef(0);
+  const timeoutIdsRef = useRef<Set<number>>(new Set());
 
   const dismissToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
@@ -36,10 +39,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (message: string, type: ToastType = "info") => {
       const id = ++idRef.current;
       setToasts((prev) => [...prev, { id, message, type }]);
-      setTimeout(() => dismissToast(id), 3500);
+      const timeoutId = window.setTimeout(() => {
+        dismissToast(id);
+        timeoutIdsRef.current.delete(timeoutId);
+      }, TOAST_DURATION_MS);
+      timeoutIdsRef.current.add(timeoutId);
     },
     [dismissToast]
   );
+
+  useEffect(() => {
+    return () => {
+      timeoutIdsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      timeoutIdsRef.current.clear();
+    };
+  }, []);
 
   const value = useMemo<ToastContextValue>(() => ({ showToast }), [showToast]);
 

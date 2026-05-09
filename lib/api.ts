@@ -854,13 +854,16 @@ export async function uploadImage(
     xhr.onerror = () => reject(new NetworkError("Unable to reach backend API"));
     xhr.onabort = () => reject(new DOMException("Upload aborted", "AbortError"));
     xhr.onload = () => {
+      const responseHeaders = new Headers();
+      const contentType = xhr.getResponseHeader("Content-Type");
+      if (contentType) {
+        responseHeaders.set("Content-Type", contentType);
+      }
       resolve(
         new Response(xhr.responseText, {
           status: xhr.status,
           statusText: xhr.statusText,
-          headers: {
-            "Content-Type": xhr.getResponseHeader("Content-Type") ?? "application/json",
-          },
+          headers: responseHeaders,
         })
       );
     };

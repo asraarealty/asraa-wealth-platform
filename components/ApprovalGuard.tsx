@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Loader from "@/components/ui/Loader";
 
@@ -21,6 +22,7 @@ interface Props {
  */
 export default function ApprovalGuard({ children }: Props) {
   const { user, loading, logout } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     if (loading) return;
@@ -38,15 +40,15 @@ export default function ApprovalGuard({ children }: Props) {
     }
 
     if (status === "pending") {
-      window.location.assign("/pending-approval");
+      router.replace("/pending-approval");
       return;
     }
 
     if (status === "rejected") {
-      window.location.assign("/rejected");
+      router.replace("/rejected");
       return;
     }
-  }, [loading, user, logout]);
+  }, [loading, user, logout, router]);
 
   if (loading) return <Loader />;
 

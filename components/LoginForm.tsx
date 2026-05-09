@@ -7,6 +7,8 @@ import { useAuth } from "@/context/AuthContext";
 import { ApiError, NetworkError } from "@/lib/fetcher";
 import { useToast } from "@/context/ToastContext";
 
+const REQUIRED_FIELDS_ERROR_MESSAGE = "Email and password are required.";
+
 export default function LoginForm() {
   const { login } = useAuth();
   const router = useRouter();
@@ -25,8 +27,8 @@ export default function LoginForm() {
     const normalizedEmail = email.trim();
     const normalizedPassword = password.trim();
     if (!normalizedEmail || !normalizedPassword) {
-      setError("Email and password are required.");
-      showToast("Email and password are required.", "error");
+      setError(REQUIRED_FIELDS_ERROR_MESSAGE);
+      showToast(REQUIRED_FIELDS_ERROR_MESSAGE, "error");
       return;
     }
 
