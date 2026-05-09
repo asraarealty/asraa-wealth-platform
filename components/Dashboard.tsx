@@ -9,6 +9,7 @@ import {
   deleteAsset,
   fetchInsights,
   type Asset,
+  type Client,
   type CreateAssetPayload,
   type UpdateAssetPayload,
   type PortfolioFull,
@@ -27,6 +28,7 @@ import StatBox from "./ui/StatBox";
 import Loader from "./ui/Loader";
 import ErrorState from "./ui/ErrorState";
 import MobileDashboard from "./dashboard/MobileDashboard";
+import { useToast } from "@/context/ToastContext";
 
 function useIsMobile(breakpoint = 768) {
   // Always start with `false` so the server-rendered HTML (desktop layout)
@@ -54,10 +56,11 @@ function fmtCurrency(n: number) {
 
 export default function Dashboard({ clientId }: { clientId?: string }) {
   const { logout, user } = useAuth();
+  const { showToast } = useToast();
   const isAdmin = String(user?.role).toLowerCase() === "admin";
   const isMobile = useIsMobile();
 
-  const [selectedClient, setSelectedClient] = useState<any | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioFull | null>(null);
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -170,8 +173,11 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     try {
       await createAsset(body);
       await loadData(resolvedClientId, true);
+      showToast("Asset added successfully.", "success");
     } catch (err) {
-      setError(toErrorMessage(err));
+      const message = toErrorMessage(err);
+      setError(message);
+      showToast(message, "error");
     }
   }
 
@@ -179,6 +185,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     try {
       await updateAsset(id, payload);
       await loadData(resolvedClientId, true);
+      showToast("Asset updated successfully.", "success");
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
         // Remove the ghost asset from local state immediately
@@ -189,7 +196,9 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
         await loadData(resolvedClientId, true);
         return;
       }
-      setError(toErrorMessage(err));
+      const message = toErrorMessage(err);
+      setError(message);
+      showToast(message, "error");
     }
   }
 
@@ -197,6 +206,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     try {
       await deleteAsset(id);
       await loadData(resolvedClientId, true);
+      showToast("Asset deleted successfully.", "success");
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
         setPortfolio((prev) => prev ? { 
@@ -206,7 +216,9 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
         await loadData(resolvedClientId, true);
         return;
       }
-      setError(toErrorMessage(err));
+      const message = toErrorMessage(err);
+      setError(message);
+      showToast(message, "error");
     }
   }
 

@@ -5,10 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, NetworkError } from "@/lib/fetcher";
+import { useToast } from "@/context/ToastContext";
 
 export default function LoginForm() {
   const { login } = useAuth();
   const router = useRouter();
+  const { showToast } = useToast();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,14 +22,23 @@ export default function LoginForm() {
     e.preventDefault();
     if (loading) return;
 
+    const normalizedEmail = email.trim();
+    const normalizedPassword = password.trim();
+    if (!normalizedEmail || !normalizedPassword) {
+      setError("Email and password are required.");
+      showToast("Email and password are required.", "error");
+      return;
+    }
+
     setError(null);
     setLoading(true);
 
     try {
-      const me = await login(email, password); // Keep this line
+      const me = await login(normalizedEmail, normalizedPassword); // Keep this line
 
       if (!me) {
         setError("Unable to fetch user data");
+        showToast("Unable to fetch user data", "error");
         return;
       }
 
@@ -37,37 +48,47 @@ export default function LoginForm() {
 
       // Handle non-approved statuses before role-based routing
       if (status === "suspended") {
+        showToast("Your account is suspended.", "error");
         router.replace("/suspended");
         return;
       }
       if (status === "pending") {
+        showToast("Your account is pending approval.", "info");
         router.replace("/pending-approval");
         return;
       }
       if (status === "rejected") {
+        showToast("Your account approval was rejected.", "error");
         router.replace("/rejected");
         return;
       }
 
       // 🔥 safe redirect (replace avoids back button going to login)
       if (role === "admin") {
+        showToast("Welcome back.", "success");
         router.replace("/admin");
       } else {
+        showToast("Welcome back.", "success");
         router.replace("/dashboard");
       }
     } catch (err) {
       if (err instanceof NetworkError) {
         setError("Server not reachable. Try again.");
+        showToast("Server not reachable. Try again.", "error");
       } else if (err instanceof ApiError) {
         if (err.status === 401) {
           setError("Invalid email or password.");
+          showToast("Invalid email or password.", "error");
         } else if (err.status === 403) {
           setError("Access denied.");
+          showToast("Access denied.", "error");
         } else {
           setError(err.message);
+          showToast(err.message, "error");
         }
       } else {
         setError("Login failed. Please try again.");
+        showToast("Login failed. Please try again.", "error");
       }
     } finally {
       setLoading(false);
