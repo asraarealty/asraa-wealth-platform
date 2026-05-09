@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import Sidebar from "@/components/admin/Sidebar";
 import AdminHeader from "@/components/admin/AdminHeader";
 import AdminAuthGuard from "@/components/admin/AdminAuthGuard";
+import ApprovalGuard from "@/components/ApprovalGuard";
 
 const mobileNavItems = [
   {
@@ -101,6 +102,7 @@ export default function AdminLayout({
 }) {
   return (
     <AdminAuthGuard>
+      <ApprovalGuard>
       <div
         className="flex h-screen overflow-hidden"
         style={{ background: "#05070b" }}
@@ -121,6 +123,7 @@ export default function AdminLayout({
       </div>
       {/* Mobile bottom navigation */}
       <MobileBottomNav />
+      </ApprovalGuard>
     </AdminAuthGuard>
   );
 }
