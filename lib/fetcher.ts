@@ -16,31 +16,41 @@ export class NetworkError extends Error {
   }
 }
 
-// 🔐 TOKEN STORAGE
+// 🔐 TOKEN STORAGE (ephemeral in-memory only; avoids persistent token leakage)
+let inMemoryToken: string | null = null;
 
-const TOKEN_KEY = "access_token";
-
-export function getToken(): string | null {
-  if (typeof window === "undefined") return null;
+function isJwtExpired(token: string): boolean {
+  const parts = token.split(".");
+  if (parts.length < 2) return false;
   try {
-    return localStorage.getItem(TOKEN_KEY);
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const json =
+      typeof window !== "undefined" && typeof atob === "function"
+        ? atob(base64)
+        : Buffer.from(base64, "base64").toString("utf8");
+    const payload = JSON.parse(json);
+    if (!payload || typeof payload !== "object" || typeof payload.exp !== "number") return false;
+    return payload.exp * 1000 <= Date.now();
   } catch {
-    return null;
+    return false;
   }
 }
 
+export function getToken(): string | null {
+  if (!inMemoryToken) return null;
+  if (isJwtExpired(inMemoryToken)) {
+    inMemoryToken = null;
+    return null;
+  }
+  return inMemoryToken;
+}
+
 export function setToken(token: string) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(TOKEN_KEY, token);
-  } catch {}
+  inMemoryToken = token;
 }
 
 export function clearToken() {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.removeItem(TOKEN_KEY);
-  } catch {}
+  inMemoryToken = null;
 }
 
 // ── FETCH WRAPPER ──────────────────────────────────────
@@ -74,7 +84,7 @@ export async function fetcher<T>(
       ...rest,
       credentials: "include",
       headers: {
-        "Content-Type": "application/json",
+        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
         Accept: "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(extraHeaders || {}),

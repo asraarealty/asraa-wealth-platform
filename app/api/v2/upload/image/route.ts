@@ -1,65 +1,100 @@
-/**
- * POST /api/v2/upload/image
- *
- * Accepts a multipart/form-data request with a single "file" field containing
- * an image.  Encodes the image as a base64 data URL and returns it so it can
- * be stored as imageUrl on a FeaturedProperty.  Using a data URL avoids any
- * filesystem writes, making this route compatible with read-only serverless
- * environments (e.g. Vercel).
- *
- * This route is matched by Next.js before the /api/v2/:path* rewrite in
- * next.config.js, so it is handled locally rather than being proxied to the
- * backend.
- */
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { apiError, apiOk, getRequestIp } from "@/lib/security/api";
+import { requireAuth, requireRole } from "@/lib/security/auth";
+import { getSecurityEnv } from "@/lib/security/env";
+import { securityLog } from "@/lib/security/logging";
+import { checkRateLimit } from "@/lib/security/rateLimit";
+import {
+  persistIsolatedUpload,
+  readAsDataUrl,
+  removeIsolatedUpload,
+  runVirusScanPlaceholder,
+  validateUploadFile,
+} from "@/lib/security/upload";
 
-import { NextRequest, NextResponse } from "next/server";
+export const runtime = "nodejs";
 
-const ALLOWED_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-]);
-
-const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const uploadFormSchema = z.object({
+  file: z.unknown(),
+});
 
 export async function POST(request: NextRequest) {
-  // Require a Bearer token — same guard used by other protected routes.
-  const authHeader = request.headers.get("Authorization") ?? "";
-  if (!authHeader.startsWith("Bearer ")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = requireAuth(request);
+  if (!auth.ok) return auth.response;
+
+  const authzError = await requireRole(request, auth.context, ["admin", "super_admin"]);
+  if (authzError) return authzError;
+
+  const env = getSecurityEnv();
+  const ip = getRequestIp(request);
+  const limiter = checkRateLimit(
+    `upload:${ip}`,
+    env.SECURITY_UPLOAD_RATE_LIMIT_MAX,
+    env.SECURITY_UPLOAD_RATE_LIMIT_WINDOW_MS
+  );
+  if (!limiter.allowed) {
+    securityLog("warn", "upload.rate_limited", { ip });
+    const response = apiError(request, 429, "RATE_LIMITED", "Too many upload attempts");
+    response.headers.set("Retry-After", String(limiter.retryAfterSeconds));
+    return response;
   }
 
   let formData: FormData;
   try {
     formData = await request.formData();
-  } catch {
-    return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
+  } catch (error) {
+    securityLog("warn", "upload.invalid_form_data", { ip, error: String(error) });
+    return apiError(request, 400, "INVALID_FORM_DATA", "Invalid multipart form data");
   }
 
-  const file = formData.get("file");
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+  const parse = uploadFormSchema.safeParse({
+    file: formData.get("file"),
+  });
+  if (!parse.success) {
+    return apiError(request, 400, "VALIDATION_ERROR", "File is required");
   }
 
-  if (!ALLOWED_TYPES.has(file.type)) {
-    return NextResponse.json(
-      { error: "Only JPEG, PNG, WebP, and GIF images are allowed" },
-      { status: 400 }
-    );
+  let isolatedPath = "";
+  try {
+    const validated = validateUploadFile(parse.data.file);
+    const persisted = await persistIsolatedUpload(validated);
+    isolatedPath = persisted.absolutePath;
+
+    const scanResult = await runVirusScanPlaceholder(isolatedPath);
+    if (!scanResult.clean) {
+      securityLog("warn", "upload.virus_detected", {
+        ip,
+        filename: persisted.storedFilename,
+        engine: scanResult.engine,
+      });
+      return apiError(request, 400, "MALWARE_DETECTED", "Uploaded file failed security scan");
+    }
+
+    const url = await readAsDataUrl(isolatedPath, validated.file.type);
+    securityLog("info", "upload.success", {
+      ip,
+      filename: persisted.storedFilename,
+      mime: validated.file.type,
+      bytes: validated.file.size,
+      checksumSha256: persisted.checksumSha256,
+    });
+
+    return apiOk(request, { url });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return apiError(request, 400, "VALIDATION_ERROR", "Invalid upload payload");
+    }
+    const message = error instanceof Error ? error.message : "Upload failed";
+    securityLog("warn", "upload.rejected", { ip, message });
+    return apiError(request, 400, "UPLOAD_REJECTED", "Image upload rejected");
+  } finally {
+    if (isolatedPath) {
+      await removeIsolatedUpload(isolatedPath).catch(() => undefined);
+    }
   }
+}
 
-  if (file.size > MAX_SIZE_BYTES) {
-    return NextResponse.json(
-      { error: "File size must not exceed 5 MB" },
-      { status: 400 }
-    );
-  }
-
-  const bytes = await file.arrayBuffer();
-  const base64 = Buffer.from(bytes).toString("base64");
-  // Use the validated MIME type — never trust the client-supplied filename.
-  const url = `data:${file.type};base64,${base64}`;
-
-  return NextResponse.json({ url });
+export function OPTIONS(request: NextRequest) {
+  return apiOk(request, {}, 204);
 }

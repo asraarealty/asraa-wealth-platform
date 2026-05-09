@@ -13,9 +13,12 @@
  * All portfolio values are expressed in INR.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getBatchStockPrices } from "@/lib/services/marketData";
 import { computePortfolioMetrics, computeRiskScore } from "@/lib/analytics";
+import { apiError, apiOk } from "@/lib/security/api";
+import { requireAuth } from "@/lib/security/auth";
+import { securityLog } from "@/lib/security/logging";
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
@@ -127,10 +130,8 @@ function safeNum(v: unknown): number {
 // ── Route Handler ─────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("Authorization") ?? "";
-  if (!authHeader) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = requireAuth(request);
+  if (!auth.ok) return auth.response;
 
   try {
     // 1. Fetch all clients
@@ -139,16 +140,16 @@ export async function GET(request: NextRequest) {
     // we must NOT include that prefix in the path.
     let clients: BackendClient[];
     try {
-      const raw = await backendGet<BackendClient[]>("/clients", authHeader);
+      const raw = await backendGet<BackendClient[]>("/clients", auth.context.authHeader);
       clients = Array.isArray(raw) ? raw : [];
     } catch (err) {
       // Backend unreachable or returned an error — return empty intelligence
-      console.error("[/api/portfolio/intelligence] Failed to fetch clients:", err);
-      return NextResponse.json([]);
+      securityLog("error", "portfolio_intelligence.clients_failed", { error: String(err) });
+      return apiOk(request, []);
     }
 
     if (clients.length === 0) {
-      return NextResponse.json([]);
+      return apiOk(request, []);
     }
 
     // 2. Fetch each client's portfolio in parallel (failures → empty array)
@@ -156,7 +157,7 @@ export async function GET(request: NextRequest) {
       clients.map(async (client) => {
         const raw = await backendGet<unknown>(
           `/assets?user_id=${client.id}`,
-          authHeader
+          auth.context.authHeader
         );
         const items = parsePortfolioResponse(raw);
         return { clientId: client.id, items };
@@ -232,12 +233,13 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json(intelligenceRows);
+    return apiOk(request, intelligenceRows);
   } catch (err) {
-    console.error("[/api/portfolio/intelligence] Error:", err);
-    return NextResponse.json(
-      { error: "Failed to compute portfolio intelligence" },
-      { status: 500 }
-    );
+    securityLog("error", "portfolio_intelligence.failed", { error: String(err) });
+    return apiError(request, 500, "INTELLIGENCE_FAILED", "Failed to compute portfolio intelligence");
   }
+}
+
+export function OPTIONS(request: NextRequest) {
+  return apiOk(request, {}, 204);
 }
