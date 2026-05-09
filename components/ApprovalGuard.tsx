@@ -35,11 +35,7 @@ export default function ApprovalGuard({ children }: Props) {
     const status = user.approval_status;
 
     if (status === "suspended") {
-      // Clear session and redirect; navigate to /suspended regardless of whether
-      // the server-side logout call succeeds (the token is already cleared locally).
-      void logout().finally(() => {
-        router.replace("/suspended");
-      });
+      void logout("/suspended");
       return;
     }
 
@@ -66,4 +62,3 @@ export default function ApprovalGuard({ children }: Props) {
 
   return <>{children}</>;
 }
-

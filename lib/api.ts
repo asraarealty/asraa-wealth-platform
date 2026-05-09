@@ -6,7 +6,7 @@ export {
   toErrorMessage,
 } from "./fetcher";
 
-import { fetcher, ApiError, API_BASE_URL, getToken } from "./fetcher";
+import { fetcher, ApiError, API_BASE_URL, getToken, NetworkError } from "./fetcher";
 
 /* ── Auth ───────────────────────────────────────────────────────────── */
 
@@ -821,20 +821,54 @@ export function deleteAdminUser(id: number): Promise<void> {
 
 /* ── Image Upload ────────────────────────────────────────────────────── */
 
-export async function uploadImage(file: File): Promise<{ url: string }> {
+export async function uploadImage(
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<{ url: string }> {
   const token = getToken();
 
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(`${API_BASE_URL}/upload/image`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: formData,
+  const response = await new Promise<Response>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE_URL}/upload/image`);
+    xhr.withCredentials = true;
+    xhr.responseType = "text";
+    xhr.setRequestHeader("Accept", "application/json");
+    if (token) {
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    }
+
+    if (onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) return;
+        const percent = Math.min(
+          100,
+          Math.max(0, Math.round((event.loaded / event.total) * 100))
+        );
+        onProgress(percent);
+      };
+    }
+
+    xhr.onerror = () => reject(new NetworkError("Unable to reach backend API"));
+    xhr.onabort = () => reject(new DOMException("Upload aborted", "AbortError"));
+    xhr.onload = () => {
+      const responseHeaders = new Headers();
+      const contentType = xhr.getResponseHeader("Content-Type");
+      if (contentType) {
+        responseHeaders.set("Content-Type", contentType);
+      }
+      resolve(
+        new Response(xhr.responseText, {
+          status: xhr.status,
+          statusText: xhr.statusText,
+          headers: responseHeaders,
+        })
+      );
+    };
+
+    xhr.send(formData);
   });
 
   if (!response.ok) {
@@ -850,6 +884,7 @@ export async function uploadImage(file: File): Promise<{ url: string }> {
   }
 
   const json = await response.json();
+  if (onProgress) onProgress(100);
   if (json && typeof json === "object" && "data" in json) return json.data as { url: string };
   return json as { url: string };
 }

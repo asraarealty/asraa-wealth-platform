@@ -14,6 +14,7 @@ import {
   type FeaturedProperty,
 } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
+import { useToast } from "@/context/ToastContext";
 
 const MAX_ACTIVE = 6;
 
@@ -45,6 +46,7 @@ const emptyForm = (): Omit<FeaturedProperty, "id"> => ({
 });
 
 export default function FeaturedProperties() {
+  const { showToast } = useToast();
   const [properties, setProperties] = useState<FeaturedProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +56,7 @@ export default function FeaturedProperties() {
   const [editForm, setEditForm] = useState<Omit<FeaturedProperty, "id">>(emptyForm());
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [deletingId, setDeletingId] = useState<FeaturedProperty["id"] | null>(null);
   const [togglingId, setTogglingId] = useState<FeaturedProperty["id"] | null>(null);
 
@@ -123,6 +126,7 @@ export default function FeaturedProperties() {
     setImageFile(null);
     imagePreviewRef.current = "";
     setImagePreview("");
+    setUploadProgress(0);
   }
 
   function patchForm(partial: Partial<Omit<FeaturedProperty, "id">>) {
@@ -151,11 +155,13 @@ export default function FeaturedProperties() {
     // Upload image file first (if a new file was selected)
     if (imageFile) {
       setUploading(true);
+      setUploadProgress(0);
       try {
-        const { url } = await uploadImage(imageFile);
+        const { url } = await uploadImage(imageFile, setUploadProgress);
         finalForm = { ...finalForm, imageUrl: url };
       } catch (err) {
         setActionError("Image upload failed: " + toErrorMessage(err));
+        showToast("Image upload failed.", "error");
         setSubmitting(false);
         return;
       } finally {
@@ -167,15 +173,19 @@ export default function FeaturedProperties() {
       if (editingId === "new") {
         const created = await createFeaturedProperty(finalForm);
         setProperties((prev) => sortByOrder([...prev, created]));
+        showToast("Featured property created.", "success");
       } else if (editingId !== null) {
         const updated = await updateFeaturedProperty(editingId, finalForm);
         setProperties((prev) =>
           sortByOrder(prev.map((p) => (p.id === editingId ? updated : p)))
         );
+        showToast("Featured property updated.", "success");
       }
       closeEdit();
     } catch (err) {
-      setActionError(toErrorMessage(err));
+      const message = toErrorMessage(err);
+      setActionError(message);
+      showToast(message, "error");
     } finally {
       setSubmitting(false);
     }
@@ -187,8 +197,11 @@ export default function FeaturedProperties() {
     try {
       await deleteFeaturedProperty(id);
       setProperties((prev) => prev.filter((p) => p.id !== id));
+      showToast("Featured property deleted.", "success");
     } catch (err) {
-      setActionError(toErrorMessage(err));
+      const message = toErrorMessage(err);
+      setActionError(message);
+      showToast(message, "error");
     } finally {
       setDeletingId(null);
     }
@@ -202,8 +215,11 @@ export default function FeaturedProperties() {
       setProperties((prev) =>
         prev.map((p) => (p.id === id ? { ...p, isActive: updated.isActive } : p))
       );
+      showToast("Property visibility updated.", "success");
     } catch (err) {
-      setActionError(toErrorMessage(err));
+      const message = toErrorMessage(err);
+      setActionError(message);
+      showToast(message, "error");
     } finally {
       setTogglingId(null);
     }
@@ -258,7 +274,9 @@ export default function FeaturedProperties() {
     try {
       await reorderFeaturedProperties(reordered.map((p) => p.id));
     } catch (err) {
-      setActionError(toErrorMessage(err));
+      const message = toErrorMessage(err);
+      setActionError(message);
+      showToast(message, "error");
     }
   }
 
@@ -461,6 +479,22 @@ export default function FeaturedProperties() {
                   }}
                 />
               </div>
+              {uploading && (
+                <div className="mt-2 space-y-1">
+                  <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-200"
+                      style={{
+                        width: `${uploadProgress}%`,
+                        background: "linear-gradient(90deg, #00E5FF, #4F8CFF)",
+                      }}
+                    />
+                  </div>
+                  <p className="text-[11px]" style={{ color: "rgba(0,229,255,0.75)" }}>
+                    Uploading image… {uploadProgress}%
+                  </p>
+                </div>
+              )}
             </div>
             <div className="flex flex-col gap-1">
               <label htmlFor="fp-redirect-url" className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Redirect URL</label>

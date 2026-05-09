@@ -111,10 +111,8 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
               setError("Stock not found");
               setIsRetryable(false);
             } else if (err.status === 401) {
-              // Redirect to login — token is already cleared by fetcher
-              if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-                window.location.assign("/login");
-              }
+              setError("Session expired. Please sign in again.");
+              setIsRetryable(false);
             } else if (err.status >= 500) {
               setError("Server error — please retry");
               setIsRetryable(true);

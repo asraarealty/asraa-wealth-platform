@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getToken } from "@/lib/fetcher";
 import Loader from "@/components/ui/Loader";
 import ErrorState from "@/components/ui/ErrorState";
 import ClientIntelligenceTable from "@/components/admin/dashboard/ClientIntelligenceTable";
@@ -17,11 +16,16 @@ export default function InsightsPage() {
   const [rows, setRows] = useState<ClientIntelligence[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    const token = getToken();
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+
     fetch("/api/portfolio/intelligence", {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: "include",
+      signal: controller.signal,
     })
       .then(async (res) => {
         if (!res.ok) throw new Error(`Failed to load intelligence data (${res.status})`);
@@ -29,13 +33,33 @@ export default function InsightsPage() {
         setRows(Array.isArray(data) ? data : []);
       })
       .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         setError(err instanceof Error ? err.message : "Failed to load insights");
       })
       .finally(() => setLoading(false));
-  }, []);
+    return () => controller.abort();
+  }, [reloadKey]);
 
   if (loading) return <Loader />;
-  if (error) return <ErrorState message={error} />;
+  if (error) {
+    return (
+      <div className="space-y-3">
+        <ErrorState message={error} />
+        <button
+          type="button"
+          onClick={() => setReloadKey((k) => k + 1)}
+          className="rounded-lg border px-3 py-1.5 text-xs font-medium"
+          style={{
+            borderColor: "rgba(0,229,255,0.25)",
+            color: "#00E5FF",
+            background: "rgba(0,229,255,0.08)",
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   const alerts = deriveAlerts(rows);
   const avgReturn = calcAverageReturn(rows);

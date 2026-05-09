@@ -1,19 +1,21 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import ApprovalGuard from "@/components/ApprovalGuard";
 import Loader from "@/components/ui/Loader";
 
 function DashboardAuthGuard({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     if (loading) return;
     if (user === null) {
-      window.location.href = "/login";
+      router.replace("/login");
     }
-  }, [loading, user]);
+  }, [loading, user, router]);
 
   if (loading) return <Loader />;
   if (!user) return null;

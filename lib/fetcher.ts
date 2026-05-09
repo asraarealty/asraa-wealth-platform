@@ -16,7 +16,7 @@ export class NetworkError extends Error {
   }
 }
 
-// 🔐 TOKEN STORAGE (ephemeral in-memory only; avoids persistent token leakage)
+// 🔐 TOKEN STORAGE (in-memory only)
 let inMemoryToken: string | null = null;
 
 function isJwtExpired(token: string): boolean {
@@ -43,7 +43,7 @@ function isJwtExpired(token: string): boolean {
 export function getToken(): string | null {
   if (!inMemoryToken) return null;
   if (isJwtExpired(inMemoryToken)) {
-    inMemoryToken = null;
+    clearToken();
     return null;
   }
   return inMemoryToken;
@@ -62,6 +62,8 @@ export function clearToken() {
 interface FetcherOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
   raw?: boolean;
+  /** Number of automatic retries for transient failures (network/5xx). */
+  retries?: number;
   /** When true, a 401 response throws ApiError without clearing the token or
    *  redirecting to /login. Use for optional / non-critical endpoints (e.g.
    *  stock search) where an auth failure should be surfaced as a UI error
@@ -73,7 +75,15 @@ export async function fetcher<T>(
   path: string,
   options: FetcherOptions = {}
 ): Promise<T> {
-  const { body, headers: extraHeaders, signal, raw, noRedirectOn401, ...rest } = options;
+  const {
+    body,
+    headers: extraHeaders,
+    signal,
+    raw,
+    retries,
+    noRedirectOn401,
+    ...rest
+  } = options;
   const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
   const hasExplicitContentType =
     extraHeaders &&
@@ -92,27 +102,56 @@ export async function fetcher<T>(
     ? path
     : `${API_BASE_URL}${path}`;
 
-  let response: Response;
+  const method = String(rest.method ?? "GET").toUpperCase();
+  const defaultRetries = ["GET", "HEAD", "OPTIONS"].includes(method) ? 1 : 0;
+  const maxRetries = Math.max(0, retries ?? defaultRetries);
+  const calculateBackoffDelay = (attempt: number) => 250 * (attempt + 1);
 
+  const executeRequest = async (): Promise<Response> => {
+    let attempt = 0;
+    let lastNetworkError: unknown = null;
+
+    while (attempt <= maxRetries) {
+      try {
+        const response = await fetch(url, {
+          ...rest,
+          credentials: "include",
+          headers: {
+            ...(body !== undefined && !isFormData && !hasExplicitContentType
+              ? { "Content-Type": "application/json" }
+              : {}),
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(extraHeaders || {}),
+          },
+          signal,
+          body: requestBody,
+        });
+
+        if (response.status >= 500 && attempt < maxRetries) {
+          await new Promise((resolve) => setTimeout(resolve, calculateBackoffDelay(attempt)));
+          attempt += 1;
+          continue;
+        }
+        return response;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") throw err;
+        lastNetworkError = err;
+        if (attempt >= maxRetries) break;
+        await new Promise((resolve) => setTimeout(resolve, calculateBackoffDelay(attempt)));
+        attempt += 1;
+      }
+    }
+
+    throw lastNetworkError ?? new Error("Network request failed");
+  };
+
+  let response: Response;
   try {
-    response = await fetch(url, {
-      ...rest,
-      credentials: "include",
-      headers: {
-        ...(body !== undefined && !isFormData && !hasExplicitContentType
-          ? { "Content-Type": "application/json" }
-          : {}),
-        Accept: "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(extraHeaders || {}),
-      },
-      signal,
-      body: requestBody,
-    });
+    response = await executeRequest();
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
-    const networkErr = new NetworkError("Unable to reach backend API");
-    throw networkErr;
+    throw new NetworkError("Unable to reach backend API");
   }
 
   // Removed console.log("API Response:", response.status);

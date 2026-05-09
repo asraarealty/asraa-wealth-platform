@@ -24,7 +24,7 @@ export interface AuthContextValue {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<User>;
-  logout: () => Promise<void>;
+  logout: (nextPath?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -34,13 +34,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetcher<User>("/auth/me")
-      .then(setUser)
-      .catch(() => {
+    const controller = new AbortController();
+    let mounted = true;
+
+    fetcher<User>("/auth/me", { signal: controller.signal })
+      .then((me) => {
+        if (!mounted) return;
+        setUser(me);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (!mounted) return;
         setUser(null);
         clearToken();
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!mounted) return;
+        setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+      controller.abort();
+    };
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -60,13 +76,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return me;
   }, []);
 
-  const logout = useCallback(async () => {
+  const logout = useCallback(async (nextPath = "/login") => {
     try {
       await fetcher("/auth/logout", { method: "POST" });
     } catch {}
     clearToken();
     setUser(null);
-    window.location.href = "/login";
+    if (typeof window !== "undefined" && window.location.pathname !== nextPath) {
+      window.location.assign(nextPath);
+    }
   }, []);
 
   return (
