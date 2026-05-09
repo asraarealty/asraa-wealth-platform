@@ -93,7 +93,7 @@ export function proxy(request: NextRequest) {
 
   // Idle timeout cookie is HTTP-only and strict to reduce XSS/session fixation risk.
   if (isProtectedRoute && hasToken) {
-    response.cookies.set(IDLE_SESSION_COOKIE, idleCookie || "active", {
+    response.cookies.set(IDLE_SESSION_COOKIE, idleCookie || `session-init-${Date.now()}`, {
       httpOnly: true,
       sameSite: "strict",
       secure: isProduction(),

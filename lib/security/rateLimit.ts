@@ -11,6 +11,9 @@ type Entry = {
 
 const buckets = new Map<string, Entry>();
 
+// NOTE: This in-memory limiter is process-local. For multi-instance deployments,
+// replace with a shared store (e.g. Redis/KV) while keeping this function contract.
+
 export function checkRateLimit(key: string, max: number, windowMs: number): RateLimitResult {
   const now = Date.now();
   const current = buckets.get(key);

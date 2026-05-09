@@ -24,10 +24,14 @@ function isJwtExpired(token: string): boolean {
   if (parts.length < 2) return false;
   try {
     const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const atobFn = typeof globalThis.atob === "function" ? globalThis.atob : undefined;
     const json =
-      typeof window !== "undefined" && typeof atob === "function"
-        ? atob(base64)
-        : Buffer.from(base64, "base64").toString("utf8");
+      typeof atobFn === "function"
+        ? atobFn(base64)
+        : typeof Buffer !== "undefined"
+          ? Buffer.from(base64, "base64").toString("utf8")
+          : "";
+    if (!json) return false;
     const payload = JSON.parse(json);
     if (!payload || typeof payload !== "object" || typeof payload.exp !== "number") return false;
     return payload.exp * 1000 <= Date.now();
@@ -70,6 +74,17 @@ export async function fetcher<T>(
   options: FetcherOptions = {}
 ): Promise<T> {
   const { body, headers: extraHeaders, signal, raw, noRedirectOn401, ...rest } = options;
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  const hasExplicitContentType =
+    extraHeaders &&
+    Object.keys(extraHeaders).some((key) => key.toLowerCase() === "content-type");
+
+  const requestBody =
+    body === undefined
+      ? undefined
+      : isFormData || typeof body === "string"
+        ? (body as BodyInit)
+        : JSON.stringify(body);
 
   const token = getToken();
 
@@ -84,13 +99,15 @@ export async function fetcher<T>(
       ...rest,
       credentials: "include",
       headers: {
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...(body !== undefined && !isFormData && !hasExplicitContentType
+          ? { "Content-Type": "application/json" }
+          : {}),
         Accept: "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(extraHeaders || {}),
       },
       signal,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: requestBody,
     });
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;

@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "crypto";
 import { mkdir, readFile, rm, writeFile } from "fs/promises";
+import os from "os";
 import path from "path";
 import { z } from "zod";
 import { getSecurityEnv } from "./env";
@@ -41,12 +42,14 @@ export function validateUploadFile(fileInput: unknown): ValidatedUpload {
     throw new Error("Only JPEG, PNG and WebP files are allowed");
   }
 
-  const ext = path.extname(file.name).toLowerCase().replace(".", "");
+  const originalName = file.name.toLowerCase();
+  const ext = path.extname(originalName).toLowerCase().replace(".", "");
+  const allSegments = originalName.split(".").slice(1);
+  if (allSegments.some((segment) => blockedExtensions.has(segment))) {
+    throw new Error("Blocked file extension");
+  }
   if (!ext || !allowedExtensions.has(ext)) {
     throw new Error("File extension is not allowed");
-  }
-  if (blockedExtensions.has(ext)) {
-    throw new Error("Blocked file extension");
   }
 
   return {
@@ -57,8 +60,10 @@ export function validateUploadFile(fileInput: unknown): ValidatedUpload {
 }
 
 function resolveSafeUploadDir(): string {
+  const configured = getSecurityEnv().SECURITY_UPLOAD_DIR?.trim();
+  if (configured) return path.resolve(configured);
   // Keep all transient uploads isolated from source directories.
-  return path.resolve("/tmp/asraa-uploads");
+  return path.resolve(os.tmpdir(), "asraa-uploads");
 }
 
 export async function persistIsolatedUpload(validated: ValidatedUpload): Promise<{
@@ -93,6 +98,11 @@ export async function readAsDataUrl(filePath: string, mimeType: string): Promise
   const bytes = await readFile(filePath);
   const base64 = bytes.toString("base64");
   return `data:${mimeType};base64,${base64}`;
+}
+
+export async function fileToDataUrl(file: File): Promise<string> {
+  const bytes = Buffer.from(await file.arrayBuffer());
+  return `data:${file.type};base64,${bytes.toString("base64")}`;
 }
 
 export async function removeIsolatedUpload(filePath: string): Promise<void> {

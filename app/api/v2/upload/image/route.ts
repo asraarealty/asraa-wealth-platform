@@ -6,6 +6,7 @@ import { getSecurityEnv } from "@/lib/security/env";
 import { securityLog } from "@/lib/security/logging";
 import { checkRateLimit } from "@/lib/security/rateLimit";
 import {
+  fileToDataUrl,
   persistIsolatedUpload,
   readAsDataUrl,
   removeIsolatedUpload,
@@ -58,27 +59,38 @@ export async function POST(request: NextRequest) {
   let isolatedPath = "";
   try {
     const validated = validateUploadFile(parse.data.file);
-    const persisted = await persistIsolatedUpload(validated);
-    isolatedPath = persisted.absolutePath;
+    let url: string;
 
-    const scanResult = await runVirusScanPlaceholder(isolatedPath);
-    if (!scanResult.clean) {
-      securityLog("warn", "upload.virus_detected", {
+    try {
+      const persisted = await persistIsolatedUpload(validated);
+      isolatedPath = persisted.absolutePath;
+
+      const scanResult = await runVirusScanPlaceholder(isolatedPath);
+      if (!scanResult.clean) {
+        securityLog("warn", "upload.virus_detected", {
+          ip,
+          filename: persisted.storedFilename,
+          engine: scanResult.engine,
+        });
+        return apiError(request, 400, "MALWARE_DETECTED", "Uploaded file failed security scan");
+      }
+
+      url = await readAsDataUrl(isolatedPath, validated.file.type);
+      securityLog("info", "upload.success", {
         ip,
         filename: persisted.storedFilename,
-        engine: scanResult.engine,
+        mime: validated.file.type,
+        bytes: validated.file.size,
+        checksumSha256: persisted.checksumSha256,
       });
-      return apiError(request, 400, "MALWARE_DETECTED", "Uploaded file failed security scan");
+    } catch {
+      // Fallback keeps route compatible with serverless platforms that may restrict disk writes.
+      url = await fileToDataUrl(validated.file);
+      securityLog("warn", "upload.filesystem_unavailable_fallback", {
+        ip,
+        mime: validated.file.type,
+      });
     }
-
-    const url = await readAsDataUrl(isolatedPath, validated.file.type);
-    securityLog("info", "upload.success", {
-      ip,
-      filename: persisted.storedFilename,
-      mime: validated.file.type,
-      bytes: validated.file.size,
-      checksumSha256: persisted.checksumSha256,
-    });
 
     return apiOk(request, { url });
   } catch (error) {

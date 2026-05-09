@@ -4,6 +4,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   BACKEND_URL: z.string().url().optional(),
   SECURITY_UPLOAD_MAX_BYTES: z.coerce.number().int().positive().max(10 * 1024 * 1024).default(5 * 1024 * 1024),
+  SECURITY_UPLOAD_DIR: z.string().optional(),
   SECURITY_UPLOAD_RATE_LIMIT_MAX: z.coerce.number().int().positive().max(100).default(10),
   SECURITY_UPLOAD_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().max(60 * 60 * 1000).default(60 * 1000),
   SECURITY_LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().positive().max(100).default(10),
