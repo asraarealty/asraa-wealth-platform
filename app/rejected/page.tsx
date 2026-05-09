@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SUPPORT_WHATSAPP_URL } from "@/lib/constants";
 
 export default function RejectedPage() {
   return (
@@ -85,7 +86,7 @@ export default function RejectedPage() {
         </p>
 
         <Link
-          href="https://wa.me/919999999999"
+          href={SUPPORT_WHATSAPP_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 hover:-translate-y-0.5"

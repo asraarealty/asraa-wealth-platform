@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Loader from "@/components/ui/Loader";
 
@@ -21,6 +22,7 @@ interface Props {
  */
 export default function ApprovalGuard({ children }: Props) {
   const { user, loading, logout } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     if (loading) return;
@@ -33,23 +35,24 @@ export default function ApprovalGuard({ children }: Props) {
     const status = user.approval_status;
 
     if (status === "suspended") {
-      // Immediately clear session and redirect
-      void logout().catch(() => {
-        window.location.href = "/suspended";
+      // Clear session and redirect; navigate to /suspended regardless of whether
+      // the server-side logout call succeeds (the token is already cleared locally).
+      void logout().finally(() => {
+        router.replace("/suspended");
       });
       return;
     }
 
     if (status === "pending") {
-      window.location.href = "/pending-approval";
+      router.replace("/pending-approval");
       return;
     }
 
     if (status === "rejected") {
-      window.location.href = "/rejected";
+      router.replace("/rejected");
       return;
     }
-  }, [loading, user, logout]);
+  }, [loading, user, logout, router]);
 
   if (loading) return <Loader />;
 
@@ -63,3 +66,4 @@ export default function ApprovalGuard({ children }: Props) {
 
   return <>{children}</>;
 }
+
