@@ -10,14 +10,17 @@ import {
 } from "react";
 import { fetcher, setToken, clearToken } from "@/lib/fetcher";
 
-interface User {
+export type ApprovalStatus = "pending" | "approved" | "rejected" | "suspended";
+
+export interface User {
   id: number;
   name?: string;
   email: string;
   role?: string;
+  approval_status?: ApprovalStatus;
 }
 
-interface AuthContextValue {
+export interface AuthContextValue {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<User>;

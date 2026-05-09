@@ -33,6 +33,21 @@ export default function LoginForm() {
 
       // 🔥 robust role handling
       const role = (me.role || "").toString().trim().toLowerCase();
+      const status = (me.approval_status || "").toString().trim().toLowerCase();
+
+      // Handle non-approved statuses before role-based routing
+      if (status === "suspended") {
+        router.replace("/suspended");
+        return;
+      }
+      if (status === "pending") {
+        router.replace("/pending-approval");
+        return;
+      }
+      if (status === "rejected") {
+        router.replace("/rejected");
+        return;
+      }
 
       // 🔥 safe redirect (replace avoids back button going to login)
       if (role === "admin") {
