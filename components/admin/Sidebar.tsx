@@ -152,7 +152,9 @@ export default function Sidebar() {
       {/* Sign out */}
       <div className="p-3 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
         <button
-          onClick={logout}
+          onClick={() => {
+            void logout();
+          }}
           className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-500 transition-colors text-left hover:text-red-400"
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.06)";
