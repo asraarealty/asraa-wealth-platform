@@ -8,7 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { fetcher, setToken, clearToken } from "@/lib/fetcher";
+import { fetcher, setToken, clearToken, ApiError } from "@/lib/fetcher";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected" | "suspended";
 
@@ -23,8 +23,12 @@ export interface User {
 export interface AuthContextValue {
   user: User | null;
   loading: boolean;
+  /** True when the initial /auth/me call failed with a transient (non-401) error. */
+  authError: boolean;
   login: (email: string, password: string) => Promise<User>;
   logout: (nextPath?: string) => Promise<void>;
+  /** Re-runs the /auth/me bootstrap — useful after a transient failure. */
+  retryAuth: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
