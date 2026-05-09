@@ -8,7 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { fetcher, setToken, clearToken, getToken } from "@/lib/fetcher";
+import { fetcher, setToken, clearToken } from "@/lib/fetcher";
 
 interface User {
   id: number;
@@ -31,13 +31,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = getToken();
-
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
     fetcher<User>("/auth/me")
       .then(setUser)
       .catch(() => {
@@ -48,13 +41,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await fetcher<{ access_token: string }>("/auth/login", {
+    const res = await fetcher<{ access_token?: string }>("/auth/login", {
       method: "POST",
       body: { email, password },
       raw: true,
     });
 
-    setToken(res.access_token);
+    if (res.access_token) {
+      setToken(res.access_token);
+    }
 
     const me = await fetcher<User>("/auth/me");
     setUser(me);

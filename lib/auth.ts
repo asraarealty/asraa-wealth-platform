@@ -1,6 +1,6 @@
 /**
- * Auth utilities for token management using localStorage.
- * This file is aligned with the token-based fetcher.
+ * Auth utilities for token management using ephemeral in-memory storage.
+ * Session cookies remain the primary auth mechanism.
  */
 
 import { getToken, setToken, clearToken } from "./fetcher";

@@ -36,8 +36,8 @@ lib/
 # Install dependencies
 npm install
 
-# Set your API base URL
-echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
+# Set backend URL for Next.js rewrites
+echo "BACKEND_URL=http://localhost:8000" > .env.local
 
 # Run development server
 npm run dev
@@ -49,7 +49,16 @@ Open [http://localhost:3000](http://localhost:3000) — you will be redirected t
 
 | Variable | Description |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | Base URL for the FastAPI backend (e.g. `https://api.asraa.com`) |
+| `BACKEND_URL` | Server-side base URL for FastAPI backend rewrites |
+| `SECURITY_IDLE_TIMEOUT_SECONDS` | Idle-session timeout in seconds |
+| `SECURITY_UPLOAD_MAX_BYTES` | Maximum image upload size in bytes |
+| `SECURITY_UPLOAD_RATE_LIMIT_MAX` | Upload requests allowed per rate-limit window |
+| `SECURITY_UPLOAD_RATE_LIMIT_WINDOW_MS` | Upload rate-limit window in milliseconds |
+| `SECURITY_LOGIN_RATE_LIMIT_MAX` | Login attempts allowed per window |
+| `SECURITY_LOGIN_RATE_LIMIT_WINDOW_MS` | Login rate-limit window in milliseconds |
+| `SECURITY_ALLOWED_ORIGINS` | Comma-separated allowed origins for API CORS |
+
+> Keep secrets server-side. Never put API secrets/tokens in `NEXT_PUBLIC_*` vars.
 
 ## Build
 
