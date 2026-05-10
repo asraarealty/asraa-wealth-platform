@@ -5,7 +5,6 @@ import Link from "next/link";
 import { getAdminClients } from "@/lib/services/clientService";
 import {
   fetchAdminGroupedAssets,
-  fetchAssets,
   createAsset,
   updateAsset,
   deleteAsset,
@@ -18,6 +17,7 @@ import {
 } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
 import { useToast } from "@/context/ToastContext";
+import { usePortfolioState } from "@/lib/hooks/usePortfolioState";
 import StatBox from "@/components/ui/StatBox";
 import Loader from "@/components/ui/Loader";
 import ErrorState from "@/components/ui/ErrorState";
@@ -55,6 +55,16 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>("stocks");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const {
+    assets,
+    loading: clientPortfolioLoading,
+    error: clientPortfolioError,
+    retry: retryClientPortfolio,
+    runMutation,
+  } = usePortfolioState({
+    clientId: selectedClient?.id,
+    enabled: Boolean(selectedClient),
+  });
 
   useEffect(() => {
     const ac = new AbortController();
@@ -98,7 +108,13 @@ export default function AdminPage() {
   }, [allAssets, totalAUM]);
 
   const activeClients = clients.filter((c: AdminClient) => c.isActive).length;
-  const assets: Asset[] = groupedAssets[String(selectedClient?.id ?? "")] ?? [];
+  useEffect(() => {
+    if (!selectedClient) return;
+    setGroupedAssets((prev) => ({
+      ...prev,
+      [String(selectedClient.id)]: assets,
+    }));
+  }, [assets, selectedClient]);
 
   // Intelligence rows derived from clients + grouped assets
   const intelligenceRows = useMemo<ClientIntelligence[]>(() => {
@@ -135,56 +151,37 @@ export default function AdminPage() {
   const alerts = useMemo(() => deriveAlerts(intelligenceRows), [intelligenceRows]);
   const avgReturn = useMemo(() => calcAverageReturn(intelligenceRows), [intelligenceRows]);
 
-  async function refreshSelectedClientAssets(clientId: number) {
-    try {
-      const refreshed = await fetchAssets(clientId);
-      setGroupedAssets((prev) => ({
-        ...prev,
-        [String(clientId)]: refreshed,
-      }));
-    } catch (err) {
-      const message = toErrorMessage(err);
-      setError(message);
-      showToast(message, "error");
-      throw err;
-    }
-  }
-
   async function handleAdd(payload: CreateAssetPayload) {
     if (!selectedClient) return;
     try {
-      await createAsset({ ...payload, userId: selectedClient.id });
-      await refreshSelectedClientAssets(selectedClient.id);
+      await runMutation(() => createAsset({ ...payload, userId: selectedClient.id }));
       showToast("Asset added successfully.", "success");
     } catch (err) {
       const message = toErrorMessage(err);
-      setError(message);
       showToast(message, "error");
+      throw err;
     }
   }
 
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
     if (!selectedClient) return;
     try {
-      await updateAsset(id, payload);
-      await refreshSelectedClientAssets(selectedClient.id);
+      await runMutation(() => updateAsset(id, payload));
       showToast("Asset updated successfully.", "success");
     } catch (err) {
       const message = toErrorMessage(err);
-      setError(message);
       showToast(message, "error");
+      throw err;
     }
   }
 
   async function handleDelete(id: number) {
     if (!selectedClient) return;
     try {
-      await deleteAsset(id);
-      await refreshSelectedClientAssets(selectedClient.id);
+      await runMutation(() => deleteAsset(id));
       showToast("Asset deleted successfully.", "success");
     } catch (err) {
       const message = toErrorMessage(err);
-      setError(message);
       showToast(message, "error");
     }
   }
@@ -362,7 +359,22 @@ export default function AdminPage() {
           </div>
         )}
 
-        {selectedClient && assets.length === 0 && (
+        {selectedClient && clientPortfolioLoading && <Loader />}
+
+        {selectedClient && !clientPortfolioLoading && clientPortfolioError && (
+          <div className="space-y-3">
+            <ErrorState message={clientPortfolioError} />
+            <button
+              onClick={() => void retryClientPortfolio().catch((err) => showToast(toErrorMessage(err), "error"))}
+              className="inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold text-black"
+              style={{ background: "linear-gradient(90deg, #C9A227, #d4af4a)" }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {selectedClient && !clientPortfolioLoading && !clientPortfolioError && assets.length === 0 && (
           <div
             className="glass-card rounded-2xl p-10 text-center"
             style={{ border: "1px solid rgba(255,255,255,0.08)" }}
@@ -374,7 +386,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {selectedClient && assets.length > 0 && (
+        {selectedClient && !clientPortfolioLoading && !clientPortfolioError && assets.length > 0 && (
           <AssetTabs
             assets={assets}
             activeTab={activeTab}

@@ -89,6 +89,7 @@ export default function AdminPortfolioPage() {
       showToast("Asset added successfully.", "success");
     } catch (err) {
       showToast(toErrorMessage(err), "error");
+      throw err;
     }
   }
 
@@ -99,6 +100,7 @@ export default function AdminPortfolioPage() {
       showToast("Asset updated successfully.", "success");
     } catch (err) {
       showToast(toErrorMessage(err), "error");
+      throw err;
     }
   }
 

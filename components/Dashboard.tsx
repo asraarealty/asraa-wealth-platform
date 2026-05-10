@@ -125,6 +125,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     } catch (err) {
       const message = toErrorMessage(err);
       showToast(message, "error");
+      throw err;
     }
   }
 
@@ -140,6 +141,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       }
       const message = toErrorMessage(err);
       showToast(message, "error");
+      throw err;
     }
   }
 

@@ -26,6 +26,13 @@ interface CommodityForm {
   tags: string[];
 }
 
+interface CommodityFieldErrors {
+  symbol?: string;
+  name?: string;
+  quantity?: string;
+  avgPrice?: string;
+}
+
 const EMPTY: CommodityForm = {
   symbol: "",
   name: "",
@@ -45,6 +52,7 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
   const [form, setForm] = useState<CommodityForm>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<CommodityFieldErrors>({});
 
   useEffect(() => {
     if (asset) {
@@ -60,6 +68,7 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
       setForm(EMPTY);
     }
     setError(null);
+    setFieldErrors({});
   }, [asset]);
 
   function handleCommoditySelect(item: CommodityResult) {
@@ -77,20 +86,27 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
   }
 
   async function handleSave() {
+    if (saving) return;
+
     const symbol = form.symbol.trim();
     const name = form.name.trim();
-    const quantity = Number(form.quantity);
-    const avgPrice = Number(form.avgPrice);
+    const quantity = Number(form.quantity.trim());
+    const avgPrice = Number(form.avgPrice.trim());
     const exchange = form.exchange.trim();
+    const nextFieldErrors: CommodityFieldErrors = {};
 
-    if (!symbol) { setError("Commodity symbol is required"); return; }
-    if (!name) { setError("Commodity name is required"); return; }
+    if (!symbol) nextFieldErrors.symbol = "Commodity symbol is required";
+    if (!name) nextFieldErrors.name = "Commodity name is required";
     if (!Number.isFinite(quantity) || quantity <= 0) {
-      setError("Quantity must be a positive number");
-      return;
+      nextFieldErrors.quantity = "Quantity must be a positive number";
     }
     if (!Number.isFinite(avgPrice) || avgPrice <= 0) {
-      setError("Average price must be a positive number");
+      nextFieldErrors.avgPrice = "Average price must be a positive number";
+    }
+
+    setFieldErrors(nextFieldErrors);
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setError(null);
       return;
     }
 
@@ -121,20 +137,26 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
         </FormField>
 
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Symbol" required>
+          <FormField label="Symbol" required error={fieldErrors.symbol}>
             <FieldInput
               name="commodity-symbol"
               placeholder="GOLD or GOLDBEES.NS"
               value={form.symbol}
-              onChange={(v) => setForm((f) => ({ ...f, symbol: v.toUpperCase() }))}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, symbol: v.toUpperCase() }));
+                setFieldErrors((prev) => ({ ...prev, symbol: undefined }));
+              }}
             />
           </FormField>
-          <FormField label="Asset Name" required>
+          <FormField label="Asset Name" required error={fieldErrors.name}>
             <FieldInput
               name="commodity-name"
               placeholder="Gold Spot"
               value={form.name}
-              onChange={(v) => setForm((f) => ({ ...f, name: v }))}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, name: v }));
+                setFieldErrors((prev) => ({ ...prev, name: undefined }));
+              }}
             />
           </FormField>
         </div>
@@ -148,7 +170,7 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
               onChange={(v) => setForm((f) => ({ ...f, exchange: v }))}
             />
           </FormField>
-          <FormField label="Quantity" required>
+          <FormField label="Quantity" required error={fieldErrors.quantity}>
             <FieldInput
               name="commodity-quantity"
               type="number"
@@ -156,10 +178,13 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
               step="0.001"
               placeholder="10"
               value={form.quantity}
-              onChange={(v) => setForm((f) => ({ ...f, quantity: v }))}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, quantity: v }));
+                setFieldErrors((prev) => ({ ...prev, quantity: undefined }));
+              }}
             />
           </FormField>
-          <FormField label="Avg Price (₹)" required>
+          <FormField label="Avg Price (₹)" required error={fieldErrors.avgPrice}>
             <FieldInput
               name="commodity-avg-price"
               type="number"
@@ -167,7 +192,10 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
               step="0.01"
               placeholder="7000"
               value={form.avgPrice}
-              onChange={(v) => setForm((f) => ({ ...f, avgPrice: v }))}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, avgPrice: v }));
+                setFieldErrors((prev) => ({ ...prev, avgPrice: undefined }));
+              }}
             />
           </FormField>
         </div>
