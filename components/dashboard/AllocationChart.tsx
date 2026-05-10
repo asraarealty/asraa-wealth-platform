@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import type { AssetsAllocation } from "@/lib/api";
+import { normalizeAllocationPercentages } from "@/lib/utils/portfolioMath";
 
 interface Slice {
   label: string;
@@ -41,10 +42,16 @@ export default function AllocationChart({ allocation }: Props) {
   const slices = useMemo<Slice[]>(() => {
     if (!allocation) return FALLBACK_SLICES;
 
+    const normalized = normalizeAllocationPercentages({
+      stock: allocation.stock ?? 0,
+      mf: allocation.mf ?? 0,
+      realEstate: allocation.realEstate ?? 0,
+    });
+
     const candidates: Slice[] = [
-      { label: "Stocks", value: allocation.stock ?? 0, color: SLICE_COLORS[0] },
-      { label: "Mutual Funds", value: allocation.mf ?? 0, color: SLICE_COLORS[1] },
-      { label: "Real Estate", value: allocation.realEstate ?? 0, color: SLICE_COLORS[2] },
+      { label: "Stocks", value: normalized.stock, color: SLICE_COLORS[0] },
+      { label: "Mutual Funds", value: normalized.mf, color: SLICE_COLORS[1] },
+      { label: "Real Estate", value: normalized.realEstate, color: SLICE_COLORS[2] },
     ].filter((s) => s.value > 0);
 
     if (candidates.length === 0) return FALLBACK_SLICES;

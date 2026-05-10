@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import {
-  fetchPortfolio,
   createAsset,
   updateAsset,
   deleteAsset,
@@ -12,7 +11,6 @@ import {
   type Client,
   type CreateAssetPayload,
   type UpdateAssetPayload,
-  type PortfolioFull,
   type InsightsResponse,
 } from "@/lib/api";
 import { Tab } from "@/lib/types"; // Import the shared Tab type
@@ -25,10 +23,12 @@ import ClientRecommendations from "./dashboard/ClientRecommendations";
 import AssetTabs from "./dashboard/AssetTabs";
 import FeaturedSlider from "./dashboard/FeaturedSlider";
 import StatBox from "./ui/StatBox";
-import Loader from "./ui/Loader";
 import ErrorState from "./ui/ErrorState";
 import MobileDashboard from "./dashboard/MobileDashboard";
 import { useToast } from "@/context/ToastContext";
+import PortfolioSkeleton from "./ui/PortfolioSkeleton";
+import { usePortfolioState, invalidatePortfolioCache } from "@/lib/hooks/usePortfolioState";
+import { deriveAllocationFromValues } from "@/lib/utils/portfolioMath";
 
 function useIsMobile(breakpoint = 768) {
   // Always start with `false` so the server-rendered HTML (desktop layout)
@@ -61,10 +61,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
   const isMobile = useIsMobile();
 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [portfolio, setPortfolio] = useState<PortfolioFull | null>(null);
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("stocks");
 
   const resolvedClientId = useMemo<number | undefined>(() => {
@@ -73,77 +70,28 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     return selectedClient?.id ?? undefined;
   }, [isAdmin, clientId, selectedClient]);
 
-  const fetchInProgress = useRef(false);
+  const portfolioState = usePortfolioState({
+    clientId: resolvedClientId,
+    enabled: Boolean(user) && (!isAdmin || resolvedClientId !== undefined),
+  });
 
-  /**
-   * Load assets (and insights) for the given client id.
-   * @param id       - client id (admin only; omit for self)
-   * @param silent   - when true, skip the loading-spinner so background polls
-   *                   don't cause a full page re-render
-   */
-  const loadData = useCallback(async (id?: number, silent = false) => {
-    if (fetchInProgress.current) return;
-    fetchInProgress.current = true;
-
-    if (!silent) {
-      setLoading(true);
-      setPortfolio(null); // clear stale data before loading the new client
-    }
-    setError(null);
-    try {
-      const data = await fetchPortfolio(id);
-      setPortfolio(data);
-
-      try {
-        const ins = await fetchInsights(id);
-        setInsights(ins);
-      } catch {
-        setInsights(null);
-      }
-    } catch (err) {
-      // Don't overwrite data with an error on a silent background poll
-      if (!silent) setError(toErrorMessage(err));
-    } finally {
-      if (!silent) setLoading(false);
-      fetchInProgress.current = false;
-    }
-  }, []);
-
-  // Ref to track whether a background refresh is already in flight
-  const refreshingRef = useRef(false);
+  const { portfolio, assets, loading, error, refresh, runMutation } = portfolioState;
 
   useEffect(() => {
     if (!user) return;
-    if (isAdmin && resolvedClientId === undefined) return;
-    loadData(resolvedClientId);
-
-    // Silent auto-refresh every 20 s; skip when the tab is hidden or a
-    // previous refresh hasn't finished yet.
-    function doRefresh() {
-      if (document.visibilityState === "hidden") return;
-      if (refreshingRef.current) return;
-      refreshingRef.current = true;
-      void loadData(resolvedClientId, true).catch(() => {}).finally(() => {
-        refreshingRef.current = false;
+    if (isAdmin && resolvedClientId === undefined) {
+      setInsights(null);
+      return;
+    }
+    const ac = new AbortController();
+    fetchInsights(resolvedClientId, ac.signal)
+      .then((data) => setInsights(data))
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setInsights(null);
       });
-    }
-
-    const interval = setInterval(doRefresh, 20_000);
-
-    // When the user switches back to this tab, refresh immediately instead of
-    // waiting up to 20 s for the next scheduled tick.
-    function onVisibilityChange() {
-      if (document.visibilityState === "visible") doRefresh();
-    }
-    document.addEventListener("visibilitychange", onVisibilityChange);
-
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
-  }, [user, isAdmin, resolvedClientId, loadData]);
-
-  const assets = portfolio?.positions ?? [];
+    return () => ac.abort();
+  }, [user, isAdmin, resolvedClientId]);
 
   // Compute only totalInvested from positions as requested
   const totalInvested = useMemo(
@@ -157,12 +105,13 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
 
   // Derive allocation percentages for the chart from portfolio totals
   const allocation = useMemo(() => {
-    if (!portfolio || portfolio.totalValue === 0) return undefined;
-    return {
-      stock: parseFloat(((portfolio.stockValue / portfolio.totalValue) * 100).toFixed(1)),
-      mf: parseFloat(((portfolio.mfValue / portfolio.totalValue) * 100).toFixed(1)),
-      realEstate: parseFloat(((portfolio.propertyValue / portfolio.totalValue) * 100).toFixed(1)),
-    };
+    if (!portfolio) return undefined;
+    return deriveAllocationFromValues({
+      stockValue: portfolio.stockValue,
+      mfValue: portfolio.mfValue,
+      propertyValue: portfolio.propertyValue,
+      totalValue: portfolio.totalValue,
+    });
   }, [portfolio]);
 
   async function handleAdd(payload: CreateAssetPayload) {
@@ -171,53 +120,40 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       ...(isAdmin && resolvedClientId ? { userId: resolvedClientId } : {}),
     };
     try {
-      await createAsset(body);
-      await loadData(resolvedClientId, true);
+      await runMutation(() => createAsset(body));
       showToast("Asset added successfully.", "success");
     } catch (err) {
       const message = toErrorMessage(err);
-      setError(message);
       showToast(message, "error");
     }
   }
 
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
     try {
-      await updateAsset(id, payload);
-      await loadData(resolvedClientId, true);
+      await runMutation(() => updateAsset(id, payload));
       showToast("Asset updated successfully.", "success");
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
-        // Remove the ghost asset from local state immediately
-        setPortfolio((prev) => prev ? { 
-          ...prev, 
-          positions: prev.positions.filter((p) => p.id !== id) 
-        } : null);
-        await loadData(resolvedClientId, true);
+        invalidatePortfolioCache(resolvedClientId);
+        await refresh();
         return;
       }
       const message = toErrorMessage(err);
-      setError(message);
       showToast(message, "error");
     }
   }
 
   async function handleDelete(id: number) {
     try {
-      await deleteAsset(id);
-      await loadData(resolvedClientId, true);
+      await runMutation(() => deleteAsset(id));
       showToast("Asset deleted successfully.", "success");
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
-        setPortfolio((prev) => prev ? { 
-          ...prev, 
-          positions: prev.positions.filter((p) => p.id !== id) 
-        } : null);
-        await loadData(resolvedClientId, true);
+        invalidatePortfolioCache(resolvedClientId);
+        await refresh();
         return;
       }
       const message = toErrorMessage(err);
-      setError(message);
       showToast(message, "error");
     }
   }
@@ -324,8 +260,19 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       )}
 
       {/* Loading / Error */}
-      {loading && <Loader />}
-      {!loading && error && <ErrorState message={error} />}
+      {loading && <PortfolioSkeleton />}
+      {!loading && error && (
+        <div className="space-y-3">
+          <ErrorState message={error} />
+          <button
+            onClick={() => void refresh().catch((err) => showToast(toErrorMessage(err), "error"))}
+            className="inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold text-black"
+            style={{ background: "linear-gradient(90deg, #C9A227, #d4af4a)" }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Featured Properties Slider — always shown when page is ready */}
       {!loading && !error && <FeaturedSlider />}

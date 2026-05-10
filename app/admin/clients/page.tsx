@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getAdminClients } from "@/lib/services/clientService";
 import { deleteClient, toggleClientStatus, toErrorMessage } from "@/lib/api";
+import { invalidatePortfolioCache } from "@/lib/hooks/usePortfolioState";
 import type { AdminClient } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
 import Loader from "@/components/ui/Loader";
@@ -131,6 +132,7 @@ export default function ClientsPage() {
           item.id === client.id ? { ...item, isActive: nextActive } : item
         )
       );
+      invalidatePortfolioCache(client.id);
       showToast(
         `${client.name} ${nextActive ? "activated" : "deactivated"} successfully`,
         "success"

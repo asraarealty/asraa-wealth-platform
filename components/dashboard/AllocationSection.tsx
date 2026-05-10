@@ -2,6 +2,7 @@
 
 import type { PortfolioFull } from "@/lib/api";
 import { fmtCurrency } from "@/lib/formatters";
+import { deriveAllocationFromValues } from "@/lib/utils/portfolioMath";
 
 interface AllocationSectionProps {
   portfolio: PortfolioFull;
@@ -16,6 +17,12 @@ interface Segment {
 
 export default function AllocationSection({ portfolio }: AllocationSectionProps) {
   const { totalValue, stockValue, mfValue, propertyValue } = portfolio;
+  const normalizedPct = deriveAllocationFromValues({
+    stockValue,
+    mfValue,
+    propertyValue,
+    totalValue,
+  });
 
   const segments: Segment[] = [
     { label: "Stocks", value: stockValue, color: "#00E5FF", bg: "rgba(0,229,255,0.07)" },
@@ -23,7 +30,11 @@ export default function AllocationSection({ portfolio }: AllocationSectionProps)
     { label: "Property", value: propertyValue, color: "#4F8CFF", bg: "rgba(79,140,255,0.07)" },
   ].filter((s) => s.value > 0);
 
-  const total = totalValue > 0 ? totalValue : 1;
+  const percentageByLabel: Record<string, number> = {
+    Stocks: normalizedPct?.stock ?? 0,
+    "Mutual Funds": normalizedPct?.mf ?? 0,
+    Property: normalizedPct?.realEstate ?? 0,
+  };
 
   if (segments.length === 0) {
     return (
@@ -41,7 +52,7 @@ export default function AllocationSection({ portfolio }: AllocationSectionProps)
       {/* Stacked horizontal bar */}
       <div className="h-2 rounded-full overflow-hidden flex gap-px" style={{ background: "rgba(255,255,255,0.05)" }}>
         {segments.map((seg) => {
-          const width = (seg.value / total) * 100;
+          const width = percentageByLabel[seg.label] ?? 0;
           return (
             <div
               key={seg.label}
@@ -51,7 +62,7 @@ export default function AllocationSection({ portfolio }: AllocationSectionProps)
                 background: seg.color,
                 boxShadow: `0 0 8px ${seg.color}66`,
               }}
-              title={`${seg.label}: ${((seg.value / total) * 100).toFixed(1)}%`}
+              title={`${seg.label}: ${width.toFixed(1)}%`}
             />
           );
         })}
@@ -60,7 +71,7 @@ export default function AllocationSection({ portfolio }: AllocationSectionProps)
       {/* Segment details */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {segments.map((seg) => {
-          const pct = ((seg.value / total) * 100).toFixed(1);
+          const pct = (percentageByLabel[seg.label] ?? 0).toFixed(1);
           return (
             <div
               key={seg.label}

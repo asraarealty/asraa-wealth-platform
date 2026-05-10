@@ -1,111 +1,72 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  fetchAssets,
   createAsset,
   updateAsset,
   deleteAsset,
-  type Asset,
   type CreateAssetPayload,
   type UpdateAssetPayload,
   type Client,
 } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
+import { usePortfolioState } from "@/lib/hooks/usePortfolioState";
 import ClientSelector from "@/components/ClientSelector";
 import AssetTabs from "@/components/dashboard/AssetTabs";
-import Loader from "@/components/ui/Loader";
 import ErrorState from "@/components/ui/ErrorState";
+import PortfolioSkeleton from "@/components/ui/PortfolioSkeleton";
+import { useToast } from "@/context/ToastContext";
 
 type Tab = "stocks" | "mutual_funds" | "real_estate";
 
 export default function AssetsPage() {
   const searchParams = useSearchParams();
+  const { showToast } = useToast();
   const urlClientId = searchParams.get("clientId");
   const autoSelectId = urlClientId ? Number(urlClientId) : null;
 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("stocks");
 
-  const loadData = useCallback(async (clientId: number, silent = false) => {
-    if (!silent) {
-      setLoading(true);
-      setAssets([]);
-    }
-    setError(null);
-    try {
-      const data = await fetchAssets(clientId);
-      setAssets(data);
-    } catch (err) {
-      if (!silent) setError(toErrorMessage(err));
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  }, []);
-
-  const refreshingRef = useRef(false);
-
-  useEffect(() => {
-    if (!selectedClient) {
-      setAssets([]);
-      return;
-    }
-    const id = selectedClient.id;
-    loadData(id);
-
-    function doRefresh() {
-      if (document.visibilityState === "hidden") return;
-      if (refreshingRef.current) return;
-      refreshingRef.current = true;
-      void loadData(id, true).catch(() => {}).finally(() => {
-        refreshingRef.current = false;
-      });
-    }
-
-    const interval = setInterval(doRefresh, 20_000);
-
-    function onVisibilityChange() {
-      if (document.visibilityState === "visible") doRefresh();
-    }
-    document.addEventListener("visibilitychange", onVisibilityChange);
-
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
-  }, [selectedClient, loadData]);
+  const {
+    assets,
+    loading,
+    error,
+    retry,
+    runMutation,
+  } = usePortfolioState({
+    clientId: selectedClient?.id,
+    enabled: Boolean(selectedClient),
+  });
 
   async function handleAdd(payload: CreateAssetPayload) {
     if (!selectedClient) return;
     try {
-      const newAsset = await createAsset({ ...payload, userId: selectedClient.id });
-      setAssets((prev) => [...prev, newAsset]);
+      await runMutation(() => createAsset({ ...payload, userId: selectedClient.id }));
+      showToast("Asset added successfully.", "success");
     } catch (err) {
-      setError(toErrorMessage(err));
+      showToast(toErrorMessage(err), "error");
     }
   }
 
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
     if (!selectedClient) return;
     try {
-      const updatedAsset = await updateAsset(id, payload);
-      setAssets((prev) => prev.map((a) => (a.id === id ? updatedAsset : a)));
+      await runMutation(() => updateAsset(id, payload));
+      showToast("Asset updated successfully.", "success");
     } catch (err) {
-      setError(toErrorMessage(err));
+      showToast(toErrorMessage(err), "error");
     }
   }
 
   async function handleDelete(id: number) {
     if (!selectedClient) return;
     try {
-      await deleteAsset(id);
-      setAssets((prev) => prev.filter((a) => a.id !== id));
+      await runMutation(() => deleteAsset(id));
+      showToast("Asset deleted successfully.", "success");
     } catch (err) {
-      setError(toErrorMessage(err));
+      showToast(toErrorMessage(err), "error");
     }
   }
 
@@ -159,8 +120,19 @@ export default function AssetsPage() {
       )}
 
       {/* Loading / Error */}
-      {selectedClient && loading && <Loader />}
-      {selectedClient && !loading && error && <ErrorState message={error} />}
+      {selectedClient && loading && <PortfolioSkeleton />}
+      {selectedClient && !loading && error && (
+        <div className="space-y-3">
+          <ErrorState message={error} />
+          <button
+            onClick={() => void retry().catch((err) => showToast(toErrorMessage(err), "error"))}
+            className="inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold text-black"
+            style={{ background: "linear-gradient(90deg, #C9A227, #d4af4a)" }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Asset Tabs */}
       {selectedClient && !loading && !error && (
