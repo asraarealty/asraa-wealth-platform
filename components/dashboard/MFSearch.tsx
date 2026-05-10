@@ -20,19 +20,14 @@ function formatAum(value: number | null | undefined): string {
 
 function normalizeFunds(results: MutualFundResult[], query: string): NormalizedMF[] {
   const q = query.trim().toLowerCase();
-  const filtered = results.filter((item) => item.name && (item.code || item.nav > 0));
-  const seen = new Set<string>();
-  const deduped: NormalizedMF[] = [];
-  for (const item of filtered) {
-    const key = item.code
-      ? `code:${item.code.toUpperCase()}`
-      : `name:${item.name.toLowerCase()}::${(item.amc ?? "").toLowerCase()}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    deduped.push({ ...item, key });
-  }
-
-  return deduped
+  return results
+    .filter((item) => item.name && (item.code || item.nav > 0))
+    .map((item) => ({
+      ...item,
+      key: item.code
+        ? `code:${item.code.toUpperCase()}`
+        : `name:${item.name.toLowerCase()}::${(item.amc ?? "").toLowerCase()}`,
+    }))
     .sort((a, b) => {
       const aExact = a.name.toLowerCase().startsWith(q) ? 1 : 0;
       const bExact = b.name.toLowerCase().startsWith(q) ? 1 : 0;

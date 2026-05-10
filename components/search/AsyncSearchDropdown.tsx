@@ -115,8 +115,8 @@ export default function AsyncSearchDropdown<T>({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const showDropdown = open && (loading || !!error || results.length >= 0);
   const empty = !loading && !error && query.trim().length >= minQueryLength && results.length === 0;
+  const showDropdown = open && (loading || !!error || results.length > 0 || empty);
 
   function handleSelect(item: T) {
     setQuery(getItemText(item));

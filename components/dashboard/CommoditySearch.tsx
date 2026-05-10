@@ -43,7 +43,7 @@ export default function CommoditySearch({ onSelect }: CommoditySearchProps) {
       minQueryLength={1}
       search={runSearch}
       getItemKey={(item) => item.id}
-      getItemText={(item) => item.symbol}
+      getItemText={(item) => item.name}
       renderItem={renderItem}
       onSelect={(item) => onSelect?.(item)}
       emptyText={(q) => `No commodity matches for “${q}”`}

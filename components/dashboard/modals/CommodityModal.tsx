@@ -77,7 +77,7 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
   }
 
   async function handleSave() {
-    const symbol = form.symbol.trim().toUpperCase();
+    const symbol = form.symbol.trim();
     const name = form.name.trim();
     const quantity = Number(form.quantity);
     const avgPrice = Number(form.avgPrice);

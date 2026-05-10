@@ -13,6 +13,8 @@ type NormalizedStock = StockQuote & {
   rootSymbol: string;
 };
 
+const VALID_STOCK_SYMBOL_PATTERN = /^[A-Za-z0-9.\-]{2,20}$/;
+
 function inferExchange(symbol: string): string {
   if (symbol.endsWith(".NS")) return "NSE";
   if (symbol.endsWith(".BO")) return "BSE";
@@ -25,7 +27,7 @@ function rootSymbol(symbol: string): string {
 
 function isValidStock(item: StockQuote): boolean {
   if (!item) return false;
-  if (typeof item.symbol !== "string" || !/^[A-Za-z0-9.\-]{2,20}$/.test(item.symbol)) return false;
+  if (typeof item.symbol !== "string" || !VALID_STOCK_SYMBOL_PATTERN.test(item.symbol)) return false;
   if (typeof item.name !== "string" || item.name.trim().length < 2) return false;
   return true;
 }
@@ -132,7 +134,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
       ariaLabel="Search stocks"
       minQueryLength={1}
       search={runSearch}
-      getItemKey={(item) => `${item.rootSymbol}-${item.exchangeLabel}`}
+      getItemKey={(item) => item.rootSymbol}
       getItemText={(item) => item.symbol}
       renderItem={renderItem}
       onSelect={(item) => onSelect?.(item)}
