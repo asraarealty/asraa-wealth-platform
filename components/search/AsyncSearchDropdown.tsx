@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -118,11 +119,11 @@ export default function AsyncSearchDropdown<T>({
   const empty = !loading && !error && query.trim().length >= minQueryLength && results.length === 0;
   const showDropdown = open && (loading || !!error || results.length > 0 || empty);
 
-  function handleSelect(item: T) {
+  const handleSelect = useCallback((item: T) => {
     setQuery(getItemText(item));
     setOpen(false);
     onSelect?.(item);
-  }
+  }, [getItemText, onSelect]);
 
   function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (!open || results.length === 0) {
@@ -134,7 +135,7 @@ export default function AsyncSearchDropdown<T>({
       setActiveIndex((i) => Math.min(i + 1, results.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setActiveIndex((i) => Math.max(i - 1, 0));
+      setActiveIndex((i) => (i <= 0 ? results.length - 1 : i - 1));
     } else if (e.key === "Enter" && activeIndex >= 0) {
       e.preventDefault();
       handleSelect(results[activeIndex]);
