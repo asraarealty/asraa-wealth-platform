@@ -4,11 +4,12 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   useCallback,
   type ReactNode,
 } from "react";
-import { fetcher, setToken, clearToken } from "@/lib/fetcher";
+import { fetcher, setToken, clearToken, ApiError } from "@/lib/fetcher";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected" | "suspended";
 
@@ -23,8 +24,12 @@ export interface User {
 export interface AuthContextValue {
   user: User | null;
   loading: boolean;
+  /** True when the initial /auth/me call failed with a transient (non-401) error. */
+  authError: boolean;
   login: (email: string, password: string) => Promise<User>;
   logout: (nextPath?: string) => Promise<void>;
+  /** Re-runs the /auth/me bootstrap — useful after a transient failure. */
+  retryAuth: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -32,24 +37,47 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(false);
+  const [authAttempt, setAuthAttempt] = useState(0);
+  const bootstrapSeqRef = useRef(0);
+
+  const retryAuth = useCallback(() => {
+    setAuthAttempt((prev) => prev + 1);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
+    const seq = ++bootstrapSeqRef.current;
     let mounted = true;
 
-    fetcher<User>("/auth/me", { signal: controller.signal })
+    setLoading(true);
+    setAuthError(false);
+
+    fetcher<User>("/auth/me", {
+      signal: controller.signal,
+      noRedirectOn401: true,
+    })
       .then((me) => {
-        if (!mounted) return;
+        if (!mounted || seq !== bootstrapSeqRef.current) return;
         setUser(me);
+        setAuthError(false);
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        if (!mounted) return;
-        setUser(null);
-        clearToken();
+        if (!mounted || seq !== bootstrapSeqRef.current) return;
+
+        if (err instanceof ApiError && err.status === 401) {
+          setUser(null);
+          setAuthError(false);
+          clearToken();
+          return;
+        }
+
+        console.error("[Auth] /auth/me initialization failed with transient error:", err);
+        setAuthError(true);
       })
       .finally(() => {
-        if (!mounted) return;
+        if (!mounted || seq !== bootstrapSeqRef.current) return;
         setLoading(false);
       });
 
@@ -57,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       controller.abort();
     };
-  }, []);
+  }, [authAttempt]);
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await fetcher<{ access_token?: string }>("/auth/login", {
@@ -72,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const me = await fetcher<User>("/auth/me");
     setUser(me);
+    setAuthError(false);
 
     return me;
   }, []);
@@ -82,13 +111,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {}
     clearToken();
     setUser(null);
+    setAuthError(false);
     if (typeof window !== "undefined" && window.location.pathname !== nextPath) {
       window.location.assign(nextPath);
     }
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, authError, login, logout, retryAuth }}>
       {children}
     </AuthContext.Provider>
   );
