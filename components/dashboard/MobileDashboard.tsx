@@ -559,12 +559,17 @@ export default function MobileDashboard({
   const properties = useMemo(() => filterAssetsByType(assets, "property"), [assets]);
 
   const metrics = useMemo(() => {
-    const topAssetClass = allocation
-      ? Object.entries(allocation).sort((a, b) => b[1] - a[1])[0]
-      : null;
+    const entries: Array<[string, number]> = allocation
+      ? [
+          ["stock", safeNumber(allocation.stock)],
+          ["mf", safeNumber(allocation.mf)],
+          ["realEstate", safeNumber(allocation.realEstate)],
+        ]
+      : [];
+    const topAssetClass = entries.sort((a, b) => b[1] - a[1])[0] ?? null;
     const topAssetLabel = topAssetClass
-      ? ({ stock: "Stocks", mf: "Funds", real_estate: "Property" }[
-          topAssetClass[0] as keyof typeof allocation
+      ? ({ stock: "Stocks", mf: "Funds", realEstate: "Property" }[
+          topAssetClass[0] as "stock" | "mf" | "realEstate"
         ] ?? topAssetClass[0])
       : "—";
     const topAssetPct = safeNumber(topAssetClass ? topAssetClass[1] : 0);

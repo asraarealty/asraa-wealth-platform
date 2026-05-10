@@ -69,10 +69,12 @@ export function FormField({
   label,
   children,
   required,
+  error,
 }: {
   label: string;
   children: ReactNode;
   required?: boolean;
+  error?: string;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -81,6 +83,7 @@ export function FormField({
         {required && <span className="text-red-400 ml-0.5">*</span>}
       </label>
       {children}
+      {error && <p className="text-xs text-red-300">{error}</p>}
     </div>
   );
 }

@@ -20,6 +20,12 @@ interface MFForm {
   tags: string[];
 }
 
+interface MFFieldErrors {
+  name?: string;
+  units?: string;
+  avgPrice?: string;
+}
+
 const EMPTY: MFForm = {
   symbol: "",
   name: "",
@@ -33,6 +39,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
   const [form, setForm] = useState<MFForm>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<MFFieldErrors>({});
 
   useEffect(() => {
     if (asset) {
@@ -47,6 +54,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
       setForm(EMPTY);
     }
     setError(null);
+    setFieldErrors({});
   }, [asset]);
 
   function handleMFSelect(mf: MutualFundResult) {
@@ -59,18 +67,25 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
   }
 
   async function handleSave() {
+    if (saving) return;
+
     const symbol = form.symbol.trim().toUpperCase();
     const name = form.name.trim();
-    const quantity = Number(form.units);
-    const avgPrice = Number(form.avgPrice);
+    const quantity = Number(String(form.units).trim());
+    const avgPrice = Number(String(form.avgPrice).trim());
+    const nextFieldErrors: MFFieldErrors = {};
 
-    if (!name) { setError("Fund name is required"); return; }
+    if (!name) nextFieldErrors.name = "Fund name is required";
     if (!Number.isFinite(quantity) || quantity <= 0) {
-      setError("Units must be a positive number");
-      return;
+      nextFieldErrors.units = "Units must be a positive number";
     }
     if (!Number.isFinite(avgPrice) || avgPrice <= 0) {
-      setError("Average NAV must be a positive number");
+      nextFieldErrors.avgPrice = "Average NAV must be a positive number";
+    }
+
+    setFieldErrors(nextFieldErrors);
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setError(null);
       return;
     }
 
@@ -111,18 +126,21 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
               onChange={(v) => setForm((f) => ({ ...f, symbol: v }))}
             />
           </FormField>
-          <FormField label="Fund Name" required>
+          <FormField label="Fund Name" required error={fieldErrors.name}>
             <FieldInput
               name="mf-name"
               placeholder="HDFC Top 100 Fund"
               value={form.name}
-              onChange={(v) => setForm((f) => ({ ...f, name: v }))}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, name: v }));
+                setFieldErrors((prev) => ({ ...prev, name: undefined }));
+              }}
             />
           </FormField>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Units" required>
+          <FormField label="Units" required error={fieldErrors.units}>
             <FieldInput
               name="mf-units"
               type="number"
@@ -130,10 +148,13 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
               step="0.001"
               placeholder="100.000"
               value={form.units}
-              onChange={(v) => setForm((f) => ({ ...f, units: v }))}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, units: v }));
+                setFieldErrors((prev) => ({ ...prev, units: undefined }));
+              }}
             />
           </FormField>
-          <FormField label="Avg NAV (₹)" required>
+          <FormField label="Avg NAV (₹)" required error={fieldErrors.avgPrice}>
             <FieldInput
               name="mf-avg-nav"
               type="number"
@@ -141,7 +162,10 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
               step="0.01"
               placeholder="250.00"
               value={form.avgPrice}
-              onChange={(v) => setForm((f) => ({ ...f, avgPrice: v }))}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, avgPrice: v }));
+                setFieldErrors((prev) => ({ ...prev, avgPrice: undefined }));
+              }}
             />
           </FormField>
         </div>

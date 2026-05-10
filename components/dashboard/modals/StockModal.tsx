@@ -23,6 +23,13 @@ interface StockForm {
   tags: string[];
 }
 
+interface StockFieldErrors {
+  symbol?: string;
+  name?: string;
+  quantity?: string;
+  avgPrice?: string;
+}
+
 const EMPTY: StockForm = {
   symbol: "",
   name: "",
@@ -36,6 +43,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
   const [form, setForm] = useState<StockForm>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<StockFieldErrors>({});
 
   useEffect(() => {
     if (asset) {
@@ -50,6 +58,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
       setForm(EMPTY);
     }
     setError(null);
+    setFieldErrors({});
   }, [asset]);
 
   function handleStockSelect(stock: StockQuote) {
@@ -62,26 +71,32 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
   }
 
   async function handleSave() {
+    if (saving) return;
+
     const symbol = form.symbol.trim().toUpperCase();
     const name = form.name.trim();
-    const quantity = Number(form.quantity);
-    const avgPrice = Number(form.avgPrice);
+    const quantity = Number(String(form.quantity).trim());
+    const avgPrice = Number(String(form.avgPrice).trim());
+    const nextFieldErrors: StockFieldErrors = {};
 
-    if (!symbol) { setError("Symbol is required"); return; }
+    if (!symbol) nextFieldErrors.symbol = "Symbol is required";
 
     const symbolValidation = validateStockSymbol(symbol);
-    if (!symbolValidation.valid) {
-      setError(symbolValidation.error ?? "Invalid symbol format");
-      return;
+    if (symbol && !symbolValidation.valid) {
+      nextFieldErrors.symbol = symbolValidation.error ?? "Invalid symbol format";
     }
 
-    if (!name) { setError("Name is required"); return; }
+    if (!name) nextFieldErrors.name = "Name is required";
     if (!Number.isFinite(quantity) || quantity <= 0) {
-      setError("Quantity must be a positive number");
-      return;
+      nextFieldErrors.quantity = "Quantity must be a positive number";
     }
     if (!Number.isFinite(avgPrice) || avgPrice <= 0) {
-      setError("Average price must be a positive number");
+      nextFieldErrors.avgPrice = "Average price must be a positive number";
+    }
+
+    setFieldErrors(nextFieldErrors);
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setError(null);
       return;
     }
 
@@ -115,26 +130,32 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
         </FormField>
 
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Symbol" required>
+          <FormField label="Symbol" required error={fieldErrors.symbol}>
             <FieldInput
               name="stock-symbol"
               placeholder="AAPL or RELIANCE.NS"
               value={form.symbol}
-              onChange={(v) => setForm((f) => ({ ...f, symbol: v.toUpperCase() }))}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, symbol: v.toUpperCase() }));
+                setFieldErrors((prev) => ({ ...prev, symbol: undefined }));
+              }}
             />
           </FormField>
-          <FormField label="Name" required>
+          <FormField label="Name" required error={fieldErrors.name}>
             <FieldInput
               name="stock-name"
               placeholder="Apple Inc."
               value={form.name}
-              onChange={(v) => setForm((f) => ({ ...f, name: v }))}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, name: v }));
+                setFieldErrors((prev) => ({ ...prev, name: undefined }));
+              }}
             />
           </FormField>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <FormField label="Quantity" required>
+          <FormField label="Quantity" required error={fieldErrors.quantity}>
             <FieldInput
               name="stock-quantity"
               type="number"
@@ -142,10 +163,13 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
               step="0.01"
               placeholder="10"
               value={form.quantity}
-              onChange={(v) => setForm((f) => ({ ...f, quantity: v }))}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, quantity: v }));
+                setFieldErrors((prev) => ({ ...prev, quantity: undefined }));
+              }}
             />
           </FormField>
-          <FormField label="Avg Price (₹)" required>
+          <FormField label="Avg Price (₹)" required error={fieldErrors.avgPrice}>
             <FieldInput
               name="stock-avg-price"
               type="number"
@@ -153,7 +177,10 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
               step="0.01"
               placeholder="1500.00"
               value={form.avgPrice}
-              onChange={(v) => setForm((f) => ({ ...f, avgPrice: v }))}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, avgPrice: v }));
+                setFieldErrors((prev) => ({ ...prev, avgPrice: undefined }));
+              }}
             />
           </FormField>
         </div>

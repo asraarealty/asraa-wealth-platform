@@ -47,6 +47,7 @@ export default function AssetsPage() {
       showToast("Asset added successfully.", "success");
     } catch (err) {
       showToast(toErrorMessage(err), "error");
+      throw err;
     }
   }
 
@@ -57,6 +58,7 @@ export default function AssetsPage() {
       showToast("Asset updated successfully.", "success");
     } catch (err) {
       showToast(toErrorMessage(err), "error");
+      throw err;
     }
   }
 

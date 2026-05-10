@@ -31,21 +31,12 @@ function polarToCartesian(cx: number, cy: number, r: number, angle: number) {
   };
 }
 
-// Fallback slices shown only when no allocation data is available (equal-weight 33/33/34)
-const FALLBACK_SLICES: Slice[] = [
-  { label: "Stocks", value: 33, color: SLICE_COLORS[0] },
-  { label: "Mutual Funds", value: 33, color: SLICE_COLORS[1] },
-  { label: "Real Estate", value: 34, color: SLICE_COLORS[2] },
-];
-
 export default function AllocationChart({ allocation }: Props) {
   const slices = useMemo<Slice[]>(() => {
-    if (!allocation) return FALLBACK_SLICES;
-
     const normalized = normalizeAllocationPercentages({
-      stock: allocation.stock ?? 0,
-      mf: allocation.mf ?? 0,
-      realEstate: allocation.realEstate ?? 0,
+      stock: allocation?.stock ?? 0,
+      mf: allocation?.mf ?? 0,
+      realEstate: allocation?.realEstate ?? 0,
     });
 
     const candidates: Slice[] = [
@@ -54,9 +45,25 @@ export default function AllocationChart({ allocation }: Props) {
       { label: "Real Estate", value: normalized.realEstate, color: SLICE_COLORS[2] },
     ].filter((s) => s.value > 0);
 
-    if (candidates.length === 0) return FALLBACK_SLICES;
+    if (candidates.length === 0) return [];
     return candidates;
   }, [allocation]);
+
+  if (slices.length === 0) {
+    return (
+      <div className="glass-card card-hover rounded-2xl p-5">
+        <p className="text-xs uppercase tracking-widest font-semibold mb-4" style={{ color: "rgba(0,229,255,0.55)" }}>
+          Allocation
+        </p>
+        <div
+          className="rounded-xl p-6 text-center"
+          style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+        >
+          <p className="text-sm text-white/35">No allocation data yet.</p>
+        </div>
+      </div>
+    );
+  }
 
   const cx = 90;
   const cy = 90;
@@ -64,7 +71,22 @@ export default function AllocationChart({ allocation }: Props) {
   const innerR = 48;
 
   let cumAngle = 0;
-  const total = slices.reduce((s, sl) => s + sl.value, 0) || 1;
+  const total = slices.reduce((s, sl) => s + sl.value, 0);
+  if (!Number.isFinite(total) || total <= 0) {
+    return (
+      <div className="glass-card card-hover rounded-2xl p-5">
+        <p className="text-xs uppercase tracking-widest font-semibold mb-4" style={{ color: "rgba(0,229,255,0.55)" }}>
+          Allocation
+        </p>
+        <div
+          className="rounded-xl p-6 text-center"
+          style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+        >
+          <p className="text-sm text-white/35">No allocation data yet.</p>
+        </div>
+      </div>
+    );
+  }
 
   const arcs = slices.map((sl) => {
     const startAngle = cumAngle;
