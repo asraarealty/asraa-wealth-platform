@@ -157,7 +157,7 @@ export default function AsyncSearchDropdown<T>({
           {renderItem(item, index === activeIndex)}
         </li>
       )),
-    [results, getItemKey, activeIndex, renderItem]
+    [results, getItemKey, activeIndex, renderItem, handleSelect]
   );
 
   return (
