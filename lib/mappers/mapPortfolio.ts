@@ -20,6 +20,7 @@ export interface RawPortfolioResponse {
   stock_value?: number;
   mf_value?: number;
   property_value?: number;
+  commodity_value?: number;
   roi_percent?: number;
 }
 
@@ -59,6 +60,7 @@ export function mapPortfolio(raw: RawPortfolioResponse): PortfolioFull {
     stockValue: raw.stock_value ?? 0,
     mfValue: raw.mf_value ?? 0,
     propertyValue: raw.property_value ?? 0,
+    commodityValue: raw.commodity_value ?? 0,
     roiPercent: raw.roi_percent ?? 0,
   };
 }

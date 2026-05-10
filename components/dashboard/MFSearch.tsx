@@ -44,13 +44,13 @@ export default function MFSearch({ onSelect, initialValue = "" }: MFSearchProps)
     return normalizeFunds(Array.isArray(raw) ? raw : [], query);
   }, []);
 
-  const renderItem = useCallback((mf: NormalizedMF) => {
+  const renderItem = useCallback((mf: NormalizedMF, active: boolean) => {
     return (
-      <div className="flex items-start justify-between gap-4">
+      <div className={`flex items-start justify-between gap-4 ${active ? "search-row-active" : ""}`}>
         <div className="min-w-0">
           <div className="font-semibold text-white truncate">{mf.name}</div>
           <div className="text-xs truncate" style={{ color: "rgba(255,255,255,0.45)" }}>
-            {(mf.amc ?? mf.fundHouse ?? "Unknown AMC")}
+            AMC: {(mf.amc ?? mf.fundHouse ?? "Unknown AMC")}
             {mf.category ? ` · ${mf.category}` : ""}
           </div>
           <div className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.35)" }}>

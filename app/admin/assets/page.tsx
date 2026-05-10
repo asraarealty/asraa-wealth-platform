@@ -18,7 +18,7 @@ import ErrorState from "@/components/ui/ErrorState";
 import PortfolioSkeleton from "@/components/ui/PortfolioSkeleton";
 import { useToast } from "@/context/ToastContext";
 
-type Tab = "stocks" | "mutual_funds" | "real_estate";
+type Tab = "stocks" | "mutual_funds" | "commodities" | "real_estate";
 
 export default function AssetsPage() {
   const searchParams = useSearchParams();

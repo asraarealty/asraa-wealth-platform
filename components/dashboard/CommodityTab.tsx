@@ -3,35 +3,31 @@
 import { useState } from "react";
 import type { Asset, CreateAssetPayload, UpdateAssetPayload } from "@/lib/api";
 import EmptyState from "@/components/ui/EmptyState";
-import MFModal from "./modals/MFModal";
+import CommodityModal from "./modals/CommodityModal";
 
-interface MutualFundsTabProps {
+interface CommodityTabProps {
   assets: Asset[];
   onAdd: (payload: CreateAssetPayload) => Promise<void>;
   onEdit: (id: number, payload: UpdateAssetPayload) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
 }
 
-function fmt(n: number | undefined | null, prefix = "₹") {
-  if (n == null) return `${prefix}0`;
-  return `${prefix}${new Intl.NumberFormat("en-IN").format(Math.round(n))}`;
+function isCommodityAsset(asset: Asset): boolean {
+  return asset.type === "commodity" || (asset.tags ?? []).some((tag) => tag.toLowerCase() === "commodity");
 }
 
-export default function MutualFundsTab({
-  assets,
-  onAdd,
-  onEdit,
-  onDelete,
-}: MutualFundsTabProps) {
+function fmt(value: number | undefined | null, prefix = "₹") {
+  if (value == null || !Number.isFinite(value)) return `${prefix}0`;
+  return `${prefix}${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(value)}`;
+}
+
+export default function CommodityTab({ assets, onAdd, onEdit, onDelete }: CommodityTabProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Asset | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const commodities = assets.filter(isCommodityAsset);
 
-  const mfs = assets.filter((a) => a.type === "mf");
-
-  async function handleSave(
-    payload: CreateAssetPayload | UpdateAssetPayload
-  ) {
+  async function handleSave(payload: CreateAssetPayload | UpdateAssetPayload) {
     if (editing) {
       await onEdit(editing.id, payload as UpdateAssetPayload);
     } else {
@@ -52,34 +48,37 @@ export default function MutualFundsTab({
 
   return (
     <div>
-      {/* Toolbar */}
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-gray-400">
-          {mfs.length} fund{mfs.length !== 1 ? "s" : ""}
+          {commodities.length} holding{commodities.length !== 1 ? "s" : ""}
         </p>
         <button
-          onClick={() => { setEditing(null); setModalOpen(true); }}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl transition-colors"
-          style={{ background: "#c9a227", color: "#071a14" }}
+          onClick={() => {
+            setEditing(null);
+            setModalOpen(true);
+          }}
+          className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl modal-btn-primary"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-          Add Fund
+          Add Commodity
         </button>
       </div>
 
-      {mfs.length === 0 ? (
+      {commodities.length === 0 ? (
         <EmptyState
-          title="No mutual funds yet"
-          description={`Click "+ Add Fund" to track your mutual fund investments.`}
+          title="No commodities yet"
+          description='Click "+ Add Commodity" to track commodity holdings.'
           action={
             <button
-              onClick={() => { setEditing(null); setModalOpen(true); }}
-              className="px-4 py-2 text-sm font-semibold rounded-xl"
-              style={{ background: "#c9a227", color: "#071a14" }}
+              onClick={() => {
+                setEditing(null);
+                setModalOpen(true);
+              }}
+              className="px-4 py-2 text-sm font-semibold rounded-xl modal-btn-primary"
             >
-              + Add Fund
+              + Add Commodity
             </button>
           }
         />
@@ -88,7 +87,7 @@ export default function MutualFundsTab({
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
-                {["Code", "Fund Name", "Units", "Avg NAV", "Current NAV", "Value", "Tags", ""].map(
+                {["Symbol", "Commodity", "Exchange", "Quantity", "Avg Price", "Current Price", "Value", "Tags", ""].map(
                   (h) => (
                     <th
                       key={h}
@@ -105,35 +104,26 @@ export default function MutualFundsTab({
               </tr>
             </thead>
             <tbody>
-              {mfs.map((a) => {
-                const isDeleting = deletingId === a.id;
-
+              {commodities.map((asset) => {
+                const isDeleting = deletingId === asset.id;
                 return (
                   <tr
-                    key={a.id}
+                    key={asset.id}
                     style={{ borderBottom: "1px solid rgba(201,162,39,0.07)" }}
-                    className="transition-colors"
-                    onMouseEnter={(e) =>
-                      ((e.currentTarget as HTMLElement).style.background =
-                        "rgba(201,162,39,0.04)")
-                    }
-                    onMouseLeave={(e) =>
-                      ((e.currentTarget as HTMLElement).style.background = "")
-                    }
+                    className="transition-colors hover:bg-[rgba(201,162,39,0.04)]"
                   >
                     <td className="px-4 py-3 font-mono text-xs font-semibold text-white">
-                      {a.symbol ?? "—"}
+                      {asset.symbol ?? "—"}
                     </td>
-                    <td className="px-4 py-3 text-gray-200 max-w-[200px] truncate">
-                      {a.name}
-                    </td>
-                    <td className="px-4 py-3 text-gray-300">{a.quantity ?? "—"}</td>
-                    <td className="px-4 py-3 text-gray-300">{fmt(a.avgPrice)}</td>
-                    <td className="px-4 py-3 text-gray-300">{fmt(a.currentPrice ?? 0)}</td>
-                    <td className="px-4 py-3 text-white font-medium">{fmt(a.value)}</td>
+                    <td className="px-4 py-3 text-gray-200 max-w-[200px] truncate">{asset.name}</td>
+                    <td className="px-4 py-3 text-gray-300">{asset.exchange ?? "—"}</td>
+                    <td className="px-4 py-3 text-gray-300">{asset.quantity ?? 0}</td>
+                    <td className="px-4 py-3 text-gray-300">{fmt(asset.avgPrice)}</td>
+                    <td className="px-4 py-3 text-gray-300">{fmt(asset.currentPrice ?? 0)}</td>
+                    <td className="px-4 py-3 text-white font-medium">{fmt(asset.value)}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
-                        {(a.tags ?? []).map((tag) => (
+                        {(asset.tags ?? []).map((tag) => (
                           <span
                             key={tag}
                             className="text-xs px-2 py-0.5 rounded-full"
@@ -151,18 +141,16 @@ export default function MutualFundsTab({
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => { setEditing(a); setModalOpen(true); }}
-                          className="text-xs px-2.5 py-1 rounded-lg transition-colors"
-                          style={{
-                            background: "rgba(201,162,39,0.1)",
-                            color: "#d4af4a",
-                            border: "1px solid rgba(201,162,39,0.2)",
+                          onClick={() => {
+                            setEditing(asset);
+                            setModalOpen(true);
                           }}
+                          className="text-xs px-2.5 py-1 rounded-lg transition-colors modal-btn-secondary"
                         >
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDelete(a.id)}
+                          onClick={() => handleDelete(asset.id)}
                           disabled={isDeleting}
                           className="text-xs px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
                           style={{
@@ -184,9 +172,12 @@ export default function MutualFundsTab({
       )}
 
       {modalOpen && (
-        <MFModal
+        <CommodityModal
           asset={editing}
-          onClose={() => { setModalOpen(false); setEditing(null); }}
+          onClose={() => {
+            setModalOpen(false);
+            setEditing(null);
+          }}
           onSave={handleSave}
         />
       )}

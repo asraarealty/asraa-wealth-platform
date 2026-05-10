@@ -11,12 +11,14 @@ const TYPE_LABELS: Record<Asset["type"], string> = {
   stock: "Stock",
   mf: "Mutual Fund",
   property: "Property",
+  commodity: "Commodity",
 };
 
 const TYPE_BADGE_STYLES: Record<Asset["type"], { bg: string; color: string; border: string }> = {
   stock:    { bg: "rgba(0,229,255,0.08)",   color: "#00E5FF", border: "rgba(0,229,255,0.2)" },
   mf:       { bg: "rgba(0,255,159,0.08)",   color: "#00ff9f", border: "rgba(0,255,159,0.2)" },
   property: { bg: "rgba(79,140,255,0.08)",  color: "#4F8CFF", border: "rgba(79,140,255,0.2)" },
+  commodity:{ bg: "rgba(201,162,39,0.12)",  color: "#d4af4a", border: "rgba(201,162,39,0.25)" },
 };
 
 type SortKey = "name" | "type" | "value" | "returnPercent";
@@ -108,7 +110,9 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
           {sorted.map((pos) => {
             const returnPercent = computeReturnPercent(pos);
             const isPositive = returnPercent >= 0;
-            const isCommodity = (pos.tags ?? []).some((tag) => tag.toLowerCase() === "commodity");
+            const isCommodity =
+              pos.type === "commodity" ||
+              (pos.tags ?? []).some((tag) => tag.toLowerCase() === "commodity");
             const badgeStyle = isCommodity
               ? { bg: "rgba(201,162,39,0.12)", color: "#d4af4a", border: "rgba(201,162,39,0.25)" }
               : TYPE_BADGE_STYLES[pos.type];

@@ -554,22 +554,26 @@ export default function MobileDashboard({
       ? selectedClient.name
       : user?.name ?? user?.email ?? "Welcome";
 
-  const stocks = useMemo(() => filterAssetsByType(assets, "stock"), [assets]);
+  const stocks = useMemo(
+    () => assets.filter((asset) => asset.type === "stock" || asset.type === "commodity"),
+    [assets]
+  );
   const mfs = useMemo(() => filterAssetsByType(assets, "mf"), [assets]);
   const properties = useMemo(() => filterAssetsByType(assets, "property"), [assets]);
 
   const metrics = useMemo(() => {
     const entries: Array<[string, number]> = allocation
-      ? [
-          ["stock", safeNumber(allocation.stock)],
-          ["mf", safeNumber(allocation.mf)],
-          ["realEstate", safeNumber(allocation.realEstate)],
-        ]
+        ? [
+            ["stock", safeNumber(allocation.stock)],
+            ["mf", safeNumber(allocation.mf)],
+            ["realEstate", safeNumber(allocation.realEstate)],
+            ["commodity", safeNumber(allocation.commodity)],
+          ]
       : [];
     const topAssetClass = entries.sort((a, b) => b[1] - a[1])[0] ?? null;
     const topAssetLabel = topAssetClass
-      ? ({ stock: "Stocks", mf: "Funds", realEstate: "Property" }[
-          topAssetClass[0] as "stock" | "mf" | "realEstate"
+      ? ({ stock: "Stocks", mf: "Funds", realEstate: "Property", commodity: "Commodity" }[
+          topAssetClass[0] as "stock" | "mf" | "realEstate" | "commodity"
         ] ?? topAssetClass[0])
       : "—";
     const topAssetPct = safeNumber(topAssetClass ? topAssetClass[1] : 0);

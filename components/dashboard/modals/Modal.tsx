@@ -36,8 +36,7 @@ export default function Modal({
           <h2 className="text-base font-semibold text-white">{title}</h2>
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors text-gray-400 hover:text-white"
-            style={{ background: "rgba(255,255,255,0.06)" }}
+            className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors text-gray-400 hover:text-white modal-close-btn"
             aria-label="Close modal"
           >
             <svg
@@ -144,11 +143,7 @@ export function ModalFooter({
       <button
         type="button"
         onClick={onCancel}
-        className="px-4 py-2 text-sm rounded-xl transition-colors text-gray-300 hover:text-white"
-        style={{
-          background: "rgba(255,255,255,0.06)",
-          border: "1px solid rgba(255,255,255,0.1)",
-        }}
+        className="px-4 py-2 text-sm rounded-xl transition-colors modal-btn-secondary"
       >
         Cancel
       </button>
@@ -156,11 +151,7 @@ export function ModalFooter({
         type="button"
         onClick={onSave}
         disabled={saving}
-        className="px-5 py-2 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
-        style={{
-          background: saving ? "rgba(201,162,39,0.5)" : "#c9a227",
-          color: "#071a14",
-        }}
+        className="px-5 py-2 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 modal-btn-primary"
       >
         {saving ? "Saving…" : saveLabel}
       </button>

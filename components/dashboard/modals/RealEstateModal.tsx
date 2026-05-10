@@ -75,6 +75,7 @@ export default function RealEstateModal({
   }
 
   async function handleSave() {
+    if (saving) return;
     const name = form.name.trim();
     const purchase_price = Number(form.purchase_price);
     const current_value = Number(form.current_value);

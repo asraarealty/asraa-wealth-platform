@@ -1,2 +1,2 @@
 // lib/types.ts
-export type Tab = "stocks" | "mutual_funds" | "real_estate";
+export type Tab = "stocks" | "mutual_funds" | "commodities" | "real_estate";

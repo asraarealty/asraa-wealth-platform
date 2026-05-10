@@ -110,6 +110,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       stockValue: portfolio.stockValue,
       mfValue: portfolio.mfValue,
       propertyValue: portfolio.propertyValue,
+      commodityValue: portfolio.commodityValue,
       totalValue: portfolio.totalValue,
     });
   }, [portfolio]);

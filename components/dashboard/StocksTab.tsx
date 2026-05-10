@@ -710,7 +710,11 @@ export default function StocksTab({
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
 
-  const stocks = assets.filter((a) => a.type === "stock");
+  const stocks = assets.filter(
+    (a) =>
+      a.type === "stock" &&
+      !(a.tags ?? []).some((tag) => tag.toLowerCase() === "commodity")
+  );
 
   // KPI computations
   const totalValue = useMemo(
@@ -1092,11 +1096,7 @@ export default function StocksTab({
                   </td>
                   {/* Current Price */}
                   <td className="px-4 py-3.5 text-white font-medium tabular-nums whitespace-nowrap">
-                    {a.currentPrice ? (
-                      fmtINR(a.currentPrice)
-                    ) : (
-                      <span className="text-white/25">—</span>
-                    )}
+                    {fmtINR(a.currentPrice ?? 0)}
                   </td>
                   {/* P&L */}
                   <td

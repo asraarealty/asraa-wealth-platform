@@ -29,6 +29,9 @@ function isValidStock(item: StockQuote): boolean {
   if (!item) return false;
   if (typeof item.symbol !== "string" || !VALID_STOCK_SYMBOL_PATTERN.test(item.symbol)) return false;
   if (typeof item.name !== "string" || item.name.trim().length < 2) return false;
+  if (typeof item.price !== "number" || !Number.isFinite(item.price) || item.price <= 0) return false;
+  if (typeof item.marketCap !== "number" || !Number.isFinite(item.marketCap) || item.marketCap <= 0) return false;
+  if (typeof item.changePercent !== "number" || !Number.isFinite(item.changePercent)) return false;
   return true;
 }
 
@@ -103,11 +106,11 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
     []
   );
 
-  const renderItem = useCallback((stock: NormalizedStock) => {
+  const renderItem = useCallback((stock: NormalizedStock, active: boolean) => {
     const pct = Number.isFinite(stock.changePercent) ? stock.changePercent : 0;
     const positive = pct >= 0;
     return (
-      <div className="flex items-start justify-between gap-4">
+      <div className={`flex items-start justify-between gap-4 ${active ? "search-row-active" : ""}`}>
         <div className="min-w-0">
           <div className="font-semibold text-white truncate">{stock.name}</div>
           <div className="text-xs truncate" style={{ color: "rgba(255,255,255,0.45)" }}>
