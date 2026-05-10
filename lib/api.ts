@@ -98,6 +98,16 @@ export function toggleClientStatus(
   });
 }
 
+export function deleteClient(
+  id: number,
+  signal?: AbortSignal
+): Promise<void> {
+  return fetcher<void>(`/clients/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    signal,
+  });
+}
+
 /* ── Stocks ────────────────────────────────────────────────────────── */
 
 /**
