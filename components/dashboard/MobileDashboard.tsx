@@ -13,6 +13,7 @@ import AddAssetModal from "./modals/AddAssetModal";
 import StockModal from "./modals/StockModal";
 import MFModal from "./modals/MFModal";
 import RealEstateModal from "./modals/RealEstateModal";
+import CommodityModal from "./modals/CommodityModal";
 import ClientSelector from "../ClientSelector";
 import AllocationChart from "./AllocationChart";
 import AIInsightsPanel from "./AIInsightsPanel";
@@ -80,6 +81,11 @@ function gainColor(n: number) {
 
 function gainSign(n: number) {
   return n >= 0 ? "+" : "";
+}
+
+function isCommodityAsset(asset: Asset | null | undefined): boolean {
+  if (!asset) return false;
+  return (asset.tags ?? []).some((tag) => tag.toLowerCase() === "commodity");
 }
 
 /* ── nav config ─────────────────────────────────────────────────────── */
@@ -1067,11 +1073,19 @@ export default function MobileDashboard({
         />
       )}
       {modal?.mode === "edit" && modal.type === "stock" && modal.asset && (
-        <StockModal
-          asset={modal.asset}
-          onClose={() => setModal(null)}
-          onSave={handleEditSave}
-        />
+        isCommodityAsset(modal.asset) ? (
+          <CommodityModal
+            asset={modal.asset}
+            onClose={() => setModal(null)}
+            onSave={handleEditSave}
+          />
+        ) : (
+          <StockModal
+            asset={modal.asset}
+            onClose={() => setModal(null)}
+            onSave={handleEditSave}
+          />
+        )
       )}
       {modal?.mode === "edit" && modal.type === "mf" && modal.asset && (
         <MFModal

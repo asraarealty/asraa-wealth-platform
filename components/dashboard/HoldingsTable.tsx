@@ -108,7 +108,10 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
           {sorted.map((pos) => {
             const returnPercent = computeReturnPercent(pos);
             const isPositive = returnPercent >= 0;
-            const badgeStyle = TYPE_BADGE_STYLES[pos.type];
+            const isCommodity = (pos.tags ?? []).some((tag) => tag.toLowerCase() === "commodity");
+            const badgeStyle = isCommodity
+              ? { bg: "rgba(201,162,39,0.12)", color: "#d4af4a", border: "rgba(201,162,39,0.25)" }
+              : TYPE_BADGE_STYLES[pos.type];
             return (
               <tr
                 key={pos.id}
@@ -137,10 +140,10 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
                       color: badgeStyle.color,
                       border: `1px solid ${badgeStyle.border}`,
                     }}
-                  >
-                    {TYPE_LABELS[pos.type]}
-                  </span>
-                </td>
+                    >
+                      {isCommodity ? "Commodity" : TYPE_LABELS[pos.type]}
+                    </span>
+                  </td>
                 {/* Qty */}
                 <td className="px-4 py-3.5 text-white/60 tabular-nums">
                   {(pos.quantity ?? 0).toLocaleString("en-IN")}

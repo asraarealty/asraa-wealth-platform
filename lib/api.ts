@@ -132,6 +132,7 @@ export interface StockQuote {
   changePercent: number;
   volume: number;
   marketCap: number;
+  exchange?: string | null;
   /** Fundamental data — may not be present for all symbols */
   pe?: number | null;
   roe?: number | null;
@@ -272,8 +273,8 @@ export interface Asset {
   id: number;
   type: "stock" | "mf" | "property";
   symbol?: string;
-  /** Exchange the stock trades on ("NSE" for Indian stocks, "US" for US stocks). */
-  exchange?: "NSE" | "US";
+  /** Exchange/source (for example NSE, BSE, MCX, US). */
+  exchange?: string;
   /** Native currency of the stock price. */
   currency?: "USD" | "INR";
   name: string;
@@ -598,7 +599,52 @@ export interface MutualFundResult {
   name: string;
   nav: number;
   category?: string;
+  amc?: string;
+  aum?: number | null;
+  riskLevel?: string;
   fundHouse?: string;
+}
+
+export type CommodityAssetType = "spot" | "etf" | "linked";
+
+export interface CommodityResult {
+  id: string;
+  name: string;
+  symbol: string;
+  source: string;
+  assetType: CommodityAssetType;
+  currentPrice?: number | null;
+  dailyChange?: number | null;
+}
+
+const COMMODITY_CATALOG: CommodityResult[] = [
+  { id: "gold-spot", name: "Gold Spot", symbol: "GOLD", source: "MCX", assetType: "spot" },
+  { id: "gold-etf", name: "Gold ETF", symbol: "GOLDBEES.NS", source: "NSE", assetType: "etf" },
+  { id: "silver-spot", name: "Silver Spot", symbol: "SILVER", source: "MCX", assetType: "spot" },
+  { id: "silver-etf", name: "Silver ETF", symbol: "SILVERBEES.NS", source: "NSE", assetType: "etf" },
+  { id: "crude-spot", name: "Crude Oil Spot", symbol: "CRUDEOIL", source: "MCX", assetType: "spot" },
+  { id: "crude-linked", name: "Crude Oil Linked Holding", symbol: "CRUDEOIL-LINK", source: "Derived", assetType: "linked" },
+  { id: "natgas-spot", name: "Natural Gas Spot", symbol: "NATURALGAS", source: "MCX", assetType: "spot" },
+  { id: "natgas-linked", name: "Natural Gas Linked Holding", symbol: "NATGAS-LINK", source: "Derived", assetType: "linked" },
+  { id: "copper-spot", name: "Copper Spot", symbol: "COPPER", source: "MCX", assetType: "spot" },
+  { id: "copper-linked", name: "Copper Linked Holding", symbol: "COPPER-LINK", source: "Derived", assetType: "linked" },
+];
+
+export function searchCommodities(
+  query: string
+): Promise<CommodityResult[]> {
+  const q = query.trim().toLowerCase();
+  if (!q) return Promise.resolve([]);
+  return Promise.resolve(
+    COMMODITY_CATALOG.filter((item) => {
+      return (
+        item.name.toLowerCase().includes(q) ||
+        item.symbol.toLowerCase().includes(q) ||
+        item.source.toLowerCase().includes(q) ||
+        item.assetType.toLowerCase().includes(q)
+      );
+    })
+  );
 }
 
 export function searchMutualFunds(
@@ -608,17 +654,53 @@ export function searchMutualFunds(
   return fetcher<any[]>(
     `/mutual-funds/search?q=${encodeURIComponent(query)}`,
     { signal, noRedirectOn401: true }
-  ).then((results) =>
-    (Array.isArray(results) ? results : []).map((item): MutualFundResult => ({
-      code: item.code ?? item.scheme_code ?? item.schemeCode ?? "",
-      name: item.name ?? item.schemeName ?? item.scheme_name ?? item.schemeFullName ?? item.scheme_full_name ?? "",
-      nav: typeof item.nav === "number" ? item.nav
-        : typeof item.latestNav === "number" ? item.latestNav
-        : parseFloat(item.nav ?? item.latestNav ?? "") || 0,
-      category: item.category ?? item.schemeCategory ?? item.scheme_category,
-      fundHouse: item.fundHouse ?? item.amc ?? item.fund_house,
-    }))
-  );
+  ).then((results) => {
+    const mapped = (Array.isArray(results) ? results : []).map((item): MutualFundResult => {
+      const navCandidate =
+        typeof item.nav === "number"
+          ? item.nav
+          : typeof item.latestNav === "number"
+          ? item.latestNav
+          : parseFloat(item.nav ?? item.latestNav ?? "");
+      const aumCandidate =
+        typeof item.aum === "number"
+          ? item.aum
+          : typeof item.assetsUnderManagement === "number"
+          ? item.assetsUnderManagement
+          : parseFloat(item.aum ?? item.assetsUnderManagement ?? "");
+      const amc = item.amc ?? item.fundHouse ?? item.fund_house ?? undefined;
+      return {
+        code: String(item.code ?? item.scheme_code ?? item.schemeCode ?? "").trim(),
+        name: String(
+          item.name ??
+            item.schemeName ??
+            item.scheme_name ??
+            item.schemeFullName ??
+            item.scheme_full_name ??
+            ""
+        ).trim(),
+        nav: Number.isFinite(navCandidate) && navCandidate > 0 ? navCandidate : 0,
+        category: item.category ?? item.schemeCategory ?? item.scheme_category ?? undefined,
+        amc,
+        aum: Number.isFinite(aumCandidate) && aumCandidate > 0 ? aumCandidate : null,
+        riskLevel: item.riskLevel ?? item.risk_level ?? item.risk ?? undefined,
+        fundHouse: amc,
+      };
+    });
+
+    const filtered = mapped.filter((item) => item.name && (item.code || item.nav > 0));
+    const seen = new Set<string>();
+    const deduped: MutualFundResult[] = [];
+    for (const item of filtered) {
+      const key = item.code
+        ? `code:${item.code.toUpperCase()}`
+        : `name:${item.name.toLowerCase()}::${(item.amc ?? "").toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(item);
+    }
+    return deduped;
+  });
 }
 
 /* ── Auth Extras ───────────────────────────────────────────────────── */

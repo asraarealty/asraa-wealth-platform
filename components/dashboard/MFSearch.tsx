@@ -1,204 +1,89 @@
 "use client";
 
-import { useState, useEffect, useRef, type KeyboardEvent } from "react";
+import { useCallback } from "react";
+import AsyncSearchDropdown from "@/components/search/AsyncSearchDropdown";
 import { searchMutualFunds, type MutualFundResult } from "@/lib/api";
-import { toErrorMessage } from "@/lib/fetcher";
-
-/** Debounce delay in ms — prevents excessive API calls while user is typing */
-const SEARCH_DEBOUNCE_MS = 350;
 
 interface MFSearchProps {
   onSelect?: (mf: MutualFundResult) => void;
   initialValue?: string;
 }
 
+type NormalizedMF = MutualFundResult & { key: string };
+
+function formatAum(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return "—";
+  if (value >= 1e7) return `₹${(value / 1e7).toFixed(1)}Cr`;
+  if (value >= 1e5) return `₹${(value / 1e5).toFixed(1)}L`;
+  return `₹${value.toLocaleString("en-IN")}`;
+}
+
+function normalizeFunds(results: MutualFundResult[], query: string): NormalizedMF[] {
+  const q = query.trim().toLowerCase();
+  const filtered = results.filter((item) => item.name && (item.code || item.nav > 0));
+  const seen = new Set<string>();
+  const deduped: NormalizedMF[] = [];
+  for (const item of filtered) {
+    const key = item.code
+      ? `code:${item.code.toUpperCase()}`
+      : `name:${item.name.toLowerCase()}::${(item.amc ?? "").toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push({ ...item, key });
+  }
+
+  return deduped
+    .sort((a, b) => {
+      const aExact = a.name.toLowerCase().startsWith(q) ? 1 : 0;
+      const bExact = b.name.toLowerCase().startsWith(q) ? 1 : 0;
+      const aHasNav = a.nav > 0 ? 1 : 0;
+      const bHasNav = b.nav > 0 ? 1 : 0;
+      return bExact - aExact || bHasNav - aHasNav || a.name.localeCompare(b.name);
+    })
+    .slice(0, 12);
+}
+
 export default function MFSearch({ onSelect, initialValue = "" }: MFSearchProps) {
-  const [query, setQuery] = useState(initialValue);
-  const [results, setResults] = useState<MutualFundResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activeIndex, setActiveIndex] = useState(-1);
-  const [open, setOpen] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (query.trim().length < 2) {
-      setResults([]);
-      setOpen(false);
-      return;
-    }
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    debounceRef.current = setTimeout(() => {
-      const controller = new AbortController();
-      abortRef.current = controller;
-
-      setLoading(true);
-      setError(null);
-
-      searchMutualFunds(query.trim(), controller.signal)
-        .then((data) => {
-          setResults(Array.isArray(data) ? data : []);
-          setOpen(true);
-          setActiveIndex(-1);
-        })
-        .catch((err) => {
-          if (err instanceof DOMException && err.name === "AbortError") return;
-          setError(toErrorMessage(err));
-        })
-        .finally(() => setLoading(false));
-    }, SEARCH_DEBOUNCE_MS);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      abortRef.current?.abort();
-    };
-  }, [query]);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+  const runSearch = useCallback(async (query: string, signal: AbortSignal) => {
+    const raw = await searchMutualFunds(query, signal);
+    return normalizeFunds(Array.isArray(raw) ? raw : [], query);
   }, []);
 
-  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (!open || results.length === 0) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActiveIndex((i) => Math.min(i + 1, results.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActiveIndex((i) => Math.max(i - 1, 0));
-    } else if (e.key === "Enter" && activeIndex >= 0) {
-      e.preventDefault();
-      handleSelect(results[activeIndex]);
-    } else if (e.key === "Escape") {
-      setOpen(false);
-    }
-  }
-
-  function handleSelect(mf: MutualFundResult) {
-    setQuery(mf.name);
-    setOpen(false);
-    onSelect?.(mf);
-  }
+  const renderItem = useCallback((mf: NormalizedMF) => {
+    return (
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="font-semibold text-white truncate">{mf.name}</div>
+          <div className="text-xs truncate" style={{ color: "rgba(255,255,255,0.45)" }}>
+            {(mf.amc ?? mf.fundHouse ?? "Unknown AMC")}
+            {mf.category ? ` · ${mf.category}` : ""}
+          </div>
+          <div className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.35)" }}>
+            AUM: {formatAum(mf.aum)} {mf.riskLevel ? `· Risk: ${mf.riskLevel}` : ""}
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <div className="text-white font-medium">₹{mf.nav > 0 ? mf.nav.toFixed(2) : "—"}</div>
+          <div className="text-xs" style={{ color: "rgba(201,162,39,0.6)" }}>
+            NAV
+          </div>
+        </div>
+      </div>
+    );
+  }, []);
 
   return (
-    <div ref={containerRef} className="relative w-full">
-      <div className="relative">
-        <svg
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="rgba(201,162,39,0.5)"
-          strokeWidth={2}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
-          />
-        </svg>
-        <input
-          type="text"
-          name="mf-search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onFocus={() => results.length > 0 && setOpen(true)}
-          placeholder="Search mutual funds — HDFC, SBI, Axis…"
-          className="w-full gold-input pl-10 pr-4 py-2.5 text-sm rounded-xl"
-          aria-label="Search mutual funds"
-          aria-autocomplete="list"
-          aria-expanded={open}
-        />
-        {loading && (
-          <svg
-            className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            style={{ color: "#c9a227" }}
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z"
-            />
-          </svg>
-        )}
-      </div>
-
-      {error && <p className="mt-1.5 text-xs text-red-400">{error}</p>}
-
-      {open && (
-        <ul
-          role="listbox"
-          className="absolute z-50 mt-1.5 w-full search-dropdown rounded-xl overflow-hidden max-h-72 overflow-y-auto"
-        >
-          {results.length === 0 && !loading && (
-            <li
-              className="px-4 py-3 text-sm text-center"
-              style={{ color: "rgba(255,255,255,0.35)" }}
-            >
-              No results for &ldquo;{query}&rdquo;
-            </li>
-          )}
-          {results.map((mf, i) => (
-            <li
-              key={mf.code}
-              role="option"
-              aria-selected={i === activeIndex}
-              onClick={() => handleSelect(mf)}
-              onMouseEnter={() => setActiveIndex(i)}
-              className="search-dropdown-item flex items-center justify-between gap-4 px-4 py-3 cursor-pointer text-sm"
-            >
-              <div className="min-w-0">
-                <span className="font-semibold text-white truncate block">
-                  {mf.name}
-                </span>
-                {mf.category && (
-                  <span
-                    className="text-xs truncate"
-                    style={{ color: "rgba(255,255,255,0.4)" }}
-                  >
-                    {mf.fundHouse ? `${mf.fundHouse} · ` : ""}
-                    {mf.category}
-                  </span>
-                )}
-              </div>
-              <div className="text-right shrink-0">
-                <div className="text-white font-medium">
-                  ₹{typeof mf.nav === "number" ? mf.nav.toFixed(2) : "—"}
-                </div>
-                <div
-                  className="text-xs"
-                  style={{ color: "rgba(201,162,39,0.6)" }}
-                >
-                  NAV
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <AsyncSearchDropdown<NormalizedMF>
+      placeholder="Search mutual funds — AMC, category, scheme"
+      ariaLabel="Search mutual funds"
+      minQueryLength={2}
+      initialValue={initialValue}
+      search={runSearch}
+      getItemKey={(item) => item.key}
+      getItemText={(item) => item.name}
+      renderItem={renderItem}
+      onSelect={(item) => onSelect?.(item)}
+      emptyText={(q) => `No mutual fund matches for “${q}”`}
+    />
   );
 }
