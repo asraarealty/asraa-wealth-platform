@@ -92,9 +92,7 @@ export function usePortfolioState(options: UsePortfolioStateOptions = {}) {
       setRefreshing(true);
     } else {
       setLoading(true);
-      if (!portfolio) {
-        setPortfolio(cached ?? null);
-      }
+      setPortfolio(cached ?? null);
     }
     setError(null);
 
@@ -121,7 +119,7 @@ export function usePortfolioState(options: UsePortfolioStateOptions = {}) {
 
     inFlightRef.current = request;
     return request;
-  }, [clientId, enabled, key, portfolio]);
+  }, [clientId, enabled, key]);
 
   const refresh = useCallback(() => load({ background: true, force: true }), [load]);
 
@@ -144,7 +142,9 @@ export function usePortfolioState(options: UsePortfolioStateOptions = {}) {
       return;
     }
 
-    void load({ force: true });
+    void load({ force: true }).catch((err) => {
+      console.error(`[usePortfolioState] Initial load failed for ${key}:`, err);
+    });
 
     return () => {
       abortRef.current?.abort();
@@ -156,7 +156,9 @@ export function usePortfolioState(options: UsePortfolioStateOptions = {}) {
 
     function doRefresh() {
       if (document.visibilityState === "hidden") return;
-      void load({ background: true });
+      void load({ background: true }).catch((err) => {
+        console.warn(`[usePortfolioState] Background refresh failed for ${key}:`, err);
+      });
     }
 
     const interval = window.setInterval(doRefresh, pollMs);

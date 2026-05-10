@@ -9,6 +9,7 @@ import {
   type CreateAssetPayload,
   type UpdateAssetPayload,
 } from "@/lib/api";
+import { toErrorMessage } from "@/lib/fetcher";
 import { fmtCurrency } from "@/lib/formatters";
 import type { Client } from "@/lib/api";
 import ClientSelector from "@/components/ClientSelector";
@@ -177,7 +178,7 @@ export default function AdminPortfolioPage() {
         <div className="space-y-3">
           <ErrorState message={error} />
           <button
-            onClick={() => void retry()}
+            onClick={() => void retry().catch((err) => showToast(toErrorMessage(err), "error"))}
             className="inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold text-black"
             style={{ background: "linear-gradient(90deg, #C9A227, #d4af4a)" }}
           >

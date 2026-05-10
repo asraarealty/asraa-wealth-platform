@@ -2,7 +2,7 @@
 
 import type { PortfolioFull } from "@/lib/api";
 import { fmtCurrency } from "@/lib/formatters";
-import { deriveAllocationFromValues, normalizeAllocationPercentages } from "@/lib/utils/portfolioMath";
+import { deriveAllocationFromValues } from "@/lib/utils/portfolioMath";
 
 interface AllocationSectionProps {
   portfolio: PortfolioFull;
@@ -30,16 +30,10 @@ export default function AllocationSection({ portfolio }: AllocationSectionProps)
     { label: "Property", value: propertyValue, color: "#4F8CFF", bg: "rgba(79,140,255,0.07)" },
   ].filter((s) => s.value > 0);
 
-  const normalizedMap = normalizeAllocationPercentages({
-    stock: normalizedPct?.stock ?? 0,
-    mf: normalizedPct?.mf ?? 0,
-    realEstate: normalizedPct?.realEstate ?? 0,
-  });
-
   const percentageByLabel: Record<string, number> = {
-    Stocks: normalizedMap.stock,
-    "Mutual Funds": normalizedMap.mf,
-    Property: normalizedMap.realEstate,
+    Stocks: normalizedPct?.stock ?? 0,
+    "Mutual Funds": normalizedPct?.mf ?? 0,
+    Property: normalizedPct?.realEstate ?? 0,
   };
 
   if (segments.length === 0) {

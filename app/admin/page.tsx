@@ -136,11 +136,18 @@ export default function AdminPage() {
   const avgReturn = useMemo(() => calcAverageReturn(intelligenceRows), [intelligenceRows]);
 
   async function refreshSelectedClientAssets(clientId: number) {
-    const refreshed = await fetchAssets(clientId);
-    setGroupedAssets((prev) => ({
-      ...prev,
-      [String(clientId)]: refreshed,
-    }));
+    try {
+      const refreshed = await fetchAssets(clientId);
+      setGroupedAssets((prev) => ({
+        ...prev,
+        [String(clientId)]: refreshed,
+      }));
+    } catch (err) {
+      const message = toErrorMessage(err);
+      setError(message);
+      showToast(message, "error");
+      throw err;
+    }
   }
 
   async function handleAdd(payload: CreateAssetPayload) {

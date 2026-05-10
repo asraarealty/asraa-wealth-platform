@@ -75,7 +75,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
     enabled: Boolean(user) && (!isAdmin || resolvedClientId !== undefined),
   });
 
-  const { portfolio, assets, loading, refreshing, error, refresh, runMutation } = portfolioState;
+  const { portfolio, assets, loading, error, refresh, runMutation } = portfolioState;
 
   useEffect(() => {
     if (!user) return;
@@ -91,7 +91,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
         setInsights(null);
       });
     return () => ac.abort();
-  }, [user, isAdmin, resolvedClientId, refreshing]);
+  }, [user, isAdmin, resolvedClientId]);
 
   // Compute only totalInvested from positions as requested
   const totalInvested = useMemo(
@@ -265,7 +265,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
         <div className="space-y-3">
           <ErrorState message={error} />
           <button
-            onClick={() => void refresh()}
+            onClick={() => void refresh().catch((err) => showToast(toErrorMessage(err), "error"))}
             className="inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold text-black"
             style={{ background: "linear-gradient(90deg, #C9A227, #d4af4a)" }}
           >
