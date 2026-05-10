@@ -67,7 +67,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
       symbol: mf.code,
       name: mf.name,
       avgPrice: mf.nav ? String(mf.nav) : f.avgPrice,
-      currentPrice: mf.nav ? String(mf.nav) : f.currentPrice,
+      currentPrice: f.currentPrice || (mf.nav ? String(mf.nav) : ""),
     }));
   }
 

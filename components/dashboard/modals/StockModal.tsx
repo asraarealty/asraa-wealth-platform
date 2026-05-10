@@ -71,7 +71,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
       symbol: stock.symbol,
       name: stock.name,
       avgPrice: stock.price ? String(stock.price) : f.avgPrice,
-      currentPrice: stock.price ? String(stock.price) : f.currentPrice,
+      currentPrice: f.currentPrice || (stock.price ? String(stock.price) : ""),
     }));
   }
 

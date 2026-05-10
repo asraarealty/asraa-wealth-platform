@@ -442,7 +442,7 @@ export async function fetchPortfolio(
       : typeof res?.commodity_value === "number"
       ? res.commodity_value
       : positions
-          .filter((p: Asset) => p.type === "commodity" || hasCommodityTag(p.tags))
+          .filter((p: Asset) => p.type === "commodity")
           .reduce((s: number, p: Asset) => s + Number(p.value ?? 0), 0);
 
   const roiVal =

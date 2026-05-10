@@ -690,8 +690,7 @@ type SortDir = "asc" | "desc";
 type FilterMode = "all" | "gain" | "loss" | "high-risk" | "buy" | "reduce";
 
 function isCommodityAsset(asset: Asset | null): boolean {
-  if (!asset) return false;
-  return (asset.tags ?? []).some((tag) => tag.toLowerCase() === "commodity");
+  return asset?.type === "commodity";
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -711,9 +710,7 @@ export default function StocksTab({
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
 
   const stocks = assets.filter(
-    (a) =>
-      a.type === "stock" &&
-      !(a.tags ?? []).some((tag) => tag.toLowerCase() === "commodity")
+    (a) => a.type === "stock"
   );
 
   // KPI computations

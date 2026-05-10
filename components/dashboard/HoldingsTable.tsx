@@ -110,9 +110,7 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
           {sorted.map((pos) => {
             const returnPercent = computeReturnPercent(pos);
             const isPositive = returnPercent >= 0;
-            const isCommodity =
-              pos.type === "commodity" ||
-              (pos.tags ?? []).some((tag) => tag.toLowerCase() === "commodity");
+            const isCommodity = pos.type === "commodity";
             const badgeStyle = isCommodity
               ? { bg: "rgba(201,162,39,0.12)", color: "#d4af4a", border: "rgba(201,162,39,0.25)" }
               : TYPE_BADGE_STYLES[pos.type];

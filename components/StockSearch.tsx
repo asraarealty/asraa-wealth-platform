@@ -25,12 +25,20 @@ function rootSymbol(symbol: string): string {
   return symbol.replace(/\.(NS|BO)$/i, "").toUpperCase();
 }
 
+function isPositiveFinite(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+function isNonNegativeFinite(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
 function isValidStock(item: StockQuote): boolean {
   if (!item) return false;
   if (typeof item.symbol !== "string" || !VALID_STOCK_SYMBOL_PATTERN.test(item.symbol)) return false;
   if (typeof item.name !== "string" || item.name.trim().length < 2) return false;
-  if (typeof item.price !== "number" || !Number.isFinite(item.price) || item.price <= 0) return false;
-  if (typeof item.marketCap !== "number" || !Number.isFinite(item.marketCap) || item.marketCap <= 0) return false;
+  if (!isPositiveFinite(item.price)) return false;
+  if (!isNonNegativeFinite(item.marketCap)) return false;
   if (typeof item.changePercent !== "number" || !Number.isFinite(item.changePercent)) return false;
   return true;
 }
@@ -41,7 +49,8 @@ function formatPrice(price: number | null | undefined): string {
 }
 
 function formatMarketCap(value: number | null | undefined): string {
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return "—";
+  if (!isNonNegativeFinite(value)) return "—";
+  if (value === 0) return "₹0";
   if (value >= 1e12) return `₹${(value / 1e12).toFixed(2)}T`;
   if (value >= 1e7) return `₹${(value / 1e7).toFixed(2)}Cr`;
   if (value >= 1e5) return `₹${(value / 1e5).toFixed(2)}L`;

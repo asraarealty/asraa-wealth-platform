@@ -155,7 +155,7 @@ export default function KPISection({ portfolio }: KPISectionProps) {
       </div>
 
       {/* Asset-type breakdown */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         <BreakdownCard
           label="Stocks"
           value={fmtCurrency(stockValue)}

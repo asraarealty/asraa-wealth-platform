@@ -141,9 +141,6 @@ export default function AsyncSearchDropdown<T>({
     } else if (e.key === "Enter" && activeIndex >= 0) {
       e.preventDefault();
       handleSelect(results[activeIndex]);
-    } else if (e.key === "Enter" && results.length > 0) {
-      e.preventDefault();
-      handleSelect(results[0]);
     } else if (e.key === "Escape") {
       setOpen(false);
     }

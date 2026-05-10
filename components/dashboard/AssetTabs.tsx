@@ -65,9 +65,9 @@ export default function AssetTabs({
   onDelete,
 }: AssetTabsProps) {
   const counts: Record<Tab, number> = {
-    stocks: assets.filter((a) => a.type === "stock" && !(a.tags ?? []).some((t) => t.toLowerCase() === "commodity")).length,
+    stocks: assets.filter((a) => a.type === "stock").length,
     mutual_funds: assets.filter((a) => a.type === "mf").length,
-    commodities: assets.filter((a) => a.type === "commodity" || (a.tags ?? []).some((t) => t.toLowerCase() === "commodity")).length,
+    commodities: assets.filter((a) => a.type === "commodity").length,
     real_estate: assets.filter((a) => a.type === "property").length,
   };
 

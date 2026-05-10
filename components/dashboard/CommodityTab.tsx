@@ -13,7 +13,7 @@ interface CommodityTabProps {
 }
 
 function isCommodityAsset(asset: Asset): boolean {
-  return asset.type === "commodity" || (asset.tags ?? []).some((tag) => tag.toLowerCase() === "commodity");
+  return asset.type === "commodity";
 }
 
 function fmt(value: number | undefined | null, prefix = "₹") {

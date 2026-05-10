@@ -39,7 +39,7 @@ import { deriveAllocationFromValues } from "@/lib/utils/portfolioMath";
 type Tab = "stocks" | "mutual_funds" | "commodities" | "real_estate";
 
 function isCommodityAsset(asset: Asset): boolean {
-  return asset.type === "commodity" || (asset.tags ?? []).some((tag) => tag.toLowerCase() === "commodity");
+  return asset.type === "commodity";
 }
 
 function fmtCurrency(n: number) {
