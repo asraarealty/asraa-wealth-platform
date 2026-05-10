@@ -196,7 +196,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          onFocus={() => { if (results.length > 0) setOpen(true); }}
+          onFocus={() => results.length > 0 && setOpen(true)}
           placeholder="Search stocks — Kotak, Reliance, Apple…"
           className="w-full gold-input pl-10 pr-4 py-2.5 text-sm rounded-xl"
           aria-label="Search stocks"

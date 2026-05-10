@@ -115,7 +115,7 @@ export default function MFSearch({ onSelect, initialValue = "" }: MFSearchProps)
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          onFocus={() => { if (results.length > 0) setOpen(true); }}
+          onFocus={() => results.length > 0 && setOpen(true)}
           placeholder="Search mutual funds — HDFC, SBI, Axis…"
           className="w-full gold-input pl-10 pr-4 py-2.5 text-sm rounded-xl"
           aria-label="Search mutual funds"
