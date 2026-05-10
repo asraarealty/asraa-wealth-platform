@@ -2,6 +2,7 @@
 
 import { ReactNode, useState } from "react";
 import Button from "@/components/ui/Button";
+import { useToast } from "@/context/ToastContext";
 
 interface SectionCardProps {
   title: string;
@@ -21,19 +22,18 @@ export default function SectionCard({
   loading = false,
 }: SectionCardProps) {
   const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [open, setOpen] = useState(defaultOpen);
+  const { showToast } = useToast();
 
   async function handleSave() {
     setSaving(true);
     try {
       await onSave();
-      setToast({ message: "Settings saved successfully", type: "success" });
+      showToast("Settings saved successfully", "success");
     } catch {
-      setToast({ message: "Failed to save settings", type: "error" });
+      showToast("Failed to save settings", "error");
     } finally {
       setSaving(false);
-      setTimeout(() => setToast(null), 3000);
     }
   }
 
@@ -112,26 +112,9 @@ export default function SectionCard({
 
         {/* Footer */}
         <div
-          className="flex items-center justify-between px-6 py-4 mt-2"
+          className="flex items-center justify-end px-6 py-4 mt-2"
           style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
         >
-          {toast ? (
-            <span
-              className="text-xs font-medium flex items-center gap-1.5 animate-fade-in"
-              style={{ color: toast.type === "success" ? "#00ff9f" : "#ff4d6d" }}
-            >
-              <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                {toast.type === "success" ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-                )}
-              </svg>
-              {toast.message}
-            </span>
-          ) : (
-            <span />
-          )}
           <Button size="sm" loading={saving} onClick={handleSave}>
             Save Changes
           </Button>
