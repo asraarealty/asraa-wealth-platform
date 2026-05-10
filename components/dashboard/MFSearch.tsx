@@ -115,22 +115,9 @@ export default function MFSearch({ onSelect, initialValue = "" }: MFSearchProps)
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
+          onFocus={() => { if (results.length > 0) setOpen(true); }}
           placeholder="Search mutual funds — HDFC, SBI, Axis…"
-          className="w-full pl-10 pr-4 py-2.5 text-sm text-white placeholder-white/30 rounded-xl transition focus:outline-none"
-          style={{
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(201,162,39,0.2)",
-          }}
-          onFocus={(e) => {
-            e.currentTarget.style.borderColor = "rgba(201,162,39,0.5)";
-            e.currentTarget.style.boxShadow =
-              "0 0 0 2px rgba(201,162,39,0.12)";
-            if (results.length > 0) setOpen(true);
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.borderColor = "rgba(201,162,39,0.2)";
-            e.currentTarget.style.boxShadow = "none";
-          }}
+          className="w-full gold-input pl-10 pr-4 py-2.5 text-sm rounded-xl"
           aria-label="Search mutual funds"
           aria-autocomplete="list"
           aria-expanded={open}
@@ -164,14 +151,7 @@ export default function MFSearch({ onSelect, initialValue = "" }: MFSearchProps)
       {open && (
         <ul
           role="listbox"
-          className="absolute z-50 mt-1.5 w-full rounded-xl shadow-2xl overflow-hidden max-h-72 overflow-y-auto"
-          style={{
-            background: "rgba(8,48,36,0.97)",
-            border: "1px solid rgba(201,162,39,0.2)",
-            backdropFilter: "blur(20px)",
-            boxShadow:
-              "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,162,39,0.08)",
-          }}
+          className="absolute z-50 mt-1.5 w-full search-dropdown rounded-xl overflow-hidden max-h-72 overflow-y-auto"
         >
           {results.length === 0 && !loading && (
             <li
@@ -188,15 +168,7 @@ export default function MFSearch({ onSelect, initialValue = "" }: MFSearchProps)
               aria-selected={i === activeIndex}
               onClick={() => handleSelect(mf)}
               onMouseEnter={() => setActiveIndex(i)}
-              className="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer transition text-sm"
-              style={{
-                background:
-                  i === activeIndex ? "rgba(201,162,39,0.1)" : "transparent",
-                borderBottom:
-                  i < results.length - 1
-                    ? "1px solid rgba(255,255,255,0.04)"
-                    : "none",
-              }}
+              className="search-dropdown-item flex items-center justify-between gap-4 px-4 py-3 cursor-pointer text-sm"
             >
               <div className="min-w-0">
                 <span className="font-semibold text-white truncate block">

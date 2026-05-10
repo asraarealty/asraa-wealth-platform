@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Modal, { FormField, FieldInput, ModalFooter } from "./Modal";
+import Modal, { FormField, FieldInput, ModalFooter, FormError } from "./Modal";
 import TagSelect from "../TagSelect";
 import MFSearch from "../MFSearch";
 import type { Asset, CreateAssetPayload, UpdateAssetPayload, MutualFundResult } from "@/lib/api";
@@ -153,17 +153,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
           />
         </FormField>
 
-        {error && (
-          <p
-            className="text-sm text-red-400 rounded-lg px-3 py-2"
-            style={{
-              background: "rgba(239,68,68,0.08)",
-              border: "1px solid rgba(239,68,68,0.2)",
-            }}
-          >
-            {error}
-          </p>
-        )}
+        {error && <FormError>{error}</FormError>}
       </div>
 
       <ModalFooter

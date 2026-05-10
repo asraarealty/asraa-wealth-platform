@@ -25,24 +25,14 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className={`${width} rounded-2xl shadow-2xl flex flex-col max-h-[90vh]`}
-        style={{
-          background: "#0A1A14",
-          border: "1px solid rgba(201,162,39,0.2)",
-          boxShadow:
-            "0 24px 64px rgba(0,0,0,0.7), 0 0 0 1px rgba(201,162,39,0.08)",
-        }}
+        className={`${width} modal-panel rounded-2xl shadow-2xl flex flex-col max-h-[90vh]`}
       >
         {/* Header */}
-        <div
-          className="flex items-center justify-between px-6 py-4 shrink-0"
-          style={{ borderBottom: "1px solid rgba(201,162,39,0.12)" }}
-        >
+        <div className="flex items-center justify-between px-6 py-4 shrink-0 modal-border-b">
           <h2 className="text-base font-semibold text-white">{title}</h2>
           <button
             onClick={onClose}
@@ -124,20 +114,14 @@ export function FieldInput({
       name={name}
       id={id}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-3 py-2.5 text-sm text-white placeholder-white/30 rounded-xl transition focus:outline-none"
-      style={{
-        background: "rgba(255,255,255,0.06)",
-        border: "1px solid rgba(201,162,39,0.2)",
-      }}
-      onFocus={(e) => {
-        e.currentTarget.style.borderColor = "rgba(201,162,39,0.5)";
-        e.currentTarget.style.boxShadow = "0 0 0 2px rgba(201,162,39,0.12)";
-      }}
-      onBlur={(e) => {
-        e.currentTarget.style.borderColor = "rgba(201,162,39,0.2)";
-        e.currentTarget.style.boxShadow = "none";
-      }}
+      className="w-full px-3 py-2.5 text-sm rounded-xl gold-input"
     />
+  );
+}
+
+export function FormError({ children }: { children: ReactNode }) {
+  return (
+    <p className="form-error text-sm rounded-lg px-3 py-2">{children}</p>
   );
 }
 
@@ -153,10 +137,7 @@ export function ModalFooter({
   saving?: boolean;
 }) {
   return (
-    <div
-      className="flex items-center justify-end gap-3 px-6 py-4 shrink-0"
-      style={{ borderTop: "1px solid rgba(201,162,39,0.12)" }}
-    >
+    <div className="flex items-center justify-end gap-3 px-6 py-4 shrink-0 modal-border-t">
       <button
         type="button"
         onClick={onCancel}

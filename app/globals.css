@@ -16,6 +16,16 @@
   --color-neon-blue: #4F8CFF;
   --color-neon-green: #00ff9f;
   --color-neon-red: #ff4d6d;
+  /* Shared modal / form tokens */
+  --color-modal-bg: #07111e;
+  --color-modal-border: rgba(201, 162, 39, 0.2);
+  --color-modal-divider: rgba(201, 162, 39, 0.12);
+  --color-gold-focus-border: rgba(201, 162, 39, 0.5);
+  --color-gold-focus-ring: rgba(201, 162, 39, 0.12);
+  --color-dropdown-bg: rgba(10, 16, 38, 0.97);
+  --color-error-bg: rgba(239, 68, 68, 0.08);
+  --color-error-border: rgba(239, 68, 68, 0.2);
+  --color-error-text: #f87171;
 }
 
 @keyframes fade-in {
@@ -193,3 +203,70 @@ body {
   background: rgba(0, 229, 255, 0.38);
 }
 
+/* ── Gold-bordered input — used in modal forms and search ──────────────── */
+.gold-input {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(201, 162, 39, 0.2);
+  color: white;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+}
+.gold-input::placeholder {
+  color: rgba(255, 255, 255, 0.28);
+}
+.gold-input:focus {
+  outline: none;
+  border-color: rgba(201, 162, 39, 0.5);
+  box-shadow: 0 0 0 2px rgba(201, 162, 39, 0.12);
+  background: rgba(201, 162, 39, 0.02);
+}
+
+/* ── Modal overlay backdrop ────────────────────────────────────────────── */
+.modal-overlay {
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* ── Modal panel ───────────────────────────────────────────────────────── */
+.modal-panel {
+  background: #07111e;
+  border: 1px solid rgba(201, 162, 39, 0.2);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(201, 162, 39, 0.08);
+}
+
+/* ── Modal header / footer dividers ────────────────────────────────────── */
+.modal-border-b { border-bottom: 1px solid rgba(201, 162, 39, 0.12); }
+.modal-border-t { border-top:    1px solid rgba(201, 162, 39, 0.12); }
+
+/* ── Search autocomplete dropdown ──────────────────────────────────────── */
+.search-dropdown {
+  background: rgba(10, 16, 38, 0.97);
+  border: 1px solid rgba(201, 162, 39, 0.2);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(201, 162, 39, 0.08);
+}
+.search-dropdown-item {
+  transition: background 0.15s ease;
+}
+.search-dropdown-item:hover,
+.search-dropdown-item[aria-selected="true"] {
+  background: rgba(201, 162, 39, 0.08);
+}
+.search-dropdown-item:not(:last-child) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* ── Inline form error banner ──────────────────────────────────────────── */
+.form-error {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+/* ── Toast slide-in animation ──────────────────────────────────────────── */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(20px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(0)    scale(1);    }
+}
+.animate-toast-in { animation: toast-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
