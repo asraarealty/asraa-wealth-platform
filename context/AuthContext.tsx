@@ -9,7 +9,13 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { fetcher, setToken, clearToken, ApiError } from "@/lib/fetcher";
+import {
+  fetcher,
+  setToken,
+  clearToken,
+  ApiError,
+  setAuthBootstrapComplete,
+} from "@/lib/fetcher";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected" | "suspended";
 
@@ -23,6 +29,7 @@ export interface User {
 
 export interface AuthContextValue {
   user: User | null;
+  initialized: boolean;
   loading: boolean;
   /** True when the initial /auth/me call failed with a transient (non-401) error. */
   authError: boolean;
@@ -36,6 +43,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [initialized, setInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(false);
   const [authAttempt, setAuthAttempt] = useState(0);
@@ -52,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setLoading(true);
     setAuthError(false);
+    setAuthBootstrapComplete(false);
 
     fetcher<User>("/auth/me", {
       signal: controller.signal,
@@ -78,6 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .finally(() => {
         if (!mounted || seq !== bootstrapSeqRef.current) return;
+        setInitialized(true);
+        setAuthBootstrapComplete(true);
         setLoading(false);
       });
 
@@ -101,6 +112,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const me = await fetcher<User>("/auth/me");
     setUser(me);
     setAuthError(false);
+    setInitialized(true);
+    setAuthBootstrapComplete(true);
 
     return me;
   }, []);
@@ -118,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, authError, login, logout, retryAuth }}>
+    <AuthContext.Provider value={{ user, initialized, loading, authError, login, logout, retryAuth }}>
       {children}
     </AuthContext.Provider>
   );

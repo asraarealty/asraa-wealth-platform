@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getAdminClients } from "@/lib/services/clientService";
 import {
   fetchAdminGroupedAssets,
+  fetchAssets,
   createAsset,
   updateAsset,
   deleteAsset,
@@ -16,6 +17,7 @@ import {
   type Client,
 } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
+import { useToast } from "@/context/ToastContext";
 import StatBox from "@/components/ui/StatBox";
 import Loader from "@/components/ui/Loader";
 import ErrorState from "@/components/ui/ErrorState";
@@ -32,6 +34,7 @@ import {
   deriveAlerts,
   calcAverageReturn,
 } from "@/components/admin/dashboard/intelligenceHelpers";
+import { deriveAllocationFromValues } from "@/lib/utils/portfolioMath";
 
 type Tab = "stocks" | "mutual_funds" | "real_estate";
 
@@ -45,6 +48,7 @@ function fmtCurrency(n: number) {
 }
 
 export default function AdminPage() {
+  const { showToast } = useToast();
   const [clients, setClients] = useState<AdminClient[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [groupedAssets, setGroupedAssets] = useState<Record<string, Asset[]>>({});
@@ -81,17 +85,16 @@ export default function AdminPage() {
 
   const allocation = useMemo<AssetsAllocation | undefined>(() => {
     if (totalAUM === 0) return undefined;
-    const pct = (type: Asset["type"]) => {
-      const val = allAssets
-        .filter((a: Asset) => a.type === type)
-        .reduce((s: number, a: Asset) => s + (a.value ?? 0), 0);
-      return parseFloat(((val / totalAUM) * 100).toFixed(1));
-    };
-    return {
-      stock: pct("stock"),
-      mf: pct("mf"),
-      realEstate: pct("property"),
-    };
+    const stockValue = allAssets
+      .filter((a: Asset) => a.type === "stock")
+      .reduce((s: number, a: Asset) => s + (a.value ?? 0), 0);
+    const mfValue = allAssets
+      .filter((a: Asset) => a.type === "mf")
+      .reduce((s: number, a: Asset) => s + (a.value ?? 0), 0);
+    const propertyValue = allAssets
+      .filter((a: Asset) => a.type === "property")
+      .reduce((s: number, a: Asset) => s + (a.value ?? 0), 0);
+    return deriveAllocationFromValues({ stockValue, mfValue, propertyValue, totalValue: totalAUM });
   }, [allAssets, totalAUM]);
 
   const activeClients = clients.filter((c: AdminClient) => c.isActive).length;
@@ -132,31 +135,37 @@ export default function AdminPage() {
   const alerts = useMemo(() => deriveAlerts(intelligenceRows), [intelligenceRows]);
   const avgReturn = useMemo(() => calcAverageReturn(intelligenceRows), [intelligenceRows]);
 
+  async function refreshSelectedClientAssets(clientId: number) {
+    const refreshed = await fetchAssets(clientId);
+    setGroupedAssets((prev) => ({
+      ...prev,
+      [String(clientId)]: refreshed,
+    }));
+  }
+
   async function handleAdd(payload: CreateAssetPayload) {
     if (!selectedClient) return;
     try {
-      const newAsset = await createAsset({ ...payload, userId: selectedClient.id });
-      setGroupedAssets((prev) => ({
-        ...prev,
-        [String(selectedClient.id)]: [...(prev[String(selectedClient.id)] ?? []), newAsset],
-      }));
+      await createAsset({ ...payload, userId: selectedClient.id });
+      await refreshSelectedClientAssets(selectedClient.id);
+      showToast("Asset added successfully.", "success");
     } catch (err) {
-      setError(toErrorMessage(err));
+      const message = toErrorMessage(err);
+      setError(message);
+      showToast(message, "error");
     }
   }
 
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
     if (!selectedClient) return;
     try {
-      const updatedAsset = await updateAsset(id, payload);
-      setGroupedAssets((prev) => ({
-        ...prev,
-        [String(selectedClient.id)]: (prev[String(selectedClient.id)] ?? []).map((a) =>
-          a.id === id ? updatedAsset : a
-        ),
-      }));
+      await updateAsset(id, payload);
+      await refreshSelectedClientAssets(selectedClient.id);
+      showToast("Asset updated successfully.", "success");
     } catch (err) {
-      setError(toErrorMessage(err));
+      const message = toErrorMessage(err);
+      setError(message);
+      showToast(message, "error");
     }
   }
 
@@ -164,12 +173,12 @@ export default function AdminPage() {
     if (!selectedClient) return;
     try {
       await deleteAsset(id);
-      setGroupedAssets((prev) => ({
-        ...prev,
-        [String(selectedClient.id)]: (prev[String(selectedClient.id)] ?? []).filter((a) => a.id !== id),
-      }));
+      await refreshSelectedClientAssets(selectedClient.id);
+      showToast("Asset deleted successfully.", "success");
     } catch (err) {
-      setError(toErrorMessage(err));
+      const message = toErrorMessage(err);
+      setError(message);
+      showToast(message, "error");
     }
   }
 

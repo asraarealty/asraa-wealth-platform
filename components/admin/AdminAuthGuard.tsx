@@ -10,11 +10,11 @@ interface Props {
 }
 
 export default function AdminAuthGuard({ children }: Props) {
-  const { user, loading, authError, retryAuth } = useAuth();
+  const { user, initialized, loading, authError, retryAuth } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (loading) return;
+    if (!initialized || loading) return;
     if (authError) return;
 
     if (user === null) {
@@ -32,10 +32,10 @@ export default function AdminAuthGuard({ children }: Props) {
       });
       router.replace("/dashboard");
     }
-  }, [loading, authError, user, router]);
+  }, [initialized, loading, authError, user, router]);
 
   // ⏳ While checking auth
-  if (loading) return <Loader />;
+  if (!initialized || loading) return <Loader />;
 
   if (authError) {
     return (

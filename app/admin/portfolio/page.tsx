@@ -1,28 +1,27 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  fetchAssets,
   createAsset,
   updateAsset,
   deleteAsset,
-  type Asset,
   type CreateAssetPayload,
   type UpdateAssetPayload,
 } from "@/lib/api";
-import { toErrorMessage } from "@/lib/fetcher";
 import { fmtCurrency } from "@/lib/formatters";
 import type { Client } from "@/lib/api";
 import ClientSelector from "@/components/ClientSelector";
 import AssetTabs from "@/components/dashboard/AssetTabs";
 import AddAssetModal from "@/components/dashboard/modals/AddAssetModal";
 import StatBox from "@/components/ui/StatBox";
-import Loader from "@/components/ui/Loader";
 import ErrorState from "@/components/ui/ErrorState";
 import PortfolioGrowthChart from "@/components/dashboard/PortfolioGrowthChart";
 import AllocationChart from "@/components/dashboard/AllocationChart";
-import type { AssetsAllocation } from "@/lib/api";
+import { usePortfolioState } from "@/lib/hooks/usePortfolioState";
+import PortfolioSkeleton from "@/components/ui/PortfolioSkeleton";
+import { useToast } from "@/context/ToastContext";
+import { deriveAllocationFromValues } from "@/lib/utils/portfolioMath";
 
 type Tab = "stocks" | "mutual_funds" | "real_estate";
 type PortfolioTab = "overview" | "holdings" | "performance" | "risk" | "transactions";
@@ -43,112 +42,72 @@ const PORTFOLIO_TABS: { id: PortfolioTab; label: string }[] = [
 
 export default function AdminPortfolioPage() {
   const searchParams = useSearchParams();
+  const { showToast } = useToast();
   const urlClientId = searchParams.get("clientId");
   const autoSelectId = urlClientId ? Number(urlClientId) : null;
 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("stocks");
   const [portfolioTab, setPortfolioTab] = useState<PortfolioTab>("overview");
   const [addModalOpen, setAddModalOpen] = useState(false);
 
-  const loadData = useCallback(
-    async (clientId: number, silent = false) => {
-      if (!silent) {
-        setLoading(true);
-        setAssets([]);
-      }
-      setError(null);
-      try {
-        const data = await fetchAssets(clientId);
-        setAssets(data);
-      } catch (err) {
-        if (!silent) setError(toErrorMessage(err));
-      } finally {
-        if (!silent) setLoading(false);
-      }
-    },
-    []
+  const {
+    portfolio,
+    assets,
+    loading,
+    error,
+    retry,
+    runMutation,
+  } = usePortfolioState({
+    clientId: selectedClient?.id,
+    enabled: Boolean(selectedClient),
+  });
+
+  const totalValue = portfolio?.totalValue ?? 0;
+  const totalInvested = useMemo(
+    () => assets.reduce((s, a) => s + ((a.quantity ?? 0) * (a.avgPrice ?? 0)), 0),
+    [assets]
   );
-
-  const refreshingRef = useRef(false);
-
-  useEffect(() => {
-    if (!selectedClient) {
-      setAssets([]);
-      return;
-    }
-    const id = selectedClient.id;
-    loadData(id);
-
-    function doRefresh() {
-      if (document.visibilityState === "hidden") return;
-      if (refreshingRef.current) return;
-      refreshingRef.current = true;
-      void loadData(id, true).catch(() => {}).finally(() => {
-        refreshingRef.current = false;
-      });
-    }
-
-    const interval = setInterval(doRefresh, 20_000);
-
-    function onVisibilityChange() {
-      if (document.visibilityState === "visible") doRefresh();
-    }
-    document.addEventListener("visibilitychange", onVisibilityChange);
-
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
-  }, [selectedClient, loadData]);
-
-  const totalValue = useMemo(() => assets.reduce((s: number, a: Asset) => s + (a.value ?? 0), 0), [assets]);
-  const totalInvested = useMemo(() => assets.reduce((s: number, a: Asset) => s + ((a.quantity ?? 0) * (a.avgPrice ?? 0)), 0), [assets]);
   const totalReturn = totalValue - totalInvested;
-  const returnPct = totalInvested > 0 ? (totalReturn / totalInvested) * 100 : 0;
+  const returnPct = portfolio?.roiPercent ?? (totalInvested > 0 ? (totalReturn / totalInvested) * 100 : 0);
 
-  const assetsAllocation = useMemo<AssetsAllocation | undefined>(() => {
-    if (totalValue === 0) return undefined;
-    const stockVal = assets.filter(a => a.type === "stock").reduce((s, a) => s + (a.value ?? 0), 0);
-    const mfVal = assets.filter(a => a.type === "mf").reduce((s, a) => s + (a.value ?? 0), 0);
-    const reVal = assets.filter(a => a.type === "property").reduce((s, a) => s + (a.value ?? 0), 0);
-    return {
-      stock: parseFloat(((stockVal / totalValue) * 100).toFixed(1)),
-      mf: parseFloat(((mfVal / totalValue) * 100).toFixed(1)),
-      realEstate: parseFloat(((reVal / totalValue) * 100).toFixed(1)),
-    };
-  }, [assets, totalValue]);
+  const assetsAllocation = useMemo(
+    () => deriveAllocationFromValues({
+      stockValue: portfolio?.stockValue,
+      mfValue: portfolio?.mfValue,
+      propertyValue: portfolio?.propertyValue,
+      totalValue: portfolio?.totalValue,
+    }),
+    [portfolio]
+  );
 
   async function handleAdd(payload: CreateAssetPayload) {
     if (!selectedClient) return;
     try {
-      const newAsset = await createAsset({ ...payload, userId: selectedClient.id });
-      setAssets((prev) => [...prev, newAsset]);
+      await runMutation(() => createAsset({ ...payload, userId: selectedClient.id }));
+      showToast("Asset added successfully.", "success");
     } catch (err) {
-      setError(toErrorMessage(err));
+      showToast(toErrorMessage(err), "error");
     }
   }
 
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
     if (!selectedClient) return;
     try {
-      const updatedAsset = await updateAsset(id, payload);
-      setAssets((prev) => prev.map((a) => (a.id === id ? updatedAsset : a)));
+      await runMutation(() => updateAsset(id, payload));
+      showToast("Asset updated successfully.", "success");
     } catch (err) {
-      setError(toErrorMessage(err));
+      showToast(toErrorMessage(err), "error");
     }
   }
 
   async function handleDelete(id: number) {
     if (!selectedClient) return;
     try {
-      await deleteAsset(id);
-      setAssets((prev) => prev.filter((a) => a.id !== id));
+      await runMutation(() => deleteAsset(id));
+      showToast("Asset deleted successfully.", "success");
     } catch (err) {
-      setError(toErrorMessage(err));
+      showToast(toErrorMessage(err), "error");
     }
   }
 
@@ -213,8 +172,19 @@ export default function AdminPortfolioPage() {
       )}
 
       {/* Loading / Error */}
-      {selectedClient && loading && <Loader />}
-      {selectedClient && !loading && error && <ErrorState message={error} />}
+      {selectedClient && loading && <PortfolioSkeleton />}
+      {selectedClient && !loading && error && (
+        <div className="space-y-3">
+          <ErrorState message={error} />
+          <button
+            onClick={() => void retry()}
+            className="inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold text-black"
+            style={{ background: "linear-gradient(90deg, #C9A227, #d4af4a)" }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Portfolio content */}
       {selectedClient && !loading && !error && (

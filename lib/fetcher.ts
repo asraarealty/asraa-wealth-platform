@@ -18,6 +18,7 @@ export class NetworkError extends Error {
 
 // 🔐 TOKEN STORAGE (in-memory only)
 let inMemoryToken: string | null = null;
+let authBootstrapComplete = false;
 
 function isJwtExpired(token: string): boolean {
   const parts = token.split(".");
@@ -55,6 +56,10 @@ export function setToken(token: string) {
 
 export function clearToken() {
   inMemoryToken = null;
+}
+
+export function setAuthBootstrapComplete(ready: boolean) {
+  authBootstrapComplete = ready;
 }
 
 // ── FETCH WRAPPER ──────────────────────────────────────
@@ -158,7 +163,7 @@ export async function fetcher<T>(
 
   // 🔐 401 → session expired → logout (unless caller opts out)
   if (response.status === 401) {
-    if (!noRedirectOn401 && typeof window !== "undefined") {
+    if (!noRedirectOn401 && authBootstrapComplete && typeof window !== "undefined") {
       clearToken();
 
       // avoid redirect loop
