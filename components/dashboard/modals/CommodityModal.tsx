@@ -90,8 +90,8 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
 
     const symbol = form.symbol.trim();
     const name = form.name.trim();
-    const quantity = Number(form.quantity.trim());
-    const avgPrice = Number(form.avgPrice.trim());
+    const quantity = Number(String(form.quantity).trim());
+    const avgPrice = Number(String(form.avgPrice).trim());
     const exchange = form.exchange.trim();
     const nextFieldErrors: CommodityFieldErrors = {};
 

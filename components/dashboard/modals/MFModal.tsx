@@ -71,8 +71,8 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
 
     const symbol = form.symbol.trim().toUpperCase();
     const name = form.name.trim();
-    const quantity = Number(form.units.trim());
-    const avgPrice = Number(form.avgPrice.trim());
+    const quantity = Number(String(form.units).trim());
+    const avgPrice = Number(String(form.avgPrice).trim());
     const nextFieldErrors: MFFieldErrors = {};
 
     if (!name) nextFieldErrors.name = "Fund name is required";

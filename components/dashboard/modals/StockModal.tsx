@@ -75,8 +75,8 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
 
     const symbol = form.symbol.trim().toUpperCase();
     const name = form.name.trim();
-    const quantity = Number(form.quantity.trim());
-    const avgPrice = Number(form.avgPrice.trim());
+    const quantity = Number(String(form.quantity).trim());
+    const avgPrice = Number(String(form.avgPrice).trim());
     const nextFieldErrors: StockFieldErrors = {};
 
     if (!symbol) nextFieldErrors.symbol = "Symbol is required";
