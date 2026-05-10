@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import type { Asset, CreateAssetPayload, UpdateAssetPayload } from "@/lib/api";
 import EmptyState from "@/components/ui/EmptyState";
 import StockModal from "./modals/StockModal";
+import CommodityModal from "./modals/CommodityModal";
 
 interface StocksTabProps {
   assets: Asset[];
@@ -688,6 +689,11 @@ type SortKey = "name" | "value" | "returnPct" | "pnl" | "confidence" | "risk";
 type SortDir = "asc" | "desc";
 type FilterMode = "all" | "gain" | "loss" | "high-risk" | "buy" | "reduce";
 
+function isCommodityAsset(asset: Asset | null): boolean {
+  if (!asset) return false;
+  return (asset.tags ?? []).some((tag) => tag.toLowerCase() === "commodity");
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function StocksTab({
@@ -905,14 +911,25 @@ export default function StocksTab({
           }
         />
         {modalOpen && (
-          <StockModal
-            asset={editing}
-            onClose={() => {
-              setModalOpen(false);
-              setEditing(null);
-            }}
-            onSave={handleSave}
-          />
+          isCommodityAsset(editing) ? (
+            <CommodityModal
+              asset={editing}
+              onClose={() => {
+                setModalOpen(false);
+                setEditing(null);
+              }}
+              onSave={handleSave}
+            />
+          ) : (
+            <StockModal
+              asset={editing}
+              onClose={() => {
+                setModalOpen(false);
+                setEditing(null);
+              }}
+              onSave={handleSave}
+            />
+          )
         )}
       </div>
     );
@@ -1226,14 +1243,25 @@ export default function StocksTab({
 
       {/* Add / Edit Modal */}
       {modalOpen && (
-        <StockModal
-          asset={editing}
-          onClose={() => {
-            setModalOpen(false);
-            setEditing(null);
-          }}
-          onSave={handleSave}
-        />
+        isCommodityAsset(editing) ? (
+          <CommodityModal
+            asset={editing}
+            onClose={() => {
+              setModalOpen(false);
+              setEditing(null);
+            }}
+            onSave={handleSave}
+          />
+        ) : (
+          <StockModal
+            asset={editing}
+            onClose={() => {
+              setModalOpen(false);
+              setEditing(null);
+            }}
+            onSave={handleSave}
+          />
+        )
       )}
     </div>
   );
