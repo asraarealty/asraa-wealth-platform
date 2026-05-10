@@ -31,6 +31,8 @@ export default function ClientsPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<AdminClient | null>(null);
   const acRef = useRef<AbortController | null>(null);
+  const modalPanelRef = useRef<HTMLDivElement | null>(null);
+  const cancelDeleteButtonRef = useRef<HTMLButtonElement | null>(null);
   const reqSeqRef = useRef(0);
   const inFlightRef = useRef<Promise<void> | null>(null);
 
@@ -79,6 +81,44 @@ export default function ClientsPage() {
     void loadClients();
     return () => acRef.current?.abort();
   }, [loadClients]);
+
+  useEffect(() => {
+    if (!confirmDelete) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    cancelDeleteButtonRef.current?.focus();
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        if (!deletingId) setConfirmDelete(null);
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+      const root = modalPanelRef.current;
+      if (!root) return;
+      const focusable = root.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      previousFocus?.focus();
+    };
+  }, [confirmDelete, deletingId]);
 
   async function handleToggle(client: AdminClient) {
     if (togglingId === client.id || deletingId === client.id) return;
@@ -169,6 +209,7 @@ export default function ClientsPage() {
           <button
             onClick={() => void loadClients({ background: true, force: true })}
             disabled={refreshing}
+            aria-label="Refresh client list"
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl transition-opacity disabled:opacity-50"
             style={{
               background: "rgba(255,255,255,0.05)",
@@ -416,19 +457,24 @@ export default function ClientsPage() {
           }}
         >
           <div
+            ref={modalPanelRef}
             className="w-full max-w-md rounded-2xl p-5"
             style={{
               background: "rgba(12,16,24,0.98)",
               border: "1px solid rgba(255,255,255,0.1)",
             }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-client-dialog-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold text-white">Delete client?</h3>
+            <h3 id="delete-client-dialog-title" className="text-lg font-semibold text-white">Delete client?</h3>
             <p className="mt-2 text-sm text-gray-400">
               This action cannot be undone. <span className="text-white font-medium">{confirmDelete.name}</span> will be removed.
             </p>
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
+                ref={cancelDeleteButtonRef}
                 onClick={() => setConfirmDelete(null)}
                 disabled={deletingId === confirmDelete.id}
                 className="rounded-xl px-3 py-2 text-sm font-medium text-gray-300 disabled:opacity-50"

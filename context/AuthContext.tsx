@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        console.error("[Auth] /auth/me bootstrap failed with transient error:", err);
+        console.error("[Auth] /auth/me initialization failed with transient error:", err);
         setAuthError(true);
       })
       .finally(() => {
