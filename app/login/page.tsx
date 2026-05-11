@@ -1,4 +1,5 @@
 import Header from "@/components/Header";
+import PublicAuthGuard from "@/components/auth/PublicAuthGuard";
 import LoginForm from "@/components/LoginForm";
 import Link from "next/link";
 
@@ -64,8 +65,9 @@ export default function LoginPage() {
       />
 
       {/* Main content */}
-      <main className="relative z-10 flex-1 flex flex-col pt-16">
-        <div className="flex flex-1 flex-col lg:flex-row">
+      <PublicAuthGuard>
+        <main className="relative z-10 flex-1 flex flex-col pt-16">
+          <div className="flex flex-1 flex-col lg:flex-row">
 
           {/* LEFT PANEL */}
           <div className="flex flex-col justify-center px-8 py-16 lg:px-16 xl:px-24 lg:w-[55%]">
@@ -159,8 +161,9 @@ export default function LoginPage() {
             </div>
           </div>
 
-        </div>
-      </main>
+          </div>
+        </main>
+      </PublicAuthGuard>
     </div>
   );
 }
