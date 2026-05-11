@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, NetworkError } from "@/lib/fetcher";
+import { resolveAuthLandingTarget } from "@/lib/authRouting";
 import { useToast } from "@/context/ToastContext";
 
 const REQUIRED_FIELDS_ERROR_MESSAGE = "Email and password are required.";
@@ -44,35 +45,9 @@ export default function LoginForm() {
         return;
       }
 
-      // 🔥 robust role handling
-      const role = (me.role || "").toString().trim().toLowerCase();
-      const status = (me.approval_status || "").toString().trim().toLowerCase();
-
-      // Handle non-approved statuses before role-based routing
-      if (status === "suspended") {
-        showToast("Your account is suspended.", "error");
-        router.replace("/suspended");
-        return;
-      }
-      if (status === "pending") {
-        showToast("Your account is pending approval.", "info");
-        router.replace("/pending-approval");
-        return;
-      }
-      if (status === "rejected") {
-        showToast("Your account approval was rejected.", "error");
-        router.replace("/rejected");
-        return;
-      }
-
-      // 🔥 safe redirect (replace avoids back button going to login)
-      if (role === "admin") {
-        showToast("Welcome back.", "success");
-        router.replace("/admin");
-      } else {
-        showToast("Welcome back.", "success");
-        router.replace("/dashboard");
-      }
+      const landing = resolveAuthLandingTarget(me);
+      showToast(landing.toastMessage, landing.toastType);
+      router.replace(landing.path);
     } catch (err) {
       if (err instanceof NetworkError) {
         setError("Server not reachable. Try again.");
