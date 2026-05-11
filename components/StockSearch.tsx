@@ -67,9 +67,7 @@ function normalizeStocks(results: StockQuote[], query: string): NormalizedStock[
         currentPrice: isPositiveFinite(item.currentPrice) ? item.currentPrice : safePrice,
         exchangeLabel,
         rootSymbol: rootSymbol(item.symbol),
-        changePercent: isNonNegativeFinite(item.changePercent) || item.changePercent < 0
-          ? item.changePercent
-          : 0,
+        changePercent: Number.isFinite(item.changePercent) ? item.changePercent : 0,
         marketCap: isNonNegativeFinite(item.marketCap) ? item.marketCap : 0,
       };
     });

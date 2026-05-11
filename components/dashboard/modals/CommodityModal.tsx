@@ -35,10 +35,12 @@ interface CommodityFieldErrors {
   currentPrice?: string;
 }
 
+const DEFAULT_COMMODITY_EXCHANGE = "MCX";
+
 const EMPTY: CommodityForm = {
   symbol: "",
   name: "",
-  exchange: "MCX",
+  exchange: DEFAULT_COMMODITY_EXCHANGE,
   quantity: "",
   avgPrice: "",
   currentPrice: "",
@@ -86,7 +88,7 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
       ...prev,
       symbol: item.symbol.toUpperCase(),
       name: item.name,
-      exchange: (item.source || prev.exchange || "MCX").toUpperCase(),
+      exchange: (item.source || prev.exchange || DEFAULT_COMMODITY_EXCHANGE).toUpperCase(),
       avgPrice: String(spotOrCurrent || toFiniteNumber(prev.avgPrice)),
       currentPrice: String(spotOrCurrent || toFiniteNumber(prev.currentPrice)),
       tags: toCommodityTags([...(prev.tags ?? []), item.assetType]),
