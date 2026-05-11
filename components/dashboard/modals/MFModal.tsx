@@ -17,6 +17,7 @@ interface MFForm {
   name: string;
   units: string;
   avgPrice: string;
+  currentPrice: string;
   tags: string[];
 }
 
@@ -24,6 +25,7 @@ interface MFFieldErrors {
   name?: string;
   units?: string;
   avgPrice?: string;
+  currentPrice?: string;
 }
 
 const EMPTY: MFForm = {
@@ -31,6 +33,7 @@ const EMPTY: MFForm = {
   name: "",
   units: "",
   avgPrice: "",
+  currentPrice: "",
   tags: [],
 };
 
@@ -48,6 +51,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
         name: asset.name ?? "",
         units: asset.quantity != null ? String(asset.quantity) : "",
         avgPrice: asset.avgPrice != null ? String(asset.avgPrice) : "",
+        currentPrice: asset.currentPrice != null ? String(asset.currentPrice) : "",
         tags: asset.tags ?? [],
       });
     } else {
@@ -63,6 +67,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
       symbol: mf.code,
       name: mf.name,
       avgPrice: mf.nav ? String(mf.nav) : f.avgPrice,
+      currentPrice: f.currentPrice || (mf.nav ? String(mf.nav) : ""),
     }));
   }
 
@@ -73,6 +78,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
     const name = form.name.trim();
     const quantity = Number(String(form.units).trim());
     const avgPrice = Number(String(form.avgPrice).trim());
+    const currentPrice = Number(String(form.currentPrice).trim());
     const nextFieldErrors: MFFieldErrors = {};
 
     if (!name) nextFieldErrors.name = "Fund name is required";
@@ -81,6 +87,9 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
     }
     if (!Number.isFinite(avgPrice) || avgPrice <= 0) {
       nextFieldErrors.avgPrice = "Average NAV must be a positive number";
+    }
+    if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
+      nextFieldErrors.currentPrice = "Current NAV must be a positive number";
     }
 
     setFieldErrors(nextFieldErrors);
@@ -98,6 +107,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
         name,
         quantity,
         avgPrice,
+        currentPrice,
         tags: form.tags,
       });
     } catch (err) {
@@ -165,6 +175,20 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
               onChange={(v) => {
                 setForm((f) => ({ ...f, avgPrice: v }));
                 setFieldErrors((prev) => ({ ...prev, avgPrice: undefined }));
+              }}
+            />
+          </FormField>
+          <FormField label="Current NAV (₹)" required error={fieldErrors.currentPrice}>
+            <FieldInput
+              name="mf-current-nav"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="252.35"
+              value={form.currentPrice}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, currentPrice: v }));
+                setFieldErrors((prev) => ({ ...prev, currentPrice: undefined }));
               }}
             />
           </FormField>

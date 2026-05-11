@@ -67,7 +67,6 @@ interface AddAssetModalProps {
 
 export default function AddAssetModal({ onClose, onSave }: AddAssetModalProps) {
   const [type, setType] = useState<TypeChoice | null>(null);
-  const [hovered, setHovered] = useState<TypeChoice | null>(null);
 
   // Once a type is chosen, hand off to the appropriate sub-modal.
   // Passing onClose directly means the sub-modal's Cancel button dismisses
@@ -104,15 +103,9 @@ export default function AddAssetModal({ onClose, onSave }: AddAssetModalProps) {
             <button
               key={t.id}
               onClick={() => setType(t.id)}
-              onMouseEnter={() => setHovered(t.id)}
-              onMouseLeave={() => setHovered(null)}
-              className="flex flex-col items-center gap-3 p-4 rounded-2xl text-center transition-all"
-              style={{
-                background: hovered === t.id ? "rgba(201,162,39,0.08)" : "rgba(255,255,255,0.03)",
-                border: `1px solid ${hovered === t.id ? "rgba(201,162,39,0.35)" : "rgba(201,162,39,0.15)"}`,
-              }}
+              className="flex flex-col items-center gap-3 p-4 rounded-2xl text-center transition-all modal-type-option"
             >
-              <span style={{ color: "#c9a227" }}>{t.icon}</span>
+              <span className="text-[#c9a227]">{t.icon}</span>
               <div>
                 <p className="text-sm font-semibold text-white">{t.label}</p>
                 <p className="text-xs text-gray-500 mt-0.5">{t.description}</p>

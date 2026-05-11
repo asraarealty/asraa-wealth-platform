@@ -165,6 +165,7 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
             stockValue: 0,
             mfValue: 0,
             propertyValue: 0,
+            commodityValue: 0,
             roiPercent: 0,
           });
         }

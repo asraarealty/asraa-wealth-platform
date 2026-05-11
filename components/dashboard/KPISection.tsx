@@ -116,7 +116,7 @@ function BreakdownCard({ label, value, percentage, color, delay = 0 }: Breakdown
 }
 
 export default function KPISection({ portfolio }: KPISectionProps) {
-  const { totalValue, stockValue, mfValue, propertyValue, roiPercent } = portfolio;
+  const { totalValue, stockValue, mfValue, propertyValue, commodityValue, roiPercent } = portfolio;
 
   const roiTrend: "up" | "down" | "neutral" =
     roiPercent > 0 ? "up" : roiPercent < 0 ? "down" : "neutral";
@@ -155,7 +155,7 @@ export default function KPISection({ portfolio }: KPISectionProps) {
       </div>
 
       {/* Asset-type breakdown */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         <BreakdownCard
           label="Stocks"
           value={fmtCurrency(stockValue)}
@@ -176,6 +176,13 @@ export default function KPISection({ portfolio }: KPISectionProps) {
           percentage={pct(propertyValue)}
           color="#4F8CFF"
           delay={0.2}
+        />
+        <BreakdownCard
+          label="Commodity"
+          value={fmtCurrency(commodityValue)}
+          percentage={pct(commodityValue)}
+          color="#c9a227"
+          delay={0.25}
         />
       </div>
     </div>

@@ -22,10 +22,10 @@ import FeaturedSlider from "./FeaturedSlider";
 
 /* ── types ──────────────────────────────────────────────────────────── */
 
-type MobileTab = "dashboard" | "stocks" | "mutual_funds" | "real_estate" | "profile";
+type MobileTab = "dashboard" | "stocks" | "mutual_funds" | "commodities" | "real_estate" | "profile";
 
 type ModalState = {
-  type: "stock" | "mf" | "property" | null;
+  type: "stock" | "mf" | "property" | "commodity" | null;
   mode: "add" | "edit";
   asset?: Asset;
 } | null;
@@ -84,8 +84,7 @@ function gainSign(n: number) {
 }
 
 function isCommodityAsset(asset: Asset | null | undefined): boolean {
-  if (!asset) return false;
-  return (asset.tags ?? []).some((tag) => tag.toLowerCase() === "commodity");
+  return asset?.type === "commodity";
 }
 
 /* ── nav config ─────────────────────────────────────────────────────── */
@@ -148,6 +147,25 @@ const NAV_ITEMS: {
           strokeLinecap="round"
           strokeLinejoin="round"
           d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0 1 16.5 7.605"
+        />
+      </svg>
+    ),
+  },
+  {
+    id: "commodities",
+    label: "Commodity",
+    icon: (active) => (
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={active ? 2.5 : 1.8}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M12 3v18m7.5-9h-15m12.75-6.75-10.5 13.5m0-13.5 10.5 13.5"
         />
       </svg>
     ),
@@ -341,6 +359,67 @@ function MFCard({
           onClick={onDelete}
           disabled={deleting}
           className="flex-1 py-1.5 text-xs font-semibold rounded-lg disabled:opacity-50"
+          style={{
+            background: "rgba(239,68,68,0.08)",
+            color: "#f87171",
+            border: "1px solid rgba(239,68,68,0.15)",
+          }}
+        >
+          {deleting ? "…" : "Delete"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CommodityCard({
+  asset,
+  deleting,
+  onEdit,
+  onDelete,
+}: CardProps) {
+  const invested = (asset.quantity ?? 0) * (asset.avgPrice ?? 0);
+  const gain = (asset.value ?? 0) - invested;
+  const gainPct = invested > 0 ? (gain / invested) * 100 : 0;
+  return (
+    <div className="glass-card rounded-xl p-4 flex flex-col gap-3" style={{ borderRadius: 12 }}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-white text-sm leading-tight truncate">{asset.name}</p>
+          <p className="text-xs font-mono text-gray-400 mt-0.5">
+            {asset.symbol ?? "—"}{asset.exchange ? ` · ${asset.exchange}` : ""}
+          </p>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="font-bold text-white text-sm">{fmt(asset.value)}</p>
+          <p className="text-xs font-semibold mt-0.5" style={{ color: gainColor(gainPct) }}>
+            {gainSign(gainPct)}{gainPct.toFixed(1)}%
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 text-xs text-gray-500">
+        <span>{asset.quantity ?? 0} units</span>
+        <span>·</span>
+        <span>avg {fmt(asset.avgPrice)}</span>
+        <span>·</span>
+        <span>now {fmt(asset.currentPrice ?? 0)}</span>
+      </div>
+      <div className="flex items-center gap-2 pt-1" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+        <button
+          onClick={onEdit}
+          className="flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors"
+          style={{
+            background: "rgba(201,162,39,0.1)",
+            color: "#d4af4a",
+            border: "1px solid rgba(201,162,39,0.2)",
+          }}
+        >
+          Edit
+        </button>
+        <button
+          onClick={onDelete}
+          disabled={deleting}
+          className="flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors disabled:opacity-50"
           style={{
             background: "rgba(239,68,68,0.08)",
             color: "#f87171",
@@ -556,20 +635,25 @@ export default function MobileDashboard({
 
   const stocks = useMemo(() => filterAssetsByType(assets, "stock"), [assets]);
   const mfs = useMemo(() => filterAssetsByType(assets, "mf"), [assets]);
+  const commodities = useMemo(
+    () => assets.filter((asset) => asset.type === "commodity"),
+    [assets]
+  );
   const properties = useMemo(() => filterAssetsByType(assets, "property"), [assets]);
 
   const metrics = useMemo(() => {
     const entries: Array<[string, number]> = allocation
-      ? [
-          ["stock", safeNumber(allocation.stock)],
-          ["mf", safeNumber(allocation.mf)],
-          ["realEstate", safeNumber(allocation.realEstate)],
-        ]
+        ? [
+            ["stock", safeNumber(allocation.stock)],
+            ["mf", safeNumber(allocation.mf)],
+            ["realEstate", safeNumber(allocation.realEstate)],
+            ["commodity", safeNumber(allocation.commodity)],
+          ]
       : [];
     const topAssetClass = entries.sort((a, b) => b[1] - a[1])[0] ?? null;
     const topAssetLabel = topAssetClass
-      ? ({ stock: "Stocks", mf: "Funds", realEstate: "Property" }[
-          topAssetClass[0] as "stock" | "mf" | "realEstate"
+      ? ({ stock: "Stocks", mf: "Funds", realEstate: "Property", commodity: "Commodity" }[
+          topAssetClass[0] as "stock" | "mf" | "realEstate" | "commodity"
         ] ?? topAssetClass[0])
       : "—";
     const topAssetPct = safeNumber(topAssetClass ? topAssetClass[1] : 0);
@@ -585,6 +669,7 @@ export default function MobileDashboard({
   function openAdd() {
     if (activeTab === "stocks") setModal({ type: "stock", mode: "add" });
     else if (activeTab === "mutual_funds") setModal({ type: "mf", mode: "add" });
+    else if (activeTab === "commodities") setModal({ type: "commodity", mode: "add" });
     else if (activeTab === "real_estate") setModal({ type: "property", mode: "add" });
     else setModal({ type: null, mode: "add" });
   }
@@ -925,6 +1010,42 @@ export default function MobileDashboard({
           </div>
         )}
 
+        {activeTab === "commodities" && !error && (isAdmin ? !!selectedClient : true) && (
+          <div className="p-4 flex flex-col gap-3">
+            {loading ? (
+              <>
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-gray-400">
+                  {commodities.length} holding{commodities.length !== 1 ? "s" : ""}
+                </p>
+                {commodities.length === 0 ? (
+                  <MobileEmptyState
+                    label="Commodity"
+                    onAdd={() => setModal({ type: "commodity", mode: "add" })}
+                  />
+                ) : (
+                  commodities.map((a) => (
+                    <CommodityCard
+                      key={a.id}
+                      asset={a}
+                      deleting={deletingId === a.id}
+                      onEdit={() => setModal({ type: "commodity", mode: "edit", asset: a })}
+                      onDelete={() => {
+                        void handleDelete(a.id);
+                      }}
+                    />
+                  ))
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {/* ── Profile Tab ────────────────────────────────────────── */}
         {activeTab === "profile" && (
           <div className="p-4 space-y-4">
@@ -1077,6 +1198,12 @@ export default function MobileDashboard({
           onSave={handleAddSave}
         />
       )}
+      {modal?.mode === "add" && modal.type === "commodity" && (
+        <CommodityModal
+          onClose={() => setModal(null)}
+          onSave={handleAddSave}
+        />
+      )}
       {modal?.mode === "edit" && modal.type === "stock" && modal.asset && (
         isCommodityAsset(modal.asset) ? (
           <CommodityModal
@@ -1101,6 +1228,13 @@ export default function MobileDashboard({
       )}
       {modal?.mode === "edit" && modal.type === "property" && modal.asset && (
         <RealEstateModal
+          asset={modal.asset}
+          onClose={() => setModal(null)}
+          onSave={handleEditSave}
+        />
+      )}
+      {modal?.mode === "edit" && modal.type === "commodity" && modal.asset && (
+        <CommodityModal
           asset={modal.asset}
           onClose={() => setModal(null)}
           onSave={handleEditSave}

@@ -227,16 +227,21 @@ export function fetchUsers(signal?: AbortSignal): Promise<User[]> {
 
 /* ── Assets ─────────────────────────────────────────────────────────── */
 
-export type AssetType = "stock" | "mf" | "property";
+export type AssetType = "stock" | "mf" | "property" | "commodity";
 
 // Normalise asset type variants from the backend.
 // The backend may send "real_estate" but the frontend uses "property" throughout.
-const KNOWN_ASSET_TYPES = new Set<string>(["stock", "mf", "property"]);
+const KNOWN_ASSET_TYPES = new Set<string>(["stock", "mf", "property", "commodity"]);
 
 const normalizeType = (type: string | undefined): AssetType => {
   if (type === "real_estate") return "property";
   if (type && KNOWN_ASSET_TYPES.has(type)) return type as AssetType;
   return "stock";
+};
+
+const hasCommodityTag = (tags: unknown): boolean => {
+  if (!Array.isArray(tags)) return false;
+  return tags.some((tag) => String(tag).trim().toLowerCase() === "commodity");
 };
 
 /** Normalise a raw API response into a typed Asset array. */
@@ -249,29 +254,33 @@ const normalizeAssetList = (res: unknown): Asset[] => {
     return [];
   }
 
-  return (list as any[]).map((a: any) => ({
-    ...a,
-    avgPrice: Number(a.avgPrice ?? a.avg_price ?? 0),
-    currentPrice: Number(a.currentPrice ?? a.current_price ?? 0),
-    type: normalizeType(a.type ?? a.asset_type),
-    exchange: a.exchange ?? undefined,
-    currency: a.currency ?? undefined,
-    priceUSD: a.priceUSD ?? a.price_usd ?? undefined,
-    priceINR: a.priceINR ?? a.price_inr ?? undefined,
-    // Real estate camelCase normalization (backend may return snake_case)
-    purchasePrice: a.purchasePrice ?? a.purchase_price,
-    currentValue: a.currentValue ?? a.current_value,
-    rentAmount: a.rentAmount ?? a.rent_amount,
-    rentDueDate: a.rentDueDate ?? a.rent_due_date,
-    tenantName: a.tenantName ?? a.tenant_name,
-    tenantPhone: a.tenantPhone ?? a.tenant_phone,
-    tenantEmail: a.tenantEmail ?? a.tenant_email,
-  }));
+  return (list as any[]).map((a: any) => {
+    const normalizedType = normalizeType(a.type ?? a.asset_type);
+    const type = normalizedType === "stock" && hasCommodityTag(a.tags) ? "commodity" : normalizedType;
+    return {
+      ...a,
+      avgPrice: Number(a.avgPrice ?? a.avg_price ?? 0),
+      currentPrice: Number(a.currentPrice ?? a.current_price ?? 0),
+      type,
+      exchange: a.exchange ?? undefined,
+      currency: a.currency ?? undefined,
+      priceUSD: a.priceUSD ?? a.price_usd ?? undefined,
+      priceINR: a.priceINR ?? a.price_inr ?? undefined,
+      // Real estate camelCase normalization (backend may return snake_case)
+      purchasePrice: a.purchasePrice ?? a.purchase_price,
+      currentValue: a.currentValue ?? a.current_value,
+      rentAmount: a.rentAmount ?? a.rent_amount,
+      rentDueDate: a.rentDueDate ?? a.rent_due_date,
+      tenantName: a.tenantName ?? a.tenant_name,
+      tenantPhone: a.tenantPhone ?? a.tenant_phone,
+      tenantEmail: a.tenantEmail ?? a.tenant_email,
+    };
+  });
 };
 
 export interface Asset {
   id: number;
-  type: "stock" | "mf" | "property";
+  type: "stock" | "mf" | "property" | "commodity";
   symbol?: string;
   /** Exchange/source (for example NSE, BSE, MCX, US). */
   exchange?: string;
@@ -312,6 +321,7 @@ export interface AssetsAllocation {
   stock: number;
   mf: number;
   realEstate: number;
+  commodity: number;
 }
 
 /**
@@ -324,6 +334,7 @@ export interface PortfolioFull {
   stockValue: number;
   mfValue: number;
   propertyValue: number;
+  commodityValue: number;
   roiPercent: number;
 }
 
@@ -335,6 +346,7 @@ export interface PortfolioMeta {
   stockValue?: number;
   mfValue?: number;
   propertyValue?: number;
+  commodityValue?: number;
   roiPercent?: number;
 }
 
@@ -368,6 +380,7 @@ export async function fetchPortfolio(
         stockValue: 0,
         mfValue: 0,
         propertyValue: 0,
+        commodityValue: 0,
         roiPercent: 0,
       };
     }
@@ -423,6 +436,15 @@ export async function fetchPortfolio(
           .filter((p: Asset) => p.type === "property")
           .reduce((s: number, p: Asset) => s + Number(p.value ?? 0), 0);
 
+  const commodityVal =
+    typeof summary.commodityValue === "number"
+      ? summary.commodityValue
+      : typeof res?.commodity_value === "number"
+      ? res.commodity_value
+      : positions
+          .filter((p: Asset) => p.type === "commodity")
+          .reduce((s: number, p: Asset) => s + Number(p.value ?? 0), 0);
+
   const roiVal =
     typeof summary.roiPercent === "number"
       ? summary.roiPercent
@@ -438,6 +460,7 @@ export async function fetchPortfolio(
     stockValue: Number(stockVal ?? 0),
     mfValue: Number(mfVal ?? 0),
     propertyValue: Number(propertyVal ?? 0),
+    commodityValue: Number(commodityVal ?? 0),
     roiPercent: Number(roiVal ?? 0),
   };
 }
@@ -457,6 +480,7 @@ export async function fetchPortfolioItems(
       stockValue: full.stockValue,
       mfValue: full.mfValue,
       propertyValue: full.propertyValue,
+      commodityValue: full.commodityValue,
       roiPercent: full.roiPercent,
     },
   };

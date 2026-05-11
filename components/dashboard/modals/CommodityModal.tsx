@@ -23,6 +23,7 @@ interface CommodityForm {
   exchange: string;
   quantity: string;
   avgPrice: string;
+  currentPrice: string;
   tags: string[];
 }
 
@@ -31,6 +32,7 @@ interface CommodityFieldErrors {
   name?: string;
   quantity?: string;
   avgPrice?: string;
+  currentPrice?: string;
 }
 
 const EMPTY: CommodityForm = {
@@ -39,6 +41,7 @@ const EMPTY: CommodityForm = {
   exchange: "",
   quantity: "",
   avgPrice: "",
+  currentPrice: "",
   tags: ["commodity"],
 };
 
@@ -62,6 +65,7 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
         exchange: asset.exchange ?? "",
         quantity: asset.quantity != null ? String(asset.quantity) : "",
         avgPrice: asset.avgPrice != null ? String(asset.avgPrice) : "",
+        currentPrice: asset.currentPrice != null ? String(asset.currentPrice) : "",
         tags: toCommodityTags(asset.tags ?? []),
       });
     } else {
@@ -81,6 +85,10 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
         typeof item.currentPrice === "number" && item.currentPrice > 0
           ? String(item.currentPrice)
           : prev.avgPrice,
+      currentPrice:
+        typeof item.currentPrice === "number" && item.currentPrice > 0
+          ? String(item.currentPrice)
+          : prev.currentPrice,
       tags: toCommodityTags([...(prev.tags ?? []), item.assetType]),
     }));
   }
@@ -92,6 +100,7 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
     const name = form.name.trim();
     const quantity = Number(String(form.quantity).trim());
     const avgPrice = Number(String(form.avgPrice).trim());
+    const currentPrice = Number(String(form.currentPrice).trim());
     const exchange = form.exchange.trim();
     const nextFieldErrors: CommodityFieldErrors = {};
 
@@ -102,6 +111,9 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
     }
     if (!Number.isFinite(avgPrice) || avgPrice <= 0) {
       nextFieldErrors.avgPrice = "Average price must be a positive number";
+    }
+    if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
+      nextFieldErrors.currentPrice = "Current price must be a positive number";
     }
 
     setFieldErrors(nextFieldErrors);
@@ -120,6 +132,7 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
         exchange: exchange || undefined,
         quantity,
         avgPrice,
+        currentPrice,
         tags: toCommodityTags(form.tags),
       });
     } catch (err) {
@@ -148,7 +161,7 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
               }}
             />
           </FormField>
-          <FormField label="Asset Name" required error={fieldErrors.name}>
+          <FormField label="Commodity Name" required error={fieldErrors.name}>
             <FieldInput
               name="commodity-name"
               placeholder="Gold Spot"
@@ -162,7 +175,7 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
         </div>
 
         <div className="grid grid-cols-3 gap-3">
-          <FormField label="Source">
+          <FormField label="Exchange">
             <FieldInput
               name="commodity-source"
               placeholder="MCX / NSE / Derived"
@@ -195,6 +208,20 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
               onChange={(v) => {
                 setForm((f) => ({ ...f, avgPrice: v }));
                 setFieldErrors((prev) => ({ ...prev, avgPrice: undefined }));
+              }}
+            />
+          </FormField>
+          <FormField label="Current Price (₹)" required error={fieldErrors.currentPrice}>
+            <FieldInput
+              name="commodity-current-price"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="7055"
+              value={form.currentPrice}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, currentPrice: v }));
+                setFieldErrors((prev) => ({ ...prev, currentPrice: undefined }));
               }}
             />
           </FormField>

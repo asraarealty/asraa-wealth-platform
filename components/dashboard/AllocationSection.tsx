@@ -16,11 +16,12 @@ interface Segment {
 }
 
 export default function AllocationSection({ portfolio }: AllocationSectionProps) {
-  const { totalValue, stockValue, mfValue, propertyValue } = portfolio;
+  const { totalValue, stockValue, mfValue, propertyValue, commodityValue } = portfolio;
   const normalizedPct = deriveAllocationFromValues({
     stockValue,
     mfValue,
     propertyValue,
+    commodityValue,
     totalValue,
   });
 
@@ -28,12 +29,14 @@ export default function AllocationSection({ portfolio }: AllocationSectionProps)
     { label: "Stocks", value: stockValue, color: "#00E5FF", bg: "rgba(0,229,255,0.07)" },
     { label: "Mutual Funds", value: mfValue, color: "#00ff9f", bg: "rgba(0,255,159,0.07)" },
     { label: "Property", value: propertyValue, color: "#4F8CFF", bg: "rgba(79,140,255,0.07)" },
+    { label: "Commodity", value: commodityValue, color: "#c9a227", bg: "rgba(201,162,39,0.09)" },
   ].filter((s) => s.value > 0);
 
   const percentageByLabel: Record<string, number> = {
     Stocks: normalizedPct?.stock ?? 0,
     "Mutual Funds": normalizedPct?.mf ?? 0,
     Property: normalizedPct?.realEstate ?? 0,
+    Commodity: normalizedPct?.commodity ?? 0,
   };
 
   if (segments.length === 0) {

@@ -37,12 +37,14 @@ export default function AllocationChart({ allocation }: Props) {
       stock: allocation?.stock ?? 0,
       mf: allocation?.mf ?? 0,
       realEstate: allocation?.realEstate ?? 0,
+      commodity: allocation?.commodity ?? 0,
     });
 
     const candidates: Slice[] = [
       { label: "Stocks", value: normalized.stock, color: SLICE_COLORS[0] },
       { label: "Mutual Funds", value: normalized.mf, color: SLICE_COLORS[1] },
       { label: "Real Estate", value: normalized.realEstate, color: SLICE_COLORS[2] },
+      { label: "Commodity", value: normalized.commodity, color: SLICE_COLORS[3] },
     ].filter((s) => s.value > 0);
 
     if (candidates.length === 0) return [];

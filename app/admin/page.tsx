@@ -36,7 +36,11 @@ import {
 } from "@/components/admin/dashboard/intelligenceHelpers";
 import { deriveAllocationFromValues } from "@/lib/utils/portfolioMath";
 
-type Tab = "stocks" | "mutual_funds" | "real_estate";
+type Tab = "stocks" | "mutual_funds" | "commodities" | "real_estate";
+
+function isCommodityAsset(asset: Asset): boolean {
+  return asset.type === "commodity";
+}
 
 function fmtCurrency(n: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -96,7 +100,7 @@ export default function AdminPage() {
   const allocation = useMemo<AssetsAllocation | undefined>(() => {
     if (totalAUM === 0) return undefined;
     const stockValue = allAssets
-      .filter((a: Asset) => a.type === "stock")
+      .filter((a: Asset) => a.type === "stock" && !isCommodityAsset(a))
       .reduce((s: number, a: Asset) => s + (a.value ?? 0), 0);
     const mfValue = allAssets
       .filter((a: Asset) => a.type === "mf")
@@ -104,7 +108,10 @@ export default function AdminPage() {
     const propertyValue = allAssets
       .filter((a: Asset) => a.type === "property")
       .reduce((s: number, a: Asset) => s + (a.value ?? 0), 0);
-    return deriveAllocationFromValues({ stockValue, mfValue, propertyValue, totalValue: totalAUM });
+    const commodityValue = allAssets
+      .filter((a: Asset) => isCommodityAsset(a))
+      .reduce((s: number, a: Asset) => s + (a.value ?? 0), 0);
+    return deriveAllocationFromValues({ stockValue, mfValue, propertyValue, commodityValue, totalValue: totalAUM });
   }, [allAssets, totalAUM]);
 
   const activeClients = clients.filter((c: AdminClient) => c.isActive).length;

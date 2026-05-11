@@ -20,6 +20,7 @@ interface StockForm {
   name: string;
   quantity: string;
   avgPrice: string;
+  currentPrice: string;
   tags: string[];
 }
 
@@ -28,6 +29,7 @@ interface StockFieldErrors {
   name?: string;
   quantity?: string;
   avgPrice?: string;
+  currentPrice?: string;
 }
 
 const EMPTY: StockForm = {
@@ -35,6 +37,7 @@ const EMPTY: StockForm = {
   name: "",
   quantity: "",
   avgPrice: "",
+  currentPrice: "",
   tags: [],
 };
 
@@ -52,6 +55,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
         name: asset.name ?? "",
         quantity: asset.quantity != null ? String(asset.quantity) : "",
         avgPrice: asset.avgPrice != null ? String(asset.avgPrice) : "",
+        currentPrice: asset.currentPrice != null ? String(asset.currentPrice) : "",
         tags: asset.tags ?? [],
       });
     } else {
@@ -67,6 +71,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
       symbol: stock.symbol,
       name: stock.name,
       avgPrice: stock.price ? String(stock.price) : f.avgPrice,
+      currentPrice: f.currentPrice || (stock.price ? String(stock.price) : ""),
     }));
   }
 
@@ -77,6 +82,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
     const name = form.name.trim();
     const quantity = Number(String(form.quantity).trim());
     const avgPrice = Number(String(form.avgPrice).trim());
+    const currentPrice = Number(String(form.currentPrice).trim());
     const nextFieldErrors: StockFieldErrors = {};
 
     if (!symbol) nextFieldErrors.symbol = "Symbol is required";
@@ -92,6 +98,9 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
     }
     if (!Number.isFinite(avgPrice) || avgPrice <= 0) {
       nextFieldErrors.avgPrice = "Average price must be a positive number";
+    }
+    if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
+      nextFieldErrors.currentPrice = "Current price must be a positive number";
     }
 
     setFieldErrors(nextFieldErrors);
@@ -110,6 +119,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
         name,
         quantity,
         avgPrice,
+        currentPrice,
         tags: form.tags,
       });
     } catch (err) {
@@ -180,6 +190,20 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
               onChange={(v) => {
                 setForm((f) => ({ ...f, avgPrice: v }));
                 setFieldErrors((prev) => ({ ...prev, avgPrice: undefined }));
+              }}
+            />
+          </FormField>
+          <FormField label="Current Price (₹)" required error={fieldErrors.currentPrice}>
+            <FieldInput
+              name="stock-current-price"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="1525.00"
+              value={form.currentPrice}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, currentPrice: v }));
+                setFieldErrors((prev) => ({ ...prev, currentPrice: undefined }));
               }}
             />
           </FormField>

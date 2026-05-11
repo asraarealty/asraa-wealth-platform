@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useId,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
@@ -44,6 +45,7 @@ export default function AsyncSearchDropdown<T>({
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const listboxId = useId();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -149,6 +151,7 @@ export default function AsyncSearchDropdown<T>({
       results.map((item, index) => (
         <li
           key={getItemKey(item, index)}
+          id={`${listboxId}-option-${index}`}
           role="option"
           aria-selected={index === activeIndex}
           onMouseEnter={() => setActiveIndex(index)}
@@ -188,6 +191,10 @@ export default function AsyncSearchDropdown<T>({
           aria-label={ariaLabel}
           aria-autocomplete="list"
           aria-expanded={open}
+          aria-controls={showDropdown ? listboxId : undefined}
+          aria-activedescendant={
+            open && activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined
+          }
         />
         {loading && (
           <svg
@@ -205,6 +212,7 @@ export default function AsyncSearchDropdown<T>({
       {showDropdown && (
         <ul
           role="listbox"
+          id={listboxId}
           className="absolute z-50 mt-1.5 w-full search-dropdown rounded-xl overflow-hidden max-h-80 overflow-y-auto"
         >
           {loading && (

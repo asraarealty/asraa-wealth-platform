@@ -20,9 +20,17 @@ export default function CommoditySearch({ onSelect }: CommoditySearchProps) {
     return searchCommodities(query);
   }, []);
 
-  const renderItem = useCallback((item: CommodityResult) => {
+  const renderItem = useCallback((item: CommodityResult, active: boolean) => {
+    const currentPrice =
+      typeof item.currentPrice === "number" && Number.isFinite(item.currentPrice) && item.currentPrice > 0
+        ? `₹${item.currentPrice.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`
+        : "—";
+    const dailyChange =
+      typeof item.dailyChange === "number" && Number.isFinite(item.dailyChange)
+        ? `${item.dailyChange >= 0 ? "+" : ""}${item.dailyChange.toFixed(2)}%`
+        : "—";
     return (
-      <div className="flex items-start justify-between gap-4">
+      <div className={`flex items-start justify-between gap-4 ${active ? "search-row-active" : ""}`}>
         <div className="min-w-0">
           <div className="font-semibold text-white truncate">{item.name}</div>
           <div className="text-xs truncate" style={{ color: "rgba(255,255,255,0.45)" }}>
@@ -30,6 +38,12 @@ export default function CommoditySearch({ onSelect }: CommoditySearchProps) {
           </div>
           <div className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.35)" }}>
             {assetTypeLabel(item.assetType)}
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <div className="text-white font-medium text-sm">{currentPrice}</div>
+          <div className={`text-xs font-medium ${dailyChange.startsWith("-") ? "text-red-400" : "text-emerald-400"}`}>
+            {dailyChange}
           </div>
         </div>
       </div>

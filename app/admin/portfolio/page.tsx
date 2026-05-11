@@ -24,7 +24,7 @@ import PortfolioSkeleton from "@/components/ui/PortfolioSkeleton";
 import { useToast } from "@/context/ToastContext";
 import { deriveAllocationFromValues } from "@/lib/utils/portfolioMath";
 
-type Tab = "stocks" | "mutual_funds" | "real_estate";
+type Tab = "stocks" | "mutual_funds" | "commodities" | "real_estate";
 type PortfolioTab = "overview" | "holdings" | "performance" | "risk" | "transactions";
 
 function whatsAppLink(phone: string) {

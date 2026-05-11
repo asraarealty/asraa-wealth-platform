@@ -25,10 +25,21 @@ function rootSymbol(symbol: string): string {
   return symbol.replace(/\.(NS|BO)$/i, "").toUpperCase();
 }
 
+function isPositiveFinite(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+function isNonNegativeFinite(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
 function isValidStock(item: StockQuote): boolean {
   if (!item) return false;
   if (typeof item.symbol !== "string" || !VALID_STOCK_SYMBOL_PATTERN.test(item.symbol)) return false;
   if (typeof item.name !== "string" || item.name.trim().length < 2) return false;
+  if (!isPositiveFinite(item.price)) return false;
+  if (!isNonNegativeFinite(item.marketCap)) return false;
+  if (typeof item.changePercent !== "number" || !Number.isFinite(item.changePercent)) return false;
   return true;
 }
 
@@ -38,7 +49,8 @@ function formatPrice(price: number | null | undefined): string {
 }
 
 function formatMarketCap(value: number | null | undefined): string {
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return "—";
+  if (!isNonNegativeFinite(value)) return "—";
+  if (value === 0) return "₹0";
   if (value >= 1e12) return `₹${(value / 1e12).toFixed(2)}T`;
   if (value >= 1e7) return `₹${(value / 1e7).toFixed(2)}Cr`;
   if (value >= 1e5) return `₹${(value / 1e5).toFixed(2)}L`;
@@ -103,11 +115,11 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
     []
   );
 
-  const renderItem = useCallback((stock: NormalizedStock) => {
+  const renderItem = useCallback((stock: NormalizedStock, active: boolean) => {
     const pct = Number.isFinite(stock.changePercent) ? stock.changePercent : 0;
     const positive = pct >= 0;
     return (
-      <div className="flex items-start justify-between gap-4">
+      <div className={`flex items-start justify-between gap-4 ${active ? "search-row-active" : ""}`}>
         <div className="min-w-0">
           <div className="font-semibold text-white truncate">{stock.name}</div>
           <div className="text-xs truncate" style={{ color: "rgba(255,255,255,0.45)" }}>
