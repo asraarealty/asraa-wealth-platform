@@ -18,6 +18,7 @@ interface StockModalProps {
 interface StockForm {
   symbol: string;
   name: string;
+  exchange: string;
   quantity: string;
   avgPrice: string;
   currentPrice: string;
@@ -27,6 +28,7 @@ interface StockForm {
 interface StockFieldErrors {
   symbol?: string;
   name?: string;
+  exchange?: string;
   quantity?: string;
   avgPrice?: string;
   currentPrice?: string;
@@ -35,11 +37,17 @@ interface StockFieldErrors {
 const EMPTY: StockForm = {
   symbol: "",
   name: "",
+  exchange: "",
   quantity: "",
   avgPrice: "",
   currentPrice: "",
   tags: [],
 };
+
+function toFiniteNumber(value: unknown): number {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
 
 export default function StockModal({ asset, onClose, onSave }: StockModalProps) {
   const isEdit = Boolean(asset);
@@ -53,6 +61,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
       setForm({
         symbol: asset.symbol ?? "",
         name: asset.name ?? "",
+        exchange: asset.exchange ?? "",
         quantity: asset.quantity != null ? String(asset.quantity) : "",
         avgPrice: asset.avgPrice != null ? String(asset.avgPrice) : "",
         currentPrice: asset.currentPrice != null ? String(asset.currentPrice) : "",
@@ -66,12 +75,19 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
   }, [asset]);
 
   function handleStockSelect(stock: StockQuote) {
+    const stockPrice = toFiniteNumber(stock.currentPrice ?? stock.price);
+    const inferredExchange =
+      stock.exchange ??
+      validateStockSymbol(stock.symbol).exchange ??
+      "NSE";
+
     setForm((f) => ({
       ...f,
       symbol: stock.symbol,
       name: stock.name,
-      avgPrice: stock.price ? String(stock.price) : f.avgPrice,
-      currentPrice: f.currentPrice || (stock.price ? String(stock.price) : ""),
+      exchange: String(inferredExchange),
+      avgPrice: String(stockPrice || toFiniteNumber(f.avgPrice)),
+      currentPrice: String(stockPrice || toFiniteNumber(f.currentPrice)),
     }));
   }
 
@@ -80,9 +96,10 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
 
     const symbol = form.symbol.trim().toUpperCase();
     const name = form.name.trim();
-    const quantity = Number(String(form.quantity).trim());
-    const avgPrice = Number(String(form.avgPrice).trim());
-    const currentPrice = Number(String(form.currentPrice).trim());
+    const exchange = form.exchange.trim().toUpperCase();
+    const quantity = Number(form.quantity || 0);
+    const avgPrice = Number(form.avgPrice || 0);
+    const currentPrice = Number(form.currentPrice || 0);
     const nextFieldErrors: StockFieldErrors = {};
 
     if (!symbol) nextFieldErrors.symbol = "Symbol is required";
@@ -115,11 +132,11 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
       await onSave({
         type: "stock",
         symbol,
-        exchange: symbolValidation.exchange ?? undefined,
+        exchange: exchange || symbolValidation.exchange || undefined,
         name,
-        quantity,
-        avgPrice,
-        currentPrice,
+        quantity: toFiniteNumber(quantity),
+        avgPrice: toFiniteNumber(avgPrice),
+        currentPrice: toFiniteNumber(currentPrice),
         tags: form.tags,
       });
     } catch (err) {
@@ -162,6 +179,14 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
               }}
             />
           </FormField>
+          <FormField label="Exchange">
+            <FieldInput
+              name="stock-exchange"
+              placeholder="NSE/BSE"
+              value={form.exchange}
+              onChange={(v) => setForm((f) => ({ ...f, exchange: v.toUpperCase() }))}
+            />
+          </FormField>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -185,7 +210,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
               type="number"
               min="0"
               step="0.01"
-              placeholder="1500.00"
+              placeholder="Enter average buy price"
               value={form.avgPrice}
               onChange={(v) => {
                 setForm((f) => ({ ...f, avgPrice: v }));
@@ -199,7 +224,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
               type="number"
               min="0"
               step="0.01"
-              placeholder="1525.00"
+              placeholder="Auto-filled from selected stock"
               value={form.currentPrice}
               onChange={(v) => {
                 setForm((f) => ({ ...f, currentPrice: v }));

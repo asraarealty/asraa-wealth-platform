@@ -128,6 +128,7 @@ export interface StockQuote {
   symbol: string;
   name: string;
   price: number;
+  currentPrice?: number;
   change: number;
   changePercent: number;
   volume: number;
@@ -140,13 +141,57 @@ export interface StockQuote {
   bookValue?: number | null;
 }
 
+function toFiniteNumber(value: unknown): number {
+  const n = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function normalizeSearchItems(response: any): any[] {
+  if (Array.isArray(response)) return response;
+  if (!response || typeof response !== "object") return [];
+
+  const data = response.data;
+  if (Array.isArray(data)) return data;
+
+  const nested = data && typeof data === "object" ? data : response;
+  const items = (nested as any).results ?? (nested as any).items ?? [];
+  return Array.isArray(items) ? items : [];
+}
+
 export function searchStocks(
   query: string,
   signal?: AbortSignal
 ): Promise<StockQuote[]> {
-  return fetcher<StockQuote[]>(stockEndpoints.search(query), {
+  return fetcher<any>(stockEndpoints.search(query), {
     signal,
     noRedirectOn401: true,
+  }).then((response) => {
+    console.log("search response", response);
+    console.log("search response data", response?.data);
+
+    const items = normalizeSearchItems(response);
+    return items
+      .map((item): StockQuote => {
+        const price = toFiniteNumber(
+          item?.current_price ?? item?.currentPrice ?? item?.price ?? item?.ltp
+        );
+        return {
+          symbol: String(item?.symbol ?? item?.ticker ?? item?.trading_symbol ?? "").trim().toUpperCase(),
+          name: String(item?.name ?? item?.company_name ?? item?.companyName ?? "").trim(),
+          price,
+          currentPrice: price,
+          change: toFiniteNumber(item?.change),
+          changePercent: toFiniteNumber(item?.change_percent ?? item?.changePercent),
+          volume: toFiniteNumber(item?.volume),
+          marketCap: toFiniteNumber(item?.market_cap ?? item?.marketCap),
+          exchange: item?.exchange ? String(item.exchange).toUpperCase() : null,
+          pe: toFiniteNumber(item?.pe) || null,
+          roe: toFiniteNumber(item?.roe) || null,
+          roce: toFiniteNumber(item?.roce) || null,
+          bookValue: toFiniteNumber(item?.book_value ?? item?.bookValue) || null,
+        };
+      })
+      .filter((item) => item.symbol && item.name);
   });
 }
 
@@ -638,6 +683,7 @@ export interface CommodityResult {
   source: string;
   assetType: CommodityAssetType;
   currentPrice?: number | null;
+  spotPrice?: number | null;
   dailyChange?: number | null;
 }
 
@@ -655,58 +701,90 @@ const COMMODITY_CATALOG: CommodityResult[] = [
 ];
 
 export function searchCommodities(
-  query: string
+  query: string,
+  signal?: AbortSignal
 ): Promise<CommodityResult[]> {
-  const q = query.trim().toLowerCase();
-  if (!q) return Promise.resolve([]);
-  return Promise.resolve(
-    COMMODITY_CATALOG.filter((item) => {
-      return (
-        item.name.toLowerCase().includes(q) ||
-        item.symbol.toLowerCase().includes(q) ||
-        item.source.toLowerCase().includes(q) ||
-        item.assetType.toLowerCase().includes(q)
-      );
+  return fetcher<any>(`/commodities/search?q=${encodeURIComponent(query)}`, {
+    signal,
+    noRedirectOn401: true,
+  })
+    .then((response) => {
+      console.log("search response", response);
+      console.log("search response data", response?.data);
+
+      const items = normalizeSearchItems(response);
+      const mapped = items
+        .map((item): CommodityResult => {
+          const symbol = String(item?.symbol ?? item?.code ?? "").trim().toUpperCase();
+          const spotPrice = toFiniteNumber(item?.spot_price ?? item?.spotPrice);
+          const currentPrice = toFiniteNumber(
+            item?.current_price ?? item?.currentPrice ?? item?.price ?? item?.ltp ?? spotPrice
+          );
+          const rawType = String(item?.asset_type ?? item?.assetType ?? "spot").toLowerCase();
+          const assetType: CommodityAssetType =
+            rawType === "etf" || rawType === "linked" ? rawType : "spot";
+          return {
+            id: String(item?.id ?? `${symbol || "commodity"}-${assetType}`),
+            name: String(item?.name ?? item?.commodity_name ?? item?.commodityName ?? symbol).trim(),
+            symbol,
+            source: String(item?.exchange ?? item?.source ?? "MCX").trim().toUpperCase(),
+            assetType,
+            currentPrice,
+            spotPrice,
+            dailyChange: toFiniteNumber(item?.daily_change ?? item?.dailyChange),
+          };
+        })
+        .filter((item) => item.symbol && item.name);
+
+      return mapped;
     })
-  );
+    .catch(() => {
+      const q = query.trim().toLowerCase();
+      if (!q) return [];
+      return COMMODITY_CATALOG.filter((item) => {
+        return (
+          item.name.toLowerCase().includes(q) ||
+          item.symbol.toLowerCase().includes(q) ||
+          item.source.toLowerCase().includes(q) ||
+          item.assetType.toLowerCase().includes(q)
+        );
+      });
+    });
 }
 
 export function searchMutualFunds(
   query: string,
   signal?: AbortSignal
 ): Promise<MutualFundResult[]> {
-  return fetcher<any[]>(
+  return fetcher<any>(
     `/mutual-funds/search?q=${encodeURIComponent(query)}`,
     { signal, noRedirectOn401: true }
-  ).then((results) => {
-    const mapped = (Array.isArray(results) ? results : []).map((item): MutualFundResult => {
+  ).then((response) => {
+    console.log("search response", response);
+    console.log("search response data", response?.data);
+
+    const items = normalizeSearchItems(response);
+    const mapped = items.map((item): MutualFundResult => {
       const navCandidate =
-        typeof item.nav === "number"
-          ? item.nav
-          : typeof item.latestNav === "number"
-          ? item.latestNav
-          : parseFloat(item.nav ?? item.latestNav ?? "");
+        toFiniteNumber(item?.current_nav ?? item?.currentNav ?? item?.nav ?? item?.latestNav);
       const aumCandidate =
-        typeof item.aum === "number"
-          ? item.aum
-          : typeof item.assetsUnderManagement === "number"
-          ? item.assetsUnderManagement
-          : parseFloat(item.aum ?? item.assetsUnderManagement ?? "");
-      const amc = item.amc ?? item.fundHouse ?? item.fund_house ?? undefined;
+        toFiniteNumber(item?.aum ?? item?.assetsUnderManagement ?? item?.assets_under_management);
+      const amc = item.amc ?? item.fundHouse ?? item.fund_house ?? item.amc_name ?? undefined;
       return {
-        code: String(item.code ?? item.scheme_code ?? item.schemeCode ?? "").trim(),
+        code: String(item.code ?? item.scheme_code ?? item.schemeCode ?? item.fund_code ?? "").trim(),
         name: String(
           item.name ??
+            item.fund_name ??
             item.schemeName ??
             item.scheme_name ??
             item.schemeFullName ??
             item.scheme_full_name ??
             ""
         ).trim(),
-        nav: Number.isFinite(navCandidate) && navCandidate > 0 ? navCandidate : 0,
+        nav: navCandidate > 0 ? navCandidate : 0,
         category: item.category ?? item.schemeCategory ?? item.scheme_category ?? undefined,
         amc,
-        aum: Number.isFinite(aumCandidate) && aumCandidate > 0 ? aumCandidate : null,
+        aum: aumCandidate > 0 ? aumCandidate : null,
         riskLevel: item.riskLevel ?? item.risk_level ?? item.risk ?? undefined,
         fundHouse: amc,
       };

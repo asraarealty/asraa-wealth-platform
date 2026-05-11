@@ -17,13 +17,19 @@ function assetTypeLabel(type: CommodityResult["assetType"]): string {
 export default function CommoditySearch({ onSelect }: CommoditySearchProps) {
   const runSearch = useCallback((query: string, signal: AbortSignal) => {
     if (signal.aborted) return Promise.resolve([]);
-    return searchCommodities(query);
+    return searchCommodities(query, signal);
   }, []);
 
   const renderItem = useCallback((item: CommodityResult, active: boolean) => {
-    const currentPrice =
+    const numericPrice =
       typeof item.currentPrice === "number" && Number.isFinite(item.currentPrice) && item.currentPrice > 0
-        ? `₹${item.currentPrice.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`
+        ? item.currentPrice
+        : typeof item.spotPrice === "number" && Number.isFinite(item.spotPrice) && item.spotPrice > 0
+        ? item.spotPrice
+        : 0;
+    const currentPrice =
+      numericPrice > 0
+        ? `₹${numericPrice.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`
         : "—";
     const dailyChange =
       typeof item.dailyChange === "number" && Number.isFinite(item.dailyChange)

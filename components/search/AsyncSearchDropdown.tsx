@@ -45,6 +45,7 @@ export default function AsyncSearchDropdown<T>({
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [isFocused, setIsFocused] = useState(false);
   const listboxId = useId();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -118,8 +119,10 @@ export default function AsyncSearchDropdown<T>({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const empty = !loading && !error && query.trim().length >= minQueryLength && results.length === 0;
-  const showDropdown = open && (loading || !!error || results.length > 0 || empty);
+  const hasMinQuery = query.trim().length >= minQueryLength;
+  const hint = !hasMinQuery && isFocused;
+  const empty = !loading && !error && hasMinQuery && results.length === 0;
+  const showDropdown = open && (loading || !!error || results.length > 0 || empty || hint);
 
   const handleSelect = useCallback((item: T) => {
     setQuery(getItemText(item));
@@ -185,7 +188,11 @@ export default function AsyncSearchDropdown<T>({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          onFocus={() => query.trim().length >= minQueryLength && setOpen(true)}
+          onFocus={() => {
+            setIsFocused(true);
+            setOpen(true);
+          }}
+          onBlur={() => setIsFocused(false)}
           placeholder={placeholder}
           className="w-full gold-input pl-10 pr-10 py-2.5 text-sm rounded-xl"
           aria-label={ariaLabel}
@@ -218,6 +225,11 @@ export default function AsyncSearchDropdown<T>({
           {loading && (
             <li className="px-4 py-3 text-sm text-center" style={{ color: "rgba(255,255,255,0.5)" }}>
               Searching…
+            </li>
+          )}
+          {!loading && !error && hint && (
+            <li className="px-4 py-3 text-sm text-center" style={{ color: "rgba(255,255,255,0.45)" }}>
+              Type at least {minQueryLength} character{minQueryLength > 1 ? "s" : ""} to search.
             </li>
           )}
           {error && !loading && (

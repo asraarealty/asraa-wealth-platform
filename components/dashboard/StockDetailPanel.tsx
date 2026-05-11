@@ -382,7 +382,7 @@ function AddToClientForm({ stock, onDone }: AddToClientFormProps) {
             type="number"
             min="0"
             step="0.01"
-            placeholder="e.g. 1500"
+            placeholder="Enter average buy price"
             value={avgPrice}
             onChange={(e) => setAvgPrice(e.target.value)}
             className="w-full px-3 py-2 text-sm text-white placeholder-white/25 rounded-xl focus:outline-none"

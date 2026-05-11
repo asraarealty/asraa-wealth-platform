@@ -37,6 +37,11 @@ const EMPTY: MFForm = {
   tags: [],
 };
 
+function toFiniteNumber(value: unknown): number {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
   const isEdit = Boolean(asset);
   const [form, setForm] = useState<MFForm>(EMPTY);
@@ -62,12 +67,13 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
   }, [asset]);
 
   function handleMFSelect(mf: MutualFundResult) {
+    const nav = toFiniteNumber(mf.nav);
     setForm((f) => ({
       ...f,
       symbol: mf.code,
       name: mf.name,
-      avgPrice: mf.nav ? String(mf.nav) : f.avgPrice,
-      currentPrice: f.currentPrice || (mf.nav ? String(mf.nav) : ""),
+      avgPrice: String(nav || toFiniteNumber(f.avgPrice)),
+      currentPrice: String(nav || toFiniteNumber(f.currentPrice)),
     }));
   }
 
@@ -76,9 +82,9 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
 
     const symbol = form.symbol.trim().toUpperCase();
     const name = form.name.trim();
-    const quantity = Number(String(form.units).trim());
-    const avgPrice = Number(String(form.avgPrice).trim());
-    const currentPrice = Number(String(form.currentPrice).trim());
+    const quantity = Number(form.units || 0);
+    const avgPrice = Number(form.avgPrice || 0);
+    const currentPrice = Number(form.currentPrice || 0);
     const nextFieldErrors: MFFieldErrors = {};
 
     if (!name) nextFieldErrors.name = "Fund name is required";
@@ -105,9 +111,9 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
         type: "mf",
         symbol: symbol || undefined,
         name,
-        quantity,
-        avgPrice,
-        currentPrice,
+        quantity: toFiniteNumber(quantity),
+        avgPrice: toFiniteNumber(avgPrice),
+        currentPrice: toFiniteNumber(currentPrice),
         tags: form.tags,
       });
     } catch (err) {
@@ -170,7 +176,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
               type="number"
               min="0"
               step="0.01"
-              placeholder="250.00"
+              placeholder="Enter average NAV"
               value={form.avgPrice}
               onChange={(v) => {
                 setForm((f) => ({ ...f, avgPrice: v }));
@@ -184,7 +190,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
               type="number"
               min="0"
               step="0.01"
-              placeholder="252.35"
+              placeholder="Auto-filled from selected fund"
               value={form.currentPrice}
               onChange={(v) => {
                 setForm((f) => ({ ...f, currentPrice: v }));
