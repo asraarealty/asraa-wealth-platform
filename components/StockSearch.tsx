@@ -37,9 +37,6 @@ function isValidStock(item: StockQuote): boolean {
   if (!item) return false;
   if (typeof item.symbol !== "string" || !VALID_STOCK_SYMBOL_PATTERN.test(item.symbol)) return false;
   if (typeof item.name !== "string" || item.name.trim().length < 2) return false;
-  if (!isPositiveFinite(item.price)) return false;
-  if (!isNonNegativeFinite(item.marketCap)) return false;
-  if (typeof item.changePercent !== "number" || !Number.isFinite(item.changePercent)) return false;
   return true;
 }
 
@@ -63,14 +60,17 @@ function normalizeStocks(results: StockQuote[], query: string): NormalizedStock[
     .filter(isValidStock)
     .map((item) => {
       const exchangeLabel = (item.exchange ?? inferExchange(item.symbol)).toUpperCase();
+      const safePrice = isPositiveFinite(item.price) ? item.price : 0;
       return {
         ...item,
+        price: safePrice,
+        currentPrice: isPositiveFinite(item.currentPrice) ? item.currentPrice : safePrice,
         exchangeLabel,
         rootSymbol: rootSymbol(item.symbol),
-        changePercent:
-          typeof item.changePercent === "number" && Number.isFinite(item.changePercent)
-            ? item.changePercent
-            : 0,
+        changePercent: isNonNegativeFinite(item.changePercent) || item.changePercent < 0
+          ? item.changePercent
+          : 0,
+        marketCap: isNonNegativeFinite(item.marketCap) ? item.marketCap : 0,
       };
     });
 

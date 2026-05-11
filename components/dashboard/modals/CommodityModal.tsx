@@ -38,12 +38,17 @@ interface CommodityFieldErrors {
 const EMPTY: CommodityForm = {
   symbol: "",
   name: "",
-  exchange: "",
+  exchange: "MCX",
   quantity: "",
   avgPrice: "",
   currentPrice: "",
   tags: ["commodity"],
 };
+
+function toFiniteNumber(value: unknown): number {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
 
 function toCommodityTags(tags: string[]): string[] {
   const merged = ["commodity", ...tags];
@@ -76,19 +81,14 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
   }, [asset]);
 
   function handleCommoditySelect(item: CommodityResult) {
+    const spotOrCurrent = toFiniteNumber(item.spotPrice ?? item.currentPrice);
     setForm((prev) => ({
       ...prev,
       symbol: item.symbol.toUpperCase(),
       name: item.name,
-      exchange: item.source,
-      avgPrice:
-        typeof item.currentPrice === "number" && item.currentPrice > 0
-          ? String(item.currentPrice)
-          : prev.avgPrice,
-      currentPrice:
-        typeof item.currentPrice === "number" && item.currentPrice > 0
-          ? String(item.currentPrice)
-          : prev.currentPrice,
+      exchange: (item.source || prev.exchange || "MCX").toUpperCase(),
+      avgPrice: String(spotOrCurrent || toFiniteNumber(prev.avgPrice)),
+      currentPrice: String(spotOrCurrent || toFiniteNumber(prev.currentPrice)),
       tags: toCommodityTags([...(prev.tags ?? []), item.assetType]),
     }));
   }
@@ -98,9 +98,9 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
 
     const symbol = form.symbol.trim();
     const name = form.name.trim();
-    const quantity = Number(String(form.quantity).trim());
-    const avgPrice = Number(String(form.avgPrice).trim());
-    const currentPrice = Number(String(form.currentPrice).trim());
+    const quantity = Number(form.quantity || 0);
+    const avgPrice = Number(form.avgPrice || 0);
+    const currentPrice = Number(form.currentPrice || 0);
     const exchange = form.exchange.trim();
     const nextFieldErrors: CommodityFieldErrors = {};
 
@@ -126,13 +126,13 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
     setSaving(true);
     try {
       await onSave({
-        type: "stock",
+        type: "commodity",
         symbol,
         name,
         exchange: exchange || undefined,
-        quantity,
-        avgPrice,
-        currentPrice,
+        quantity: toFiniteNumber(quantity),
+        avgPrice: toFiniteNumber(avgPrice),
+        currentPrice: toFiniteNumber(currentPrice),
         tags: toCommodityTags(form.tags),
       });
     } catch (err) {
@@ -203,7 +203,7 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
               type="number"
               min="0"
               step="0.01"
-              placeholder="7000"
+              placeholder="Enter average buy price"
               value={form.avgPrice}
               onChange={(v) => {
                 setForm((f) => ({ ...f, avgPrice: v }));
@@ -217,7 +217,7 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
               type="number"
               min="0"
               step="0.01"
-              placeholder="7055"
+              placeholder="Auto-filled from selected commodity"
               value={form.currentPrice}
               onChange={(v) => {
                 setForm((f) => ({ ...f, currentPrice: v }));
