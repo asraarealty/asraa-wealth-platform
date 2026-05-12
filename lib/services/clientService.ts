@@ -2,6 +2,9 @@ import {
   fetchClients,
   fetchAdminClients,
   fetcher,
+  approveClient as apiApproveClient,
+  deleteClient as apiDeleteClient,
+  updateClient as apiUpdateClient,
   type Client,
   type AdminClient,
 } from "@/lib/api";
@@ -97,4 +100,30 @@ export async function getAdminClients(
     return [];
   }
   return data.filter(isRealClient);
+}
+
+// ── Client mutations (one source of truth) ─────────────────────────────────
+
+/**
+ * Approve a client. Uses POST /clients/{id}/approve with a POST-body fallback.
+ */
+export function approveClient(id: number): Promise<void> {
+  return apiApproveClient(id);
+}
+
+/**
+ * Delete a client. Uses POST /clients/{id}/delete with a DELETE fallback.
+ */
+export function deleteClient(id: number, signal?: AbortSignal): Promise<void> {
+  return apiDeleteClient(id, signal);
+}
+
+/**
+ * Update arbitrary client fields via POST /clients/{id}.
+ */
+export function updateClient(
+  id: number,
+  data: Record<string, unknown>
+): Promise<unknown> {
+  return apiUpdateClient(id, data);
 }

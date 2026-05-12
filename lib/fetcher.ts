@@ -190,10 +190,15 @@ export async function fetcher<T>(
     response = await executeRequest();
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
+    if (process.env.NODE_ENV === "development") {
+      console.debug("[fetcher] Network error", { method, url, payload: body });
+    }
     throw new NetworkError("Unable to reach backend API");
   }
 
-  // Removed console.log("API Response:", response.status);
+  if (process.env.NODE_ENV === "development") {
+    console.debug("[fetcher]", { method, url, payload: body, status: response.status });
+  }
 
   // 🔐 401 → session expired → logout (unless caller opts out)
   if (response.status === 401) {
@@ -228,6 +233,15 @@ export async function fetcher<T>(
         data?.message ||
         message;
     } catch {}
+
+    // Override with user-friendly messages for common status codes when no server detail is available
+    if (response.status === 404 && message === `HTTP ${response.status}`) message = "Resource not found";
+    if (response.status === 405 && message === `HTTP ${response.status}`) message = "This action is not supported by the server";
+    if (response.status === 500 && message === `HTTP ${response.status}`) message = "Internal server error";
+
+    if (process.env.NODE_ENV === "development") {
+      console.debug("[fetcher] API error", { method, url, status: response.status, message });
+    }
     const apiErr = new ApiError(response.status, message);
     throw apiErr;
   }
@@ -243,6 +257,10 @@ export async function fetcher<T>(
     json = await response.json();
   } catch {
     return undefined as T;
+  }
+
+  if (process.env.NODE_ENV === "development") {
+    console.debug("[fetcher] response body", { method, url, status: response.status, response: json });
   }
 
   // 🔁 RAW MODE
