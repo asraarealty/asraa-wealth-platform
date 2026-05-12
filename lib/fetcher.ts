@@ -19,6 +19,7 @@ export class NetworkError extends Error {
 // 🔐 TOKEN STORAGE
 let inMemoryToken: string | null = null;
 let authBootstrapComplete = false;
+let clientAuthMarkerSynced = false;
 const TOKEN_STORAGE_KEY = "token";
 const LEGACY_TOKEN_STORAGE_KEY = "access_token";
 const CLIENT_AUTH_MARKER_COOKIE = "asraa_auth";
@@ -44,6 +45,8 @@ function persistToken(token: string | null) {
     if (token) {
       localStorage.setItem(TOKEN_STORAGE_KEY, token);
       const secureAttr = window.location.protocol === "https:" ? "; Secure" : "";
+      // Deliberately non-HttpOnly marker (value is only "1", never a credential):
+      // it lets server-side route guards know a client token exists during hydration.
       document.cookie = `${CLIENT_AUTH_MARKER_COOKIE}=1; Path=/; SameSite=Lax${secureAttr}`;
       return;
     }
@@ -77,8 +80,9 @@ function isJwtExpired(token: string): boolean {
 export function getToken(): string | null {
   if (!inMemoryToken) {
     inMemoryToken = readStoredToken();
-    if (inMemoryToken) {
+    if (inMemoryToken && !clientAuthMarkerSynced) {
       persistToken(inMemoryToken);
+      clientAuthMarkerSynced = true;
     }
   }
   if (!inMemoryToken) return null;
@@ -92,11 +96,13 @@ export function getToken(): string | null {
 export function setToken(token: string) {
   inMemoryToken = token;
   persistToken(token);
+  clientAuthMarkerSynced = Boolean(token);
 }
 
 export function clearToken() {
   inMemoryToken = null;
   persistToken(null);
+  clientAuthMarkerSynced = false;
 }
 
 export function setAuthBootstrapComplete(ready: boolean) {

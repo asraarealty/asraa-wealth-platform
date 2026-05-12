@@ -4,10 +4,10 @@
 const nextConfig = {
   async rewrites() {
     const backendUrl = process.env.BACKEND_URL;
-    const isProduction = process.env.NODE_ENV === "production";
+    const isProductionDeployment = process.env.VERCEL_ENV === "production";
     const requiredProductionBackendUrl = "https://api.asraarealty.in";
 
-    if (isProduction && backendUrl !== requiredProductionBackendUrl) {
+    if (isProductionDeployment && backendUrl !== requiredProductionBackendUrl) {
       throw new Error(
         `[next.config] BACKEND_URL must be ${requiredProductionBackendUrl} in production.`
       );

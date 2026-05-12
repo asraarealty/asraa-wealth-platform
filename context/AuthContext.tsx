@@ -134,6 +134,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearToken();
     setUser(null);
     setAuthError(false);
+    // Logout is a terminal auth state for the current session:
+    // no bootstrap is running, and auth is known to be unauthenticated.
     setAuthInitialized(true);
     setIsHydrating(false);
     if (typeof window !== "undefined" && window.location.pathname !== nextPath) {
