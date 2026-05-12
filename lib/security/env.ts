@@ -28,8 +28,14 @@ export function isProduction(): boolean {
 }
 
 export function getAllowedOrigins(): string[] {
-  return getSecurityEnv()
+  const configured = getSecurityEnv()
     .SECURITY_ALLOWED_ORIGINS.split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
+
+  if (!isProduction()) return configured;
+
+  const productionOrigin = "https://app.asraarealty.in";
+  const productionAllowed = configured.filter((origin) => origin === productionOrigin);
+  return productionAllowed.length > 0 ? productionAllowed : [productionOrigin];
 }
