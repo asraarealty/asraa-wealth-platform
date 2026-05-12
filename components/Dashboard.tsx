@@ -125,13 +125,16 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
   }, [portfolio]);
 
   async function handleAdd(payload: CreateAssetPayload) {
+    const targetClientId = isAdmin ? resolvedClientId : user?.id;
+    if ((payload.type === "stock" || payload.type === "mf" || payload.type === "commodity") && !targetClientId) {
+      const errorMessage = "Client session is missing. Please sign in again.";
+      showToast(errorMessage, "error");
+      throw new Error(errorMessage);
+    }
+
     const body: CreateAssetPayload = {
       ...payload,
-      ...(
-        isAdmin
-          ? (resolvedClientId ? { clientId: resolvedClientId } : {})
-          : (user?.id ? { clientId: user.id } : {})
-      ),
+      ...(targetClientId ? { clientId: targetClientId } : {}),
     };
     try {
       await runMutation(() => createAsset(body));

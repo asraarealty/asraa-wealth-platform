@@ -13,6 +13,8 @@ import {
 } from "@/components/admin/dashboard/intelligenceHelpers";
 import { ApiError, fetcher, toErrorMessage } from "@/lib/fetcher";
 
+const INSIGHTS_REFRESH_INTERVAL_MS = 30_000;
+
 export default function InsightsPage() {
   const router = useRouter();
   const [rows, setRows] = useState<ClientIntelligence[]>([]);
@@ -72,20 +74,41 @@ export default function InsightsPage() {
 
   useEffect(() => {
     const refresh = () => setReloadKey((k) => k + 1);
-    const intervalId = window.setInterval(() => {
-      if (document.visibilityState === "visible") refresh();
-    }, 30_000);
+    let intervalId: number | null = null;
+
+    const startPolling = () => {
+      if (intervalId !== null) return;
+      // Refresh periodically when tab is visible to keep metrics live.
+      intervalId = window.setInterval(refresh, INSIGHTS_REFRESH_INTERVAL_MS);
+    };
+
+    const stopPolling = () => {
+      if (intervalId === null) return;
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
+
+    if (document.visibilityState === "visible") {
+      startPolling();
+    }
+
     const onVisible = () => {
-      if (document.visibilityState === "visible") refresh();
+      if (document.visibilityState === "visible") {
+        refresh();
+        startPolling();
+      } else {
+        stopPolling();
+      }
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
-      window.clearInterval(intervalId);
+      stopPolling();
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 
-  if (loading && rows.length === 0) return <Loader />;
+  const isInitialLoad = loading && rows.length === 0;
+  if (isInitialLoad) return <Loader />;
 
   const alerts = deriveAlerts(rows);
   const avgReturn = calcAverageReturn(rows);

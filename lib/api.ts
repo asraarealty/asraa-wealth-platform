@@ -326,12 +326,12 @@ const normalizeAssetList = (res: unknown): Asset[] => {
       priceINR: a.priceINR ?? a.price_inr ?? undefined,
       // Real estate camelCase normalization (backend may return snake_case)
       purchasePrice: a.purchasePrice,
-      currentValue: a.currentValue ?? a.current_value,
-      rentAmount: a.rentAmount ?? a.rent_amount,
-      rentDueDate: a.rentDueDate ?? a.rent_due_date,
-      tenantName: a.tenantName ?? a.tenant_name,
-      tenantPhone: a.tenantPhone ?? a.tenant_phone,
-      tenantEmail: a.tenantEmail ?? a.tenant_email,
+      currentValue: a.currentValue,
+      rentAmount: a.rentAmount,
+      rentDueDate: a.rentDueDate,
+      tenantName: a.tenantName,
+      tenantPhone: a.tenantPhone,
+      tenantEmail: a.tenantEmail,
     };
   });
 };
@@ -603,6 +603,75 @@ function toApiPayload(payload: CreateAssetPayload | UpdateAssetPayload): Record<
   return result;
 }
 
+/**
+ * Build the canonical backend payload for supported asset creation flows.
+ *
+ * Returns `null` for asset types that still use generic camelCase→snake_case
+ * translation (currently real-estate/property), so createAsset can fall back
+ * to `toApiPayload` for those payloads.
+ */
+function buildCanonicalAssetPayload(
+  payload: CreateAssetPayload,
+  quantity: number,
+  avgPrice: number,
+  currentPrice: number
+): Record<string, unknown> | null {
+  const targetClientId = Number(payload.clientId ?? payload.userId);
+
+  if (payload.type === "stock") {
+    if (!Number.isFinite(targetClientId) || targetClientId <= 0) {
+      throw new Error("Client is required");
+    }
+    return {
+      ...buildStockPayload({
+      clientId: targetClientId,
+      symbol: payload.symbol ?? "",
+      name: payload.name,
+      exchange: payload.exchange,
+      quantity,
+      avgPrice,
+      currentPrice,
+      tags: payload.tags,
+      }),
+    };
+  }
+
+  if (payload.type === "mf") {
+    if (!Number.isFinite(targetClientId) || targetClientId <= 0) {
+      throw new Error("Client is required");
+    }
+    return {
+      ...buildFundPayload({
+      clientId: targetClientId,
+      fundCode: payload.symbol,
+      name: payload.name,
+      units: quantity,
+      avgPrice,
+      currentPrice,
+      }),
+    };
+  }
+
+  if (payload.type === "commodity") {
+    if (!Number.isFinite(targetClientId) || targetClientId <= 0) {
+      throw new Error("Client is required");
+    }
+    return {
+      ...buildCommodityPayload({
+      clientId: targetClientId,
+      symbol: payload.symbol ?? "",
+      name: payload.name,
+      exchange: payload.exchange,
+      quantity,
+      avgPrice,
+      currentPrice,
+      }),
+    };
+  }
+
+  return null;
+}
+
 export function createAsset(
   payload: CreateAssetPayload,
   signal?: AbortSignal
@@ -646,62 +715,17 @@ export function createAsset(
     throw new Error("Current price must be greater than 0");
   }
 
-  if (normalizedPayload.type === "stock" || normalizedPayload.type === "commodity" || normalizedPayload.type === "mf") {
-    const targetClientId = Number(normalizedPayload.clientId ?? normalizedPayload.userId);
-    if (!Number.isFinite(targetClientId) || targetClientId <= 0) {
-      throw new Error("Client is required");
-    }
-
-    if (normalizedPayload.type === "stock") {
-      return fetcher<Asset>("/assets", {
-        method: "POST",
-        body: buildStockPayload({
-          clientId: targetClientId,
-          symbol: normalizedPayload.symbol ?? "",
-          name: normalizedPayload.name,
-          exchange: normalizedPayload.exchange,
-          quantity,
-          avgPrice,
-          currentPrice,
-          tags: normalizedPayload.tags,
-        }),
-        signal,
-      });
-    }
-
-    if (normalizedPayload.type === "mf") {
-      return fetcher<Asset>("/assets", {
-        method: "POST",
-        body: buildFundPayload({
-          clientId: targetClientId,
-          fundCode: normalizedPayload.symbol,
-          name: normalizedPayload.name,
-          units: quantity,
-          avgPrice,
-          currentPrice,
-        }),
-        signal,
-      });
-    }
-
-    return fetcher<Asset>("/assets", {
-      method: "POST",
-      body: buildCommodityPayload({
-        clientId: targetClientId,
-        symbol: normalizedPayload.symbol ?? "",
-        name: normalizedPayload.name,
-        exchange: normalizedPayload.exchange,
-        quantity,
-        avgPrice,
-        currentPrice,
-      }),
-      signal,
-    });
-  }
+  const canonicalPayload = buildCanonicalAssetPayload(
+    normalizedPayload,
+    quantity,
+    avgPrice,
+    currentPrice
+  );
 
   return fetcher<Asset>("/assets", {
     method: "POST",
-    body: toApiPayload(normalizedPayload),
+    // Property payloads still travel through generic key translation.
+    body: canonicalPayload ?? toApiPayload(normalizedPayload),
     signal,
   });
 }
