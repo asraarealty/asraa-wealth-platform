@@ -21,6 +21,7 @@ let inMemoryToken: string | null = null;
 let authBootstrapComplete = false;
 const TOKEN_STORAGE_KEY = "token";
 const LEGACY_TOKEN_STORAGE_KEY = "access_token";
+const CLIENT_AUTH_MARKER_COOKIE = "asraa_auth";
 
 function readStoredToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -42,10 +43,13 @@ function persistToken(token: string | null) {
   try {
     if (token) {
       localStorage.setItem(TOKEN_STORAGE_KEY, token);
+      const secureAttr = window.location.protocol === "https:" ? "; Secure" : "";
+      document.cookie = `${CLIENT_AUTH_MARKER_COOKIE}=1; Path=/; SameSite=Lax${secureAttr}`;
       return;
     }
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+    document.cookie = `${CLIENT_AUTH_MARKER_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
   } catch {}
 }
 
@@ -73,6 +77,9 @@ function isJwtExpired(token: string): boolean {
 export function getToken(): string | null {
   if (!inMemoryToken) {
     inMemoryToken = readStoredToken();
+    if (inMemoryToken) {
+      persistToken(inMemoryToken);
+    }
   }
   if (!inMemoryToken) return null;
   if (isJwtExpired(inMemoryToken)) {

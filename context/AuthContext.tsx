@@ -30,7 +30,11 @@ export interface User {
 
 export interface AuthContextValue {
   user: User | null;
+  authInitialized: boolean;
+  isHydrating: boolean;
+  /** @deprecated use authInitialized */
   initialized: boolean;
+  /** @deprecated use isHydrating */
   loading: boolean;
   /** True when the initial /auth/me call failed with a transient (non-401) error. */
   authError: boolean;
@@ -44,8 +48,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [initialized, setInitialized] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [authInitialized, setAuthInitialized] = useState(false);
+  const [isHydrating, setIsHydrating] = useState(true);
   const [authError, setAuthError] = useState(false);
   const [authAttempt, setAuthAttempt] = useState(0);
   const bootstrapSeqRef = useRef(0);
@@ -59,8 +63,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const seq = ++bootstrapSeqRef.current;
     let mounted = true;
 
-    setLoading(true);
+    setIsHydrating(true);
     setAuthError(false);
+    setAuthInitialized(false);
     setAuthBootstrapComplete(false);
     getToken();
 
@@ -89,9 +94,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .finally(() => {
         if (!mounted || seq !== bootstrapSeqRef.current) return;
-        setInitialized(true);
+        setAuthInitialized(true);
         setAuthBootstrapComplete(true);
-        setLoading(false);
+        setIsHydrating(false);
       });
 
     return () => {
@@ -115,7 +120,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const me = await fetcher<User>("/auth/me");
     setUser(me);
     setAuthError(false);
-    setInitialized(true);
+    setAuthInitialized(true);
+    setIsHydrating(false);
     setAuthBootstrapComplete(true);
 
     return me;
@@ -128,13 +134,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearToken();
     setUser(null);
     setAuthError(false);
+    setAuthInitialized(true);
+    setIsHydrating(false);
     if (typeof window !== "undefined" && window.location.pathname !== nextPath) {
       window.location.assign(nextPath);
     }
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, initialized, loading, authError, login, logout, retryAuth }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        authInitialized,
+        isHydrating,
+        initialized: authInitialized,
+        loading: isHydrating,
+        authError,
+        login,
+        logout,
+        retryAuth,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

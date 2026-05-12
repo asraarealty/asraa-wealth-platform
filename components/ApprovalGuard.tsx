@@ -21,11 +21,11 @@ interface Props {
  *   (no status / undefined) → treated as approved (backend default)
  */
 export default function ApprovalGuard({ children }: Props) {
-  const { user, initialized, loading, logout } = useAuth();
+  const { user, authInitialized, isHydrating, logout } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!initialized || loading) return;
+    if (!authInitialized || isHydrating) return;
 
     if (!user) {
       // Not authenticated — leave redirect to the auth guard above this
@@ -48,9 +48,9 @@ export default function ApprovalGuard({ children }: Props) {
       router.replace("/rejected");
       return;
     }
-  }, [initialized, loading, user, logout, router]);
+  }, [authInitialized, isHydrating, user, logout, router]);
 
-  if (!initialized || loading) return <Loader />;
+  if (!authInitialized || isHydrating) return <Loader />;
 
   // Block render while redirecting
   if (!user) return null;

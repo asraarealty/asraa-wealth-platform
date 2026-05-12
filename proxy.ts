@@ -6,6 +6,7 @@ import { getRequestIp } from "@/lib/security/api";
 
 // Name of the HTTP-only cookie set by the backend on successful login.
 const ACCESS_TOKEN_COOKIE = "access_token";
+const CLIENT_AUTH_MARKER_COOKIE = "asraa_auth";
 const IDLE_SESSION_COOKIE = "__Host-asraa_idle";
 
 function buildCsp(): string {
@@ -59,6 +60,8 @@ export function proxy(request: NextRequest) {
 
   const hasToken =
     request.cookies.get(ACCESS_TOKEN_COOKIE)?.value !== undefined;
+  const hasClientAuthMarker =
+    request.cookies.get(CLIENT_AUTH_MARKER_COOKIE)?.value !== undefined;
   const idleCookie = request.cookies.get(IDLE_SESSION_COOKIE)?.value;
   const ip = getRequestIp(request);
 
@@ -85,7 +88,7 @@ export function proxy(request: NextRequest) {
   }
 
   // Unauthenticated users cannot access protected routes.
-  if (isProtectedRoute && !hasToken) {
+  if (isProtectedRoute && !hasToken && !hasClientAuthMarker) {
     return applySecurityHeaders(NextResponse.redirect(new URL("/login", request.url)));
   }
 
