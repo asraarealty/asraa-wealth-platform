@@ -5,7 +5,12 @@ import { ToastProvider } from "@/context/ToastContext";
 
 export const metadata: Metadata = {
   title: "Asraa Wealth Platform",
-  description: "Production-grade wealth management advisor portal",
+  description: "AI-driven wealth and portfolio management platform",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({
