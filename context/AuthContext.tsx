@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
   fetcher,
+  getToken,
   setToken,
   clearToken,
   ApiError,
@@ -61,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setAuthError(false);
     setAuthBootstrapComplete(false);
+    getToken();
 
     fetcher<User>("/auth/me", {
       signal: controller.signal,
@@ -99,14 +101,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [authAttempt]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await fetcher<{ access_token?: string }>("/auth/login", {
+    const res = await fetcher<{ access_token?: string; accessToken?: string }>("/auth/login", {
       method: "POST",
       body: { email, password },
       raw: true,
     });
 
-    if (res.access_token) {
-      setToken(res.access_token);
+    const accessToken = res.access_token ?? res.accessToken;
+    if (accessToken) {
+      setToken(accessToken);
     }
 
     const me = await fetcher<User>("/auth/me");

@@ -16,9 +16,38 @@ export class NetworkError extends Error {
   }
 }
 
-// 🔐 TOKEN STORAGE (in-memory only)
+// 🔐 TOKEN STORAGE
 let inMemoryToken: string | null = null;
 let authBootstrapComplete = false;
+const TOKEN_STORAGE_KEY = "token";
+const LEGACY_TOKEN_STORAGE_KEY = "access_token";
+
+function readStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const token = localStorage.getItem(TOKEN_STORAGE_KEY)?.trim();
+    if (token) return token;
+
+    const legacyToken = localStorage.getItem(LEGACY_TOKEN_STORAGE_KEY)?.trim();
+    if (legacyToken) {
+      localStorage.setItem(TOKEN_STORAGE_KEY, legacyToken);
+      return legacyToken;
+    }
+  } catch {}
+  return null;
+}
+
+function persistToken(token: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_STORAGE_KEY, token);
+      return;
+    }
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+  } catch {}
+}
 
 function isJwtExpired(token: string): boolean {
   const parts = token.split(".");
@@ -42,6 +71,9 @@ function isJwtExpired(token: string): boolean {
 }
 
 export function getToken(): string | null {
+  if (!inMemoryToken) {
+    inMemoryToken = readStoredToken();
+  }
   if (!inMemoryToken) return null;
   if (isJwtExpired(inMemoryToken)) {
     clearToken();
@@ -52,10 +84,12 @@ export function getToken(): string | null {
 
 export function setToken(token: string) {
   inMemoryToken = token;
+  persistToken(token);
 }
 
 export function clearToken() {
   inMemoryToken = null;
+  persistToken(null);
 }
 
 export function setAuthBootstrapComplete(ready: boolean) {
@@ -103,7 +137,7 @@ export async function fetcher<T>(
 
   const token = getToken();
 
-  const url = (path.startsWith("http") || path.startsWith("/auth/"))
+  const url = (path.startsWith("http") || path.startsWith("/auth/") || path.startsWith("/api/"))
     ? path
     : `${API_BASE_URL}${path}`;
 

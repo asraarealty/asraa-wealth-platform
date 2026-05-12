@@ -75,17 +75,30 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
   }, [asset]);
 
   function handleStockSelect(stock: StockQuote) {
-    const stockPrice = toFiniteNumber(stock.currentPrice ?? stock.price);
+    const rawStock = stock as StockQuote & {
+      company_name?: string;
+      companyName?: string;
+      current_price?: unknown;
+      ltp?: unknown;
+    };
+    const stockSymbol = rawStock.symbol || "";
+    const stockPrice = toFiniteNumber(
+      rawStock.currentPrice ||
+        rawStock.current_price ||
+        rawStock.price ||
+        rawStock.ltp ||
+        0
+    );
     const inferredExchange =
-      stock.exchange ??
-      validateStockSymbol(stock.symbol).exchange ??
+      rawStock.exchange ??
+      validateStockSymbol(stockSymbol).exchange ??
       "NSE";
 
     setForm((f) => ({
       ...f,
-      symbol: stock.symbol,
-      name: stock.name,
-      exchange: String(inferredExchange),
+      symbol: stockSymbol,
+      name: rawStock.name || rawStock.company_name || rawStock.companyName || "",
+      exchange: String(inferredExchange || "NSE").toUpperCase(),
       avgPrice: String(stockPrice || toFiniteNumber(f.avgPrice)),
       currentPrice: String(stockPrice || toFiniteNumber(f.currentPrice)),
     }));

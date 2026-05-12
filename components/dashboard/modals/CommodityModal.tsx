@@ -83,7 +83,21 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
   }, [asset]);
 
   function handleCommoditySelect(item: CommodityResult) {
-    const spotOrCurrent = toFiniteNumber(item.spotPrice ?? item.currentPrice);
+    const rawCommodity = item as CommodityResult & {
+      current_price?: unknown;
+      spot_price?: unknown;
+      price?: unknown;
+      ltp?: unknown;
+    };
+    const spotOrCurrent = toFiniteNumber(
+      rawCommodity.currentPrice ||
+        rawCommodity.current_price ||
+        rawCommodity.spotPrice ||
+        rawCommodity.spot_price ||
+        rawCommodity.price ||
+        rawCommodity.ltp ||
+        0
+    );
     setForm((prev) => ({
       ...prev,
       symbol: item.symbol.toUpperCase(),
