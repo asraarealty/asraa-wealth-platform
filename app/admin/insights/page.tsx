@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Loader from "@/components/ui/Loader";
-import ErrorState from "@/components/ui/ErrorState";
 import ClientIntelligenceTable from "@/components/admin/dashboard/ClientIntelligenceTable";
 import RecommendationCard from "@/components/admin/dashboard/RecommendationCard";
 import AlertsPanel from "@/components/admin/dashboard/AlertsPanel";
@@ -11,30 +11,44 @@ import {
   deriveAlerts,
   calcAverageReturn,
 } from "@/components/admin/dashboard/intelligenceHelpers";
+import { ApiError, fetcher, toErrorMessage } from "@/lib/fetcher";
 
 export default function InsightsPage() {
+  const router = useRouter();
   const [rows, setRows] = useState<ClientIntelligence[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [requiresLogin, setRequiresLogin] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
+    setRequiresLogin(false);
 
-    fetch("/api/portfolio/intelligence", {
-      credentials: "include",
+    fetcher<unknown>("/api/portfolio/intelligence", {
+      cache: "no-store",
+      noRedirectOn401: true,
       signal: controller.signal,
     })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`Failed to load intelligence data (${res.status})`);
-        const data = await res.json();
-        setRows(Array.isArray(data) ? data : []);
+      .then((data) => {
+        const nextRows = Array.isArray(data)
+          ? data
+          : Array.isArray((data as { data?: unknown[] })?.data)
+            ? ((data as { data: unknown[] }).data as ClientIntelligence[])
+            : [];
+        setRows(nextRows);
       })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        setError(err instanceof Error ? err.message : "Failed to load insights");
+        if (err instanceof ApiError && err.status === 401) {
+          setRows([]);
+          setRequiresLogin(true);
+          setError("Your session expired while loading intelligence data.");
+          return;
+        }
+        setError(toErrorMessage(err));
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
@@ -44,19 +58,44 @@ export default function InsightsPage() {
   if (error) {
     return (
       <div className="space-y-3">
-        <ErrorState message={error} />
-        <button
-          type="button"
-          onClick={() => setReloadKey((k) => k + 1)}
-          className="rounded-lg border px-3 py-1.5 text-xs font-medium"
+        <div
+          className="rounded-2xl p-5"
           style={{
-            borderColor: "rgba(0,229,255,0.25)",
-            color: "#00E5FF",
-            background: "rgba(0,229,255,0.08)",
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
           }}
         >
-          Retry
-        </button>
+          <h2 className="text-base font-semibold text-white">Unable to load insights</h2>
+          <p className="mt-2 text-sm text-gray-400">{error}</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setReloadKey((k) => k + 1)}
+              className="rounded-lg border px-3 py-1.5 text-xs font-medium"
+              style={{
+                borderColor: "rgba(0,229,255,0.25)",
+                color: "#00E5FF",
+                background: "rgba(0,229,255,0.08)",
+              }}
+            >
+              Retry
+            </button>
+            {requiresLogin && (
+              <button
+                type="button"
+                onClick={() => router.replace("/login")}
+                className="rounded-lg border px-3 py-1.5 text-xs font-medium"
+                style={{
+                  borderColor: "rgba(201,162,39,0.25)",
+                  color: "#C9A227",
+                  background: "rgba(201,162,39,0.08)",
+                }}
+              >
+                Sign in again
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     );
   }

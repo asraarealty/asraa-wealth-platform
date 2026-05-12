@@ -67,7 +67,18 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
   }, [asset]);
 
   function handleMFSelect(mf: MutualFundResult) {
-    const nav = toFiniteNumber(mf.nav);
+    const rawFund = mf as MutualFundResult & {
+      current_nav?: unknown;
+      latest_nav?: unknown;
+      latestNav?: unknown;
+    };
+    const nav = toFiniteNumber(
+      rawFund.current_nav ||
+        rawFund.nav ||
+        rawFund.latest_nav ||
+        rawFund.latestNav ||
+        0
+    );
     setForm((f) => ({
       ...f,
       symbol: mf.code,

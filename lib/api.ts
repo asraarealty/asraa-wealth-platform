@@ -147,15 +147,19 @@ function toFiniteNumber(value: unknown): number {
 }
 
 function normalizeSearchItems(response: any): any[] {
-  if (Array.isArray(response)) return response;
-  if (!response || typeof response !== "object") return [];
-
-  const data = response.data;
-  if (Array.isArray(data)) return data;
-
-  const nested = data && typeof data === "object" ? data : response;
-  const items = (nested as any).results ?? (nested as any).items ?? [];
-  return Array.isArray(items) ? items : [];
+  const raw = response?.data ?? response;
+  const items = Array.isArray(raw)
+    ? raw
+    : Array.isArray(raw?.data)
+      ? raw.data
+      : Array.isArray(raw?.results)
+        ? raw.results
+        : Array.isArray(raw?.items)
+          ? raw.items
+          : [];
+  console.log("FULL RESPONSE", response);
+  console.log("NORMALIZED ITEMS", items);
+  return items;
 }
 
 export function searchStocks(
@@ -166,14 +170,11 @@ export function searchStocks(
     signal,
     noRedirectOn401: true,
   }).then((response) => {
-    console.log("search response", response);
-    console.log("search response data", response?.data);
-
     const items = normalizeSearchItems(response);
     return items
       .map((item): StockQuote => {
         const price = toFiniteNumber(
-          item?.current_price ?? item?.currentPrice ?? item?.price ?? item?.ltp
+          item?.current_price || item?.currentPrice || item?.price || item?.ltp || 0
         );
         return {
           symbol: String(item?.symbol ?? item?.ticker ?? item?.trading_symbol ?? "").trim().toUpperCase(),
@@ -586,9 +587,45 @@ export function createAsset(
   payload: CreateAssetPayload,
   signal?: AbortSignal
 ): Promise<Asset> {
+  const safeNumber = (value: unknown) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const quantity = safeNumber(payload.quantity);
+  const avgPrice = safeNumber(payload.avgPrice);
+  const currentPrice = safeNumber(payload.currentPrice ?? payload.avgPrice);
+
+  const normalizedPayload: CreateAssetPayload = {
+    ...payload,
+    symbol:
+      payload.type === "property"
+        ? payload.symbol?.trim() || undefined
+        : payload.symbol?.trim().toUpperCase() || undefined,
+    name: payload.name.trim(),
+    exchange: payload.exchange?.trim().toUpperCase() || undefined,
+    quantity,
+    avgPrice,
+    currentPrice,
+  };
+
+  if (payload.type !== "property" && !normalizedPayload.symbol) {
+    throw new Error("Symbol is required");
+  }
+  if (quantity <= 0) {
+    throw new Error("Quantity must be greater than 0");
+  }
+  if (avgPrice <= 0) {
+    throw new Error("Average price must be greater than 0");
+  }
+  if (currentPrice <= 0) {
+    throw new Error("Current price must be greater than 0");
+  }
+
+  console.log("ASSET PAYLOAD", normalizedPayload);
+
   return fetcher<Asset>("/assets", {
     method: "POST",
-    body: toApiPayload(payload),
+    body: toApiPayload(normalizedPayload),
     signal,
   });
 }
@@ -709,16 +746,19 @@ export function searchCommodities(
     noRedirectOn401: true,
   })
     .then((response) => {
-      console.log("search response", response);
-      console.log("search response data", response?.data);
-
       const items = normalizeSearchItems(response);
       const mapped = items
         .map((item): CommodityResult => {
           const symbol = String(item?.symbol ?? item?.code ?? "").trim().toUpperCase();
-          const spotPrice = toFiniteNumber(item?.spot_price ?? item?.spotPrice);
+          const spotPrice = toFiniteNumber(item?.spot_price || item?.spotPrice || 0);
           const currentPrice = toFiniteNumber(
-            item?.current_price ?? item?.currentPrice ?? item?.price ?? item?.ltp ?? spotPrice
+            item?.current_price ||
+              item?.currentPrice ||
+              item?.spot_price ||
+              item?.spotPrice ||
+              item?.price ||
+              item?.ltp ||
+              0
           );
           const rawType = String(item?.asset_type ?? item?.assetType ?? "spot").toLowerCase();
           const assetType: CommodityAssetType =
@@ -760,13 +800,17 @@ export function searchMutualFunds(
     `/mutual-funds/search?q=${encodeURIComponent(query)}`,
     { signal, noRedirectOn401: true }
   ).then((response) => {
-    console.log("search response", response);
-    console.log("search response data", response?.data);
-
     const items = normalizeSearchItems(response);
     const mapped = items.map((item): MutualFundResult => {
       const navCandidate =
-        toFiniteNumber(item?.current_nav ?? item?.currentNav ?? item?.nav ?? item?.latestNav);
+        toFiniteNumber(
+          item?.current_nav ||
+            item?.currentNav ||
+            item?.nav ||
+            item?.latest_nav ||
+            item?.latestNav ||
+            0
+        );
       const aumCandidate =
         toFiniteNumber(item?.aum ?? item?.assetsUnderManagement ?? item?.assets_under_management);
       const amc = item.amc ?? item.fundHouse ?? item.fund_house ?? item.amc_name ?? undefined;
