@@ -101,7 +101,7 @@ export function toggleClientStatus(
 ): Promise<unknown> {
   // Backend expects snake_case in the request body per API contract
   return fetcher(`/clients/${id}/status`, {
-    method: "PATCH",
+    method: "POST",
     body: JSON.stringify({ is_active: isActive }),
   });
 }
@@ -110,23 +110,43 @@ export function deleteClient(
   id: number,
   signal?: AbortSignal
 ): Promise<void> {
-  return fetcher<void>(`/clients/${encodeURIComponent(id)}`, {
-    method: "DELETE",
+  // Try POST /clients/{id}/delete first (backend compatibility layer).
+  // Fall back to DELETE /clients/{id} for backends that support it.
+  return fetcher<void>(`/clients/${encodeURIComponent(id)}/delete`, {
+    method: "POST",
     signal,
+  }).catch((err) => {
+    if (err instanceof ApiError && (err.status === 404 || err.status === 405)) {
+      return fetcher<void>(`/clients/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        signal,
+      });
+    }
+    throw err;
+  });
+}
+
+export function updateClient(
+  id: number,
+  data: Record<string, unknown>
+): Promise<unknown> {
+  return fetcher<unknown>(`/clients/${encodeURIComponent(id)}`, {
+    method: "POST",
+    body: data,
   });
 }
 
 export async function approveClient(id: number): Promise<void> {
   try {
-    // Preferred: dedicated approve endpoint
+    // Preferred: POST to dedicated approve endpoint
     await fetcher<void>(`/clients/${encodeURIComponent(id)}/approve`, {
-      method: "PATCH",
+      method: "POST",
     });
   } catch (err) {
     if (err instanceof ApiError && (err.status === 404 || err.status === 405)) {
-      // Fallback: generic PATCH with approval fields
+      // Fallback: POST with approval fields
       await fetcher<void>(`/clients/${encodeURIComponent(id)}`, {
-        method: "PATCH",
+        method: "POST",
         body: { approval_status: "approved", is_active: true },
       });
       return;
