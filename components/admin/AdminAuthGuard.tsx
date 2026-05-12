@@ -18,18 +18,12 @@ export default function AdminAuthGuard({ children }: Props) {
     if (authError) return;
 
     if (user === null) {
-      console.warn("[AdminAuthGuard] Redirecting to /login because user is null after auth init", {
-        path: typeof window !== "undefined" ? window.location.pathname : "unknown",
-      });
       router.replace("/login");
       return;
     }
 
     // Redirect non-admin authenticated users to the client dashboard
     if ((user.role ?? "").toLowerCase() !== "admin") {
-      console.warn("[AdminAuthGuard] Redirecting non-admin user to /dashboard", {
-        role: user.role,
-      });
       router.replace("/dashboard");
     }
   }, [authInitialized, isHydrating, authError, user, router]);

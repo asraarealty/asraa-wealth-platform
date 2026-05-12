@@ -8,6 +8,11 @@ export {
 
 import { fetcher, ApiError, API_BASE_URL, getToken, NetworkError } from "./fetcher";
 import { normalizeSearchResponse } from "./utils/normalizeSearchResponse";
+import {
+  buildCommodityPayload,
+  buildFundPayload,
+  buildStockPayload,
+} from "./payloads/assets";
 
 /* ── Auth ───────────────────────────────────────────────────────────── */
 
@@ -99,10 +104,9 @@ export function toggleClientStatus(
   id: number,
   isActive: boolean
 ): Promise<unknown> {
-  // Backend expects snake_case in the request body per API contract
   return fetcher(`/clients/${id}/status`, {
-    method: "POST",
-    body: JSON.stringify({ is_active: isActive }),
+    method: "PATCH",
+    body: { is_active: isActive },
   });
 }
 
@@ -110,19 +114,9 @@ export function deleteClient(
   id: number,
   signal?: AbortSignal
 ): Promise<void> {
-  // Try POST /clients/{id}/delete first (backend compatibility layer).
-  // Fall back to DELETE /clients/{id} for backends that support it.
-  return fetcher<void>(`/clients/${encodeURIComponent(id)}/delete`, {
-    method: "POST",
+  return fetcher<void>(`/clients/${encodeURIComponent(id)}`, {
+    method: "DELETE",
     signal,
-  }).catch((err) => {
-    if (err instanceof ApiError && (err.status === 404 || err.status === 405)) {
-      return fetcher<void>(`/clients/${encodeURIComponent(id)}`, {
-        method: "DELETE",
-        signal,
-      });
-    }
-    throw err;
   });
 }
 
@@ -131,28 +125,15 @@ export function updateClient(
   data: Record<string, unknown>
 ): Promise<unknown> {
   return fetcher<unknown>(`/clients/${encodeURIComponent(id)}`, {
-    method: "POST",
+    method: "PATCH",
     body: data,
   });
 }
 
-export async function approveClient(id: number): Promise<void> {
-  try {
-    // Preferred: POST to dedicated approve endpoint
-    await fetcher<void>(`/clients/${encodeURIComponent(id)}/approve`, {
-      method: "POST",
-    });
-  } catch (err) {
-    if (err instanceof ApiError && (err.status === 404 || err.status === 405)) {
-      // Fallback: POST with approval fields
-      await fetcher<void>(`/clients/${encodeURIComponent(id)}`, {
-        method: "POST",
-        body: { approval_status: "approved", is_active: true },
-      });
-      return;
-    }
-    throw err;
-  }
+export function approveClient(id: number): Promise<void> {
+  return fetcher<void>(`/clients/${encodeURIComponent(id)}/approve`, {
+    method: "PATCH",
+  });
 }
 
 /* ── Stocks ────────────────────────────────────────────────────────── */
@@ -205,7 +186,7 @@ export function searchStocks(
     return items
       .map((item): StockQuote => {
         const price = toFiniteNumber(
-          item?.current_price || item?.currentPrice || item?.price || item?.ltp || 0
+          item?.current_price || item?.currentPrice || item?.price || 0
         );
         return {
           symbol: String(item?.symbol ?? item?.ticker ?? item?.trading_symbol ?? "").trim().toUpperCase(),
@@ -344,13 +325,13 @@ const normalizeAssetList = (res: unknown): Asset[] => {
       priceUSD: a.priceUSD ?? a.price_usd ?? undefined,
       priceINR: a.priceINR ?? a.price_inr ?? undefined,
       // Real estate camelCase normalization (backend may return snake_case)
-      purchasePrice: a.purchasePrice ?? a.purchase_price,
-      currentValue: a.currentValue ?? a.current_value,
-      rentAmount: a.rentAmount ?? a.rent_amount,
-      rentDueDate: a.rentDueDate ?? a.rent_due_date,
-      tenantName: a.tenantName ?? a.tenant_name,
-      tenantPhone: a.tenantPhone ?? a.tenant_phone,
-      tenantEmail: a.tenantEmail ?? a.tenant_email,
+      purchasePrice: a.purchasePrice,
+      currentValue: a.currentValue,
+      rentAmount: a.rentAmount,
+      rentDueDate: a.rentDueDate,
+      tenantName: a.tenantName,
+      tenantPhone: a.tenantPhone,
+      tenantEmail: a.tenantEmail,
     };
   });
 };
@@ -622,6 +603,75 @@ function toApiPayload(payload: CreateAssetPayload | UpdateAssetPayload): Record<
   return result;
 }
 
+/**
+ * Build the canonical backend payload for supported asset creation flows.
+ *
+ * Returns `null` for asset types that still use generic camelCase→snake_case
+ * translation (currently real-estate/property), so createAsset can fall back
+ * to `toApiPayload` for those payloads.
+ */
+function buildCanonicalAssetPayload(
+  payload: CreateAssetPayload,
+  quantity: number,
+  avgPrice: number,
+  currentPrice: number
+): Record<string, unknown> | null {
+  const targetClientId = Number(payload.clientId ?? payload.userId);
+
+  if (payload.type === "stock") {
+    if (!Number.isFinite(targetClientId) || targetClientId <= 0) {
+      throw new Error("Client is required");
+    }
+    return {
+      ...buildStockPayload({
+      clientId: targetClientId,
+      symbol: payload.symbol ?? "",
+      name: payload.name,
+      exchange: payload.exchange,
+      quantity,
+      avgPrice,
+      currentPrice,
+      tags: payload.tags,
+      }),
+    };
+  }
+
+  if (payload.type === "mf") {
+    if (!Number.isFinite(targetClientId) || targetClientId <= 0) {
+      throw new Error("Client is required");
+    }
+    return {
+      ...buildFundPayload({
+      clientId: targetClientId,
+      fundCode: payload.symbol,
+      name: payload.name,
+      units: quantity,
+      avgPrice,
+      currentPrice,
+      }),
+    };
+  }
+
+  if (payload.type === "commodity") {
+    if (!Number.isFinite(targetClientId) || targetClientId <= 0) {
+      throw new Error("Client is required");
+    }
+    return {
+      ...buildCommodityPayload({
+      clientId: targetClientId,
+      symbol: payload.symbol ?? "",
+      name: payload.name,
+      exchange: payload.exchange,
+      quantity,
+      avgPrice,
+      currentPrice,
+      }),
+    };
+  }
+
+  return null;
+}
+
 export function createAsset(
   payload: CreateAssetPayload,
   signal?: AbortSignal
@@ -665,9 +715,17 @@ export function createAsset(
     throw new Error("Current price must be greater than 0");
   }
 
+  const canonicalPayload = buildCanonicalAssetPayload(
+    normalizedPayload,
+    quantity,
+    avgPrice,
+    currentPrice
+  );
+
   return fetcher<Asset>("/assets", {
     method: "POST",
-    body: toApiPayload(normalizedPayload),
+    // Property payloads still travel through generic key translation.
+    body: canonicalPayload ?? toApiPayload(normalizedPayload),
     signal,
   });
 }
@@ -792,14 +850,12 @@ export function searchCommodities(
       const mapped = items
         .map((item): CommodityResult => {
           const symbol = String(item?.symbol ?? item?.code ?? "").trim().toUpperCase();
-          const spotPrice = toFiniteNumber(item?.spot_price || item?.spotPrice || 0);
+          const spotPrice = toFiniteNumber(item?.spotPrice || 0);
           const currentPrice = toFiniteNumber(
             item?.current_price ||
               item?.currentPrice ||
-              item?.spot_price ||
               item?.spotPrice ||
               item?.price ||
-              item?.ltp ||
               0
           );
           const rawType = String(item?.asset_type ?? item?.assetType ?? "spot").toLowerCase();
@@ -846,10 +902,9 @@ export function searchMutualFunds(
     const mapped = items.map((item): MutualFundResult => {
       const navCandidate =
         toFiniteNumber(
-          item?.current_nav ||
+            item?.current_nav ||
             item?.currentNav ||
             item?.nav ||
-            item?.latest_nav ||
             item?.latestNav ||
             0
         );

@@ -14,9 +14,6 @@ function DashboardAuthGuard({ children }: { children: ReactNode }) {
     if (!authInitialized || isHydrating) return;
     if (authError) return;
     if (user === null) {
-      console.warn("[DashboardAuthGuard] Redirecting to /login because user is null after auth init", {
-        path: typeof window !== "undefined" ? window.location.pathname : "unknown",
-      });
       router.replace("/login");
     }
   }, [authInitialized, isHydrating, authError, user, router]);

@@ -76,10 +76,7 @@ function isRealClient(c: { name: string; email: string }): boolean {
  */
 export async function getClients(signal?: AbortSignal): Promise<Client[]> {
   const data = await fetchClients(signal);
-  if (!Array.isArray(data)) {
-    console.warn("[clientService] getClients: expected array, got", typeof data);
-    return [];
-  }
+  if (!Array.isArray(data)) return [];
   return data.filter(isRealClient);
 }
 
@@ -92,34 +89,28 @@ export async function getAdminClients(
   signal?: AbortSignal
 ): Promise<AdminClient[]> {
   const data = await fetchAdminClients(signal);
-  if (!Array.isArray(data)) {
-    console.warn(
-      "[clientService] getAdminClients: expected array, got",
-      typeof data
-    );
-    return [];
-  }
+  if (!Array.isArray(data)) return [];
   return data.filter(isRealClient);
 }
 
 // ── Client mutations (one source of truth) ─────────────────────────────────
 
 /**
- * Approve a client. Uses POST /clients/{id}/approve with a POST-body fallback.
+ * Approve a client via PATCH /clients/{id}/approve.
  */
 export function approveClient(id: number): Promise<void> {
   return apiApproveClient(id);
 }
 
 /**
- * Delete a client. Uses POST /clients/{id}/delete with a DELETE fallback.
+ * Delete a client via DELETE /clients/{id}.
  */
 export function deleteClient(id: number, signal?: AbortSignal): Promise<void> {
   return apiDeleteClient(id, signal);
 }
 
 /**
- * Update arbitrary client fields via POST /clients/{id}.
+ * Update arbitrary client fields via PATCH /clients/{id}.
  */
 export function updateClient(
   id: number,
