@@ -7,6 +7,7 @@ export {
 } from "./fetcher";
 
 import { fetcher, ApiError, API_BASE_URL, getToken, NetworkError } from "./fetcher";
+import { normalizeSearchResponse } from "./utils/normalizeSearchResponse";
 
 /* ── Auth ───────────────────────────────────────────────────────────── */
 
@@ -63,9 +64,15 @@ export type AdminClient = {
   phone?: string;
   createdAt?: string;
   isActive: boolean;
+  approvalStatus?: "pending" | "approved" | "rejected" | "suspended";
 };
 
 function mapAdminClient(raw: any): AdminClient {
+  // Normalise approval_status from all known backend field shapes
+  const approvalStatus: AdminClient["approvalStatus"] =
+    raw.approval_status ??
+    (raw.is_approved === true || raw.approved === true ? "approved" : undefined);
+
   return {
     id: raw.id,
     name: raw.name,
@@ -73,6 +80,7 @@ function mapAdminClient(raw: any): AdminClient {
     phone: raw.phone,
     createdAt: raw.createdAt ?? raw.created_at,
     isActive: raw.isActive ?? raw.is_active ?? false,
+    approvalStatus,
   };
 }
 
@@ -106,6 +114,25 @@ export function deleteClient(
     method: "DELETE",
     signal,
   });
+}
+
+export async function approveClient(id: number): Promise<void> {
+  try {
+    // Preferred: dedicated approve endpoint
+    await fetcher<void>(`/clients/${encodeURIComponent(id)}/approve`, {
+      method: "PATCH",
+    });
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 404 || err.status === 405)) {
+      // Fallback: generic PATCH with approval fields
+      await fetcher<void>(`/clients/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: { approval_status: "approved", is_active: true },
+      });
+      return;
+    }
+    throw err;
+  }
 }
 
 /* ── Stocks ────────────────────────────────────────────────────────── */
@@ -146,22 +173,6 @@ function toFiniteNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function normalizeSearchItems(response: any): any[] {
-  const raw = response?.data ?? response;
-  const items = Array.isArray(raw)
-    ? raw
-    : Array.isArray(raw?.data)
-      ? raw.data
-      : Array.isArray(raw?.results)
-        ? raw.results
-        : Array.isArray(raw?.items)
-          ? raw.items
-          : [];
-  console.log("FULL RESPONSE", response);
-  console.log("NORMALIZED ITEMS", items);
-  return items;
-}
-
 export function searchStocks(
   query: string,
   signal?: AbortSignal
@@ -170,7 +181,7 @@ export function searchStocks(
     signal,
     noRedirectOn401: true,
   }).then((response) => {
-    const items = normalizeSearchItems(response);
+    const items = normalizeSearchResponse(response) as any[];
     return items
       .map((item): StockQuote => {
         const price = toFiniteNumber(
@@ -354,6 +365,8 @@ export interface Asset {
   /** Common */
   tags?: string[];
   userId?: number;
+  /** Preferred over userId: maps to client_id in API payloads */
+  clientId?: number;
   createdAt?: string;
 }
 
@@ -571,12 +584,18 @@ export async function fetchAssets(
   return full.positions;
 }
 
-/** Convert a camelCase asset payload to the snake_case format expected by the backend. */
+/** Convert a camelCase asset payload to the snake_case format expected by the backend.
+ *  Special handling: clientId and userId both map to client_id. */
 function toApiPayload(payload: CreateAssetPayload | UpdateAssetPayload): Record<string, unknown> {
   const p = payload as Record<string, unknown>;
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(p)) {
     if (value === undefined) continue;
+    // Both clientId and userId resolve to client_id (canonical backend field)
+    if (key === "clientId" || key === "userId") {
+      result["client_id"] = value;
+      continue;
+    }
     const snakeKey = key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
     result[snakeKey] = value;
   }
@@ -608,7 +627,12 @@ export function createAsset(
     currentPrice,
   };
 
-  if (payload.type !== "property" && !normalizedPayload.symbol) {
+  // Mutual funds may not have a symbol/code — only require it for stocks/commodities/property
+  if (
+    payload.type !== "property" &&
+    payload.type !== "mf" &&
+    !normalizedPayload.symbol
+  ) {
     throw new Error("Symbol is required");
   }
   if (quantity <= 0) {
@@ -620,8 +644,6 @@ export function createAsset(
   if (currentPrice <= 0) {
     throw new Error("Current price must be greater than 0");
   }
-
-  console.log("ASSET PAYLOAD", normalizedPayload);
 
   return fetcher<Asset>("/assets", {
     method: "POST",
@@ -746,7 +768,7 @@ export function searchCommodities(
     noRedirectOn401: true,
   })
     .then((response) => {
-      const items = normalizeSearchItems(response);
+      const items = normalizeSearchResponse(response) as any[];
       const mapped = items
         .map((item): CommodityResult => {
           const symbol = String(item?.symbol ?? item?.code ?? "").trim().toUpperCase();
@@ -800,7 +822,7 @@ export function searchMutualFunds(
     `/mutual-funds/search?q=${encodeURIComponent(query)}`,
     { signal, noRedirectOn401: true }
   ).then((response) => {
-    const items = normalizeSearchItems(response);
+    const items = normalizeSearchResponse(response) as any[];
     const mapped = items.map((item): MutualFundResult => {
       const navCandidate =
         toFiniteNumber(

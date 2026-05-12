@@ -118,7 +118,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
   async function handleAdd(payload: CreateAssetPayload) {
     const body: CreateAssetPayload = {
       ...payload,
-      ...(isAdmin && resolvedClientId ? { userId: resolvedClientId } : {}),
+      ...(isAdmin && resolvedClientId ? { clientId: resolvedClientId } : {}),
     };
     try {
       await runMutation(() => createAsset(body));

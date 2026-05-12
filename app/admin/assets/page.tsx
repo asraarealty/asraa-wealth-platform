@@ -43,7 +43,7 @@ export default function AssetsPage() {
   async function handleAdd(payload: CreateAssetPayload) {
     if (!selectedClient) return;
     try {
-      await runMutation(() => createAsset({ ...payload, userId: selectedClient.id }));
+      await runMutation(() => createAsset({ ...payload, clientId: selectedClient.id }));
       showToast("Asset added successfully.", "success");
     } catch (err) {
       showToast(toErrorMessage(err), "error");

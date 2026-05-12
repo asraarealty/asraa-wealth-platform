@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getAdminClients } from "@/lib/services/clientService";
-import { deleteClient, toggleClientStatus, toErrorMessage } from "@/lib/api";
+import { deleteClient, toggleClientStatus, approveClient, toErrorMessage } from "@/lib/api";
 import { invalidatePortfolioCache } from "@/lib/hooks/usePortfolioState";
 import type { AdminClient } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
@@ -12,12 +12,171 @@ import Loader from "@/components/ui/Loader";
 import ErrorState from "@/components/ui/ErrorState";
 import EmptyState from "@/components/ui/EmptyState";
 
-type Filter = "all" | "active" | "inactive";
+type Filter = "all" | "active" | "inactive" | "pending";
 
 type LoadOptions = {
   background?: boolean;
   force?: boolean;
 };
+
+/** Resolve the canonical approval status from all possible backend shapes. */
+function resolveApprovalStatus(
+  client: AdminClient
+): "pending" | "approved" | "rejected" | "suspended" {
+  return client.approvalStatus ?? "pending";
+}
+
+/** Badge for approval status */
+function ApprovalBadge({ status }: { status: ReturnType<typeof resolveApprovalStatus> }) {
+  const styles: Record<string, { bg: string; color: string; border: string; dot: string }> = {
+    approved: {
+      bg: "rgba(16,185,129,0.1)",
+      color: "#10b981",
+      border: "rgba(16,185,129,0.2)",
+      dot: "#10b981",
+    },
+    pending: {
+      bg: "rgba(245,158,11,0.1)",
+      color: "#f59e0b",
+      border: "rgba(245,158,11,0.2)",
+      dot: "#f59e0b",
+    },
+    rejected: {
+      bg: "rgba(239,68,68,0.1)",
+      color: "#ef4444",
+      border: "rgba(239,68,68,0.2)",
+      dot: "#ef4444",
+    },
+    suspended: {
+      bg: "rgba(107,114,128,0.12)",
+      color: "#9ca3af",
+      border: "rgba(107,114,128,0.2)",
+      dot: "#9ca3af",
+    },
+  };
+  const s = styles[status] ?? styles.pending;
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+      style={{ background: s.bg, color: s.color, border: `1px solid ${s.border}` }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.dot }} />
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
+  );
+}
+
+/** Compact three-dot action dropdown */
+function ActionsDropdown({
+  client,
+  onPortfolio,
+  onApprove,
+  onToggle,
+  onDelete,
+  isBusy,
+  isApproving,
+  isToggling,
+  isDeleting,
+}: {
+  client: AdminClient;
+  onPortfolio: () => void;
+  onApprove: () => void;
+  onToggle: () => void;
+  onDelete: () => void;
+  isBusy: boolean;
+  isApproving: boolean;
+  isToggling: boolean;
+  isDeleting: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function close(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const approvalStatus = resolveApprovalStatus(client);
+  const canApprove = approvalStatus !== "approved";
+
+  return (
+    <div className="flex items-center gap-2">
+      {/* Primary: Portfolio */}
+      <button
+        type="button"
+        onClick={onPortfolio}
+        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg font-medium transition-all hover:opacity-90"
+        style={{
+          background: "rgba(167,139,250,0.1)",
+          color: "#a78bfa",
+          border: "1px solid rgba(167,139,250,0.2)",
+        }}
+      >
+        Portfolio
+      </button>
+
+      {/* Secondary: dropdown */}
+      <div ref={ref} className="relative">
+        <button
+          type="button"
+          disabled={isBusy}
+          onClick={() => setOpen((v) => !v)}
+          aria-label="More actions"
+          className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-gray-400 hover:text-white transition-colors disabled:opacity-40"
+          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
+        >
+          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
+          </svg>
+        </button>
+
+        {open && (
+          <div
+            className="absolute right-0 mt-1 w-36 rounded-xl py-1 z-50"
+            style={{
+              background: "rgba(12,16,24,0.98)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+            }}
+          >
+            {canApprove && (
+              <button
+                type="button"
+                onClick={() => { setOpen(false); onApprove(); }}
+                disabled={isApproving}
+                className="w-full text-left px-3 py-2 text-xs text-green-400 hover:bg-white/5 transition-colors disabled:opacity-50"
+              >
+                {isApproving ? "Approving…" : "Approve"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => { setOpen(false); onToggle(); }}
+              disabled={isToggling}
+              className="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors disabled:opacity-50"
+              style={{ color: client.isActive ? "#ef4444" : "#2ecc71" }}
+            >
+              {isToggling ? "…" : client.isActive ? "Deactivate" : "Activate"}
+            </button>
+            <hr className="my-1 border-white/10" />
+            <button
+              type="button"
+              onClick={() => { setOpen(false); onDelete(); }}
+              disabled={isDeleting}
+              className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-white/5 transition-colors disabled:opacity-50"
+            >
+              {isDeleting ? "Deleting…" : "Delete"}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function ClientsPage() {
   const router = useRouter();
@@ -29,6 +188,7 @@ export default function ClientsPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [approvingId, setApprovingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<AdminClient | null>(null);
   const acRef = useRef<AbortController | null>(null);
@@ -122,7 +282,7 @@ export default function ClientsPage() {
   }, [confirmDelete, deletingId]);
 
   async function handleToggle(client: AdminClient) {
-    if (togglingId === client.id || deletingId === client.id) return;
+    if (togglingId === client.id || approvingId === client.id || deletingId === client.id) return;
     setTogglingId(client.id);
     try {
       const nextActive = !client.isActive;
@@ -139,12 +299,43 @@ export default function ClientsPage() {
       );
       void loadClients({ background: true, force: true });
     } catch (err) {
-      const message = toErrorMessage(err);
-      showToast(message, "error");
-      console.error("[ClientsPage] Failed to toggle client status:", err);
+      showToast(toErrorMessage(err), "error");
       void loadClients({ background: true, force: true });
     } finally {
       setTogglingId(null);
+    }
+  }
+
+  async function handleApprove(client: AdminClient) {
+    if (approvingId === client.id || togglingId === client.id || deletingId === client.id) return;
+    // Capture original values before any state updates for accurate rollback
+    const originalApprovalStatus = client.approvalStatus;
+    const originalIsActive = client.isActive;
+    setApprovingId(client.id);
+    // Optimistic update
+    setClients((prev) =>
+      prev.map((item) =>
+        item.id === client.id
+          ? { ...item, approvalStatus: "approved", isActive: true }
+          : item
+      )
+    );
+    try {
+      await approveClient(client.id);
+      showToast(`${client.name} approved successfully`, "success");
+      void loadClients({ background: true, force: true });
+    } catch (err) {
+      // Revert optimistic update on failure using captured original values
+      setClients((prev) =>
+        prev.map((item) =>
+          item.id === client.id
+            ? { ...item, approvalStatus: originalApprovalStatus, isActive: originalIsActive }
+            : item
+        )
+      );
+      showToast(toErrorMessage(err), "error");
+    } finally {
+      setApprovingId(null);
     }
   }
 
@@ -160,9 +351,7 @@ export default function ClientsPage() {
       showToast(`${target.name} deleted successfully`, "success");
       void loadClients({ background: true, force: true });
     } catch (err) {
-      const message = toErrorMessage(err);
-      showToast(message, "error");
-      console.error("[ClientsPage] Failed to delete client:", err);
+      showToast(toErrorMessage(err), "error");
     } finally {
       setDeletingId(null);
     }
@@ -186,10 +375,15 @@ export default function ClientsPage() {
   }
 
   const filtered = clients.filter((c) => {
-    const matchSearch = !search ||
+    const matchSearch =
+      !search ||
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.email.toLowerCase().includes(search.toLowerCase()) ||
       c.phone?.includes(search);
+
+    if (filter === "pending") {
+      return matchSearch && resolveApprovalStatus(c) === "pending";
+    }
     const matchFilter =
       filter === "all" ||
       (filter === "active" && c.isActive) ||
@@ -197,13 +391,19 @@ export default function ClientsPage() {
     return matchSearch && matchFilter;
   });
 
+  const pendingCount = clients.filter((c) => resolveApprovalStatus(c) === "pending").length;
+
   return (
-    <div className="space-y-6 text-white">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="space-y-5 text-white">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Clients</h1>
-          <p className="text-sm text-gray-400 mt-1">
+          <h1 className="text-xl font-bold text-white">Clients</h1>
+          <p className="text-xs text-gray-400 mt-0.5">
             {clients.length} total · {clients.filter((c) => c.isActive).length} active
+            {pendingCount > 0 && (
+              <> · <span className="text-yellow-400 font-medium">{pendingCount} pending approval</span></>
+            )}
             {refreshing ? " · syncing…" : ""}
           </p>
         </div>
@@ -212,24 +412,24 @@ export default function ClientsPage() {
             onClick={() => void loadClients({ background: true, force: true })}
             disabled={refreshing}
             aria-label="Refresh client list"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl transition-opacity disabled:opacity-50"
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-opacity disabled:opacity-50"
             style={{
               background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.12)",
+              border: "1px solid rgba(255,255,255,0.1)",
               color: "#e5e7eb",
             }}
           >
-            {refreshing ? "Refreshing…" : "Refresh"}
+            {refreshing ? "Syncing…" : "Refresh"}
           </button>
           <Link
             href="/admin/clients/new"
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl text-black transition-opacity hover:opacity-90"
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg text-black transition-opacity hover:opacity-90"
             style={{
               background: "linear-gradient(90deg, #C9A227, #d4af4a)",
-              boxShadow: "0 2px 10px rgba(201,162,39,0.3)",
+              boxShadow: "0 2px 8px rgba(201,162,39,0.25)",
             }}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
             Add Client
@@ -237,10 +437,11 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative w-full sm:w-72">
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-48 max-w-64">
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500"
             fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
@@ -248,35 +449,36 @@ export default function ClientsPage() {
           <input
             type="text"
             name="client-search"
-            placeholder="Search by name, email or phone…"
+            placeholder="Search name, email, phone…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
-            style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
-            }}
+            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
           />
         </div>
 
-        <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-          {(["all", "active", "inactive"] as Filter[]).map((f) => (
+        <div
+          className="flex items-center gap-0.5 rounded-lg p-0.5"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+        >
+          {(["all", "active", "inactive", "pending"] as Filter[]).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all capitalize"
+              className="px-2.5 py-1 text-xs font-medium rounded-md transition-all capitalize"
               style={
                 filter === f
                   ? { background: "rgba(0,229,255,0.12)", color: "#00E5FF", border: "1px solid rgba(0,229,255,0.2)" }
                   : { color: "rgba(156,163,175,0.8)" }
               }
             >
-              {f}
+              {f === "pending" && pendingCount > 0 ? `${f} (${pendingCount})` : f}
             </button>
           ))}
         </div>
       </div>
 
+      {/* Table */}
       {filtered.length === 0 ? (
         <EmptyState
           title={search || filter !== "all" ? "No matching clients" : "No clients yet"}
@@ -288,11 +490,8 @@ export default function ClientsPage() {
           action={
             search || filter !== "all" ? (
               <button
-                onClick={() => {
-                  setSearch("");
-                  setFilter("all");
-                }}
-                className="inline-flex items-center rounded-xl px-3 py-1.5 text-xs font-semibold text-black"
+                onClick={() => { setSearch(""); setFilter("all"); }}
+                className="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold text-black"
                 style={{ background: "linear-gradient(90deg, #C9A227, #d4af4a)" }}
               >
                 Clear filters
@@ -300,7 +499,7 @@ export default function ClientsPage() {
             ) : (
               <Link
                 href="/admin/clients/new"
-                className="inline-flex items-center rounded-xl px-3 py-1.5 text-xs font-semibold text-black"
+                className="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold text-black"
                 style={{ background: "linear-gradient(90deg, #C9A227, #d4af4a)" }}
               >
                 Add client
@@ -310,134 +509,93 @@ export default function ClientsPage() {
         />
       ) : (
         <div
-          className="glass-card rounded-2xl overflow-hidden"
+          className="glass-card rounded-xl overflow-hidden"
           style={{ border: "1px solid rgba(255,255,255,0.08)" }}
         >
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                  <th className="px-4 py-3 text-left text-xs uppercase tracking-widest font-semibold" style={{ color: "rgba(0,229,255,0.6)" }}>Name</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase tracking-widest font-semibold hidden md:table-cell" style={{ color: "rgba(0,229,255,0.6)" }}>Email</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase tracking-widest font-semibold hidden sm:table-cell" style={{ color: "rgba(0,229,255,0.6)" }}>Phone</th>
-                  <th className="px-4 py-3 text-right text-xs uppercase tracking-widest font-semibold hidden lg:table-cell" style={{ color: "rgba(0,229,255,0.6)" }}>Portfolio Value</th>
-                  <th className="px-4 py-3 text-center text-xs uppercase tracking-widest font-semibold" style={{ color: "rgba(0,229,255,0.6)" }}>Status</th>
-                  <th className="px-4 py-3 text-right text-xs uppercase tracking-widest font-semibold" style={{ color: "rgba(0,229,255,0.6)" }}>Actions</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "rgba(0,229,255,0.6)" }}>Client</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: "rgba(0,229,255,0.6)" }}>Email</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider hidden sm:table-cell" style={{ color: "rgba(0,229,255,0.6)" }}>Phone</th>
+                  <th className="px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wider" style={{ color: "rgba(0,229,255,0.6)" }}>Approval</th>
+                  <th className="px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wider" style={{ color: "rgba(0,229,255,0.6)" }}>Status</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wider" style={{ color: "rgba(0,229,255,0.6)" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((client, i) => {
                   const isToggling = togglingId === client.id;
+                  const isApproving = approvingId === client.id;
                   const isDeleting = deletingId === client.id;
-                  const isBusy = isToggling || isDeleting;
+                  const isBusy = isToggling || isApproving || isDeleting;
+                  const approvalStatus = resolveApprovalStatus(client);
 
                   return (
                     <tr
                       key={client.id}
-                      className="transition-colors hover:bg-white/[0.03] cursor-pointer"
-                      style={{
-                        borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.04)" : undefined,
-                      }}
+                      className="transition-colors hover:bg-white/[0.025] cursor-pointer"
+                      style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.04)" : undefined }}
                       onClick={() => router.push(`/admin/portfolio?clientId=${client.id}`)}
                     >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
+                      {/* Name */}
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
                           <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                             style={{ background: "rgba(201,162,39,0.15)", color: "#C9A227", border: "1px solid rgba(201,162,39,0.2)" }}
                           >
                             {client.name.charAt(0).toUpperCase()}
                           </div>
-                          <span className="font-medium text-white">{client.name}</span>
+                          <span className="font-medium text-white text-sm truncate max-w-[120px]" title={client.name}>{client.name}</span>
                         </div>
                       </td>
 
-                      <td className="px-4 py-3 text-gray-400 hidden md:table-cell">{client.email}</td>
-                      <td className="px-4 py-3 text-gray-400 hidden sm:table-cell">{client.phone ?? "—"}</td>
-                      <td className="px-4 py-3 text-right text-gray-400 hidden lg:table-cell">₹0</td>
+                      {/* Email */}
+                      <td className="px-4 py-2.5 text-gray-400 text-xs hidden md:table-cell truncate max-w-[180px]">
+                        {client.email}
+                      </td>
 
-                      <td className="px-4 py-3 text-center">
+                      {/* Phone */}
+                      <td className="px-4 py-2.5 text-gray-400 text-xs hidden sm:table-cell">
+                        {client.phone ?? "—"}
+                      </td>
+
+                      {/* Approval badge */}
+                      <td className="px-4 py-2.5 text-center">
+                        <ApprovalBadge status={approvalStatus} />
+                      </td>
+
+                      {/* Active badge */}
+                      <td className="px-4 py-2.5 text-center">
                         <span
-                          className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
                           style={
                             client.isActive
-                              ? { background: "rgba(46,204,113,0.12)", color: "#2ecc71", border: "1px solid rgba(46,204,113,0.2)" }
-                              : { background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }
+                              ? { background: "rgba(46,204,113,0.1)", color: "#2ecc71", border: "1px solid rgba(46,204,113,0.2)" }
+                              : { background: "rgba(239,68,68,0.08)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.18)" }
                           }
                         >
-                          <span
-                            className="w-1.5 h-1.5 rounded-full"
-                            style={{ background: client.isActive ? "#2ecc71" : "#ef4444" }}
-                          />
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: client.isActive ? "#2ecc71" : "#ef4444" }} />
                           {client.isActive ? "Active" : "Inactive"}
                         </span>
                       </td>
 
-                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex flex-wrap items-center justify-end gap-2">
-                          {client.phone && (
-                            <a
-                              href={`https://wa.me/91${client.phone.replace(/\D/g, "")}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="WhatsApp"
-                              className="inline-flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:scale-110"
-                              style={{ background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" }}
-                            >
-                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" />
-                              </svg>
-                            </a>
-                          )}
-                          {client.phone && (
-                            <a
-                              href={`tel:${client.phone}`}
-                              title="Call"
-                              className="inline-flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:scale-110"
-                              style={{ background: "rgba(59,130,246,0.1)", color: "#3b82f6", border: "1px solid rgba(59,130,246,0.2)" }}
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 0 1-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
-                              </svg>
-                            </a>
-                          )}
-                          <a
-                            href={`mailto:${client.email}`}
-                            title="Email"
-                            className="inline-flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:scale-110"
-                            style={{ background: "rgba(201,162,39,0.1)", color: "#c9a227", border: "1px solid rgba(201,162,39,0.2)" }}
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
-                            </svg>
-                          </a>
-                          <Link
-                            href={`/admin/portfolio?clientId=${client.id}`}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg font-medium transition-all hover:opacity-90"
-                            style={{ background: "rgba(167,139,250,0.1)", color: "#a78bfa", border: "1px solid rgba(167,139,250,0.2)" }}
-                          >
-                            Portfolio
-                          </Link>
-                          <button
-                            onClick={() => void handleToggle(client)}
-                            disabled={isBusy}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg font-medium transition-all hover:opacity-90 disabled:opacity-50"
-                            style={
-                              client.isActive
-                                ? { background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }
-                                : { background: "rgba(46,204,113,0.1)", color: "#2ecc71", border: "1px solid rgba(46,204,113,0.2)" }
-                            }
-                          >
-                            {isToggling ? "…" : client.isActive ? "Deactivate" : "Activate"}
-                          </button>
-                          <button
-                            onClick={() => setConfirmDelete(client)}
-                            disabled={isBusy}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg font-medium transition-all hover:opacity-90 disabled:opacity-50"
-                            style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}
-                          >
-                            {isDeleting ? "…" : "Delete"}
-                          </button>
+                      {/* Actions */}
+                      <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-end">
+                          <ActionsDropdown
+                            client={client}
+                            onPortfolio={() => router.push(`/admin/portfolio?clientId=${client.id}`)}
+                            onApprove={() => void handleApprove(client)}
+                            onToggle={() => void handleToggle(client)}
+                            onDelete={() => setConfirmDelete(client)}
+                            isBusy={isBusy}
+                            isApproving={isApproving}
+                            isToggling={isToggling}
+                            isDeleting={isDeleting}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -449,30 +607,28 @@ export default function ClientsPage() {
         </div>
       )}
 
+      {/* Delete confirmation modal */}
       {confirmDelete && (
         <div
           className="fixed inset-0 z-[120] flex items-center justify-center p-4"
           style={{ background: "rgba(5,7,11,0.75)" }}
-          onClick={() => {
-            if (deletingId) return;
-            setConfirmDelete(null);
-          }}
+          onClick={() => { if (!deletingId) setConfirmDelete(null); }}
         >
           <div
             ref={modalPanelRef}
             className="w-full max-w-md rounded-2xl p-5"
-            style={{
-              background: "rgba(12,16,24,0.98)",
-              border: "1px solid rgba(255,255,255,0.1)",
-            }}
+            style={{ background: "rgba(12,16,24,0.98)", border: "1px solid rgba(255,255,255,0.1)" }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-client-dialog-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 id="delete-client-dialog-title" className="text-lg font-semibold text-white">Delete client?</h3>
+            <h3 id="delete-client-dialog-title" className="text-base font-semibold text-white">
+              Delete client?
+            </h3>
             <p className="mt-2 text-sm text-gray-400">
-              This action cannot be undone. <span className="text-white font-medium">{confirmDelete.name}</span> will be removed.
+              This action cannot be undone.{" "}
+              <span className="text-white font-medium">{confirmDelete.name}</span> will be removed.
             </p>
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
@@ -488,7 +644,7 @@ export default function ClientsPage() {
                 onClick={() => void handleDeleteConfirmed()}
                 disabled={deletingId === confirmDelete.id}
                 className="rounded-xl px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                style={{ background: "rgba(239,68,68,0.95)" }}
+                style={{ background: "rgba(239,68,68,0.9)" }}
               >
                 {deletingId === confirmDelete.id ? "Deleting…" : "Delete client"}
               </button>
