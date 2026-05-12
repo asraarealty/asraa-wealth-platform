@@ -71,8 +71,7 @@ function mapAdminClient(raw: any): AdminClient {
   // Normalise approval_status from all known backend field shapes
   const approvalStatus: AdminClient["approvalStatus"] =
     raw.approval_status ??
-    (raw.is_approved === true || raw.approved === true ? "approved" : undefined) ??
-    undefined;
+    (raw.is_approved === true || raw.approved === true ? "approved" : undefined);
 
   return {
     id: raw.id,

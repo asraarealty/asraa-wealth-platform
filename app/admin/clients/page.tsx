@@ -308,6 +308,9 @@ export default function ClientsPage() {
 
   async function handleApprove(client: AdminClient) {
     if (approvingId === client.id || togglingId === client.id || deletingId === client.id) return;
+    // Capture original values before any state updates for accurate rollback
+    const originalApprovalStatus = client.approvalStatus;
+    const originalIsActive = client.isActive;
     setApprovingId(client.id);
     // Optimistic update
     setClients((prev) =>
@@ -322,11 +325,11 @@ export default function ClientsPage() {
       showToast(`${client.name} approved successfully`, "success");
       void loadClients({ background: true, force: true });
     } catch (err) {
-      // Revert optimistic update on failure
+      // Revert optimistic update on failure using captured original values
       setClients((prev) =>
         prev.map((item) =>
           item.id === client.id
-            ? { ...item, approvalStatus: client.approvalStatus, isActive: client.isActive }
+            ? { ...item, approvalStatus: originalApprovalStatus, isActive: originalIsActive }
             : item
         )
       );
@@ -545,7 +548,7 @@ export default function ClientsPage() {
                           >
                             {client.name.charAt(0).toUpperCase()}
                           </div>
-                          <span className="font-medium text-white text-sm truncate max-w-[120px]">{client.name}</span>
+                          <span className="font-medium text-white text-sm truncate max-w-[120px]" title={client.name}>{client.name}</span>
                         </div>
                       </td>
 

@@ -7,12 +7,12 @@
  *   - { results: [...] }
  *   - nested { data: { data: [...] } }
  */
-export function normalizeSearchResponse(response: unknown): unknown[] {
+export function normalizeSearchResponse<T = unknown>(response: unknown): T[] {
   const raw = (response as any)?.data ?? response;
 
-  if (Array.isArray(raw)) return raw;
-  if (Array.isArray((raw as any)?.data)) return (raw as any).data;
-  if (Array.isArray((raw as any)?.results)) return (raw as any).results;
+  if (Array.isArray(raw)) return raw as T[];
+  if (Array.isArray((raw as any)?.data)) return (raw as any).data as T[];
+  if (Array.isArray((raw as any)?.results)) return (raw as any).results as T[];
 
   return [];
 }
