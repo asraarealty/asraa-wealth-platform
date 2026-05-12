@@ -14,26 +14,26 @@ interface RealEstateModalProps {
 interface REForm {
   name: string;
   location: string;
-  purchase_price: string;
-  current_value: string;
-  rent_amount: string;
-  rent_due_date: string;
-  tenant_name: string;
-  tenant_phone: string;
-  tenant_email: string;
+  purchasePrice: string;
+  currentValue: string;
+  rentAmount: string;
+  rentDueDate: string;
+  tenantName: string;
+  tenantPhone: string;
+  tenantEmail: string;
   tags: string[];
 }
 
 const EMPTY: REForm = {
   name: "",
   location: "",
-  purchase_price: "",
-  current_value: "",
-  rent_amount: "",
-  rent_due_date: "",
-  tenant_name: "",
-  tenant_phone: "",
-  tenant_email: "",
+  purchasePrice: "",
+  currentValue: "",
+  rentAmount: "",
+  rentDueDate: "",
+  tenantName: "",
+  tenantPhone: "",
+  tenantEmail: "",
   tags: [],
 };
 
@@ -52,16 +52,16 @@ export default function RealEstateModal({
       setForm({
         name: asset.name ?? "",
         location: asset.location ?? "",
-        purchase_price:
+        purchasePrice:
           asset.purchasePrice != null ? String(asset.purchasePrice) : "",
-        current_value:
+        currentValue:
           asset.currentValue != null ? String(asset.currentValue) : "",
-        rent_amount:
+        rentAmount:
           asset.rentAmount != null ? String(asset.rentAmount) : "",
-        rent_due_date: asset.rentDueDate ?? "",
-        tenant_name: asset.tenantName ?? "",
-        tenant_phone: asset.tenantPhone ?? "",
-        tenant_email: asset.tenantEmail ?? "",
+        rentDueDate: asset.rentDueDate ?? "",
+        tenantName: asset.tenantName ?? "",
+        tenantPhone: asset.tenantPhone ?? "",
+        tenantEmail: asset.tenantEmail ?? "",
         tags: asset.tags ?? [],
       });
     } else {
@@ -77,22 +77,22 @@ export default function RealEstateModal({
   async function handleSave() {
     if (saving) return;
     const name = form.name.trim();
-    const purchase_price = Number(form.purchase_price);
-    const current_value = Number(form.current_value);
-    const rent_amount = form.rent_amount ? Number(form.rent_amount) : undefined;
+    const purchasePrice = Number(form.purchasePrice);
+    const currentValue = Number(form.currentValue);
+    const rentAmount = form.rentAmount ? Number(form.rentAmount) : undefined;
 
     if (!name) { setError("Property name is required"); return; }
-    if (!Number.isFinite(purchase_price) || purchase_price <= 0) {
+    if (!Number.isFinite(purchasePrice) || purchasePrice <= 0) {
       setError("Purchase price must be a positive number");
       return;
     }
-    if (!Number.isFinite(current_value) || current_value <= 0) {
+    if (!Number.isFinite(currentValue) || currentValue <= 0) {
       setError("Current value must be a positive number");
       return;
     }
     if (
-      rent_amount !== undefined &&
-      (!Number.isFinite(rent_amount) || rent_amount < 0)
+      rentAmount !== undefined &&
+      (!Number.isFinite(rentAmount) || rentAmount < 0)
     ) {
       setError("Rent amount must be a non-negative number");
       return;
@@ -105,15 +105,15 @@ export default function RealEstateModal({
         type: "property",
         name,
         location: form.location.trim() || undefined,
-        purchasePrice: purchase_price,
-        currentValue: current_value,
-        avgPrice: purchase_price,
+        purchasePrice,
+        currentValue,
+        avgPrice: purchasePrice,
         quantity: 1,
-        rentAmount: rent_amount,
-        rentDueDate: form.rent_due_date || undefined,
-        tenantName: form.tenant_name.trim() || undefined,
-        tenantPhone: form.tenant_phone.trim() || undefined,
-        tenantEmail: form.tenant_email.trim() || undefined,
+        rentAmount,
+        rentDueDate: form.rentDueDate || undefined,
+        tenantName: form.tenantName.trim() || undefined,
+        tenantPhone: form.tenantPhone.trim() || undefined,
+        tenantEmail: form.tenantEmail.trim() || undefined,
         tags: form.tags,
       });
     } catch (err) {
@@ -159,8 +159,8 @@ export default function RealEstateModal({
               min="0"
               step="1000"
               placeholder="5000000"
-              value={form.purchase_price}
-              onChange={set("purchase_price")}
+              value={form.purchasePrice}
+              onChange={set("purchasePrice")}
             />
           </FormField>
           <FormField label="Current Value (₹)" required>
@@ -170,8 +170,8 @@ export default function RealEstateModal({
               min="0"
               step="1000"
               placeholder="6500000"
-              value={form.current_value}
-              onChange={set("current_value")}
+              value={form.currentValue}
+              onChange={set("currentValue")}
             />
           </FormField>
         </div>
@@ -185,16 +185,16 @@ export default function RealEstateModal({
               min="0"
               step="100"
               placeholder="25000"
-              value={form.rent_amount}
-              onChange={set("rent_amount")}
+              value={form.rentAmount}
+              onChange={set("rentAmount")}
             />
           </FormField>
           <FormField label="Rent Due Date">
             <FieldInput
               name="rent-due-date"
               type="date"
-              value={form.rent_due_date}
-              onChange={set("rent_due_date")}
+              value={form.rentDueDate}
+              onChange={set("rentDueDate")}
             />
           </FormField>
         </div>
@@ -213,8 +213,8 @@ export default function RealEstateModal({
             <FieldInput
               name="tenant-name"
               placeholder="John Doe"
-              value={form.tenant_name}
-              onChange={set("tenant_name")}
+              value={form.tenantName}
+              onChange={set("tenantName")}
             />
           </FormField>
           <FormField label="Tenant Phone">
@@ -222,8 +222,8 @@ export default function RealEstateModal({
               name="tenant-phone"
               type="tel"
               placeholder="+91 98765 43210"
-              value={form.tenant_phone}
-              onChange={set("tenant_phone")}
+              value={form.tenantPhone}
+              onChange={set("tenantPhone")}
             />
           </FormField>
         </div>
@@ -233,8 +233,8 @@ export default function RealEstateModal({
             name="tenant-email"
             type="email"
             placeholder="tenant@example.com"
-            value={form.tenant_email}
-            onChange={set("tenant_email")}
+            value={form.tenantEmail}
+            onChange={set("tenantEmail")}
           />
         </FormField>
 

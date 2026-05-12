@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Loader from "@/components/ui/Loader";
 import ClientIntelligenceTable from "@/components/admin/dashboard/ClientIntelligenceTable";
@@ -17,13 +17,24 @@ export default function InsightsPage() {
   const router = useRouter();
   const [rows, setRows] = useState<ClientIntelligence[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [requiresLogin, setRequiresLogin] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const hasRowsRef = useRef(false);
+
+  useEffect(() => {
+    hasRowsRef.current = rows.length > 0;
+  }, [rows.length]);
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
+    const hasExistingRows = hasRowsRef.current;
+    if (hasExistingRows) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
     setRequiresLogin(false);
 
@@ -43,31 +54,79 @@ export default function InsightsPage() {
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         if (err instanceof ApiError && err.status === 401) {
-          setRows([]);
+          if (!hasRowsRef.current) {
+            setRows([]);
+          }
           setRequiresLogin(true);
           setError("Your session expired while loading intelligence data.");
           return;
         }
         setError(toErrorMessage(err));
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
     return () => controller.abort();
   }, [reloadKey]);
 
-  if (loading) return <Loader />;
-  if (error) {
-    return (
-      <div className="space-y-3">
+  useEffect(() => {
+    const refresh = () => setReloadKey((k) => k + 1);
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") refresh();
+    }, 30_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+
+  if (loading && rows.length === 0) return <Loader />;
+
+  const alerts = deriveAlerts(rows);
+  const avgReturn = calcAverageReturn(rows);
+
+  const lowRisk = rows.filter((r) => r.riskLevel === "Low").length;
+  const medRisk = rows.filter((r) => r.riskLevel === "Medium").length;
+  const highRisk = rows.filter((r) => r.riskLevel === "High").length;
+
+  const avgEquity = rows.length > 0
+    ? parseFloat((rows.reduce((s, r) => s + r.equityPct, 0) / rows.length).toFixed(1))
+    : 0;
+  const avgMF = rows.length > 0
+    ? parseFloat((rows.reduce((s, r) => s + r.mfPct, 0) / rows.length).toFixed(1))
+    : 0;
+  const avgRE = rows.length > 0
+    ? parseFloat((rows.reduce((s, r) => s + r.realEstatePct, 0) / rows.length).toFixed(1))
+    : 0;
+
+  return (
+    <div className="space-y-6 text-white">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-white">Insights</h1>
+        <p className="text-sm text-gray-400 mt-1">
+          AI-powered portfolio intelligence across all clients.
+        </p>
+        {refreshing && (
+          <p className="text-xs text-cyan-300 mt-1">Refreshing live intelligence…</p>
+        )}
+      </div>
+
+      {error && (
         <div
-          className="rounded-2xl p-5"
+          className="rounded-2xl p-4"
           style={{
             background: "rgba(255,255,255,0.04)",
             border: "1px solid rgba(255,255,255,0.08)",
           }}
         >
-          <h2 className="text-base font-semibold text-white">Unable to load insights</h2>
-          <p className="mt-2 text-sm text-gray-400">{error}</p>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <p className="text-sm text-gray-300">{error}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setReloadKey((k) => k + 1)}
@@ -96,36 +155,7 @@ export default function InsightsPage() {
             )}
           </div>
         </div>
-      </div>
-    );
-  }
-
-  const alerts = deriveAlerts(rows);
-  const avgReturn = calcAverageReturn(rows);
-
-  const lowRisk = rows.filter((r) => r.riskLevel === "Low").length;
-  const medRisk = rows.filter((r) => r.riskLevel === "Medium").length;
-  const highRisk = rows.filter((r) => r.riskLevel === "High").length;
-
-  const avgEquity = rows.length > 0
-    ? parseFloat((rows.reduce((s, r) => s + r.equityPct, 0) / rows.length).toFixed(1))
-    : 0;
-  const avgMF = rows.length > 0
-    ? parseFloat((rows.reduce((s, r) => s + r.mfPct, 0) / rows.length).toFixed(1))
-    : 0;
-  const avgRE = rows.length > 0
-    ? parseFloat((rows.reduce((s, r) => s + r.realEstatePct, 0) / rows.length).toFixed(1))
-    : 0;
-
-  return (
-    <div className="space-y-6 text-white">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">Insights</h1>
-        <p className="text-sm text-gray-400 mt-1">
-          AI-powered portfolio intelligence across all clients.
-        </p>
-      </div>
+      )}
 
       {/* Alerts */}
       <AlertsPanel alerts={alerts} />

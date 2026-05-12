@@ -79,14 +79,12 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
       company_name?: string;
       companyName?: string;
       current_price?: unknown;
-      ltp?: unknown;
     };
     const stockSymbol = rawStock.symbol || "";
     const stockPrice = toFiniteNumber(
       rawStock.currentPrice ||
         rawStock.current_price ||
         rawStock.price ||
-        rawStock.ltp ||
         0
     );
     const inferredExchange =

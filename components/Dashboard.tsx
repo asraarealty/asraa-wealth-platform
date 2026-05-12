@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import {
   createAsset,
@@ -63,6 +63,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("stocks");
+  const insightsAbortRef = useRef<AbortController | null>(null);
 
   const resolvedClientId = useMemo<number | undefined>(() => {
     if (!isAdmin) return undefined;
@@ -77,21 +78,29 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
 
   const { portfolio, assets, loading, error, refresh, runMutation } = portfolioState;
 
-  useEffect(() => {
-    if (!user) return;
-    if (isAdmin && resolvedClientId === undefined) {
+  const loadInsights = useCallback(async () => {
+    if (!user || (isAdmin && resolvedClientId === undefined)) {
       setInsights(null);
       return;
     }
+
+    insightsAbortRef.current?.abort();
     const ac = new AbortController();
-    fetchInsights(resolvedClientId, ac.signal)
-      .then((data) => setInsights(data))
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setInsights(null);
-      });
-    return () => ac.abort();
+    insightsAbortRef.current = ac;
+
+    try {
+      const data = await fetchInsights(resolvedClientId, ac.signal);
+      setInsights(data);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setInsights(null);
+    }
   }, [user, isAdmin, resolvedClientId]);
+
+  useEffect(() => {
+    void loadInsights();
+    return () => insightsAbortRef.current?.abort();
+  }, [loadInsights]);
 
   // Compute only totalInvested from positions as requested
   const totalInvested = useMemo(
@@ -118,10 +127,15 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
   async function handleAdd(payload: CreateAssetPayload) {
     const body: CreateAssetPayload = {
       ...payload,
-      ...(isAdmin && resolvedClientId ? { clientId: resolvedClientId } : {}),
+      ...(
+        isAdmin
+          ? (resolvedClientId ? { clientId: resolvedClientId } : {})
+          : (user?.id ? { clientId: user.id } : {})
+      ),
     };
     try {
       await runMutation(() => createAsset(body));
+      void loadInsights();
       showToast("Asset added successfully.", "success");
     } catch (err) {
       const message = toErrorMessage(err);
@@ -133,6 +147,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
   async function handleEdit(id: number, payload: UpdateAssetPayload) {
     try {
       await runMutation(() => updateAsset(id, payload));
+      void loadInsights();
       showToast("Asset updated successfully.", "success");
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
@@ -149,6 +164,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
   async function handleDelete(id: number) {
     try {
       await runMutation(() => deleteAsset(id));
+      void loadInsights();
       showToast("Asset deleted successfully.", "success");
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
