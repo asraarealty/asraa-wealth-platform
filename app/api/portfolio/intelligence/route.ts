@@ -24,7 +24,9 @@ import { securityLog } from "@/lib/security/logging";
 
 const BACKEND =
   process.env.BACKEND_URL ??
-  "http://localhost:8000";
+  (process.env.NODE_ENV === "production"
+    ? "https://api.asraarealty.in"
+    : "http://localhost:8000");
 
 // ── Types (local, avoids circular imports) ───────────────────────────────────
 

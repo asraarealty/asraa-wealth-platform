@@ -7,7 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { resolveAuthLandingTarget } from "@/lib/authRouting";
 
 export default function PublicAuthGuard({ children }: { children: ReactNode }) {
-  const { user, initialized, loading } = useAuth();
+  const { user, authInitialized, isHydrating } = useAuth();
   const router = useRouter();
 
   const redirectPath = useMemo(
@@ -16,11 +16,11 @@ export default function PublicAuthGuard({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    if (!initialized || loading || !redirectPath) return;
+    if (!authInitialized || isHydrating || !redirectPath) return;
     router.replace(redirectPath);
-  }, [initialized, loading, redirectPath, router]);
+  }, [authInitialized, isHydrating, redirectPath, router]);
 
-  if (!initialized || loading) {
+  if (!authInitialized || isHydrating) {
     return <Loader />;
   }
 

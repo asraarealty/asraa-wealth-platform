@@ -7,11 +7,11 @@ import ApprovalGuard from "@/components/ApprovalGuard";
 import Loader from "@/components/ui/Loader";
 
 function DashboardAuthGuard({ children }: { children: ReactNode }) {
-  const { user, initialized, loading, authError, retryAuth } = useAuth();
+  const { user, authInitialized, isHydrating, authError, retryAuth } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!initialized || loading) return;
+    if (!authInitialized || isHydrating) return;
     if (authError) return;
     if (user === null) {
       console.warn("[DashboardAuthGuard] Redirecting to /login because user is null after auth init", {
@@ -19,9 +19,9 @@ function DashboardAuthGuard({ children }: { children: ReactNode }) {
       });
       router.replace("/login");
     }
-  }, [initialized, loading, authError, user, router]);
+  }, [authInitialized, isHydrating, authError, user, router]);
 
-  if (!initialized || loading) return <Loader />;
+  if (!authInitialized || isHydrating) return <Loader />;
   if (authError) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center p-4">
