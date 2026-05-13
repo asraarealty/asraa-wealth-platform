@@ -1,3 +1,4 @@
+// Accept signed decimal input; positivity/negativity rules are validated by callers.
 const DECIMAL_PATTERN = /^[+-]?(?:\d+\.?\d*|\.\d+)$/;
 
 export function parseDecimalInput(value: unknown): number | null {

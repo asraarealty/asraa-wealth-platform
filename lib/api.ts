@@ -300,6 +300,7 @@ const KNOWN_ASSET_TYPES = new Set<string>(["stock", "mf", "property", "commodity
 
 const normalizeType = (type: string | undefined): AssetType => {
   if (type === "real_estate") return "property";
+  // Backend may persist mutual funds as "mutual_fund"; UI tabs use "mf".
   if (type === "mutual_fund") return "mf";
   if (type && KNOWN_ASSET_TYPES.has(type)) return type as AssetType;
   return "stock";
