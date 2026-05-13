@@ -5,10 +5,10 @@ const REAL_ESTATE_DATA_UPDATED_STORAGE_KEY = "asraa:real-estate-data-updated-at"
 
 export function emitRealEstateDataUpdated() {
   if (typeof window === "undefined") return;
-  const at = String(Date.now());
+  const updateTimestamp = String(Date.now());
   window.dispatchEvent(new Event(REAL_ESTATE_DATA_UPDATED_EVENT));
   try {
-    window.localStorage.setItem(REAL_ESTATE_DATA_UPDATED_STORAGE_KEY, at);
+    window.localStorage.setItem(REAL_ESTATE_DATA_UPDATED_STORAGE_KEY, updateTimestamp);
   } catch {
     // localStorage may be unavailable; the window event still notifies same-tab listeners.
   }

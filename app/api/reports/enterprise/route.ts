@@ -11,11 +11,7 @@ import type {
   SuggestedAction,
 } from "@/lib/types/enterpriseReports";
 import type { RealEstateCategory } from "@/lib/types/realEstate";
-import {
-  categoryMatchesPropertyType,
-  normalizeRealEstateCategory,
-} from "@/lib/utils/realEstateCategory";
-import type { PropertyType } from "@/lib/types/realEstate";
+import { normalizeRealEstateCategory } from "@/lib/utils/realEstateCategory";
 
 const BACKEND =
   process.env.BACKEND_URL ??
@@ -64,8 +60,6 @@ type BackendLease = {
 
 type BackendProperty = {
   name?: string;
-  type?: string;
-  property_type?: string;
   occupancyStatus?: string;
   occupancy_status?: string;
   leasedUnits?: number;
@@ -160,16 +154,6 @@ function normalizeObjectResponse<T>(raw: unknown): T | null {
     return obj.data as T;
   }
   return raw as T;
-}
-
-function normalizeBackendPropertyType(property: BackendProperty): PropertyType {
-  const raw = String(property.type ?? property.property_type ?? "").toLowerCase();
-  if (raw === "retail") return "retail";
-  if (raw === "warehouse") return "warehouse";
-  if (raw === "industrial") return "industrial";
-  if (raw === "mixed_use") return "mixed_use";
-  if (raw === "office") return "office";
-  return "other";
 }
 
 function riskFromEquityPct(equityPct: number): RiskLevel {
@@ -524,11 +508,6 @@ export async function GET(request: NextRequest) {
       maintenance = normalizeListResponse<BackendMaintenance>(maintenanceRaw);
       rentSummary = normalizeObjectResponse<BackendRentSummary>(rentSummaryRaw);
       analytics = normalizeObjectResponse<BackendAnalytics>(analyticsRaw);
-      if (category !== "all") {
-        properties = properties.filter((property) =>
-          categoryMatchesPropertyType(category, normalizeBackendPropertyType(property))
-        );
-      }
     } catch (error) {
       realEstateAvailable = false;
       securityLog("warn", "enterprise_reports.real_estate_fetch_failed", {

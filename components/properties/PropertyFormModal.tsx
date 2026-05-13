@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Modal, { FieldInput, FormError, FormField, ModalFooter } from "@/components/dashboard/modals/Modal";
 import type { OccupancyStatus, PropertyLifecycleStage, PropertySummary, PropertyType } from "@/lib/types/realEstate";
@@ -14,19 +15,6 @@ export type PropertyFormValues = {
   currentValue: string;
 };
 
-type WorkflowValues = PropertyFormValues & {
-  tenantName: string;
-  tenantEmail: string;
-  tenantPhone: string;
-  leaseStartDate: string;
-  leaseEndDate: string;
-  lockInMonths: string;
-  monthlyRent: string;
-  securityDeposit: string;
-  documentsNote: string;
-  photosNote: string;
-};
-
 const STEPS = [
   "Property details",
   "Tenant assignment",
@@ -35,7 +23,7 @@ const STEPS = [
   "Documents/photos",
 ] as const;
 
-function toInitial(property?: PropertySummary): WorkflowValues {
+function toInitial(property?: PropertySummary): PropertyFormValues {
   if (!property) {
     return {
       name: "",
@@ -45,16 +33,6 @@ function toInitial(property?: PropertySummary): WorkflowValues {
       lifecycleStage: "operational",
       purchaseValue: "",
       currentValue: "",
-      tenantName: "",
-      tenantEmail: "",
-      tenantPhone: "",
-      leaseStartDate: "",
-      leaseEndDate: "",
-      lockInMonths: "",
-      monthlyRent: "",
-      securityDeposit: "",
-      documentsNote: "",
-      photosNote: "",
     };
   }
 
@@ -66,16 +44,6 @@ function toInitial(property?: PropertySummary): WorkflowValues {
     lifecycleStage: property.lifecycleStage,
     purchaseValue: String(property.purchaseValue),
     currentValue: String(property.currentValue),
-    tenantName: "",
-    tenantEmail: "",
-    tenantPhone: "",
-    leaseStartDate: "",
-    leaseEndDate: "",
-    lockInMonths: "",
-    monthlyRent: "",
-    securityDeposit: "",
-    documentsNote: "",
-    photosNote: "",
   };
 }
 
@@ -92,7 +60,7 @@ export default function PropertyFormModal({
   onClose: () => void;
   onSubmit: (values: PropertyFormValues) => Promise<void>;
 }) {
-  const [values, setValues] = useState<WorkflowValues>(() => toInitial(property));
+  const [values, setValues] = useState<PropertyFormValues>(() => toInitial(property));
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState(0);
 
@@ -203,52 +171,46 @@ export default function PropertyFormModal({
         ) : null}
 
         {step === 1 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField label="Tenant Name">
-              <FieldInput value={values.tenantName} onChange={(tenantName) => setValues((prev) => ({ ...prev, tenantName }))} placeholder="Acme Corp" />
-            </FormField>
-            <FormField label="Tenant Email">
-              <FieldInput type="email" value={values.tenantEmail} onChange={(tenantEmail) => setValues((prev) => ({ ...prev, tenantEmail }))} placeholder="ops@acme.com" />
-            </FormField>
-            <FormField label="Tenant Phone">
-              <FieldInput value={values.tenantPhone} onChange={(tenantPhone) => setValues((prev) => ({ ...prev, tenantPhone }))} placeholder="+91 90000 00000" />
-            </FormField>
+          <div className="glass-card rounded-2xl border border-white/10 p-4">
+            <p className="text-sm text-white/85">Tenant assignment is handled in the dedicated tenant module.</p>
+            <p className="text-xs text-white/45 mt-1">After property save, assign tenant from operations.</p>
+            <Link href="/tenants" className="inline-flex mt-3 text-sm text-cyan-300 font-semibold">
+              Open Tenants →
+            </Link>
           </div>
         ) : null}
 
         {step === 2 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField label="Lease Start">
-              <FieldInput type="date" value={values.leaseStartDate} onChange={(leaseStartDate) => setValues((prev) => ({ ...prev, leaseStartDate }))} />
-            </FormField>
-            <FormField label="Lease End">
-              <FieldInput type="date" value={values.leaseEndDate} onChange={(leaseEndDate) => setValues((prev) => ({ ...prev, leaseEndDate }))} />
-            </FormField>
-            <FormField label="Lock-in (months)">
-              <FieldInput type="number" value={values.lockInMonths} onChange={(lockInMonths) => setValues((prev) => ({ ...prev, lockInMonths }))} placeholder="24" />
-            </FormField>
+          <div className="glass-card rounded-2xl border border-white/10 p-4">
+            <p className="text-sm text-white/85">Lease configuration is managed in the lease workflow.</p>
+            <p className="text-xs text-white/45 mt-1">Define tenure, lock-in, escalation and renewal terms from Lease Management.</p>
+            <Link href="/leases" className="inline-flex mt-3 text-sm text-cyan-300 font-semibold">
+              Open Leases →
+            </Link>
           </div>
         ) : null}
 
         {step === 3 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField label="Monthly Rent">
-              <FieldInput type="number" value={values.monthlyRent} onChange={(monthlyRent) => setValues((prev) => ({ ...prev, monthlyRent }))} placeholder="250000" />
-            </FormField>
-            <FormField label="Security Deposit">
-              <FieldInput type="number" value={values.securityDeposit} onChange={(securityDeposit) => setValues((prev) => ({ ...prev, securityDeposit }))} placeholder="1000000" />
-            </FormField>
+          <div className="glass-card rounded-2xl border border-white/10 p-4">
+            <p className="text-sm text-white/85">Rent settings are configured in rent operations.</p>
+            <p className="text-xs text-white/45 mt-1">Set rent ledger cadence, tracking, and collection status from Rent module.</p>
+            <Link href="/rent" className="inline-flex mt-3 text-sm text-cyan-300 font-semibold">
+              Open Rent →
+            </Link>
           </div>
         ) : null}
 
         {step === 4 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField label="Documents">
-              <FieldInput value={values.documentsNote} onChange={(documentsNote) => setValues((prev) => ({ ...prev, documentsNote }))} placeholder="Lease, title deed, tax docs" />
-            </FormField>
-            <FormField label="Photos">
-              <FieldInput value={values.photosNote} onChange={(photosNote) => setValues((prev) => ({ ...prev, photosNote }))} placeholder="Lobby, facade, unit interiors" />
-            </FormField>
+          <div className="glass-card rounded-2xl border border-white/10 p-4">
+            <p className="text-sm text-white/85">Documents and photos are tracked in operations after property save.</p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <Link href="/properties" className="text-sm text-cyan-300 font-semibold">
+                Open Properties →
+              </Link>
+              <Link href="/maintenance" className="text-sm text-cyan-300 font-semibold">
+                Open Maintenance →
+              </Link>
+            </div>
           </div>
         ) : null}
 
@@ -264,22 +226,14 @@ export default function PropertyFormModal({
             return;
           }
           if (!canSubmit) {
-            setError(
-              `Please fix required fields in Step 1: ${missingRequiredFields.join(", ")}.`
-            );
+            setError(`Please complete required property details: ${missingRequiredFields.join(", ")}.`);
             setStep(0);
             return;
           }
           setError(null);
-          void onSubmit({
-            name: values.name,
-            type: values.type,
-            address: values.address,
-            occupancyStatus: values.occupancyStatus,
-            lifecycleStage: values.lifecycleStage,
-            purchaseValue: values.purchaseValue,
-            currentValue: values.currentValue,
-          }).catch((err) => setError(err instanceof Error ? err.message : "Unable to save property"));
+          void onSubmit(values).catch((err) =>
+            setError(err instanceof Error ? err.message : "Unable to save property")
+          );
         }}
         saveLabel={isLast ? (property ? "Update Property" : "Create Property") : "Next"}
         saving={submitting}

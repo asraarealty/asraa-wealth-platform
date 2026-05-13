@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import type { ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import type {
   Asset,
   AssetsAllocation,
@@ -623,6 +624,7 @@ export default function MobileDashboard({
   onDelete,
   onLogout,
 }: MobileDashboardProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<MobileTab>("dashboard");
   const [modal, setModal] = useState<ModalState>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -998,7 +1000,7 @@ export default function MobileDashboard({
                 type="button"
                 className="glass-card rounded-xl p-4 border border-white/10 text-left"
                 onClick={() => {
-                  window.location.href = item.href;
+                  router.push(item.href);
                 }}
               >
                 <p className="text-sm font-semibold text-white">{item.label}</p>
