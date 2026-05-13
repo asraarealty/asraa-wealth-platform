@@ -226,7 +226,7 @@ export default function PropertyFormModal({
             return;
           }
           if (!canSubmit) {
-            setError(`Please return to Property details and complete: ${missingRequiredFields.join(", ")}.`);
+            setError(`Returning to Property details. Please complete: ${missingRequiredFields.join(", ")}.`);
             setStep(0);
             return;
           }

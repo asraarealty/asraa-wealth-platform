@@ -38,7 +38,7 @@ export default function OperationsReportsPage() {
     );
   }
 
-  const totalExpiringLeases = data.realEstate.leaseExpiring + data.realEstate.leaseExpired;
+  const totalLeasesToReview = data.realEstate.leaseExpiring + data.realEstate.leaseExpired;
 
   return (
     <div className="space-y-5">
@@ -53,7 +53,7 @@ export default function OperationsReportsPage() {
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {metric("Occupancy analytics", fmtPct(data.occupancyPct))}
         {metric("Rent collection trends", fmtCurrency(data.realEstate.rentCollected ?? 0))}
-        {metric("Lease expiry calendar", String(totalExpiringLeases))}
+        {metric("Lease expiry calendar", String(totalLeasesToReview))}
         {metric("Cashflow analysis", fmtCurrency(data.noi ?? 0))}
         {metric("NOI performance", fmtCurrency(data.noi ?? 0))}
         {metric("ROI / Yield", fmtPct(data.rentalYieldPct))}
@@ -67,7 +67,7 @@ export default function OperationsReportsPage() {
         <SimpleBarChart title="Lease expiry calendar" points={[
           { label: "Expiring", value: data.realEstate.leaseExpiring },
           { label: "Expired", value: data.realEstate.leaseExpired },
-          { label: "Total", value: totalExpiringLeases },
+          { label: "Total", value: totalLeasesToReview },
         ]} />
         <SimpleBarChart title="NOI performance" points={data.performanceSeries} />
       </div>
