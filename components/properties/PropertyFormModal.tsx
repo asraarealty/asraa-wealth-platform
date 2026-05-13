@@ -115,6 +115,15 @@ export default function PropertyFormModal({
     );
   }, [values]);
 
+  const missingRequiredFields = useMemo(() => {
+    const missing: string[] = [];
+    if (!values.name.trim()) missing.push("Property Name");
+    if (!values.address.trim()) missing.push("Address");
+    if (!(Number(values.purchaseValue) > 0)) missing.push("Purchase Value");
+    if (!(Number(values.currentValue) > 0)) missing.push("Current Value");
+    return missing;
+  }, [values.address, values.currentValue, values.name, values.purchaseValue]);
+
   if (!open) return null;
 
   return (
@@ -255,7 +264,9 @@ export default function PropertyFormModal({
             return;
           }
           if (!canSubmit) {
-            setError("Fill all required property fields with valid values before saving.");
+            setError(
+              `Please fix required fields in Step 1: ${missingRequiredFields.join(", ")}.`
+            );
             setStep(0);
             return;
           }

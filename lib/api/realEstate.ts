@@ -33,7 +33,7 @@ const ENDPOINTS = {
 } as const;
 
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
-const RETRY_MAX_ATTEMPTS = 2;
+const MAX_ATTEMPTS = 2;
 const RETRY_DELAY_MS = 250;
 
 const mockProperties: PropertyDetail[] = [
@@ -352,12 +352,12 @@ function delay(ms: number): Promise<void> {
 
 async function withRetry<T>(request: () => Promise<T>): Promise<T> {
   let lastError: unknown;
-  for (let attempt = 0; attempt < RETRY_MAX_ATTEMPTS; attempt += 1) {
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
     try {
       return await request();
     } catch (error) {
       lastError = error;
-      if (!shouldRetry(error) || attempt === RETRY_MAX_ATTEMPTS - 1) break;
+      if (!shouldRetry(error) || attempt === MAX_ATTEMPTS - 1) break;
       await delay(RETRY_DELAY_MS * (attempt + 1));
     }
   }

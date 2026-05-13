@@ -16,6 +16,11 @@ function metric(label: string, value: string) {
   );
 }
 
+function fmtPct(value: number | null): string {
+  if (value === null) return "0.00%";
+  return `${value.toFixed(2)}%`;
+}
+
 export default function OperationsReportsPage() {
   const { category, setCategory } = useRealEstateCategory();
   const { data, loading, error, refresh } = useEnterpriseReports({ category });
@@ -44,12 +49,12 @@ export default function OperationsReportsPage() {
       </div>
 
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {metric("Occupancy analytics", `${data.occupancyPct?.toFixed(1) ?? "0.0"}%`)}
+        {metric("Occupancy analytics", fmtPct(data.occupancyPct))}
         {metric("Rent collection trends", fmtCurrency(data.realEstate.rentCollected ?? 0))}
         {metric("Lease expiry calendar", String(data.realEstate.leaseExpiring + data.realEstate.leaseExpired))}
         {metric("Cashflow analysis", fmtCurrency(data.noi ?? 0))}
         {metric("NOI performance", fmtCurrency(data.noi ?? 0))}
-        {metric("ROI / Yield", `${data.rentalYieldPct?.toFixed(2) ?? "0.00"}%`)}
+        {metric("ROI / Yield", fmtPct(data.rentalYieldPct))}
         {metric("Maintenance cost tracking", fmtCurrency(data.realEstate.maintenanceCosts ?? 0))}
         {metric("Tenant aging analysis", String(data.realEstate.tenants))}
       </section>
