@@ -309,3 +309,22 @@ body {
   to   { opacity: 1; transform: translateX(0)    scale(1);    }
 }
 .animate-toast-in { animation: toast-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+/* ── Responsive safety helpers for operations modules ───────────────────── */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.table-scroll-safe {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.text-wrap-safe {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
