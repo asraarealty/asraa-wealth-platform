@@ -73,48 +73,64 @@ export default function AssetTabs({
 
   return (
     <div className="glass-card rounded-2xl p-5">
-      {/* Tab bar */}
-      <div
-        className="flex gap-1 mb-5 p-1 rounded-xl w-fit"
-        style={{ background: "rgba(255,255,255,0.04)" }}
-      >
-        {TABS.map((tab) => {
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all"
-              style={
-                active
-                  ? {
-                      background: "rgba(201,162,39,0.15)",
-                      color: "#d4af4a",
-                      border: "1px solid rgba(201,162,39,0.25)",
+      {/* Tab bar — scrollable on mobile with fade edge indicator */}
+      <div className="relative mb-5">
+        <div
+          className="overflow-x-auto -mx-1 px-1"
+          role="tablist"
+          aria-label="Portfolio asset categories"
+        >
+          <div
+            className="flex gap-1 p-1 rounded-xl w-max"
+            style={{ background: "rgba(255,255,255,0.04)" }}
+          >
+          {TABS.map((tab) => {
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                role="tab"
+                aria-selected={active}
+                onClick={() => onTabChange(tab.id)}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all"
+                style={
+                  active
+                    ? {
+                        background: "rgba(201,162,39,0.15)",
+                        color: "#d4af4a",
+                        border: "1px solid rgba(201,162,39,0.25)",
+                      }
+                    : {
+                        color: "rgba(255,255,255,0.5)",
+                        border: "1px solid transparent",
+                      }
+                }
+              >
+                {tab.icon}
+                {tab.label}
+                {counts[tab.id] > 0 && (
+                  <span
+                    className="text-xs px-1.5 py-0.5 rounded-full font-semibold"
+                    style={
+                      active
+                        ? { background: "rgba(201,162,39,0.25)", color: "#d4af4a" }
+                        : { background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)" }
                     }
-                  : {
-                      color: "rgba(255,255,255,0.5)",
-                      border: "1px solid transparent",
-                    }
-              }
-            >
-              {tab.icon}
-              {tab.label}
-              {counts[tab.id] > 0 && (
-                <span
-                  className="text-xs px-1.5 py-0.5 rounded-full font-semibold"
-                  style={
-                    active
-                      ? { background: "rgba(201,162,39,0.25)", color: "#d4af4a" }
-                      : { background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)" }
-                  }
-                >
-                  {counts[tab.id]}
-                </span>
-              )}
-            </button>
-          );
-        })}
+                  >
+                    {counts[tab.id]}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+          </div>
+        </div>
+        {/* Right fade gradient — visual hint that more tabs are off-screen on small viewports */}
+        <div
+          className="pointer-events-none absolute inset-y-0 right-0 w-8 sm:hidden"
+          style={{ background: "linear-gradient(to right, transparent, rgba(255,255,255,0.03))" }}
+          aria-hidden="true"
+        />
       </div>
 
       {/* Tab content */}

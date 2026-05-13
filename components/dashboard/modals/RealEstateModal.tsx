@@ -127,11 +127,11 @@ export default function RealEstateModal({
     <Modal
       title={isEdit ? "Edit Property" : "Add Real Estate"}
       onClose={onClose}
-      width="w-full max-w-lg"
+      width="w-[95vw] sm:w-full sm:max-w-lg"
     >
       <div className="space-y-4">
         {/* Property Info */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label="Property Name" required>
             <FieldInput
               name="property-name"
@@ -151,7 +151,7 @@ export default function RealEstateModal({
         </div>
 
         {/* Financials */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label="Purchase Price (₹)" required>
             <FieldInput
               name="purchase-price"
@@ -177,7 +177,7 @@ export default function RealEstateModal({
         </div>
 
         {/* Rent */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label="Monthly Rent (₹)">
             <FieldInput
               name="rent-amount"
@@ -208,7 +208,7 @@ export default function RealEstateModal({
         </div>
 
         {/* Tenant */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label="Tenant Name">
             <FieldInput
               name="tenant-name"

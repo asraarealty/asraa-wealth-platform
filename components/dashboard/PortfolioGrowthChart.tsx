@@ -151,7 +151,7 @@ export default function PortfolioGrowthChart({ totalValue, gainPercent }: Props)
         </div>
       </div>
 
-      <div className="relative">
+      <div className="relative overflow-hidden">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="w-full cursor-crosshair"

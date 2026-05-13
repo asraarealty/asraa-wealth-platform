@@ -37,7 +37,7 @@ function KPICard({ label, value, subLabel, trend, trendLabel, icon, delay = 0 }:
 
   return (
     <div
-      className="card-hover rounded-2xl p-5 flex flex-col gap-3 animate-float-up"
+      className="card-hover rounded-2xl p-4 md:p-5 flex flex-col gap-3 animate-float-up min-w-0"
       style={{
         animationDelay: `${delay}s`,
         background: "rgba(255,255,255,0.03)",
@@ -56,7 +56,7 @@ function KPICard({ label, value, subLabel, trend, trendLabel, icon, delay = 0 }:
           {icon}
         </span>
       </div>
-      <p className="text-2xl font-bold text-white leading-none tracking-tight">{value}</p>
+      <p className="text-xl md:text-2xl font-bold text-white leading-tight tracking-tight break-words">{value}</p>
       {(trendLabel || subLabel) && (
         <div className="flex items-center gap-2 text-xs">
           {trendLabel && (
