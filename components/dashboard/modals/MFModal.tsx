@@ -165,7 +165,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
 
     if (process.env.NODE_ENV === "development") {
       console.debug("[MFModal] pre_submit", {
-        rawFormState: redactMFDebug(form as Record<string, unknown>),
+        rawFormState: redactMFDebug(form as unknown as Record<string, unknown>),
         normalizedPayload: redactMFDebug({
           assetType: "mutual_fund",
           fundCode: symbol || null,
