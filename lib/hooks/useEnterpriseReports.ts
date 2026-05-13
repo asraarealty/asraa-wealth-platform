@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, fetcher, toErrorMessage } from "@/lib/fetcher";
 import type { EnterpriseReportsData } from "@/lib/types/enterpriseReports";
+import type { RealEstateCategory } from "@/lib/types/realEstate";
+import { normalizeRealEstateCategory } from "@/lib/utils/realEstateCategory";
+import { subscribeRealEstateDataUpdated } from "@/lib/events/realtime";
 
 const DEFAULT_REFRESH_MS = 30_000;
 
@@ -15,7 +18,14 @@ interface State {
   refresh: () => void;
 }
 
-export function useEnterpriseReports(refreshMs = DEFAULT_REFRESH_MS): State {
+type UseEnterpriseReportsOptions = {
+  refreshMs?: number;
+  category?: RealEstateCategory;
+};
+
+export function useEnterpriseReports(options: UseEnterpriseReportsOptions = {}): State {
+  const { refreshMs = DEFAULT_REFRESH_MS, category = "all" } = options;
+  const normalizedCategory = normalizeRealEstateCategory(category);
   const [data, setData] = useState<EnterpriseReportsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -45,7 +55,12 @@ export function useEnterpriseReports(refreshMs = DEFAULT_REFRESH_MS): State {
     setError(null);
     setRequiresLogin(false);
 
-    fetcher<EnterpriseReportsData>("/api/reports/enterprise", {
+    const query =
+      normalizedCategory === "all"
+        ? "/api/reports/enterprise"
+        : `/api/reports/enterprise?category=${encodeURIComponent(normalizedCategory)}`;
+
+    fetcher<EnterpriseReportsData>(query, {
       cache: "no-store",
       noRedirectOn401: true,
       signal: controller.signal,
@@ -66,7 +81,7 @@ export function useEnterpriseReports(refreshMs = DEFAULT_REFRESH_MS): State {
       });
 
     return () => controller.abort();
-  }, [reloadKey]);
+  }, [normalizedCategory, reloadKey]);
 
   useEffect(() => {
     let id: number | null = null;
@@ -101,6 +116,8 @@ export function useEnterpriseReports(refreshMs = DEFAULT_REFRESH_MS): State {
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [refresh, refreshMs]);
+
+  useEffect(() => subscribeRealEstateDataUpdated(refresh), [refresh]);
 
   return useMemo(
     () => ({

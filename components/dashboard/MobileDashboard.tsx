@@ -12,7 +12,6 @@ import type {
 import AddAssetModal from "./modals/AddAssetModal";
 import StockModal from "./modals/StockModal";
 import MFModal from "./modals/MFModal";
-import RealEstateModal from "./modals/RealEstateModal";
 import CommodityModal from "./modals/CommodityModal";
 import ClientSelector from "../ClientSelector";
 import AllocationChart from "./AllocationChart";
@@ -670,7 +669,6 @@ export default function MobileDashboard({
     if (activeTab === "stocks") setModal({ type: "stock", mode: "add" });
     else if (activeTab === "mutual_funds") setModal({ type: "mf", mode: "add" });
     else if (activeTab === "commodities") setModal({ type: "commodity", mode: "add" });
-    else if (activeTab === "real_estate") setModal({ type: "property", mode: "add" });
     else setModal({ type: null, mode: "add" });
   }
 
@@ -978,35 +976,34 @@ export default function MobileDashboard({
         {/* ── Real Estate Tab ────────────────────────────────────── */}
         {activeTab === "real_estate" && !error && (isAdmin ? !!selectedClient : true) && (
           <div className="p-4 flex flex-col gap-3">
-            {loading ? (
-              <>
-                <SkeletonCard />
-                <SkeletonCard />
-                <SkeletonCard />
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-gray-400">
-                  {properties.length} propert{properties.length !== 1 ? "ies" : "y"}
-                </p>
-                {properties.length === 0 ? (
-                  <MobileEmptyState
-                    label="Property"
-                    onAdd={() => setModal({ type: "property", mode: "add" })}
-                  />
-                ) : (
-                  properties.map((a) => (
-                    <PropertyCard
-                      key={a.id}
-                      asset={a}
-                      deleting={deletingId === a.id}
-                      onEdit={() => setModal({ type: "property", mode: "edit", asset: a })}
-                      onDelete={() => { void handleDelete(a.id); }}
-                    />
-                  ))
-                )}
-              </>
-            )}
+            <div className="glass-card rounded-xl p-4 border border-white/10">
+              <p className="text-sm font-semibold text-white">Real Estate Operations</p>
+              <p className="text-xs text-white/50 mt-1">
+                Property create/edit is managed in dedicated operations modules.
+              </p>
+              <p className="text-xs text-white/45 mt-2">
+                Portfolio properties tracked: {properties.length}
+              </p>
+            </div>
+            {[
+              { href: "/properties", label: "Properties" },
+              { href: "/tenants", label: "Tenants" },
+              { href: "/leases", label: "Leases" },
+              { href: "/rent", label: "Rent" },
+              { href: "/maintenance", label: "Maintenance" },
+              { href: "/reports", label: "Reports" },
+            ].map((item) => (
+              <button
+                key={item.href}
+                type="button"
+                className="glass-card rounded-xl p-4 border border-white/10 text-left"
+                onClick={() => {
+                  window.location.href = item.href;
+                }}
+              >
+                <p className="text-sm font-semibold text-white">{item.label}</p>
+              </button>
+            ))}
           </div>
         )}
 
@@ -1118,7 +1115,7 @@ export default function MobileDashboard({
       </main>
 
       {/* ── FAB ────────────────────────────────────────────────────── */}
-      {activeTab !== "profile" && !loading && !error && (isAdmin ? !!selectedClient : true) && (
+      {activeTab !== "profile" && activeTab !== "real_estate" && !loading && !error && (isAdmin ? !!selectedClient : true) && (
         <button
           onClick={openAdd}
           className="fixed z-50 flex items-center justify-center shadow-lg"
@@ -1192,12 +1189,6 @@ export default function MobileDashboard({
           onSave={handleAddSave}
         />
       )}
-      {modal?.mode === "add" && modal.type === "property" && (
-        <RealEstateModal
-          onClose={() => setModal(null)}
-          onSave={handleAddSave}
-        />
-      )}
       {modal?.mode === "add" && modal.type === "commodity" && (
         <CommodityModal
           onClose={() => setModal(null)}
@@ -1221,13 +1212,6 @@ export default function MobileDashboard({
       )}
       {modal?.mode === "edit" && modal.type === "mf" && modal.asset && (
         <MFModal
-          asset={modal.asset}
-          onClose={() => setModal(null)}
-          onSave={handleEditSave}
-        />
-      )}
-      {modal?.mode === "edit" && modal.type === "property" && modal.asset && (
-        <RealEstateModal
           asset={modal.asset}
           onClose={() => setModal(null)}
           onSave={handleEditSave}

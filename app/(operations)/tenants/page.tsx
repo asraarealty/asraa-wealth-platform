@@ -5,13 +5,17 @@ import { useToast } from "@/context/ToastContext";
 import { useAuth } from "@/context/AuthContext";
 import { assignTenantToProperty, fetchTenantById } from "@/lib/api/realEstate";
 import { useTenants } from "@/hooks/useRealEstate";
+import { useRealEstateCategory } from "@/hooks/useRealEstateCategory";
+import { emitRealEstateDataUpdated } from "@/lib/events/realtime";
 import TenantsTable from "@/components/tenants/TenantsTable";
 import TenantAssignmentCard from "@/components/tenants/TenantAssignmentCard";
+import RealEstateCategorySwitcher from "@/components/properties/RealEstateCategorySwitcher";
 
 export default function TenantsPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const { data, loading, error, refresh } = useTenants();
+  const { category, setCategory } = useRealEstateCategory();
+  const { data, loading, error, refresh } = useTenants(category);
   const [assigning, setAssigning] = useState(false);
 
   async function onAssign(tenantId: number, propertyId: number) {
@@ -37,6 +41,7 @@ export default function TenantsPage() {
         depositAmount: tenantProfile.depositAmount,
       });
       showToast("Tenant assignment updated", "success");
+      emitRealEstateDataUpdated();
       await refresh();
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Unable to assign tenant", "error");
@@ -51,6 +56,7 @@ export default function TenantsPage() {
         <h2 className="text-lg sm:text-xl text-white font-semibold">Tenant Management</h2>
         <p className="text-sm text-white/45">Active/inactive tenants, assignment workflow, and tenant history access</p>
       </div>
+      <RealEstateCategorySwitcher value={category} onChange={setCategory} />
 
       <TenantAssignmentCard assigning={assigning} onAssign={onAssign} />
 

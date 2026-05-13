@@ -6,11 +6,15 @@ import WorkOrderTimeline from "@/components/maintenance/WorkOrderTimeline";
 import { useToast } from "@/context/ToastContext";
 import { fetchWorkOrderTimeline, updateMaintenanceStatus } from "@/lib/api/realEstate";
 import { useMaintenanceTickets } from "@/hooks/useRealEstate";
+import { useRealEstateCategory } from "@/hooks/useRealEstateCategory";
 import type { MaintenanceStatus, WorkOrderTimelineEvent } from "@/lib/types/realEstate";
+import { emitRealEstateDataUpdated } from "@/lib/events/realtime";
+import RealEstateCategorySwitcher from "@/components/properties/RealEstateCategorySwitcher";
 
 export default function MaintenancePage() {
   const { showToast } = useToast();
-  const { data, loading, error, refresh } = useMaintenanceTickets();
+  const { category, setCategory } = useRealEstateCategory();
+  const { data, loading, error, refresh } = useMaintenanceTickets(category);
   const [timeline, setTimeline] = useState<WorkOrderTimelineEvent[]>([]);
   const [updating, setUpdating] = useState(false);
 
@@ -45,6 +49,7 @@ export default function MaintenancePage() {
     try {
       await updateMaintenanceStatus(ticketId, status);
       showToast("Maintenance status updated", "success");
+      emitRealEstateDataUpdated();
       await refresh();
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Unable to update ticket", "error");
@@ -59,6 +64,7 @@ export default function MaintenancePage() {
         <h2 className="text-lg sm:text-xl text-white font-semibold">Maintenance Operations</h2>
         <p className="text-sm text-white/45">Ticket management, complaint tracking, vendor assignment, and work-order lifecycle</p>
       </div>
+      <RealEstateCategorySwitcher value={category} onChange={setCategory} />
 
       {error ? (
         <div className="glass-card border border-red-400/30 rounded-2xl p-4 text-sm text-red-200 flex items-center justify-between gap-3">

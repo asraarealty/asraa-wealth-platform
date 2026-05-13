@@ -6,10 +6,13 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { createProperty, updateProperty } from "@/lib/api/realEstate";
 import { useProperties } from "@/hooks/useRealEstate";
+import { useRealEstateCategory } from "@/hooks/useRealEstateCategory";
 import type { PropertySummary } from "@/lib/types/realEstate";
 import { calculateRoiPercent } from "@/lib/utils/realEstate";
+import { emitRealEstateDataUpdated } from "@/lib/events/realtime";
 import PropertyAnalyticsCards from "@/components/properties/PropertyAnalyticsCards";
 import PropertyFormModal, { type PropertyFormValues } from "@/components/properties/PropertyFormModal";
+import RealEstateCategorySwitcher from "@/components/properties/RealEstateCategorySwitcher";
 
 const PropertiesTable = dynamic(() => import("@/components/properties/PropertiesTable"));
 
@@ -26,7 +29,8 @@ function SkeletonRows() {
 export default function PropertiesPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const { data, loading, error, retrying, refresh } = useProperties();
+  const { category, setCategory } = useRealEstateCategory();
+  const { data, loading, error, retrying, refresh } = useProperties(category);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -88,6 +92,7 @@ export default function PropertiesPage() {
         await createProperty(payload);
         showToast("Property added successfully", "success");
       }
+      emitRealEstateDataUpdated();
       setModalOpen(false);
       setEditing(undefined);
       await refresh();
@@ -109,6 +114,7 @@ export default function PropertiesPage() {
           <h2 className="text-lg sm:text-xl text-white font-semibold">Property Operations</h2>
           <p className="text-sm text-white/45">Track occupancy, lifecycle, unit economics, and documentation</p>
         </div>
+        <RealEstateCategorySwitcher value={category} onChange={setCategory} />
         <button
           type="button"
           className="neon-btn rounded-xl px-4 py-2.5 text-sm font-semibold fixed bottom-4 right-4 sm:static z-20"

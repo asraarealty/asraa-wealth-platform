@@ -6,6 +6,16 @@ export type PropertyType =
   | "mixed_use"
   | "other";
 
+export type RealEstateCategory =
+  | "all"
+  | "commercial"
+  | "residential"
+  | "industrial"
+  | "retail"
+  | "warehouse"
+  | "land"
+  | "co-working";
+
 export type OccupancyStatus = "fully_occupied" | "partially_occupied" | "vacant";
 
 export type PropertyLifecycleStage =

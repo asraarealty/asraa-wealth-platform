@@ -14,10 +14,13 @@ import {
 } from "@/components/admin/dashboard/intelligenceHelpers";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 import { useEnterpriseReports } from "@/lib/hooks/useEnterpriseReports";
+import { useRealEstateCategory } from "@/hooks/useRealEstateCategory";
+import RealEstateCategorySwitcher from "@/components/properties/RealEstateCategorySwitcher";
 
 export default function InsightsPage() {
   const router = useRouter();
-  const { data, loading, refreshing, error, requiresLogin, refresh } = useEnterpriseReports();
+  const { category, setCategory } = useRealEstateCategory();
+  const { data, loading, refreshing, error, requiresLogin, refresh } = useEnterpriseReports({ category });
 
   const rows = useMemo<ClientIntelligence[]>(() => {
     if (!data) return [];
@@ -66,6 +69,9 @@ export default function InsightsPage() {
         <p className="text-sm text-gray-400 mt-1">
           Live cross-asset portfolio intelligence with real-estate exposure and risk analytics.
         </p>
+        <div className="mt-3">
+          <RealEstateCategorySwitcher value={category} onChange={setCategory} />
+        </div>
         {refreshing ? <p className="text-xs text-cyan-300 mt-1">Refreshing live intelligence…</p> : null}
       </div>
 
