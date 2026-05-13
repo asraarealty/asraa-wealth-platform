@@ -69,21 +69,35 @@ export function useEnterpriseReports(refreshMs = DEFAULT_REFRESH_MS): State {
   }, [reloadKey]);
 
   useEffect(() => {
+    let id: number | null = null;
+    const startPolling = () => {
+      if (id !== null) return;
+      id = window.setInterval(() => {
+        refresh();
+      }, refreshMs);
+    };
+    const stopPolling = () => {
+      if (id === null) return;
+      window.clearInterval(id);
+      id = null;
+    };
+
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         refresh();
+        startPolling();
+      } else {
+        stopPolling();
       }
     };
 
-    const id = window.setInterval(() => {
-      if (document.visibilityState === "visible") {
-        refresh();
-      }
-    }, refreshMs);
+    if (document.visibilityState === "visible") {
+      startPolling();
+    }
 
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
-      window.clearInterval(id);
+      stopPolling();
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [refresh, refreshMs]);

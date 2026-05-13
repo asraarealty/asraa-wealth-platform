@@ -16,6 +16,10 @@ const BACKEND =
   (process.env.NODE_ENV === "production"
     ? "https://api.asraarealty.in"
     : "http://localhost:8000");
+// Used only as a fallback estimate when unit-level occupancy is unavailable.
+const PARTIAL_OCCUPANCY_PERCENT = 60;
+const MAX_XIRR_ITERATIONS = 50;
+const INITIAL_XIRR_RATE = 0.1;
 
 type BackendClient = {
   id: number;
@@ -83,6 +87,16 @@ type BackendRentSummary = {
   pendingRent?: number;
   overdueRent?: number;
 };
+
+function getTransactionAmount(txn: BackendTransaction): number {
+  const qty = safeNum(txn.quantity);
+  if (txn.total !== undefined || txn.amount !== undefined) {
+    return safeNum(txn.total ?? txn.amount);
+  }
+  const price = safeNum(txn.price);
+  if (qty <= 0 || price <= 0) return 0;
+  return qty * price;
+}
 
 function safeNum(value: unknown): number {
   const n = Number(value);
@@ -193,8 +207,10 @@ function xirr(cashflows: Array<{ date: Date; amount: number }>): number | null {
   const npv = (rate: number) =>
     cashflows.reduce((sum, c) => sum + c.amount / Math.pow(1 + rate, yearFrac(c.date)), 0);
 
-  let rate = 0.1;
-  for (let i = 0; i < 50; i += 1) {
+  let rate = INITIAL_XIRR_RATE;
+  // Newton-Raphson solver with bounded rate and small epsilon-based derivative.
+  // The tolerances prioritize numerical stability over aggressive convergence.
+  for (let i = 0; i < MAX_XIRR_ITERATIONS; i += 1) {
     const value = npv(rate);
     const eps = 1e-7;
     const derivative = (npv(rate + eps) - value) / eps;
@@ -276,8 +292,7 @@ function buildClientReport(
       const dateValue = String(txn.date ?? txn.created_at ?? "").trim();
       const date = new Date(dateValue);
       if (Number.isNaN(date.getTime())) return null;
-      const qty = safeNum(txn.quantity);
-      const amount = safeNum(txn.total ?? txn.amount ?? (qty * safeNum(txn.price)));
+      const amount = getTransactionAmount(txn);
       if (!Number.isFinite(amount) || amount <= 0) return null;
       const type = String(txn.type ?? "").toLowerCase();
       return {
@@ -512,11 +527,21 @@ export async function GET(request: NextRequest) {
         statusRaw === "fully_occupied" || statusRaw === "partially_occupied" || statusRaw === "vacant"
           ? statusRaw
           : "unknown";
+      const totalUnits = safeNum(property.totalUnits ?? property.total_units);
+      const leasedUnits = safeNum(property.leasedUnits ?? property.leased_units);
+      const occupancyByUnits =
+        totalUnits > 0 ? (Math.max(0, Math.min(totalUnits, leasedUnits)) / totalUnits) * 100 : null;
       const occupancyByStatus =
-        status === "fully_occupied" ? 100 : status === "partially_occupied" ? 60 : status === "vacant" ? 0 : 0;
+        status === "fully_occupied"
+          ? 100
+          : status === "partially_occupied"
+            ? PARTIAL_OCCUPANCY_PERCENT
+            : 0;
+      // Prefer unit-derived occupancy when leased/total unit counts are available,
+      // otherwise fall back to status-based occupancy estimation.
       return {
         label: property.name || `Property ${index + 1}`,
-        occupancyPct: occupancyByStatus,
+        occupancyPct: occupancyByUnits ?? occupancyByStatus,
         status,
       };
     });

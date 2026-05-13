@@ -13,7 +13,13 @@ const SimpleBarChart = dynamic(() => import("@/components/properties/SimpleBarCh
   ssr: false,
 });
 
-const PAGE_SIZE = 12;
+const REPORT_CLIENT_TABLE_PAGE_SIZE = 12;
+const RISK_FILTER_OPTIONS = ["all", "Low", "Medium", "High"] as const;
+type RiskFilter = (typeof RISK_FILTER_OPTIONS)[number];
+
+function isRiskFilter(value: string): value is RiskFilter {
+  return (RISK_FILTER_OPTIONS as readonly string[]).includes(value);
+}
 
 function card(label: string, value: string, hint?: string) {
   return (
@@ -29,7 +35,7 @@ function toTextValue(value: number | null) {
   return value === null ? "N/A" : fmtCurrency(value);
 }
 
-function downloadExcel(rows: EnterpriseClientReport[]) {
+function downloadTSV(rows: EnterpriseClientReport[]) {
   const header = [
     "Client",
     "Email",
@@ -73,11 +79,11 @@ function downloadExcel(rows: EnterpriseClientReport[]) {
   ]);
 
   const tsv = [header, ...body].map((line) => line.join("\t")).join("\n");
-  const blob = new Blob([tsv], { type: "application/vnd.ms-excel;charset=utf-8;" });
+  const blob = new Blob([tsv], { type: "text/tab-separated-values;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `asraa-enterprise-reports-${new Date().toISOString().slice(0, 10)}.xls`;
+  a.download = `asraa-enterprise-reports-${new Date().toISOString().slice(0, 10)}.tsv`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -86,9 +92,12 @@ function downloadExcel(rows: EnterpriseClientReport[]) {
 
 function ClientIntelligenceVirtualTable({ rows }: { rows: EnterpriseClientReport[] }) {
   const [page, setPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(rows.length / REPORT_CLIENT_TABLE_PAGE_SIZE));
   const boundedPage = Math.min(page, totalPages);
-  const pageRows = rows.slice((boundedPage - 1) * PAGE_SIZE, boundedPage * PAGE_SIZE);
+  const pageRows = rows.slice(
+    (boundedPage - 1) * REPORT_CLIENT_TABLE_PAGE_SIZE,
+    boundedPage * REPORT_CLIENT_TABLE_PAGE_SIZE
+  );
 
   return (
     <div className="glass-card rounded-2xl border border-white/10 overflow-hidden">
@@ -96,7 +105,7 @@ function ClientIntelligenceVirtualTable({ rows }: { rows: EnterpriseClientReport
         <table className="w-full min-w-[1200px] text-sm">
           <thead className="bg-white/5 border-b border-white/10">
             <tr>
-              {["Client", "Holdings", "Txns", "Invested", "Value", "Gain/Loss", "Return", "CAGR/XIRR", "Risk", "Allocation", "AI"].map((head) => (
+              {["Client", "Holdings", "Txns", "Invested", "Value", "Gain/Loss", "Return", "CAGR/XIRR", "Risk", "Allocation", "Recommendations"].map((head) => (
                 <th key={head} className="text-left px-4 py-3 text-[11px] uppercase tracking-widest text-white/55 font-semibold">
                   {head}
                 </th>
@@ -142,8 +151,8 @@ function ClientIntelligenceVirtualTable({ rows }: { rows: EnterpriseClientReport
       </div>
       <div className="flex items-center justify-between px-4 py-3 border-t border-white/10 text-xs">
         <span className="text-white/50">
-          Showing {(boundedPage - 1) * PAGE_SIZE + (pageRows.length > 0 ? 1 : 0)}-
-          {(boundedPage - 1) * PAGE_SIZE + pageRows.length} of {rows.length}
+          Showing {(boundedPage - 1) * REPORT_CLIENT_TABLE_PAGE_SIZE + (pageRows.length > 0 ? 1 : 0)}-
+          {(boundedPage - 1) * REPORT_CLIENT_TABLE_PAGE_SIZE + pageRows.length} of {rows.length}
         </span>
         <div className="flex items-center gap-2">
           <button
@@ -171,7 +180,7 @@ function ClientIntelligenceVirtualTable({ rows }: { rows: EnterpriseClientReport
 
 export default function ReportsPage() {
   const router = useRouter();
-  const [riskFilter, setRiskFilter] = useState<"all" | "Low" | "Medium" | "High">("all");
+  const [riskFilter, setRiskFilter] = useState<RiskFilter>("all");
   const [printMode, setPrintMode] = useState(false);
   const { data, loading, refreshing, error, requiresLogin, refresh } = useEnterpriseReports();
 
@@ -213,16 +222,26 @@ export default function ReportsPage() {
         <select
           className="ml-auto bg-transparent border border-white/15 rounded-lg px-3 py-1.5 text-sm text-white"
           value={riskFilter}
-          onChange={(event) => setRiskFilter(event.target.value as "all" | "Low" | "Medium" | "High")}
+          onChange={(event) => {
+            const value = event.target.value;
+            if (isRiskFilter(value)) setRiskFilter(value);
+          }}
         >
           <option value="all" className="bg-slate-900">All Risk</option>
           <option value="Low" className="bg-slate-900">Low</option>
           <option value="Medium" className="bg-slate-900">Medium</option>
           <option value="High" className="bg-slate-900">High</option>
         </select>
-        <button type="button" onClick={() => downloadExcel(filteredClients)} className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-white/80">Excel</button>
+        <button type="button" onClick={() => downloadTSV(filteredClients)} className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-white/80">TSV</button>
         <button type="button" onClick={() => window.print()} className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-white/80">PDF</button>
-        <button type="button" onClick={() => setPrintMode((value) => !value)} className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-white/80">Print Mode</button>
+        <button
+          type="button"
+          aria-pressed={printMode}
+          onClick={() => setPrintMode((value) => !value)}
+          className={`rounded-lg border px-3 py-1.5 text-sm ${printMode ? "border-cyan-300/50 text-cyan-300" : "border-white/15 text-white/80"}`}
+        >
+          Print Mode
+        </button>
       </div>
 
       {error ? (
