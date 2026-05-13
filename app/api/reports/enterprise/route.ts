@@ -10,6 +10,8 @@ import type {
   RiskLevel,
   SuggestedAction,
 } from "@/lib/types/enterpriseReports";
+import type { RealEstateCategory } from "@/lib/types/realEstate";
+import { normalizeRealEstateCategory } from "@/lib/utils/realEstateCategory";
 
 const BACKEND =
   process.env.BACKEND_URL ??
@@ -340,6 +342,10 @@ function buildClientReport(
 export async function GET(request: NextRequest) {
   const auth = requireAuth(request);
   if (!auth.ok) return auth.response;
+  const category: RealEstateCategory = normalizeRealEstateCategory(
+    request.nextUrl.searchParams.get("category")
+  );
+  const categoryQuery = category === "all" ? "" : `?category=${encodeURIComponent(category)}`;
 
   try {
     let clients: BackendClient[] = [];
@@ -489,12 +495,12 @@ export async function GET(request: NextRequest) {
         rentSummaryRaw,
         analyticsRaw,
       ] = await Promise.all([
-        backendGet("/real-estate/properties", auth.context.authHeader),
-        backendGet("/real-estate/tenants", auth.context.authHeader),
-        backendGet("/real-estate/leases", auth.context.authHeader),
-        backendGet("/real-estate/maintenance/tickets", auth.context.authHeader),
-        backendGet("/real-estate/rent/summary", auth.context.authHeader),
-        backendGet("/real-estate/analytics", auth.context.authHeader),
+        backendGet(`/real-estate/properties${categoryQuery}`, auth.context.authHeader),
+        backendGet(`/real-estate/tenants${categoryQuery}`, auth.context.authHeader),
+        backendGet(`/real-estate/leases${categoryQuery}`, auth.context.authHeader),
+        backendGet(`/real-estate/maintenance/tickets${categoryQuery}`, auth.context.authHeader),
+        backendGet(`/real-estate/rent/summary${categoryQuery}`, auth.context.authHeader),
+        backendGet(`/real-estate/analytics${categoryQuery}`, auth.context.authHeader),
       ]);
       properties = normalizeListResponse<BackendProperty>(propertiesRaw);
       tenants = normalizeListResponse<Record<string, unknown>>(tenantsRaw);

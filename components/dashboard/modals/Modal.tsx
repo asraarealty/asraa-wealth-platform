@@ -130,11 +130,13 @@ export function FormError({ children }: { children: ReactNode }) {
 export function ModalFooter({
   onCancel,
   onSave,
+  cancelLabel = "Cancel",
   saveLabel = "Save",
   saving,
 }: {
   onCancel: () => void;
   onSave: () => void;
+  cancelLabel?: string;
   saveLabel?: string;
   saving?: boolean;
 }) {
@@ -145,7 +147,7 @@ export function ModalFooter({
         onClick={onCancel}
         className="px-4 py-2 text-sm rounded-xl transition-colors modal-btn-secondary"
       >
-        Cancel
+        {cancelLabel}
       </button>
       <button
         type="button"

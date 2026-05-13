@@ -13,6 +13,7 @@ import type {
   MaintenanceTicket,
   OwnerAnalytics,
   PropertyDetail,
+  RealEstateCategory,
   PropertySummary,
   RentLedgerItem,
   RentSummary,
@@ -20,6 +21,7 @@ import type {
   TenantSummary,
   WorkOrderTimelineEvent,
 } from "@/lib/types/realEstate";
+import { normalizeRealEstateCategory } from "@/lib/utils/realEstateCategory";
 
 const ENDPOINTS = {
   properties: "/real-estate/properties",
@@ -29,6 +31,10 @@ const ENDPOINTS = {
   maintenance: "/real-estate/maintenance",
   analytics: "/real-estate/analytics",
 } as const;
+
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+const MAX_ATTEMPTS = 2;
+const RETRY_DELAY_MS = 250;
 
 const mockProperties: PropertyDetail[] = [
   {
@@ -327,22 +333,71 @@ function shouldUseMockData(error: unknown): boolean {
   return error instanceof ApiError && [404, 405].includes(error.status);
 }
 
-export async function fetchProperties(signal?: AbortSignal): Promise<PropertySummary[]> {
+function shouldRetry(error: unknown): boolean {
+  if (error instanceof ApiError) return RETRYABLE_STATUS.has(error.status);
+  return error instanceof Error;
+}
+
+function shouldReturnSafeFallback(error: unknown): boolean {
+  if (error instanceof ApiError) {
+    if (error.status === 401 || error.status === 403) return false;
+    return error.status >= 500 || error.status === 429;
+  }
+  return error instanceof Error;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withRetry<T>(request: () => Promise<T>): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await request();
+    } catch (error) {
+      lastError = error;
+      if (!shouldRetry(error) || attempt === MAX_ATTEMPTS - 1) break;
+      await delay(Math.min(RETRY_DELAY_MS * (2 ** attempt), 2_000));
+    }
+  }
+  throw lastError;
+}
+
+function withCategory(endpoint: string, category?: RealEstateCategory): string {
+  const normalized = normalizeRealEstateCategory(category);
+  if (normalized === "all") return endpoint;
+  const delimiter = endpoint.includes("?") ? "&" : "?";
+  return `${endpoint}${delimiter}category=${encodeURIComponent(normalized)}`;
+}
+
+export async function fetchProperties(
+  signal?: AbortSignal,
+  category?: RealEstateCategory
+): Promise<PropertySummary[]> {
   try {
-    const res = await fetcher<PropertySummary[]>(ENDPOINTS.properties, { signal, cache: "no-store" });
+    const res = await withRetry(() =>
+      fetcher<PropertySummary[]>(withCategory(ENDPOINTS.properties, category), {
+        signal,
+        cache: "no-store",
+      })
+    );
     return Array.isArray(res) ? res : [];
   } catch (error) {
     if (shouldUseMockData(error)) return mockProperties;
+    if (shouldReturnSafeFallback(error)) return [];
     throw error;
   }
 }
 
 export async function fetchPropertyById(propertyId: number, signal?: AbortSignal): Promise<PropertyDetail> {
   try {
-    return await fetcher<PropertyDetail>(`${ENDPOINTS.properties}/${encodeURIComponent(propertyId)}`, {
-      signal,
-      cache: "no-store",
-    });
+    return await withRetry(() =>
+      fetcher<PropertyDetail>(`${ENDPOINTS.properties}/${encodeURIComponent(propertyId)}`, {
+        signal,
+        cache: "no-store",
+      })
+    );
   } catch (error) {
     if (shouldUseMockData(error)) {
       const found = mockProperties.find((property) => property.id === propertyId);
@@ -369,12 +424,21 @@ export function updateProperty(input: PropertyPayloadInput, signal?: AbortSignal
   });
 }
 
-export async function fetchTenants(signal?: AbortSignal): Promise<TenantSummary[]> {
+export async function fetchTenants(
+  signal?: AbortSignal,
+  category?: RealEstateCategory
+): Promise<TenantSummary[]> {
   try {
-    const res = await fetcher<TenantSummary[]>(ENDPOINTS.tenants, { signal, cache: "no-store" });
+    const res = await withRetry(() =>
+      fetcher<TenantSummary[]>(withCategory(ENDPOINTS.tenants, category), {
+        signal,
+        cache: "no-store",
+      })
+    );
     return Array.isArray(res) ? res : [];
   } catch (error) {
     if (shouldUseMockData(error)) return mockTenants;
+    if (shouldReturnSafeFallback(error)) return [];
     throw error;
   }
 }
@@ -411,12 +475,21 @@ export function assignTenantToProperty(input: TenantPayloadInput, signal?: Abort
   });
 }
 
-export async function fetchLeases(signal?: AbortSignal): Promise<LeaseSummary[]> {
+export async function fetchLeases(
+  signal?: AbortSignal,
+  category?: RealEstateCategory
+): Promise<LeaseSummary[]> {
   try {
-    const res = await fetcher<LeaseSummary[]>(ENDPOINTS.leases, { signal, cache: "no-store" });
+    const res = await withRetry(() =>
+      fetcher<LeaseSummary[]>(withCategory(ENDPOINTS.leases, category), {
+        signal,
+        cache: "no-store",
+      })
+    );
     return Array.isArray(res) ? res : [];
   } catch (error) {
     if (shouldUseMockData(error)) return mockLeases;
+    if (shouldReturnSafeFallback(error)) return [];
     throw error;
   }
 }
@@ -451,47 +524,83 @@ export function renewLease(leaseId: number, signal?: AbortSignal): Promise<Lease
   });
 }
 
-export async function fetchRentLedger(signal?: AbortSignal): Promise<RentLedgerItem[]> {
+export async function fetchRentLedger(
+  signal?: AbortSignal,
+  category?: RealEstateCategory
+): Promise<RentLedgerItem[]> {
   try {
-    const res = await fetcher<RentLedgerItem[]>(`${ENDPOINTS.rent}/ledger`, { signal, cache: "no-store" });
+    const res = await withRetry(() =>
+      fetcher<RentLedgerItem[]>(withCategory(`${ENDPOINTS.rent}/ledger`, category), {
+        signal,
+        cache: "no-store",
+      })
+    );
     return Array.isArray(res) ? res : [];
   } catch (error) {
     if (shouldUseMockData(error)) return mockRentLedger;
+    if (shouldReturnSafeFallback(error)) return [];
     throw error;
   }
 }
 
-export async function fetchRentSummary(signal?: AbortSignal): Promise<RentSummary> {
+export async function fetchRentSummary(
+  signal?: AbortSignal,
+  category?: RealEstateCategory
+): Promise<RentSummary> {
   try {
-    return await fetcher<RentSummary>(`${ENDPOINTS.rent}/summary`, { signal, cache: "no-store" });
+    return await withRetry(() =>
+      fetcher<RentSummary>(withCategory(`${ENDPOINTS.rent}/summary`, category), {
+        signal,
+        cache: "no-store",
+      })
+    );
   } catch (error) {
     if (shouldUseMockData(error)) return mockRentSummary;
+    if (shouldReturnSafeFallback(error)) {
+      return {
+        rentCollected: 0,
+        pendingRent: 0,
+        overdueRent: 0,
+        occupancyPercent: 0,
+        yieldPercent: 0,
+        noi: 0,
+      };
+    }
     throw error;
   }
 }
 
-export async function fetchMaintenanceTickets(signal?: AbortSignal): Promise<MaintenanceTicket[]> {
+export async function fetchMaintenanceTickets(
+  signal?: AbortSignal,
+  category?: RealEstateCategory
+): Promise<MaintenanceTicket[]> {
   try {
-    const res = await fetcher<MaintenanceTicket[]>(`${ENDPOINTS.maintenance}/tickets`, {
-      signal,
-      cache: "no-store",
-    });
+    const res = await withRetry(() =>
+      fetcher<MaintenanceTicket[]>(withCategory(`${ENDPOINTS.maintenance}/tickets`, category), {
+        signal,
+        cache: "no-store",
+      })
+    );
     return Array.isArray(res) ? res : [];
   } catch (error) {
     if (shouldUseMockData(error)) return mockMaintenance;
+    if (shouldReturnSafeFallback(error)) return [];
     throw error;
   }
 }
 
 export async function fetchWorkOrderTimeline(ticketId: number, signal?: AbortSignal): Promise<WorkOrderTimelineEvent[]> {
   try {
-    const res = await fetcher<WorkOrderTimelineEvent[]>(
-      `${ENDPOINTS.maintenance}/tickets/${encodeURIComponent(ticketId)}/timeline`,
-      { signal, cache: "no-store" }
+    const res = await withRetry(() =>
+      fetcher<WorkOrderTimelineEvent[]>(
+        `${ENDPOINTS.maintenance}/tickets/${encodeURIComponent(ticketId)}/timeline`,
+        { signal, cache: "no-store" }
+      )
     );
     return Array.isArray(res) ? res : [];
   } catch (error) {
     if (shouldUseMockData(error)) return mockMaintenanceTimeline.filter((item) => item.ticketId === ticketId);
+    if (shouldReturnSafeFallback(error)) return [];
     throw error;
   }
 }
@@ -508,11 +617,33 @@ export function updateMaintenanceStatus(
   });
 }
 
-export async function fetchOwnerAnalytics(signal?: AbortSignal): Promise<OwnerAnalytics> {
+export async function fetchOwnerAnalytics(
+  signal?: AbortSignal,
+  category?: RealEstateCategory
+): Promise<OwnerAnalytics> {
   try {
-    return await fetcher<OwnerAnalytics>(ENDPOINTS.analytics, { signal, cache: "no-store" });
+    return await withRetry(() =>
+      fetcher<OwnerAnalytics>(withCategory(ENDPOINTS.analytics, category), {
+        signal,
+        cache: "no-store",
+      })
+    );
   } catch (error) {
     if (shouldUseMockData(error)) return mockAnalytics;
+    if (shouldReturnSafeFallback(error)) {
+      return {
+        occupancyTrend: [],
+        rentTrend: [],
+        occupancyGraph: [],
+        expenseBreakdown: [],
+        noiGrowth: [],
+        leaseExpiryAlerts: 0,
+        propertyRoiPercent: 0,
+        maintenanceCosts: 0,
+        cashflowForecast: [],
+        rentalYieldPercent: 0,
+      };
+    }
     throw error;
   }
 }

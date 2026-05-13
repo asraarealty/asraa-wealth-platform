@@ -19,6 +19,7 @@ import type {
   MaintenanceTicket,
   OwnerAnalytics,
   PropertyDetail,
+  RealEstateCategory,
   PropertySummary,
   RentLedgerItem,
   RentSummary,
@@ -100,8 +101,8 @@ function useRealEstateQuery<T>(
   };
 }
 
-export function useProperties() {
-  const loader = useCallback((signal?: AbortSignal) => fetchProperties(signal), []);
+export function useProperties(category: RealEstateCategory = "all") {
+  const loader = useCallback((signal?: AbortSignal) => fetchProperties(signal, category), [category]);
   return useRealEstateQuery<PropertySummary[]>(loader, []);
 }
 
@@ -144,8 +145,8 @@ export function useProperty(propertyId?: number) {
   return useRealEstateQuery<PropertyDetail>(loader, empty, { enabled: Boolean(propertyId) });
 }
 
-export function useTenants() {
-  const loader = useCallback((signal?: AbortSignal) => fetchTenants(signal), []);
+export function useTenants(category: RealEstateCategory = "all") {
+  const loader = useCallback((signal?: AbortSignal) => fetchTenants(signal, category), [category]);
   return useRealEstateQuery<TenantSummary[]>(loader, []);
 }
 
@@ -176,8 +177,8 @@ export function useTenant(tenantId?: number) {
   return useRealEstateQuery<TenantDetail>(loader, empty, { enabled: Boolean(tenantId) });
 }
 
-export function useLeases() {
-  const loader = useCallback((signal?: AbortSignal) => fetchLeases(signal), []);
+export function useLeases(category: RealEstateCategory = "all") {
+  const loader = useCallback((signal?: AbortSignal) => fetchLeases(signal, category), [category]);
   return useRealEstateQuery<LeaseSummary[]>(loader, []);
 }
 
@@ -205,13 +206,13 @@ export function useLease(leaseId?: number) {
   return useRealEstateQuery<LeaseDetail>(loader, empty, { enabled: Boolean(leaseId) });
 }
 
-export function useRentLedger() {
-  const loader = useCallback((signal?: AbortSignal) => fetchRentLedger(signal), []);
+export function useRentLedger(category: RealEstateCategory = "all") {
+  const loader = useCallback((signal?: AbortSignal) => fetchRentLedger(signal, category), [category]);
   return useRealEstateQuery<RentLedgerItem[]>(loader, []);
 }
 
-export function useRentSummary() {
-  const loader = useCallback((signal?: AbortSignal) => fetchRentSummary(signal), []);
+export function useRentSummary(category: RealEstateCategory = "all") {
+  const loader = useCallback((signal?: AbortSignal) => fetchRentSummary(signal, category), [category]);
   return useRealEstateQuery<RentSummary>(
     loader,
     {
@@ -225,13 +226,16 @@ export function useRentSummary() {
   );
 }
 
-export function useMaintenanceTickets() {
-  const loader = useCallback((signal?: AbortSignal) => fetchMaintenanceTickets(signal), []);
+export function useMaintenanceTickets(category: RealEstateCategory = "all") {
+  const loader = useCallback(
+    (signal?: AbortSignal) => fetchMaintenanceTickets(signal, category),
+    [category]
+  );
   return useRealEstateQuery<MaintenanceTicket[]>(loader, []);
 }
 
-export function useOwnerAnalytics() {
-  const loader = useCallback((signal?: AbortSignal) => fetchOwnerAnalytics(signal), []);
+export function useOwnerAnalytics(category: RealEstateCategory = "all") {
+  const loader = useCallback((signal?: AbortSignal) => fetchOwnerAnalytics(signal, category), [category]);
   return useRealEstateQuery<OwnerAnalytics>(
     loader,
     {

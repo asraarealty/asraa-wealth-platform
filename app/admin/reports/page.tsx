@@ -8,6 +8,8 @@ import Loader from "@/components/ui/Loader";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 import { useEnterpriseReports } from "@/lib/hooks/useEnterpriseReports";
 import type { EnterpriseClientReport } from "@/lib/types/enterpriseReports";
+import { useRealEstateCategory } from "@/hooks/useRealEstateCategory";
+import RealEstateCategorySwitcher from "@/components/properties/RealEstateCategorySwitcher";
 
 const SimpleBarChart = dynamic(() => import("@/components/properties/SimpleBarChart"), {
   ssr: false,
@@ -182,7 +184,8 @@ export default function ReportsPage() {
   const router = useRouter();
   const [riskFilter, setRiskFilter] = useState<RiskFilter>("all");
   const [printMode, setPrintMode] = useState(false);
-  const { data, loading, refreshing, error, requiresLogin, refresh } = useEnterpriseReports();
+  const { category, setCategory } = useRealEstateCategory();
+  const { data, loading, refreshing, error, requiresLogin, refresh } = useEnterpriseReports({ category });
 
   const filteredClients = useMemo(() => {
     if (!data) return [];
@@ -232,6 +235,7 @@ export default function ReportsPage() {
           <option value="Medium" className="bg-slate-900">Medium</option>
           <option value="High" className="bg-slate-900">High</option>
         </select>
+        <RealEstateCategorySwitcher value={category} onChange={setCategory} />
         <button type="button" onClick={() => downloadTSV(filteredClients)} className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-white/80">TSV</button>
         <button type="button" onClick={() => window.print()} className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-white/80">PDF</button>
         <button

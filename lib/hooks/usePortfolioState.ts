@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchPortfolio, type PortfolioFull } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
+import { subscribeRealEstateDataUpdated } from "@/lib/events/realtime";
 
 type LoadOptions = {
   background?: boolean;
@@ -175,6 +176,14 @@ export function usePortfolioState(options: UsePortfolioStateOptions = {}) {
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [enabled, load, pollMs]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    return subscribeRealEstateDataUpdated(() => {
+      invalidatePortfolioCache(clientId);
+      void load({ background: true, force: true });
+    });
+  }, [clientId, enabled, load]);
 
   return {
     portfolio,

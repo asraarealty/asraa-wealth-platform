@@ -9,6 +9,7 @@ const links = [
   { href: "/leases", label: "Leases" },
   { href: "/rent", label: "Rent" },
   { href: "/maintenance", label: "Maintenance" },
+  { href: "/reports", label: "Reports" },
 ];
 
 export default function OperationsNav() {
