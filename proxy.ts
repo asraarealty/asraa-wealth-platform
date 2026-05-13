@@ -67,7 +67,13 @@ export function proxy(request: NextRequest) {
 
   const isDashboard = pathname.startsWith("/dashboard");
   const isAdmin = pathname.startsWith("/admin");
-  const isProtectedRoute = isDashboard || isAdmin;
+  const isOperations =
+    pathname.startsWith("/properties") ||
+    pathname.startsWith("/tenants") ||
+    pathname.startsWith("/leases") ||
+    pathname.startsWith("/rent") ||
+    pathname.startsWith("/maintenance");
+  const isProtectedRoute = isDashboard || isAdmin || isOperations;
   const isLoginAttempt = pathname === "/auth/login" && request.method === "POST";
 
   if (isLoginAttempt) {
