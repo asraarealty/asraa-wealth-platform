@@ -66,6 +66,25 @@ function mapServerErrorToFieldErrors(message: string): MFFieldErrors {
   return next;
 }
 
+function redactMFDebug(payload: Record<string, unknown>): Record<string, unknown> {
+  const redacted: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    if (
+      key === "units" ||
+      key === "quantity" ||
+      key === "avgPrice" ||
+      key === "currentPrice" ||
+      key === "avgNav" ||
+      key === "currentNav"
+    ) {
+      redacted[key] = "[redacted]";
+      continue;
+    }
+    redacted[key] = value;
+  }
+  return redacted;
+}
+
 export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
   const isEdit = Boolean(asset);
   const [form, setForm] = useState<MFForm>(EMPTY);
@@ -146,15 +165,15 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
 
     if (process.env.NODE_ENV === "development") {
       console.debug("[MFModal] pre_submit", {
-        rawFormState: form,
-        normalizedPayload: {
+        rawFormState: redactMFDebug(form as Record<string, unknown>),
+        normalizedPayload: redactMFDebug({
           assetType: "mutual_fund",
           fundCode: symbol || null,
           fundName: name || null,
           quantity,
           avgNav: avgPrice,
           currentNav: currentPrice,
-        },
+        }),
         validationResult: {
           valid: Object.keys(nextFieldErrors).length === 0,
           rejectedField: Object.keys(nextFieldErrors)[0] ?? null,

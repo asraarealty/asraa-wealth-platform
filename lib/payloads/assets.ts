@@ -54,7 +54,7 @@ export function buildStockPayload(input: StockPayloadInput): CanonicalStockPaylo
 
 export interface FundPayloadInput {
   clientId: number;
-  assetType?: "mutual_fund";
+  assetType: "mutual_fund";
   fundCode?: string;
   fundName?: string;
   name?: string;
@@ -84,7 +84,7 @@ export function buildFundPayload(input: FundPayloadInput): CanonicalFundPayload 
 
   return {
     client_id: input.clientId,
-    type: input.assetType ?? "mutual_fund",
+    type: input.assetType,
     fund_code: input.fundCode?.trim() || undefined,
     name,
     quantity: safeNumber(quantity),

@@ -637,6 +637,27 @@ function sanitizeOutgoingPayload(payload: Record<string, unknown>): Record<strin
   return sanitized;
 }
 
+function redactForAssetDebug(input: Record<string, unknown>): Record<string, unknown> {
+  const redacted: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (
+      key === "quantity" ||
+      key === "avgPrice" ||
+      key === "currentPrice" ||
+      key === "avg_price" ||
+      key === "current_price" ||
+      key === "clientId" ||
+      key === "client_id" ||
+      key === "userId"
+    ) {
+      redacted[key] = "[redacted]";
+      continue;
+    }
+    redacted[key] = value;
+  }
+  return redacted;
+}
+
 /**
  * Build the canonical backend payload for supported asset creation flows.
  *
@@ -748,8 +769,8 @@ export function createAsset(
   if (Object.keys(validationErrors).length > 0) {
     if (process.env.NODE_ENV === "development") {
       console.debug("[createAsset] validation_failed", {
-        rawFormState: payload,
-        normalizedPayload,
+        rawFormState: redactForAssetDebug(payload as Record<string, unknown>),
+        normalizedPayload: redactForAssetDebug(normalizedPayload as Record<string, unknown>),
         validationResult: { valid: false, rejectedField: Object.keys(validationErrors)[0] },
         errors: validationErrors,
       });
@@ -769,10 +790,10 @@ export function createAsset(
 
   if (process.env.NODE_ENV === "development") {
     console.debug("[createAsset] submit", {
-      rawFormState: payload,
-      normalizedPayload,
+      rawFormState: redactForAssetDebug(payload as Record<string, unknown>),
+      normalizedPayload: redactForAssetDebug(normalizedPayload as Record<string, unknown>),
       validationResult: { valid: true, rejectedField: null },
-      requestPayload,
+      requestPayload: redactForAssetDebug(requestPayload),
     });
   }
 
