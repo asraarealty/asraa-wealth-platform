@@ -73,9 +73,13 @@ export default function AssetTabs({
 
   return (
     <div className="glass-card rounded-2xl p-5">
-      {/* Tab bar — scrollable on mobile with fade edge indicators */}
+      {/* Tab bar — scrollable on mobile with fade edge indicator */}
       <div className="relative mb-5">
-        <div className="overflow-x-auto -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
+        <div
+          className="overflow-x-auto -mx-1 px-1"
+          role="tablist"
+          aria-label="Portfolio asset categories"
+        >
           <div
             className="flex gap-1 p-1 rounded-xl w-max"
             style={{ background: "rgba(255,255,255,0.04)" }}
@@ -85,6 +89,8 @@ export default function AssetTabs({
             return (
               <button
                 key={tab.id}
+                role="tab"
+                aria-selected={active}
                 onClick={() => onTabChange(tab.id)}
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all"
                 style={
@@ -119,7 +125,7 @@ export default function AssetTabs({
           })}
           </div>
         </div>
-        {/* Right fade gradient — visible hint that more tabs are off-screen */}
+        {/* Right fade gradient — visual hint that more tabs are off-screen on small viewports */}
         <div
           className="pointer-events-none absolute inset-y-0 right-0 w-8 sm:hidden"
           style={{ background: "linear-gradient(to right, transparent, rgba(255,255,255,0.03))" }}
