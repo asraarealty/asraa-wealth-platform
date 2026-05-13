@@ -67,7 +67,8 @@ export default function NewPortfolioPage() {
         name: form.name.trim(),
         quantity: Number(form.quantity),
         avgPrice: Number(form.avgPrice),
-        userId: selectedClient!.id,
+        currentPrice: Number(form.avgPrice || 0),
+        clientId: selectedClient!.id,
       });
 
       router.push("/admin/portfolio");

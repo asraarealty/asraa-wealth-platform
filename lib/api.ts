@@ -603,6 +603,32 @@ function toApiPayload(payload: CreateAssetPayload | UpdateAssetPayload): Record<
   return result;
 }
 
+function sanitizeOutgoingPayload(payload: Record<string, unknown>): Record<string, unknown> {
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    if (value === undefined || value === null) continue;
+    if (typeof value === "number") {
+      if (!Number.isFinite(value)) continue;
+      sanitized[key] = value;
+      continue;
+    }
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) continue;
+      sanitized[key] = trimmed;
+      continue;
+    }
+    if (Array.isArray(value)) {
+      sanitized[key] = value
+        .map((item) => (typeof item === "string" ? item.trim() : item))
+        .filter((item) => item !== undefined && item !== null && item !== "");
+      continue;
+    }
+    sanitized[key] = value;
+  }
+  return sanitized;
+}
+
 /**
  * Build the canonical backend payload for supported asset creation flows.
  *
@@ -677,33 +703,40 @@ export function createAsset(
   signal?: AbortSignal
 ): Promise<Asset> {
   const safeNumber = (value: unknown) => {
-    const n = Number(value);
+    const n = Number(value || 0);
     return Number.isFinite(n) ? n : 0;
   };
+  const targetClientId = safeNumber(payload.clientId ?? payload.userId);
   const quantity = safeNumber(payload.quantity);
   const avgPrice = safeNumber(payload.avgPrice);
   const currentPrice = safeNumber(payload.currentPrice ?? payload.avgPrice);
 
   const normalizedPayload: CreateAssetPayload = {
     ...payload,
+    clientId: targetClientId,
+    userId: undefined,
     symbol:
       payload.type === "property"
         ? payload.symbol?.trim() || undefined
         : payload.symbol?.trim().toUpperCase() || undefined,
-    name: payload.name.trim(),
+    name: String(payload.name ?? "").trim(),
     exchange: payload.exchange?.trim().toUpperCase() || undefined,
     quantity,
     avgPrice,
     currentPrice,
   };
 
-  // Mutual funds may not have a symbol/code — only require it for stocks/commodities/property
-  if (
-    payload.type !== "property" &&
-    payload.type !== "mf" &&
-    !normalizedPayload.symbol
-  ) {
+  if (targetClientId <= 0) {
+    throw new Error("Client is required");
+  }
+  if (!normalizedPayload.name) {
+    throw new Error("Name is required");
+  }
+  if ((payload.type === "stock" || payload.type === "commodity") && !normalizedPayload.symbol) {
     throw new Error("Symbol is required");
+  }
+  if (payload.type === "mf" && !normalizedPayload.symbol) {
+    throw new Error("Mutual fund code is required");
   }
   if (quantity <= 0) {
     throw new Error("Quantity must be greater than 0");
@@ -721,12 +754,32 @@ export function createAsset(
     avgPrice,
     currentPrice
   );
+  const requestPayload = sanitizeOutgoingPayload(
+    canonicalPayload ?? toApiPayload(normalizedPayload)
+  );
+
+  if (process.env.NODE_ENV === "development") {
+    console.debug("ASSET PAYLOAD", requestPayload);
+  }
 
   return fetcher<Asset>("/assets", {
     method: "POST",
     // Property payloads still travel through generic key translation.
-    body: canonicalPayload ?? toApiPayload(normalizedPayload),
+    body: requestPayload,
     signal,
+  }).catch((err) => {
+    if (err instanceof ApiError) {
+      if (err.status === 401) {
+        throw new ApiError(401, "Session expired. Please sign in again.");
+      }
+      if (err.status === 422) {
+        throw new ApiError(
+          422,
+          "Invalid asset form. Fill all required values and provide valid prices/quantity."
+        );
+      }
+    }
+    throw err;
   });
 }
 
