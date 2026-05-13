@@ -358,7 +358,7 @@ async function withRetry<T>(request: () => Promise<T>): Promise<T> {
     } catch (error) {
       lastError = error;
       if (!shouldRetry(error) || attempt === MAX_ATTEMPTS - 1) break;
-      await delay(RETRY_DELAY_MS * (attempt + 1));
+      await delay(RETRY_DELAY_MS * (2 ** attempt));
     }
   }
   throw lastError;
