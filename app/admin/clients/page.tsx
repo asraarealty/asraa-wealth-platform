@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getAdminClients, approveClient, deleteClient } from "@/lib/services/clientService";
+import { getAdminClients, approveClient, deleteClient, restoreClient } from "@/lib/services/clientService";
 import { toggleClientStatus, toErrorMessage } from "@/lib/api";
 import { invalidatePortfolioCache } from "@/lib/hooks/usePortfolioState";
 import type { AdminClient } from "@/lib/api";
@@ -22,7 +23,7 @@ type LoadOptions = {
 /** Resolve the canonical approval status from all possible backend shapes. */
 function resolveApprovalStatus(
   client: AdminClient
-): "pending" | "approved" | "rejected" | "suspended" {
+): "pending" | "approved" | "rejected" | "suspended" | "archived" {
   return client.approvalStatus ?? "pending";
 }
 
@@ -53,6 +54,12 @@ function ApprovalBadge({ status }: { status: ReturnType<typeof resolveApprovalSt
       border: "rgba(107,114,128,0.2)",
       dot: "#9ca3af",
     },
+    archived: {
+      bg: "rgba(239,68,68,0.08)",
+      color: "#ef4444",
+      border: "rgba(239,68,68,0.18)",
+      dot: "#ef4444",
+    },
   };
   const s = styles[status] ?? styles.pending;
   return (
@@ -72,36 +79,131 @@ function ActionsDropdown({
   onPortfolio,
   onApprove,
   onToggle,
+  onRestore,
   onDelete,
   isBusy,
   isApproving,
   isToggling,
+  isRestoring,
   isDeleting,
 }: {
   client: AdminClient;
   onPortfolio: () => void;
   onApprove: () => void;
-  onToggle: () => void;
+  onToggle: (active: boolean) => void;
+  onRestore: () => void;
   onDelete: () => void;
   isBusy: boolean;
   isApproving: boolean;
   isToggling: boolean;
+  isRestoring: boolean;
   isDeleting: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     function close(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (
+        triggerRef.current?.contains(e.target as Node) ||
+        menuRef.current?.contains(e.target as Node)
+      ) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [open]);
 
+  function handleOpenMenu() {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setMenuStyle({
+        position: "fixed",
+        top: rect.bottom + 4,
+        right: window.innerWidth - rect.right,
+        zIndex: 200,
+      });
+    }
+    setOpen((v) => !v);
+  }
+
   const approvalStatus = resolveApprovalStatus(client);
-  const canApprove = approvalStatus !== "approved";
+  const isArchived = approvalStatus === "archived";
+  const isInactive = !client.isActive;
+  const needsRecovery = isArchived || isInactive;
+  const canApprove = !isArchived && approvalStatus !== "approved";
+
+  const menu = open
+    ? createPortal(
+        <div
+          ref={menuRef}
+          className="rounded-xl py-1 min-w-[9rem]"
+          style={{
+            ...menuStyle,
+            background: "rgba(12,16,24,0.98)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+          }}
+        >
+          {needsRecovery && (
+            <button
+              type="button"
+              onClick={() => { setOpen(false); onRestore(); }}
+              disabled={isRestoring}
+              className="w-full text-left px-3 py-2.5 text-xs font-medium hover:bg-white/5 transition-colors disabled:opacity-50"
+              style={{ color: "#a78bfa" }}
+            >
+              {isRestoring ? "Restoring…" : "Restore Client"}
+            </button>
+          )}
+          {needsRecovery && (
+            <button
+              type="button"
+              onClick={() => { setOpen(false); onToggle(true); }}
+              disabled={isToggling}
+              className="w-full text-left px-3 py-2.5 text-xs font-medium hover:bg-white/5 transition-colors disabled:opacity-50"
+              style={{ color: "#2ecc71" }}
+            >
+              {isToggling ? "Reactivating…" : "Reactivate Client"}
+            </button>
+          )}
+          {canApprove && (
+            <button
+              type="button"
+              onClick={() => { setOpen(false); onApprove(); }}
+              disabled={isApproving}
+              className="w-full text-left px-3 py-2.5 text-xs font-medium text-green-400 hover:bg-white/5 transition-colors disabled:opacity-50"
+            >
+              {isApproving ? "Approving…" : "Approve"}
+            </button>
+          )}
+          {!needsRecovery && (
+            <button
+              type="button"
+              onClick={() => { setOpen(false); onToggle(false); }}
+              disabled={isToggling}
+              className="w-full text-left px-3 py-2.5 text-xs hover:bg-white/5 transition-colors disabled:opacity-50"
+              style={{ color: "#ef4444" }}
+            >
+              {isToggling ? "Deactivating…" : "Deactivate"}
+            </button>
+          )}
+          <hr className="my-1 border-white/10" />
+          <button
+            type="button"
+            onClick={() => { setOpen(false); onDelete(); }}
+            disabled={isDeleting}
+            className="w-full text-left px-3 py-2.5 text-xs text-red-400 hover:bg-white/5 transition-colors disabled:opacity-50"
+          >
+            {isDeleting ? "Deleting…" : "Delete"}
+          </button>
+        </div>,
+        document.body
+      )
+    : null;
 
   return (
     <div className="flex items-center gap-2">
@@ -120,59 +222,21 @@ function ActionsDropdown({
       </button>
 
       {/* Secondary: dropdown */}
-      <div ref={ref} className="relative">
+      <div className="relative">
         <button
+          ref={triggerRef}
           type="button"
           disabled={isBusy}
-          onClick={() => setOpen((v) => !v)}
+          onClick={handleOpenMenu}
           aria-label="More actions"
-          className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-gray-400 hover:text-white transition-colors disabled:opacity-40"
+          className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-white transition-colors disabled:opacity-40"
           style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
         >
           <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
             <path d="M10 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
           </svg>
         </button>
-
-        {open && (
-          <div
-            className="absolute right-0 mt-1 w-36 rounded-xl py-1 z-50"
-            style={{
-              background: "rgba(12,16,24,0.98)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
-            }}
-          >
-            {canApprove && (
-              <button
-                type="button"
-                onClick={() => { setOpen(false); onApprove(); }}
-                disabled={isApproving}
-                className="w-full text-left px-3 py-2 text-xs text-green-400 hover:bg-white/5 transition-colors disabled:opacity-50"
-              >
-                {isApproving ? "Approving…" : "Approve"}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => { setOpen(false); onToggle(); }}
-              disabled={isToggling}
-              className="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors disabled:opacity-50"
-              style={{ color: client.isActive ? "#ef4444" : "#2ecc71" }}
-            >
-              {isToggling ? "…" : client.isActive ? "Deactivate" : "Activate"}
-            </button>
-            <hr className="my-1 border-white/10" />
-            <button
-              type="button"
-              onClick={() => { setOpen(false); onDelete(); }}
-              disabled={isDeleting}
-              className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-white/5 transition-colors disabled:opacity-50"
-            >
-              {isDeleting ? "Deleting…" : "Delete"}
-            </button>
-          </div>
-        )}
+        {menu}
       </div>
     </div>
   );
@@ -189,6 +253,7 @@ export default function ClientsPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [approvingId, setApprovingId] = useState<number | null>(null);
+  const [restoringId, setRestoringId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<AdminClient | null>(null);
   const acRef = useRef<AbortController | null>(null);
@@ -281,11 +346,10 @@ export default function ClientsPage() {
     };
   }, [confirmDelete, deletingId]);
 
-  async function handleToggle(client: AdminClient) {
-    if (togglingId === client.id || approvingId === client.id || deletingId === client.id) return;
+  async function handleToggle(client: AdminClient, nextActive: boolean) {
+    if (togglingId === client.id || approvingId === client.id || restoringId === client.id || deletingId === client.id) return;
     setTogglingId(client.id);
     try {
-      const nextActive = !client.isActive;
       await toggleClientStatus(client.id, nextActive);
       setClients((prev) =>
         prev.map((item) =>
@@ -307,7 +371,7 @@ export default function ClientsPage() {
   }
 
   async function handleApprove(client: AdminClient) {
-    if (approvingId === client.id || togglingId === client.id || deletingId === client.id) return;
+    if (approvingId === client.id || togglingId === client.id || restoringId === client.id || deletingId === client.id) return;
     // Capture original values before any state updates for accurate rollback
     const originalApprovalStatus = client.approvalStatus;
     const originalIsActive = client.isActive;
@@ -336,6 +400,39 @@ export default function ClientsPage() {
       showToast(toErrorMessage(err), "error");
     } finally {
       setApprovingId(null);
+    }
+  }
+
+  async function handleRestore(client: AdminClient) {
+    if (restoringId === client.id || togglingId === client.id || approvingId === client.id || deletingId === client.id) return;
+    const originalApprovalStatus = client.approvalStatus;
+    const originalIsActive = client.isActive;
+    setRestoringId(client.id);
+    // Optimistic update: clear archived badge and mark active
+    setClients((prev) =>
+      prev.map((item) =>
+        item.id === client.id
+          ? { ...item, approvalStatus: "pending", isActive: true }
+          : item
+      )
+    );
+    try {
+      await restoreClient(client.id);
+      invalidatePortfolioCache(client.id);
+      showToast(`${client.name} restored successfully`, "success");
+      void loadClients({ background: true, force: true });
+    } catch (err) {
+      // Revert optimistic update on failure
+      setClients((prev) =>
+        prev.map((item) =>
+          item.id === client.id
+            ? { ...item, approvalStatus: originalApprovalStatus, isActive: originalIsActive }
+            : item
+        )
+      );
+      showToast(toErrorMessage(err), "error");
+    } finally {
+      setRestoringId(null);
     }
   }
 
@@ -528,8 +625,9 @@ export default function ClientsPage() {
                 {filtered.map((client, i) => {
                   const isToggling = togglingId === client.id;
                   const isApproving = approvingId === client.id;
+                  const isRestoring = restoringId === client.id;
                   const isDeleting = deletingId === client.id;
-                  const isBusy = isToggling || isApproving || isDeleting;
+                  const isBusy = isToggling || isApproving || isRestoring || isDeleting;
                   const approvalStatus = resolveApprovalStatus(client);
 
                   return (
@@ -589,11 +687,13 @@ export default function ClientsPage() {
                             client={client}
                             onPortfolio={() => router.push(`/admin/portfolio?clientId=${client.id}`)}
                             onApprove={() => void handleApprove(client)}
-                            onToggle={() => void handleToggle(client)}
+                            onToggle={(active) => void handleToggle(client, active)}
+                            onRestore={() => void handleRestore(client)}
                             onDelete={() => setConfirmDelete(client)}
                             isBusy={isBusy}
                             isApproving={isApproving}
                             isToggling={isToggling}
+                            isRestoring={isRestoring}
                             isDeleting={isDeleting}
                           />
                         </div>

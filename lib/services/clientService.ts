@@ -5,6 +5,7 @@ import {
   approveClient as apiApproveClient,
   deleteClient as apiDeleteClient,
   updateClient as apiUpdateClient,
+  restoreClient as apiRestoreClient,
   type Client,
   type AdminClient,
 } from "@/lib/api";
@@ -117,4 +118,11 @@ export function updateClient(
   data: Record<string, unknown>
 ): Promise<unknown> {
   return apiUpdateClient(id, data);
+}
+
+/**
+ * Restore an archived/inactive client via PATCH /clients/{id}/restore.
+ */
+export function restoreClient(id: number): Promise<void> {
+  return apiRestoreClient(id);
 }

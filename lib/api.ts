@@ -69,7 +69,7 @@ export type AdminClient = {
   phone?: string;
   createdAt?: string;
   isActive: boolean;
-  approvalStatus?: "pending" | "approved" | "rejected" | "suspended";
+  approvalStatus?: "pending" | "approved" | "rejected" | "suspended" | "archived";
 };
 
 function mapAdminClient(raw: any): AdminClient {
@@ -132,6 +132,12 @@ export function updateClient(
 
 export function approveClient(id: number): Promise<void> {
   return fetcher<void>(`/clients/${encodeURIComponent(id)}/approve`, {
+    method: "PATCH",
+  });
+}
+
+export function restoreClient(id: number): Promise<void> {
+  return fetcher<void>(`/clients/${encodeURIComponent(id)}/restore`, {
     method: "PATCH",
   });
 }
