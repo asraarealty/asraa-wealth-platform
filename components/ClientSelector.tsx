@@ -22,10 +22,15 @@ export default function ClientSelector({
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const autoSelected = useRef(false);
+  const lastAutoSelectedIdRef = useRef<number | null>(null);
+  const onChangeRef = useRef(onChange);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const selectedClient = clients.find((c) => c.id === selectedId) ?? null;
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   const load = useCallback((): AbortController => {
     const controller = new AbortController();
@@ -35,13 +40,6 @@ export default function ClientSelector({
     getClients(controller.signal)
       .then((data) => {
         setClients(data);
-        if (autoSelectId !== null && autoSelectId !== undefined && !autoSelected.current) {
-          const match = data.find((c) => c.id === autoSelectId);
-          if (match) {
-            autoSelected.current = true;
-            onChange(match);
-          }
-        }
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -52,12 +50,21 @@ export default function ClientSelector({
       });
 
     return controller;
-  }, [autoSelectId, onChange]);
+  }, []);
 
   useEffect(() => {
     const controller = load();
     return () => controller.abort();
   }, [load]);
+
+  useEffect(() => {
+    if (autoSelectId === null || autoSelectId === undefined) return;
+    if (lastAutoSelectedIdRef.current === autoSelectId) return;
+    const match = clients.find((c) => c.id === autoSelectId);
+    if (!match) return;
+    lastAutoSelectedIdRef.current = autoSelectId;
+    onChangeRef.current(match);
+  }, [autoSelectId, clients]);
 
   // Close dropdown on outside click
   useEffect(() => {
