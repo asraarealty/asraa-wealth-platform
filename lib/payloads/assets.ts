@@ -1,3 +1,5 @@
+import { safeDecimalNumber } from "@/lib/utils/numberParsing";
+
 /**
  * Canonical asset payload builders.
  *
@@ -6,8 +8,7 @@
  */
 
 function safeNumber(value: unknown): number {
-  const n = typeof value === "string" ? parseFloat(value) : Number(value ?? 0);
-  return Number.isFinite(n) ? n : 0;
+  return safeDecimalNumber(value, 0);
 }
 
 // ── Stock ──────────────────────────────────────────────────────────
@@ -53,11 +54,16 @@ export function buildStockPayload(input: StockPayloadInput): CanonicalStockPaylo
 
 export interface FundPayloadInput {
   clientId: number;
+  assetType?: "mutual_fund";
   fundCode?: string;
-  name: string;
-  units: number | string;
-  avgPrice: number | string;
-  currentPrice: number | string;
+  fundName?: string;
+  name?: string;
+  quantity?: number | string;
+  units?: number | string;
+  avgNav?: number | string;
+  avgPrice?: number | string;
+  currentNav?: number | string;
+  currentPrice?: number | string;
 }
 
 export interface CanonicalFundPayload {
@@ -65,20 +71,25 @@ export interface CanonicalFundPayload {
   type: "mutual_fund";
   fund_code: string | undefined;
   name: string;
-  units: number;
+  quantity: number;
   avg_price: number;
   current_price: number;
 }
 
 export function buildFundPayload(input: FundPayloadInput): CanonicalFundPayload {
+  const name = (input.fundName ?? input.name ?? "").trim();
+  const quantity = input.quantity ?? input.units ?? 0;
+  const avgPrice = input.avgNav ?? input.avgPrice ?? 0;
+  const currentPrice = input.currentNav ?? input.currentPrice ?? avgPrice;
+
   return {
     client_id: input.clientId,
-    type: "mutual_fund",
+    type: input.assetType ?? "mutual_fund",
     fund_code: input.fundCode?.trim() || undefined,
-    name: input.name.trim(),
-    units: safeNumber(input.units),
-    avg_price: safeNumber(input.avgPrice),
-    current_price: safeNumber(input.currentPrice),
+    name,
+    quantity: safeNumber(quantity),
+    avg_price: safeNumber(avgPrice),
+    current_price: safeNumber(currentPrice),
   };
 }
 

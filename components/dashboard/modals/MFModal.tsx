@@ -5,6 +5,7 @@ import Modal, { FormField, FieldInput, ModalFooter, FormError } from "./Modal";
 import TagSelect from "../TagSelect";
 import MFSearch from "../MFSearch";
 import type { Asset, CreateAssetPayload, UpdateAssetPayload, MutualFundResult } from "@/lib/api";
+import { parseDecimalInput, safeDecimalNumber } from "@/lib/utils/numberParsing";
 
 interface MFModalProps {
   asset?: Asset | null;
@@ -22,6 +23,7 @@ interface MFForm {
 }
 
 interface MFFieldErrors {
+  symbol?: string;
   name?: string;
   units?: string;
   avgPrice?: string;
@@ -38,8 +40,30 @@ const EMPTY: MFForm = {
 };
 
 function toFiniteNumber(value: unknown): number {
-  const n = Number(value ?? 0);
-  return Number.isFinite(n) ? n : 0;
+  return safeDecimalNumber(value, 0);
+}
+
+function mapServerErrorToFieldErrors(message: string): MFFieldErrors {
+  const msg = message.toLowerCase();
+  const next: MFFieldErrors = {};
+
+  if (msg.includes("fund code") || msg.includes("fund_code") || msg.includes("symbol")) {
+    next.symbol = "Fund code required";
+  }
+  if (msg.includes("name") || msg.includes("fund_name")) {
+    next.name = "Fund name required";
+  }
+  if (msg.includes("quantity") || msg.includes("unit")) {
+    next.units = "Quantity required";
+  }
+  if ((msg.includes("avg") || msg.includes("average")) && (msg.includes("nav") || msg.includes("price"))) {
+    next.avgPrice = "Avg NAV invalid";
+  }
+  if (msg.includes("current") && (msg.includes("nav") || msg.includes("price"))) {
+    next.currentPrice = "Current NAV invalid";
+  }
+
+  return next;
 }
 
 export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
@@ -91,20 +115,51 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
 
     const symbol = form.symbol.trim().toUpperCase();
     const name = form.name.trim();
-    const quantity = Number(form.units || 0);
-    const avgPrice = Number(form.avgPrice || 0);
-    const currentPrice = Number(form.currentPrice || 0);
+    const quantity = parseDecimalInput(form.units);
+    const avgPrice = parseDecimalInput(form.avgPrice);
+    const currentPrice = parseDecimalInput(form.currentPrice);
     const nextFieldErrors: MFFieldErrors = {};
 
+    if (!symbol) nextFieldErrors.symbol = "Fund code required";
     if (!name) nextFieldErrors.name = "Fund name is required";
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-      nextFieldErrors.units = "Units must be a positive number";
+    if (!form.units.trim()) {
+      nextFieldErrors.units = "Quantity required";
+    } else if (quantity === null) {
+      nextFieldErrors.units = "Quantity invalid";
+    } else if (quantity <= 0) {
+      nextFieldErrors.units = "Quantity must be greater than 0";
     }
-    if (!Number.isFinite(avgPrice) || avgPrice <= 0) {
-      nextFieldErrors.avgPrice = "Average NAV must be a positive number";
+    if (!form.avgPrice.trim()) {
+      nextFieldErrors.avgPrice = "Avg NAV required";
+    } else if (avgPrice === null) {
+      nextFieldErrors.avgPrice = "Avg NAV invalid";
+    } else if (avgPrice <= 0) {
+      nextFieldErrors.avgPrice = "Avg NAV must be greater than 0";
     }
-    if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
-      nextFieldErrors.currentPrice = "Current NAV must be a positive number";
+    if (!form.currentPrice.trim()) {
+      nextFieldErrors.currentPrice = "Current NAV required";
+    } else if (currentPrice === null) {
+      nextFieldErrors.currentPrice = "Current NAV invalid";
+    } else if (currentPrice <= 0) {
+      nextFieldErrors.currentPrice = "Current NAV must be greater than 0";
+    }
+
+    if (process.env.NODE_ENV === "development") {
+      console.debug("[MFModal] pre_submit", {
+        rawFormState: form,
+        normalizedPayload: {
+          assetType: "mutual_fund",
+          fundCode: symbol || null,
+          fundName: name || null,
+          quantity,
+          avgNav: avgPrice,
+          currentNav: currentPrice,
+        },
+        validationResult: {
+          valid: Object.keys(nextFieldErrors).length === 0,
+          rejectedField: Object.keys(nextFieldErrors)[0] ?? null,
+        },
+      });
     }
 
     setFieldErrors(nextFieldErrors);
@@ -126,7 +181,14 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
         tags: form.tags,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      const message = err instanceof Error ? err.message : "Save failed";
+      const mappedErrors = mapServerErrorToFieldErrors(message);
+      if (Object.keys(mappedErrors).length > 0) {
+        setFieldErrors((prev) => ({ ...prev, ...mappedErrors }));
+        setError(null);
+      } else {
+        setError(message);
+      }
     } finally {
       setSaving(false);
     }
@@ -143,12 +205,15 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
         </FormField>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FormField label="Fund Code">
+          <FormField label="Fund Code" required error={fieldErrors.symbol}>
             <FieldInput
               name="mf-symbol"
               placeholder="HDFC001"
               value={form.symbol}
-              onChange={(v) => setForm((f) => ({ ...f, symbol: v }))}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, symbol: v }));
+                setFieldErrors((prev) => ({ ...prev, symbol: undefined }));
+              }}
             />
           </FormField>
           <FormField label="Fund Name" required error={fieldErrors.name}>
