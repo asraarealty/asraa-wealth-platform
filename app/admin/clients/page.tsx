@@ -167,7 +167,7 @@ function ActionsDropdown({
               className="w-full text-left px-3 py-2.5 text-xs font-medium hover:bg-white/5 transition-colors disabled:opacity-50"
               style={{ color: "#2ecc71" }}
             >
-              {isToggling ? "…" : "Reactivate Client"}
+              {isToggling ? "Reactivating…" : "Reactivate Client"}
             </button>
           )}
           {canApprove && (
@@ -188,7 +188,7 @@ function ActionsDropdown({
               className="w-full text-left px-3 py-2.5 text-xs hover:bg-white/5 transition-colors disabled:opacity-50"
               style={{ color: "#ef4444" }}
             >
-              {isToggling ? "…" : "Deactivate"}
+              {isToggling ? "Deactivating…" : "Deactivate"}
             </button>
           )}
           <hr className="my-1 border-white/10" />
