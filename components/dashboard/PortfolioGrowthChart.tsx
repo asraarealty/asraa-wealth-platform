@@ -155,7 +155,7 @@ export default function PortfolioGrowthChart({ totalValue, gainPercent }: Props)
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="w-full cursor-crosshair"
-          style={{ height: "clamp(100px, 20vw, 140px)" }}
+          style={{ height: 140 }}
           aria-label="Portfolio growth line chart"
           onMouseMove={handleMouseMove}
           onMouseLeave={() => setTooltip(null)}
