@@ -1,23 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { fmtCurrency } from "@/lib/formatters";
 import type { TenantSummary } from "@/lib/types/realEstate";
 import StatusBadge from "@/components/properties/StatusBadge";
 
 const ROW_HEIGHT = 66;
 const TABLE_HEIGHT = 420;
+const BUFFER_ROWS = 4;
 
 export default function TenantsTable({ tenants }: { tenants: TenantSummary[] }) {
   const [scrollTop, setScrollTop] = useState(0);
 
   const totalRows = tenants.length;
-  const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 4);
-  const visibleCount = Math.ceil(TABLE_HEIGHT / ROW_HEIGHT) + 8;
+  const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - BUFFER_ROWS);
+  const visibleCount = Math.ceil(TABLE_HEIGHT / ROW_HEIGHT) + BUFFER_ROWS * 2;
   const endIndex = Math.min(totalRows, startIndex + visibleCount);
 
-  const visibleRows = useMemo(() => tenants.slice(startIndex, endIndex), [tenants, startIndex, endIndex]);
+  const visibleRows = tenants.slice(startIndex, endIndex);
 
   return (
     <div className="glass-card rounded-2xl border border-white/10 overflow-hidden">
@@ -60,7 +61,7 @@ export default function TenantsTable({ tenants }: { tenants: TenantSummary[] }) 
                   </td>
                   <td className="px-4 py-3 text-white/80">{tenant.companyName}</td>
                   <td className="px-4 py-3"><StatusBadge status={tenant.status} /></td>
-                  <td className="px-4 py-3 text-white/70">{tenant.leaseStartDate} → {tenant.leaseEndDate}</td>
+                  <td className="px-4 py-3 text-white/70">{tenant.leaseStartDate} to {tenant.leaseEndDate}</td>
                   <td className="px-4 py-3 text-white/80">{fmtCurrency(tenant.rentAmount)}</td>
                   <td className="px-4 py-3 text-white/60">#{tenant.propertyId}</td>
                 </tr>

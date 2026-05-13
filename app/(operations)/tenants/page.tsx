@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useToast } from "@/context/ToastContext";
-import { assignTenantToProperty } from "@/lib/api/realEstate";
+import { useAuth } from "@/context/AuthContext";
+import { assignTenantToProperty, fetchTenantById } from "@/lib/api/realEstate";
 import { useTenants } from "@/hooks/useRealEstate";
 import TenantsTable from "@/components/tenants/TenantsTable";
 import TenantAssignmentCard from "@/components/tenants/TenantAssignmentCard";
 
 export default function TenantsPage() {
+  const { user } = useAuth();
   const { showToast } = useToast();
   const { data, loading, error, refresh } = useTenants();
   const [assigning, setAssigning] = useState(false);
@@ -15,18 +17,24 @@ export default function TenantsPage() {
   async function onAssign(tenantId: number, propertyId: number) {
     setAssigning(true);
     try {
+      if (!user?.id) {
+        throw new Error("Client session is missing");
+      }
+      const tenantProfile = await fetchTenantById(tenantId);
       await assignTenantToProperty({
         id: tenantId,
-        clientId: 1,
+        clientId: user.id,
         propertyId,
+        leaseId: tenantProfile.leaseId,
         status: "active",
-        companyName: "",
-        contactName: "",
-        email: "",
-        phone: "",
-        rentAmount: 0,
-        leaseStartDate: "",
-        leaseEndDate: "",
+        companyName: tenantProfile.companyName,
+        contactName: tenantProfile.contactName,
+        email: tenantProfile.email,
+        phone: tenantProfile.phone,
+        rentAmount: tenantProfile.rentAmount,
+        leaseStartDate: tenantProfile.leaseStartDate,
+        leaseEndDate: tenantProfile.leaseEndDate,
+        depositAmount: tenantProfile.depositAmount,
       });
       showToast("Tenant assignment updated", "success");
       await refresh();

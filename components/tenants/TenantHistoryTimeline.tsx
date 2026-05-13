@@ -10,7 +10,11 @@ export default function TenantHistoryTimeline({ tenant }: { tenant: TenantDetail
             <div className="mt-1 h-2.5 w-2.5 rounded-full bg-cyan-300 shadow-[0_0_12px_rgba(0,229,255,0.5)] shrink-0" />
             <div>
               <p className="text-sm text-white font-medium">{event.label}</p>
-              <p className="text-xs text-white/50 mt-1">{event.at}{event.note ? ` · ${event.note}` : ""}</p>
+              <p className="text-xs text-white/50 mt-1">
+                <span className="sr-only">Occurred on </span>
+                <span>{event.at}</span>
+                {event.note ? <span> · {event.note}</span> : null}
+              </p>
             </div>
           </div>
         ))}

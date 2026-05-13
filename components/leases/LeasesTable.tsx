@@ -1,13 +1,8 @@
 import { fmtCurrency } from "@/lib/formatters";
 import type { LeaseSummary } from "@/lib/types/realEstate";
+import { leaseCountdownDays } from "@/lib/utils/realEstate";
 import StatusBadge from "@/components/properties/StatusBadge";
 import LeaseCountdownBadge from "./LeaseCountdownBadge";
-
-function countdown(endDate: string): number {
-  const end = new Date(endDate).getTime();
-  const now = Date.now();
-  return Math.ceil((end - now) / (1000 * 60 * 60 * 24));
-}
 
 export default function LeasesTable({ leases }: { leases: LeaseSummary[] }) {
   return (
@@ -23,7 +18,7 @@ export default function LeasesTable({ leases }: { leases: LeaseSummary[] }) {
           </thead>
           <tbody>
             {leases.map((lease) => {
-              const days = countdown(lease.endDate);
+              const days = leaseCountdownDays(lease.endDate);
               return (
                 <tr key={lease.id} className="border-b border-white/5 last:border-b-0 hover:bg-white/[0.03] transition-colors">
                   <td className="px-4 py-3 text-white font-medium">#{lease.id}<p className="text-xs text-white/45">Property #{lease.propertyId} · Tenant #{lease.tenantId}</p></td>

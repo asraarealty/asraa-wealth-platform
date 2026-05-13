@@ -42,7 +42,6 @@ type QueryState<T> = {
 function useRealEstateQuery<T>(
   loader: (signal?: AbortSignal) => Promise<T>,
   initialData: T,
-  deps: ReadonlyArray<unknown>,
   options: QueryOptions = {}
 ): QueryState<T> {
   const { enabled = true } = options;
@@ -70,6 +69,7 @@ function useRealEstateQuery<T>(
         const result = await loader(ac.signal);
         setData(result);
       } catch (err) {
+        // Expected when a query is superseded or the component unmounts.
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(toErrorMessage(err));
       } finally {
@@ -89,7 +89,7 @@ function useRealEstateQuery<T>(
     return () => {
       abortRef.current?.abort();
     };
-  }, [runLoad, ...deps]);
+  }, [runLoad]);
 
   return {
     data,
@@ -101,7 +101,8 @@ function useRealEstateQuery<T>(
 }
 
 export function useProperties() {
-  return useRealEstateQuery<PropertySummary[]>(fetchProperties, [], []);
+  const loader = useCallback((signal?: AbortSignal) => fetchProperties(signal), []);
+  return useRealEstateQuery<PropertySummary[]>(loader, []);
 }
 
 export function useProperty(propertyId?: number) {
@@ -140,11 +141,12 @@ export function useProperty(propertyId?: number) {
     photos: [],
   }), []);
 
-  return useRealEstateQuery<PropertyDetail>(loader, empty, [propertyId], { enabled: Boolean(propertyId) });
+  return useRealEstateQuery<PropertyDetail>(loader, empty, { enabled: Boolean(propertyId) });
 }
 
 export function useTenants() {
-  return useRealEstateQuery<TenantSummary[]>(fetchTenants, [], []);
+  const loader = useCallback((signal?: AbortSignal) => fetchTenants(signal), []);
+  return useRealEstateQuery<TenantSummary[]>(loader, []);
 }
 
 export function useTenant(tenantId?: number) {
@@ -171,11 +173,12 @@ export function useTenant(tenantId?: number) {
     history: [],
   }), []);
 
-  return useRealEstateQuery<TenantDetail>(loader, empty, [tenantId], { enabled: Boolean(tenantId) });
+  return useRealEstateQuery<TenantDetail>(loader, empty, { enabled: Boolean(tenantId) });
 }
 
 export function useLeases() {
-  return useRealEstateQuery<LeaseSummary[]>(fetchLeases, [], []);
+  const loader = useCallback((signal?: AbortSignal) => fetchLeases(signal), []);
+  return useRealEstateQuery<LeaseSummary[]>(loader, []);
 }
 
 export function useLease(leaseId?: number) {
@@ -199,16 +202,18 @@ export function useLease(leaseId?: number) {
     timeline: [],
   }), []);
 
-  return useRealEstateQuery<LeaseDetail>(loader, empty, [leaseId], { enabled: Boolean(leaseId) });
+  return useRealEstateQuery<LeaseDetail>(loader, empty, { enabled: Boolean(leaseId) });
 }
 
 export function useRentLedger() {
-  return useRealEstateQuery<RentLedgerItem[]>(fetchRentLedger, [], []);
+  const loader = useCallback((signal?: AbortSignal) => fetchRentLedger(signal), []);
+  return useRealEstateQuery<RentLedgerItem[]>(loader, []);
 }
 
 export function useRentSummary() {
+  const loader = useCallback((signal?: AbortSignal) => fetchRentSummary(signal), []);
   return useRealEstateQuery<RentSummary>(
-    fetchRentSummary,
+    loader,
     {
       rentCollected: 0,
       pendingRent: 0,
@@ -216,18 +221,19 @@ export function useRentSummary() {
       occupancyPercent: 0,
       yieldPercent: 0,
       noi: 0,
-    },
-    []
+    }
   );
 }
 
 export function useMaintenanceTickets() {
-  return useRealEstateQuery<MaintenanceTicket[]>(fetchMaintenanceTickets, [], []);
+  const loader = useCallback((signal?: AbortSignal) => fetchMaintenanceTickets(signal), []);
+  return useRealEstateQuery<MaintenanceTicket[]>(loader, []);
 }
 
 export function useOwnerAnalytics() {
+  const loader = useCallback((signal?: AbortSignal) => fetchOwnerAnalytics(signal), []);
   return useRealEstateQuery<OwnerAnalytics>(
-    fetchOwnerAnalytics,
+    loader,
     {
       occupancyTrend: [],
       rentTrend: [],
@@ -239,7 +245,6 @@ export function useOwnerAnalytics() {
       maintenanceCosts: 0,
       cashflowForecast: [],
       rentalYieldPercent: 0,
-    },
-    []
+    }
   );
 }

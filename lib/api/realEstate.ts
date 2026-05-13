@@ -65,6 +65,7 @@ const mockProperties: PropertyDetail[] = [
       { id: 5, category: "property_photos", title: "Lobby and Facade" },
     ],
     photos: [
+      // Mock-only external imagery for local/demo rendering when backend endpoints are unavailable.
       { id: 1, src: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80", alt: "Property tower exterior" },
       { id: 2, src: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80", alt: "Property interior workspace" },
     ],
@@ -101,6 +102,7 @@ const mockProperties: PropertyDetail[] = [
       { id: 8, category: "property_photos", title: "Storefront Photos" },
     ],
     photos: [
+      // Mock-only external imagery for local/demo rendering when backend endpoints are unavailable.
       { id: 3, src: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80", alt: "Retail mall interior" },
     ],
   },
@@ -321,7 +323,7 @@ const mockRentSummary: RentSummary = {
   noi: 1240000,
 };
 
-function useMockForMissingEndpoint(error: unknown): boolean {
+function shouldUseMockData(error: unknown): boolean {
   return error instanceof ApiError && [404, 405].includes(error.status);
 }
 
@@ -330,7 +332,7 @@ export async function fetchProperties(signal?: AbortSignal): Promise<PropertySum
     const res = await fetcher<PropertySummary[]>(ENDPOINTS.properties, { signal, cache: "no-store" });
     return Array.isArray(res) ? res : [];
   } catch (error) {
-    if (useMockForMissingEndpoint(error)) return mockProperties;
+    if (shouldUseMockData(error)) return mockProperties;
     throw error;
   }
 }
@@ -342,7 +344,7 @@ export async function fetchPropertyById(propertyId: number, signal?: AbortSignal
       cache: "no-store",
     });
   } catch (error) {
-    if (useMockForMissingEndpoint(error)) {
+    if (shouldUseMockData(error)) {
       const found = mockProperties.find((property) => property.id === propertyId);
       if (found) return found;
     }
@@ -372,7 +374,7 @@ export async function fetchTenants(signal?: AbortSignal): Promise<TenantSummary[
     const res = await fetcher<TenantSummary[]>(ENDPOINTS.tenants, { signal, cache: "no-store" });
     return Array.isArray(res) ? res : [];
   } catch (error) {
-    if (useMockForMissingEndpoint(error)) return mockTenants;
+    if (shouldUseMockData(error)) return mockTenants;
     throw error;
   }
 }
@@ -384,7 +386,7 @@ export async function fetchTenantById(tenantId: number, signal?: AbortSignal): P
       cache: "no-store",
     });
   } catch (error) {
-    if (useMockForMissingEndpoint(error)) {
+    if (shouldUseMockData(error)) {
       const found = mockTenants.find((tenant) => tenant.id === tenantId);
       if (found) return found;
     }
@@ -414,7 +416,7 @@ export async function fetchLeases(signal?: AbortSignal): Promise<LeaseSummary[]>
     const res = await fetcher<LeaseSummary[]>(ENDPOINTS.leases, { signal, cache: "no-store" });
     return Array.isArray(res) ? res : [];
   } catch (error) {
-    if (useMockForMissingEndpoint(error)) return mockLeases;
+    if (shouldUseMockData(error)) return mockLeases;
     throw error;
   }
 }
@@ -426,7 +428,7 @@ export async function fetchLeaseById(leaseId: number, signal?: AbortSignal): Pro
       cache: "no-store",
     });
   } catch (error) {
-    if (useMockForMissingEndpoint(error)) {
+    if (shouldUseMockData(error)) {
       const found = mockLeases.find((lease) => lease.id === leaseId);
       if (found) return found;
     }
@@ -454,7 +456,7 @@ export async function fetchRentLedger(signal?: AbortSignal): Promise<RentLedgerI
     const res = await fetcher<RentLedgerItem[]>(`${ENDPOINTS.rent}/ledger`, { signal, cache: "no-store" });
     return Array.isArray(res) ? res : [];
   } catch (error) {
-    if (useMockForMissingEndpoint(error)) return mockRentLedger;
+    if (shouldUseMockData(error)) return mockRentLedger;
     throw error;
   }
 }
@@ -463,7 +465,7 @@ export async function fetchRentSummary(signal?: AbortSignal): Promise<RentSummar
   try {
     return await fetcher<RentSummary>(`${ENDPOINTS.rent}/summary`, { signal, cache: "no-store" });
   } catch (error) {
-    if (useMockForMissingEndpoint(error)) return mockRentSummary;
+    if (shouldUseMockData(error)) return mockRentSummary;
     throw error;
   }
 }
@@ -476,7 +478,7 @@ export async function fetchMaintenanceTickets(signal?: AbortSignal): Promise<Mai
     });
     return Array.isArray(res) ? res : [];
   } catch (error) {
-    if (useMockForMissingEndpoint(error)) return mockMaintenance;
+    if (shouldUseMockData(error)) return mockMaintenance;
     throw error;
   }
 }
@@ -489,7 +491,7 @@ export async function fetchWorkOrderTimeline(ticketId: number, signal?: AbortSig
     );
     return Array.isArray(res) ? res : [];
   } catch (error) {
-    if (useMockForMissingEndpoint(error)) return mockMaintenanceTimeline.filter((item) => item.ticketId === ticketId);
+    if (shouldUseMockData(error)) return mockMaintenanceTimeline.filter((item) => item.ticketId === ticketId);
     throw error;
   }
 }
@@ -510,7 +512,7 @@ export async function fetchOwnerAnalytics(signal?: AbortSignal): Promise<OwnerAn
   try {
     return await fetcher<OwnerAnalytics>(ENDPOINTS.analytics, { signal, cache: "no-store" });
   } catch (error) {
-    if (useMockForMissingEndpoint(error)) return mockAnalytics;
+    if (shouldUseMockData(error)) return mockAnalytics;
     throw error;
   }
 }

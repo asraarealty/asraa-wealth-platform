@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 import type { PropertySummary } from "@/lib/types/realEstate";
+import { toTitleLabel } from "@/lib/utils/realEstate";
 import StatusBadge from "./StatusBadge";
 
 export default function PropertiesTable({ properties }: { properties: PropertySummary[] }) {
@@ -37,9 +38,9 @@ export default function PropertiesTable({ properties }: { properties: PropertySu
                   </Link>
                   <p className="text-xs text-white/45 mt-1 max-w-[220px] truncate">{property.address}</p>
                 </td>
-                <td className="px-4 py-3 text-white/80">{property.type.replace(/_/g, " ")}</td>
+                <td className="px-4 py-3 text-white/80">{toTitleLabel(property.type)}</td>
                 <td className="px-4 py-3"><StatusBadge status={property.occupancyStatus} /></td>
-                <td className="px-4 py-3 text-white/75">{property.lifecycleStage.replace(/_/g, " ")}</td>
+                <td className="px-4 py-3 text-white/75">{toTitleLabel(property.lifecycleStage)}</td>
                 <td className="px-4 py-3 text-white/80">{fmtCurrency(property.purchaseValue)}</td>
                 <td className="px-4 py-3 text-white/80">{fmtCurrency(property.currentValue)}</td>
                 <td className="px-4 py-3 text-white/80">{fmtPercent(property.roiPercent, true)}</td>

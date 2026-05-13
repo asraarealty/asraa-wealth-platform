@@ -36,6 +36,7 @@ export default function MaintenanceTable({
                   <select
                     value={ticket.status}
                     disabled={updating}
+                    aria-label={`Change status for ticket #${ticket.id}: ${ticket.title}. Current status: ${ticket.status}`}
                     className="neon-input rounded-lg px-2.5 py-1.5 text-xs"
                     onChange={(event) => void onStatusChange(ticket.id, event.target.value as MaintenanceStatus)}
                   >

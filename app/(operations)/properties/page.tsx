@@ -1,12 +1,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { createProperty, updateProperty } from "@/lib/api/realEstate";
 import { useProperties } from "@/hooks/useRealEstate";
 import type { PropertySummary } from "@/lib/types/realEstate";
+import { calculateRoiPercent } from "@/lib/utils/realEstate";
 import PropertyAnalyticsCards from "@/components/properties/PropertyAnalyticsCards";
 import PropertyFormModal, { type PropertyFormValues } from "@/components/properties/PropertyFormModal";
 
@@ -31,6 +32,7 @@ export default function PropertiesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [editing, setEditing] = useState<PropertySummary | undefined>(undefined);
   const [optimisticRows, setOptimisticRows] = useState<PropertySummary[] | null>(null);
+  const tempIdRef = useRef(-1);
 
   const rows = optimisticRows ?? data;
 
@@ -57,7 +59,7 @@ export default function PropertiesPage() {
     setSubmitting(true);
 
     const optimistic: PropertySummary = {
-      id: editing?.id ?? Date.now(),
+      id: editing?.id ?? tempIdRef.current--,
       name: values.name,
       type: values.type,
       address: values.address,
@@ -65,9 +67,7 @@ export default function PropertiesPage() {
       lifecycleStage: values.lifecycleStage,
       purchaseValue: Number(values.purchaseValue),
       currentValue: Number(values.currentValue),
-      roiPercent: Number(values.purchaseValue) > 0
-        ? ((Number(values.currentValue) - Number(values.purchaseValue)) / Number(values.purchaseValue)) * 100
-        : 0,
+      roiPercent: calculateRoiPercent(Number(values.purchaseValue), Number(values.currentValue)),
       rentalYieldPercent: editing?.rentalYieldPercent ?? 0,
       noi: editing?.noi ?? 0,
       tenantStatus: editing?.tenantStatus ?? "0 active / 0 inactive",

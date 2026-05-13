@@ -14,7 +14,16 @@ export default function MaintenancePage() {
   const [timeline, setTimeline] = useState<WorkOrderTimelineEvent[]>([]);
   const [updating, setUpdating] = useState(false);
 
-  const selectedTicketId = useMemo(() => data[0]?.id, [data]);
+  const selectedTicketId = useMemo(() => {
+    const priorityScore: Record<string, number> = { high: 3, medium: 2, low: 1 };
+    const statusScore: Record<string, number> = { open: 3, in_progress: 2, resolved: 1, closed: 0 };
+    const ranked = [...data].sort((a, b) => {
+      const aScore = (statusScore[a.status] ?? 0) * 10 + (priorityScore[a.priority] ?? 0);
+      const bScore = (statusScore[b.status] ?? 0) * 10 + (priorityScore[b.priority] ?? 0);
+      return bScore - aScore;
+    });
+    return ranked[0]?.id;
+  }, [data]);
 
   useEffect(() => {
     if (!selectedTicketId) {
@@ -31,7 +40,6 @@ export default function MaintenancePage() {
   }, [selectedTicketId]);
 
   async function onStatusChange(ticketId: number, status: MaintenanceStatus) {
-    const previous = [...data];
     setUpdating(true);
 
     try {
@@ -40,9 +48,6 @@ export default function MaintenancePage() {
       await refresh();
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Unable to update ticket", "error");
-      if (previous.length > 0) {
-        await refresh();
-      }
     } finally {
       setUpdating(false);
     }

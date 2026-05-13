@@ -5,6 +5,7 @@ import type {
   RentPaymentStatus,
   TenantStatus,
 } from "@/lib/types/realEstate";
+import { toTitleLabel } from "@/lib/utils/realEstate";
 
 type StatusType = OccupancyStatus | TenantStatus | LeaseStatus | RentPaymentStatus | MaintenanceStatus;
 
@@ -27,10 +28,6 @@ const palette: Record<string, { bg: string; border: string; color: string }> = {
   closed: { bg: "rgba(107,114,128,0.12)", border: "rgba(107,114,128,0.3)", color: "#d1d5db" },
 };
 
-function toLabel(value: string): string {
-  return value.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
-}
-
 export default function StatusBadge({ status }: { status: StatusType | string }) {
   const style = palette[status] ?? palette.inactive;
   return (
@@ -38,7 +35,7 @@ export default function StatusBadge({ status }: { status: StatusType | string })
       className="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide"
       style={{ background: style.bg, borderColor: style.border, color: style.color }}
     >
-      {toLabel(status)}
+      {toTitleLabel(status)}
     </span>
   );
 }
