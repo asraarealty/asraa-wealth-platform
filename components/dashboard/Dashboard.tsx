@@ -198,7 +198,7 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
   async function handleAdd(payload: CreateAssetPayload) {
     await createAsset({
       ...payload,
-      ...(clientId !== undefined ? { userId: clientId } : {}),
+      ...(clientId !== undefined ? { clientId } : {}),
     });
     await loadData(true);
     setAddModalOpen(false);

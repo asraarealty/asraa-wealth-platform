@@ -300,7 +300,8 @@ function AddToClientForm({ stock, onDone }: AddToClientFormProps) {
         name: stock.name,
         quantity: qty,
         avgPrice: price,
-        userId: selectedClientId as number,
+        currentPrice: price,
+        clientId: selectedClientId as number,
       });
       setSuccess(true);
       setTimeout(onDone, SUCCESS_CLOSE_DELAY_MS);
