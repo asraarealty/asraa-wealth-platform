@@ -22,7 +22,7 @@ export default function ClientSelector({
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const autoSelected = useRef(false);
+  const lastAutoSelectedIdRef = useRef<number | null>(null);
   const onChangeRef = useRef(onChange);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -58,14 +58,11 @@ export default function ClientSelector({
   }, [load]);
 
   useEffect(() => {
-    autoSelected.current = false;
-  }, [autoSelectId]);
-
-  useEffect(() => {
-    if (autoSelectId === null || autoSelectId === undefined || autoSelected.current) return;
+    if (autoSelectId === null || autoSelectId === undefined) return;
+    if (lastAutoSelectedIdRef.current === autoSelectId) return;
     const match = clients.find((c) => c.id === autoSelectId);
     if (!match) return;
-    autoSelected.current = true;
+    lastAutoSelectedIdRef.current = autoSelectId;
     onChangeRef.current(match);
   }, [autoSelectId, clients]);
 
