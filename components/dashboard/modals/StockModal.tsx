@@ -167,7 +167,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
           <StockSearch onSelect={handleStockSelect} />
         </FormField>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label="Symbol" required error={fieldErrors.symbol}>
             <FieldInput
               name="stock-symbol"
@@ -200,7 +200,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
           </FormField>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label="Quantity" required error={fieldErrors.quantity}>
             <FieldInput
               name="stock-quantity"

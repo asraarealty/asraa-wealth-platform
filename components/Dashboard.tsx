@@ -207,7 +207,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
 
   return (
     <div
-      className="min-h-screen text-white p-6 space-y-6"
+      className="min-h-screen text-white p-4 md:p-6 space-y-4 md:space-y-6"
       style={{ background: "linear-gradient(160deg, #050b18 0%, #071426 100%)" }}
     >
 
@@ -333,7 +333,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
             {shouldShowContent && (
         <>
           {/* KPI Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <StatBox
               label="Total Value"
               value={fmtCurrency(totalValue)}

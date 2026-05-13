@@ -73,11 +73,12 @@ export default function AssetTabs({
 
   return (
     <div className="glass-card rounded-2xl p-5">
-      {/* Tab bar */}
-      <div
-        className="flex gap-1 mb-5 p-1 rounded-xl w-fit"
-        style={{ background: "rgba(255,255,255,0.04)" }}
-      >
+      {/* Tab bar — scrollable on mobile */}
+      <div className="overflow-x-auto mb-5 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
+        <div
+          className="flex gap-1 p-1 rounded-xl w-max"
+          style={{ background: "rgba(255,255,255,0.04)" }}
+        >
         {TABS.map((tab) => {
           const active = activeTab === tab.id;
           return (
@@ -115,6 +116,7 @@ export default function AssetTabs({
             </button>
           );
         })}
+        </div>
       </div>
 
       {/* Tab content */}

@@ -36,11 +36,11 @@ export default function StatBox({
 
   return (
     <div
-      className="glass-card card-hover rounded-2xl p-6 flex flex-col gap-3 animate-float-up"
+      className="glass-card card-hover rounded-2xl p-4 md:p-6 flex flex-col gap-3 animate-float-up min-w-0"
       style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.4)" }}
     >
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(0,229,255,0.55)" }}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-widest truncate" style={{ color: "rgba(0,229,255,0.55)" }}>
           {label}
         </p>
         {icon && (
@@ -53,7 +53,7 @@ export default function StatBox({
         )}
       </div>
 
-      <p className="text-3xl font-bold text-white leading-none tracking-tight">{value}</p>
+      <p className="text-xl sm:text-2xl xl:text-3xl font-bold text-white leading-tight tracking-tight break-words">{value}</p>
 
       {(subValue || trendLabel) && (
         <div className="flex items-center gap-2 text-xs">

@@ -180,14 +180,20 @@ export default function RealEstateTab({
                     style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
                   >
                     <p className="text-xs text-gray-500 mb-1">Current Value</p>
-                    <p className="text-base font-bold text-white">{fmt(a.currentValue)}</p>
-                    {appreciation != null && (
-                      <p
-                        className="text-xs font-medium mt-0.5"
-                        style={{ color: appreciation >= 0 ? "#4ade80" : "#f87171" }}
-                      >
-                        {appreciation >= 0 ? "+" : ""}{appreciation.toFixed(1)}% gain
-                      </p>
+                    {a.currentValue != null ? (
+                      <>
+                        <p className="text-base font-bold text-white">{fmt(a.currentValue)}</p>
+                        {appreciation != null && (
+                          <p
+                            className="text-xs font-medium mt-0.5"
+                            style={{ color: appreciation >= 0 ? "#4ade80" : "#f87171" }}
+                          >
+                            {appreciation >= 0 ? "+" : ""}{appreciation.toFixed(1)}% gain
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-500 italic">Value not added</p>
                     )}
                   </div>
                   <div
@@ -195,13 +201,17 @@ export default function RealEstateTab({
                     style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
                   >
                     <p className="text-xs text-gray-500 mb-1">Monthly Rent</p>
-                    <p className="text-base font-bold text-white">
-                      {a.rentAmount ? fmt(a.rentAmount) : "—"}
-                    </p>
-                    {yieldPct != null && (
-                      <p className="text-xs font-medium mt-0.5" style={{ color: "#d4af4a" }}>
-                        {yieldPct.toFixed(2)}% yield
-                      </p>
+                    {a.rentAmount != null ? (
+                      <>
+                        <p className="text-base font-bold text-white">{fmt(a.rentAmount)}</p>
+                        {yieldPct != null && (
+                          <p className="text-xs font-medium mt-0.5" style={{ color: "#d4af4a" }}>
+                            {yieldPct.toFixed(2)}% yield
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-500 italic">Rental data unavailable</p>
                     )}
                   </div>
                 </div>

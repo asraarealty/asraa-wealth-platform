@@ -13,7 +13,7 @@ export default function Modal({
   title,
   onClose,
   children,
-  width = "w-full max-w-md",
+  width = "w-[95vw] sm:w-full sm:max-w-lg",
 }: ModalProps) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

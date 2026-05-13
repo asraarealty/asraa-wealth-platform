@@ -161,7 +161,7 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
           <CommoditySearch onSelect={handleCommoditySelect} />
         </FormField>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label="Symbol" required error={fieldErrors.symbol}>
             <FieldInput
               name="commodity-symbol"
@@ -186,7 +186,7 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
           </FormField>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <FormField label="Exchange">
             <FieldInput
               name="commodity-source"
