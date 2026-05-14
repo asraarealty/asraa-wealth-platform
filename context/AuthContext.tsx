@@ -17,6 +17,7 @@ import {
   ApiError,
   setAuthBootstrapComplete,
 } from "@/lib/fetcher";
+import { API_ROUTES } from "@/lib/constants/routes";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected" | "suspended";
 
@@ -69,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthBootstrapComplete(false);
     getToken();
 
-    fetcher<User>("/auth/me", {
+    fetcher<User>(API_ROUTES.AUTH.ME, {
       signal: controller.signal,
       noRedirectOn401: true,
     })
@@ -89,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        console.error("[Auth] /auth/me initialization failed with transient error:", err);
+        console.error(`[Auth] ${API_ROUTES.AUTH.ME} initialization failed with transient error:`, err);
         setAuthError(true);
       })
       .finally(() => {
@@ -106,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [authAttempt]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await fetcher<{ access_token?: string; accessToken?: string }>("/auth/login", {
+    const res = await fetcher<{ access_token?: string; accessToken?: string }>(API_ROUTES.AUTH.LOGIN, {
       method: "POST",
       body: { email, password },
       raw: true,
@@ -117,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(accessToken);
     }
 
-    const me = await fetcher<User>("/auth/me");
+    const me = await fetcher<User>(API_ROUTES.AUTH.ME);
     setUser(me);
     setAuthError(false);
     setAuthInitialized(true);
@@ -129,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async (nextPath = "/login") => {
     try {
-      await fetcher("/auth/logout", { method: "POST" });
+      await fetcher(API_ROUTES.AUTH.LOGOUT, { method: "POST" });
     } catch {}
     clearToken();
     setUser(null);

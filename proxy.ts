@@ -75,7 +75,7 @@ export function proxy(request: NextRequest) {
     pathname.startsWith("/maintenance") ||
     pathname.startsWith("/reports");
   const isProtectedRoute = isDashboard || isAdmin || isOperations;
-  const isLoginAttempt = pathname === "/auth/login" && request.method === "POST";
+  const isLoginAttempt = pathname === "/api/v2/auth/login" && request.method === "POST";
 
   if (isLoginAttempt) {
     const loginLimit = checkRateLimit(
