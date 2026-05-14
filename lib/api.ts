@@ -808,8 +808,11 @@ export function createAsset(
       if (err.status === 401) {
         throw new ApiError(401, "Session expired. Please sign in again.");
       }
+      if (err.status === 409) {
+        throw new ApiError(409, err.message || "Duplicate entry — this asset already exists for this client.");
+      }
       if (err.status === 422) {
-        throw new ApiError(422, err.message || "Invalid asset form.");
+        throw new ApiError(422, err.message || "Validation failed — please check all fields and try again.");
       }
     }
     throw err;

@@ -27,7 +27,7 @@ function toInitial(property?: PropertySummary): PropertyFormValues {
   if (!property) {
     return {
       name: "",
-      type: "office",
+      type: "commercial",
       address: "",
       occupancyStatus: "partially_occupied",
       lifecycleStage: "operational",
@@ -72,7 +72,6 @@ export default function PropertyFormModal({
   }, [open, property]);
 
   const title = property ? "Edit Property" : "Add Property";
-  const isLast = step === STEPS.length - 1;
 
   const canSubmit = useMemo(() => {
     return Boolean(
@@ -82,6 +81,10 @@ export default function PropertyFormModal({
         Number(values.currentValue) > 0
     );
   }, [values]);
+
+  // canProceedToSubmit is true when all required fields are complete (allow saving
+  // from any step) OR when on the last wizard step (force save attempt).
+  const canProceedToSubmit = canSubmit || step === STEPS.length - 1;
 
   const missingRequiredFields = useMemo(() => {
     const missing: string[] = [];
@@ -126,10 +129,14 @@ export default function PropertyFormModal({
                 value={values.type}
                 onChange={(event) => setValues((prev) => ({ ...prev, type: event.target.value as PropertyType }))}
               >
+                <option value="commercial">Commercial</option>
+                <option value="residential">Residential</option>
+                <option value="industrial">Industrial</option>
+                <option value="warehouse">Warehouse</option>
                 <option value="office">Office</option>
                 <option value="retail">Retail</option>
-                <option value="warehouse">Warehouse</option>
-                <option value="industrial">Industrial</option>
+                <option value="land">Land</option>
+                <option value="hospitality">Hospitality</option>
                 <option value="mixed_use">Mixed Use</option>
                 <option value="other">Other</option>
               </select>
@@ -221,7 +228,7 @@ export default function PropertyFormModal({
         onCancel={step === 0 ? onClose : () => setStep((current) => Math.max(0, current - 1))}
         cancelLabel={step === 0 ? "Cancel" : "Back"}
         onSave={() => {
-          if (!isLast) {
+          if (!canProceedToSubmit) {
             setStep((current) => Math.min(STEPS.length - 1, current + 1));
             return;
           }
@@ -235,7 +242,7 @@ export default function PropertyFormModal({
             setError(err instanceof Error ? err.message : "Unable to save property")
           );
         }}
-        saveLabel={isLast ? (property ? "Update Property" : "Create Property") : "Next"}
+        saveLabel={canProceedToSubmit ? (property ? "Update Property" : "Create Property") : "Next"}
         saving={submitting}
       />
     </Modal>

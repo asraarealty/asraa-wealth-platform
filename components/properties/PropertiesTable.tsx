@@ -7,7 +7,8 @@ import StatusBadge from "./StatusBadge";
 export default function PropertiesTable({ properties }: { properties: PropertySummary[] }) {
   return (
     <div className="glass-card rounded-2xl border border-white/10 overflow-hidden">
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto table-scroll-safe">
+        <p className="text-[10px] text-white/30 px-4 pt-2 sm:hidden">← Scroll to see all columns</p>
         <table className="w-full min-w-[900px] text-sm">
           <thead>
             <tr className="border-b border-white/10 bg-white/5">

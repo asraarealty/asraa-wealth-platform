@@ -8,6 +8,7 @@ export const REAL_ESTATE_CATEGORY_OPTIONS: Array<{ value: RealEstateCategory; la
   { value: "retail", label: "Retail" },
   { value: "warehouse", label: "Warehouse" },
   { value: "land", label: "Land" },
+  { value: "hospitality", label: "Hospitality" },
   { value: "co-working", label: "Co-working" },
 ];
 
@@ -22,16 +23,19 @@ export function normalizeRealEstateCategory(value: unknown): RealEstateCategory 
 
 export function mapPropertyTypeToCategory(type: PropertyType): RealEstateCategory {
   switch (type) {
+    case "residential":
+      return "residential";
     case "industrial":
       return "industrial";
     case "retail":
       return "retail";
     case "warehouse":
       return "warehouse";
-    case "mixed_use":
-      return "commercial";
-    case "office":
-      return "commercial";
+    case "land":
+      return "land";
+    case "hospitality":
+      return "hospitality";
+    // commercial, office, mixed_use and any unknown type all map to "commercial"
     default:
       return "commercial";
   }
