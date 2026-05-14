@@ -8,6 +8,26 @@ import { normalizeRealEstateCategory } from "@/lib/utils/realEstateCategory";
 import { subscribeRealEstateDataUpdated } from "@/lib/events/realtime";
 
 const DEFAULT_REFRESH_MS = 30_000;
+const ENTERPRISE_CACHE_TTL_MS = 15_000;
+
+type EnterpriseCacheEntry = {
+  data: EnterpriseReportsData;
+  updatedAt: number;
+};
+
+const enterpriseReportsCache = new Map<string, EnterpriseCacheEntry>();
+const enterpriseInFlight = new Map<string, Promise<EnterpriseReportsData>>();
+
+function cacheKey(category: RealEstateCategory): string {
+  return `reports:${normalizeRealEstateCategory(category)}`;
+}
+
+function readCache(key: string): EnterpriseReportsData | null {
+  const entry = enterpriseReportsCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.updatedAt > ENTERPRISE_CACHE_TTL_MS) return null;
+  return entry.data;
+}
 
 interface State {
   data: EnterpriseReportsData | null;
@@ -26,6 +46,7 @@ type UseEnterpriseReportsOptions = {
 export function useEnterpriseReports(options: UseEnterpriseReportsOptions = {}): State {
   const { refreshMs = DEFAULT_REFRESH_MS, category = "all" } = options;
   const normalizedCategory = normalizeRealEstateCategory(category);
+  const queryCacheKey = cacheKey(normalizedCategory);
   const [data, setData] = useState<EnterpriseReportsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -45,6 +66,12 @@ export function useEnterpriseReports(options: UseEnterpriseReportsOptions = {}):
   useEffect(() => {
     const controller = new AbortController();
     const hasExistingData = hasDataRef.current;
+    const cached = readCache(queryCacheKey);
+
+    if (cached && !hasExistingData) {
+      setData(cached);
+      setLoading(false);
+    }
 
     if (hasExistingData) {
       setRefreshing(true);
@@ -60,11 +87,22 @@ export function useEnterpriseReports(options: UseEnterpriseReportsOptions = {}):
         ? "/api/reports/enterprise"
         : `/api/reports/enterprise?category=${encodeURIComponent(normalizedCategory)}`;
 
-    fetcher<EnterpriseReportsData>(query, {
-      cache: "no-store",
-      noRedirectOn401: true,
-      signal: controller.signal,
-    })
+    const activeRequest =
+      enterpriseInFlight.get(queryCacheKey) ??
+      fetcher<EnterpriseReportsData>(query, {
+        cache: "no-store",
+        noRedirectOn401: true,
+        signal: controller.signal,
+      }).then((payload) => {
+        enterpriseReportsCache.set(queryCacheKey, { data: payload, updatedAt: Date.now() });
+        return payload;
+      }).finally(() => {
+        enterpriseInFlight.delete(queryCacheKey);
+      });
+
+    enterpriseInFlight.set(queryCacheKey, activeRequest);
+
+    activeRequest
       .then((payload) => {
         setData(payload);
       })
@@ -81,7 +119,7 @@ export function useEnterpriseReports(options: UseEnterpriseReportsOptions = {}):
       });
 
     return () => controller.abort();
-  }, [normalizedCategory, reloadKey]);
+  }, [normalizedCategory, queryCacheKey, reloadKey]);
 
   useEffect(() => {
     let id: number | null = null;

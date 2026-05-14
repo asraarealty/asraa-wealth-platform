@@ -27,6 +27,7 @@ type BackendClient = {
   id: number;
   name: string;
   email: string;
+  status?: "active" | "inactive" | "suspended" | "archived";
   isActive?: boolean;
 };
 
@@ -318,7 +319,8 @@ function buildClientReport(
     clientId: client.id,
     name: client.name,
     email: client.email,
-    isActive: Boolean(client.isActive ?? true),
+    status: client.status ?? (client.isActive ?? true ? "active" : "inactive"),
+    isActive: Boolean(client.status ? client.status === "active" : client.isActive ?? true),
     holdings: assets.length,
     transactions: transactions.length,
     totalInvested: Number(invested.toFixed(2)),
@@ -596,7 +598,9 @@ export async function GET(request: NextRequest) {
       hasPortfolioData: clientReports.some((row) => row.portfolioValue > 0 || row.totalInvested > 0),
       hasRealEstateData: realEstateAvailable && (properties.length > 0 || leases.length > 0 || Boolean(rentSummary)),
       totalClients: clients.length,
-      activeClients: clients.filter((c) => Boolean(c.isActive ?? true)).length,
+      activeClients: clients.filter((c) =>
+        c.status ? c.status === "active" : Boolean(c.isActive ?? true)
+      ).length,
       totalAum: Number(totalAum.toFixed(2)),
       totalInvested: Number(totalInvested.toFixed(2)),
       totalReturns: Number(totalReturns.toFixed(2)),

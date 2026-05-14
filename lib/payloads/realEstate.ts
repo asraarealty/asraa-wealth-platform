@@ -5,6 +5,7 @@ import type {
   PropertyType,
   TenantStatus,
 } from "@/lib/types/realEstate";
+import { normalizePropertyPayload } from "@/lib/api/normalizers";
 
 function safeNumber(value: unknown): number {
   const n = typeof value === "string" ? parseFloat(value) : Number(value ?? 0);
@@ -31,9 +32,10 @@ export interface PropertyPayloadInput {
 
 export interface CanonicalPropertyPayload {
   client_id: number;
-  property_id?: number;
+  id?: number;
   name: string;
   property_type: PropertyType;
+  category?: string | null;
   address: string;
   occupancy_status: OccupancyStatus;
   lifecycle_stage: PropertyLifecycleStage;
@@ -44,18 +46,19 @@ export interface CanonicalPropertyPayload {
 }
 
 export function buildPropertyPayload(input: PropertyPayloadInput): CanonicalPropertyPayload {
-  const payload: CanonicalPropertyPayload = {
+  const payload = normalizePropertyPayload({
     client_id: Number(input.clientId),
     name: safeString(input.name),
     property_type: input.type,
+    category: input.type,
     address: safeString(input.address),
     occupancy_status: input.occupancyStatus,
     lifecycle_stage: input.lifecycleStage,
     purchase_value: safeNumber(input.purchaseValue),
     current_value: safeNumber(input.currentValue),
-  };
+  }) as unknown as CanonicalPropertyPayload;
 
-  if (input.id !== undefined) payload.property_id = Number(input.id);
+  if (input.id !== undefined) payload.id = Number(input.id);
   if (input.tenantCount !== undefined) payload.tenant_count = safeNumber(input.tenantCount);
   if (input.totalUnits !== undefined) payload.total_units = safeNumber(input.totalUnits);
 

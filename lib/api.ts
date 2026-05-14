@@ -14,6 +14,7 @@ import {
   buildStockPayload,
 } from "./payloads/assets";
 import { safeDecimalNumber } from "./utils/numberParsing";
+import { normalizeAssetPayload, normalizeClientPayload, type ClientStatus } from "./api/normalizers";
 
 /* ── Auth ───────────────────────────────────────────────────────────── */
 
@@ -59,6 +60,7 @@ export interface Client {
   name: string;
   email: string;
   phone?: string;
+  status: ClientStatus;
   isActive: boolean;
   createdAt: string;
 }
@@ -69,6 +71,7 @@ export type AdminClient = {
   email: string;
   phone?: string;
   createdAt?: string;
+  status: ClientStatus;
   isActive: boolean;
   approvalStatus?: "pending" | "approved" | "rejected" | "suspended" | "archived";
 };
@@ -79,19 +82,39 @@ function mapAdminClient(raw: any): AdminClient {
     raw.approval_status ??
     (raw.is_approved === true || raw.approved === true ? "approved" : undefined);
 
+  const normalized = normalizeClientPayload(raw) as Record<string, unknown>;
+  const status = (normalized.status as ClientStatus | undefined) ?? "inactive";
+
   return {
     id: raw.id,
     name: raw.name,
     email: raw.email,
     phone: raw.phone,
     createdAt: raw.createdAt ?? raw.created_at,
-    isActive: raw.isActive ?? raw.is_active ?? false,
+    status,
+    isActive: status === "active",
     approvalStatus,
   };
 }
 
 export function fetchClients(signal?: AbortSignal): Promise<Client[]> {
-  return fetcher<Client[]>("/clients", { signal });
+  return fetcher<any[]>("/clients", { signal }).then((rows) =>
+    Array.isArray(rows)
+      ? rows.map((row) => {
+        const normalized = normalizeClientPayload(row) as Record<string, unknown>;
+        const status = (normalized.status as ClientStatus | undefined) ?? "inactive";
+        return {
+          id: Number(row.id),
+          name: String(row.name ?? ""),
+          email: String(row.email ?? ""),
+          phone: row.phone ? String(row.phone) : undefined,
+          createdAt: String(row.createdAt ?? row.created_at ?? ""),
+          status,
+          isActive: status === "active",
+        };
+      })
+      : []
+  );
 }
 
 export async function fetchAdminClients(
@@ -107,7 +130,7 @@ export function toggleClientStatus(
 ): Promise<unknown> {
   return fetcher(`/clients/${id}/status`, {
     method: "PATCH",
-    body: { is_active: isActive },
+    body: { status: isActive ? "active" : "inactive" },
   });
 }
 
@@ -598,18 +621,25 @@ export async function fetchAssets(
  *  Special handling: clientId and userId both map to client_id. */
 function toApiPayload(payload: CreateAssetPayload | UpdateAssetPayload): Record<string, unknown> {
   const p = payload as Record<string, unknown>;
-  const result: Record<string, unknown> = {};
+  const generic: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(p)) {
     if (value === undefined) continue;
-    // Both clientId and userId resolve to client_id (canonical backend field)
     if (key === "clientId" || key === "userId") {
-      result["client_id"] = value;
+      generic.client_id = value;
       continue;
     }
-    const snakeKey = key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
-    result[snakeKey] = value;
+    generic[key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)] = value;
   }
-  return result;
+
+  const normalized = normalizeAssetPayload({
+    ...p,
+    client_id: p.client_id ?? p.clientId ?? p.user_id ?? p.userId,
+    avg_price: p.avg_price ?? p.avgPrice,
+    current_price: p.current_price ?? p.currentPrice,
+    purchase_value: p.purchase_value ?? p.purchasePrice,
+    current_value: p.current_value ?? p.currentValue,
+  });
+  return { ...generic, ...normalized };
 }
 
 function sanitizeOutgoingPayload(payload: Record<string, unknown>): Record<string, unknown> {

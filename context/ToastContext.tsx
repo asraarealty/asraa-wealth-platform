@@ -12,6 +12,7 @@ import {
 } from "react";
 
 type ToastType = "success" | "error" | "info";
+export const GLOBAL_TOAST_EVENT = "asraa:toast";
 
 type ToastMessage = {
   id: number;
@@ -92,11 +93,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
+    const onGlobalToast = (event: Event) => {
+      const customEvent = event as CustomEvent<{ message?: string; type?: ToastType }>;
+      const message = customEvent.detail?.message?.trim();
+      if (!message) return;
+      const type: ToastType = customEvent.detail?.type ?? "info";
+      showToast(message, type);
+    };
+    window.addEventListener(GLOBAL_TOAST_EVENT, onGlobalToast as EventListener);
     return () => {
+      window.removeEventListener(GLOBAL_TOAST_EVENT, onGlobalToast as EventListener);
       timeoutIdsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
       timeoutIdsRef.current.clear();
     };
-  }, []);
+  }, [showToast]);
 
   const value = useMemo<ToastContextValue>(() => ({ showToast }), [showToast]);
 

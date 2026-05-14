@@ -16,6 +16,7 @@ export interface EnterpriseClientReport {
   clientId: number;
   name: string;
   email: string;
+  status: "active" | "inactive" | "suspended" | "archived";
   isActive: boolean;
   holdings: number;
   transactions: number;

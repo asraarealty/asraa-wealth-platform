@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Modal, { FieldInput, FormError, FormField, ModalFooter } from "@/components/dashboard/modals/Modal";
 import type { OccupancyStatus, PropertyLifecycleStage, PropertySummary, PropertyType } from "@/lib/types/realEstate";
+import { propertySchema } from "@/lib/validators";
 
 export type PropertyFormValues = {
   name: string;
@@ -62,12 +63,14 @@ export default function PropertyFormModal({
 }) {
   const [values, setValues] = useState<PropertyFormValues>(() => toInitial(property));
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof PropertyFormValues, string>>>({});
   const [step, setStep] = useState(0);
 
   useEffect(() => {
     if (!open) return;
     setValues(toInitial(property));
     setError(null);
+    setFieldErrors({});
     setStep(0);
   }, [open, property]);
 
@@ -81,19 +84,6 @@ export default function PropertyFormModal({
         Number(values.currentValue) > 0
     );
   }, [values]);
-
-  // canProceedToSubmit is true when all required fields are complete (allow saving
-  // from any step) OR when on the last wizard step (force save attempt).
-  const canProceedToSubmit = canSubmit || step === STEPS.length - 1;
-
-  const missingRequiredFields = useMemo(() => {
-    const missing: string[] = [];
-    if (!values.name.trim()) missing.push("Property Name");
-    if (!values.address.trim()) missing.push("Address");
-    if (!(Number(values.purchaseValue) > 0)) missing.push("Purchase Value");
-    if (!(Number(values.currentValue) > 0)) missing.push("Current Value");
-    return missing;
-  }, [values.address, values.currentValue, values.name, values.purchaseValue]);
 
   if (!open) return null;
 
@@ -120,7 +110,7 @@ export default function PropertyFormModal({
 
         {step === 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField label="Property Name" required>
+            <FormField label="Property Name" required error={fieldErrors.name}>
               <FieldInput value={values.name} onChange={(name) => setValues((prev) => ({ ...prev, name }))} placeholder="Asraa Business Park" />
             </FormField>
             <FormField label="Property Type" required>
@@ -141,7 +131,7 @@ export default function PropertyFormModal({
                 <option value="other">Other</option>
               </select>
             </FormField>
-            <FormField label="Address" required>
+            <FormField label="Address" required error={fieldErrors.address}>
               <FieldInput value={values.address} onChange={(address) => setValues((prev) => ({ ...prev, address }))} placeholder="BKC, Mumbai" />
             </FormField>
             <FormField label="Occupancy Status" required>
@@ -168,10 +158,10 @@ export default function PropertyFormModal({
                 <option value="exit_ready">Exit Ready</option>
               </select>
             </FormField>
-            <FormField label="Purchase Value" required>
+            <FormField label="Purchase Value" required error={fieldErrors.purchaseValue}>
               <FieldInput type="number" value={values.purchaseValue} onChange={(purchaseValue) => setValues((prev) => ({ ...prev, purchaseValue }))} placeholder="120000000" />
             </FormField>
-            <FormField label="Current Value" required>
+            <FormField label="Current Value" required error={fieldErrors.currentValue}>
               <FieldInput type="number" value={values.currentValue} onChange={(currentValue) => setValues((prev) => ({ ...prev, currentValue }))} placeholder="140000000" />
             </FormField>
           </div>
@@ -224,27 +214,46 @@ export default function PropertyFormModal({
         {error ? <FormError>{error}</FormError> : null}
       </div>
 
-      <ModalFooter
-        onCancel={step === 0 ? onClose : () => setStep((current) => Math.max(0, current - 1))}
-        cancelLabel={step === 0 ? "Cancel" : "Back"}
-        onSave={() => {
-          if (!canProceedToSubmit) {
-            setStep((current) => Math.min(STEPS.length - 1, current + 1));
-            return;
-          }
-          if (!canSubmit) {
-            setError(`Returning to Property details. Please complete: ${missingRequiredFields.join(", ")}.`);
-            setStep(0);
-            return;
-          }
-          setError(null);
-          void onSubmit(values).catch((err) =>
-            setError(err instanceof Error ? err.message : "Unable to save property")
-          );
-        }}
-        saveLabel={canProceedToSubmit ? (property ? "Update Property" : "Create Property") : "Next"}
-        saving={submitting}
-      />
+        <ModalFooter
+          onCancel={step === 0 ? onClose : () => setStep((current) => Math.max(0, current - 1))}
+          cancelLabel={step === 0 ? "Cancel" : "Back"}
+          onSave={() => {
+            const result = propertySchema.safeParse({
+              name: values.name,
+              property_type: values.type,
+              address: values.address,
+              occupancy_status: values.occupancyStatus,
+              lifecycle_stage: values.lifecycleStage,
+              purchase_value: values.purchaseValue,
+              current_value: values.currentValue,
+            });
+
+            if (!result.success) {
+              const nextErrors: Partial<Record<keyof PropertyFormValues, string>> = {};
+              const keyMap: Record<string, keyof PropertyFormValues> = {
+                name: "name",
+                address: "address",
+                purchase_value: "purchaseValue",
+                current_value: "currentValue",
+              };
+              for (const issue of result.error.issues) {
+                const key = keyMap[String(issue.path[0] ?? "")];
+                if (key) nextErrors[key] = issue.message;
+              }
+              setFieldErrors(nextErrors);
+              setError("Please check required fields before saving.");
+              return;
+            }
+            setFieldErrors({});
+            setError(null);
+            void onSubmit(values).catch((err) =>
+              setError(err instanceof Error ? err.message : "Unable to save property")
+            );
+          }}
+          saveDisabled={!canSubmit}
+          saveLabel={property ? "Update Property" : "Create Property"}
+          saving={submitting}
+        />
     </Modal>
   );
 }
