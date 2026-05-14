@@ -297,11 +297,7 @@ export function fetchTransactions(
   userId?: string,
   signal?: AbortSignal
 ): Promise<Transaction[]> {
-  const qs = userId
-    ? `?client_id=${encodeURIComponent(userId)}`
-    : "";
-
-  return fetcher<Transaction[]>(`${API_ROUTES.TRANSACTIONS}${qs}`, { signal });
+  return fetcher<Transaction[]>(userId ? API_ROUTES.TRANSACTIONS.BY_CLIENT(Number(userId)) : API_ROUTES.TRANSACTIONS.BASE, { signal });
 }
 
 /* ── Admin: Users ─────────────────────────────────────────────────── */

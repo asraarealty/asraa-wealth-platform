@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { apiError, apiOk } from "@/lib/security/api";
 import { requireAuth } from "@/lib/security/auth";
 import { securityLog } from "@/lib/security/logging";
+import { API_ROUTES } from "@/lib/constants/routes";
 import type {
   EnterpriseClientReport,
   EnterpriseReportsData,
@@ -240,6 +241,12 @@ async function backendGet(path: string, authHeader: string): Promise<unknown> {
     },
     cache: "no-store",
   });
+  if (response.status === 404) {
+    throw new Error(`${path} not found (404)`);
+  }
+  if (response.status === 500) {
+    throw new Error(`${path} server error (500)`);
+  }
   if (!response.ok) {
     throw new Error(`${path} failed with ${response.status}`);
   }
@@ -353,7 +360,7 @@ export async function GET(request: NextRequest) {
     let clients: BackendClient[] = [];
     try {
       clients = normalizeListResponse<BackendClient>(
-        await backendGet("/clients", auth.context.authHeader)
+        await backendGet(API_ROUTES.CLIENTS.BASE, auth.context.authHeader)
       );
     } catch (error) {
       securityLog("warn", "enterprise_reports.clients_fetch_failed", {
@@ -366,7 +373,7 @@ export async function GET(request: NextRequest) {
       clients.map(async (client) => ({
         clientId: client.id,
         assets: normalizePortfolioResponse(
-          await backendGet(`/assets?user_id=${encodeURIComponent(client.id)}`, auth.context.authHeader)
+          await backendGet(API_ROUTES.ASSETS.BY_USER(client.id), auth.context.authHeader)
         ),
       }))
     );
@@ -375,7 +382,7 @@ export async function GET(request: NextRequest) {
       clients.map(async (client) => ({
         clientId: client.id,
         rows: normalizeListResponse<BackendTransaction>(
-          await backendGet(`/transactions?client_id=${encodeURIComponent(client.id)}`, auth.context.authHeader)
+          await backendGet(API_ROUTES.TRANSACTIONS.BY_CLIENT(client.id), auth.context.authHeader)
         ),
       }))
     );
@@ -497,12 +504,12 @@ export async function GET(request: NextRequest) {
         rentSummaryRaw,
         analyticsRaw,
       ] = await Promise.all([
-        backendGet(`/real-estate/properties${categoryQuery}`, auth.context.authHeader),
-        backendGet(`/real-estate/tenants${categoryQuery}`, auth.context.authHeader),
-        backendGet(`/real-estate/leases${categoryQuery}`, auth.context.authHeader),
-        backendGet(`/real-estate/maintenance/tickets${categoryQuery}`, auth.context.authHeader),
-        backendGet(`/real-estate/rent/summary${categoryQuery}`, auth.context.authHeader),
-        backendGet(`/real-estate/analytics${categoryQuery}`, auth.context.authHeader),
+        backendGet(`${API_ROUTES.REAL_ESTATE.PROPERTIES}${categoryQuery}`, auth.context.authHeader),
+        backendGet(`${API_ROUTES.REAL_ESTATE.TENANTS}${categoryQuery}`, auth.context.authHeader),
+        backendGet(`${API_ROUTES.REAL_ESTATE.LEASES}${categoryQuery}`, auth.context.authHeader),
+        backendGet(`${API_ROUTES.REAL_ESTATE.MAINTENANCE}/tickets${categoryQuery}`, auth.context.authHeader),
+        backendGet(`${API_ROUTES.REAL_ESTATE.RENT}/summary${categoryQuery}`, auth.context.authHeader),
+        backendGet(`${API_ROUTES.REAL_ESTATE.ANALYTICS}${categoryQuery}`, auth.context.authHeader),
       ]);
       properties = normalizeListResponse<BackendProperty>(propertiesRaw);
       tenants = normalizeListResponse<Record<string, unknown>>(tenantsRaw);
