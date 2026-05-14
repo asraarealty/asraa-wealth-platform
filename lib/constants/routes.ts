@@ -20,10 +20,17 @@ export const API_ROUTES = {
     RESET_PASSWORD: "/api/v2/auth/reset-password",
   },
 
-  CLIENTS: "/api/v2/clients",
+  CLIENTS: {
+    BASE: "/api/v2/clients",
+    APPROVE: (id: number) => `/api/v2/clients/${id}/approve`,
+    STATUS: (id: number) => `/api/v2/clients/${id}/status`,
+    RESTORE: (id: number) => `/api/v2/clients/${id}/restore`,
+    BY_ID: (id: number) => `/api/v2/clients/${id}`,
+  },
 
   STOCKS: {
     BASE: "/api/v2/stocks",
+    QUOTE: (symbol: string) => `/api/v2/stocks/${encodeURIComponent(symbol)}`,
     SEARCH: "/api/v2/stocks/search",
     BULK: "/api/v2/stocks/bulk",
     RECOMMENDED: "/api/v2/stocks/recommended",
@@ -32,11 +39,18 @@ export const API_ROUTES = {
   ASSETS: {
     BASE: "/api/v2/assets",
     ME: "/api/v2/assets/me",
+    BY_ID: (id: number) => `/api/v2/assets/${id}`,
+    BY_USER: (userId: number) => `/api/v2/assets?user_id=${userId}`,
   },
 
   TRANSACTIONS: "/api/v2/transactions",
 
   USERS: "/api/v2/users",
+
+  INSIGHTS: {
+    ME: "/api/v2/insights/me",
+    BY_CLIENT: (clientId: number) => `/api/v2/insights?user_id=${clientId}`,
+  },
 
   COMMODITIES: {
     SEARCH: "/api/v2/commodities/search",

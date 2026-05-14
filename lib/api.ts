@@ -99,7 +99,7 @@ function mapAdminClient(raw: any): AdminClient {
 }
 
 export function fetchClients(signal?: AbortSignal): Promise<Client[]> {
-  return fetcher<any[]>("/clients", { signal }).then((rows) =>
+  return fetcher<any[]>(API_ROUTES.CLIENTS.BASE, { signal }).then((rows) =>
     Array.isArray(rows)
       ? rows.map((row) => {
         const normalized = normalizeClientPayload(row) as Record<string, unknown>;
@@ -121,7 +121,7 @@ export function fetchClients(signal?: AbortSignal): Promise<Client[]> {
 export async function fetchAdminClients(
   signal?: AbortSignal
 ): Promise<AdminClient[]> {
-  const data = await fetcher<any[]>("/clients", { signal });
+  const data = await fetcher<any[]>(API_ROUTES.CLIENTS.BASE, { signal });
   return Array.isArray(data) ? data.map(mapAdminClient) : [];
 }
 
@@ -129,7 +129,7 @@ export function toggleClientStatus(
   id: number,
   isActive: boolean
 ): Promise<unknown> {
-  return fetcher(`/clients/${id}/status`, {
+  return fetcher(API_ROUTES.CLIENTS.STATUS(id), {
     method: "PATCH",
     body: { status: isActive ? "active" : "inactive" },
   });
@@ -139,7 +139,7 @@ export function deleteClient(
   id: number,
   signal?: AbortSignal
 ): Promise<void> {
-  return fetcher<void>(`/clients/${encodeURIComponent(id)}`, {
+  return fetcher<void>(API_ROUTES.CLIENTS.BY_ID(id), {
     method: "DELETE",
     signal,
   });
@@ -149,20 +149,20 @@ export function updateClient(
   id: number,
   data: Record<string, unknown>
 ): Promise<unknown> {
-  return fetcher<unknown>(`/clients/${encodeURIComponent(id)}`, {
+  return fetcher<unknown>(API_ROUTES.CLIENTS.BY_ID(id), {
     method: "PATCH",
     body: data,
   });
 }
 
 export function approveClient(id: number): Promise<void> {
-  return fetcher<void>(`/clients/${encodeURIComponent(id)}/approve`, {
+  return fetcher<void>(API_ROUTES.CLIENTS.APPROVE(id), {
     method: "PATCH",
   });
 }
 
 export function restoreClient(id: number): Promise<void> {
-  return fetcher<void>(`/clients/${encodeURIComponent(id)}/restore`, {
+  return fetcher<void>(API_ROUTES.CLIENTS.RESTORE(id), {
     method: "PATCH",
   });
 }
@@ -177,10 +177,14 @@ export function restoreClient(id: number): Promise<void> {
  *   Proxy     →  /stocks/{symbol}       (strips /api/v2)
  *   Backend   →  /stocks/{symbol}
  */
+/**
+ * @deprecated Use API_ROUTES.STOCKS.* from "@/lib/constants/routes" instead.
+ * Kept for backwards-compatibility; internal implementation uses API_ROUTES.
+ */
 export const stockEndpoints = {
-  quote: (symbol: string) => `/stocks/${encodeURIComponent(symbol)}`,
-  search: (q: string) => `/stocks/search?q=${encodeURIComponent(q)}`,
-  bulk: `/stocks/bulk`,
+  quote: (symbol: string) => API_ROUTES.STOCKS.QUOTE(symbol),
+  search: (q: string) => `${API_ROUTES.STOCKS.SEARCH}?q=${encodeURIComponent(q)}`,
+  bulk: API_ROUTES.STOCKS.BULK,
 } as const;
 
 export interface StockQuote {
@@ -257,7 +261,7 @@ export function saveRecommendedStock(
   payload: RecommendedStock,
   signal?: AbortSignal
 ): Promise<RecommendedStock> {
-  return fetcher<RecommendedStock>("/stocks/recommended", {
+  return fetcher<RecommendedStock>(API_ROUTES.STOCKS.RECOMMENDED, {
     method: "POST",
     body: payload,
     signal,
@@ -297,7 +301,7 @@ export function fetchTransactions(
     ? `?client_id=${encodeURIComponent(userId)}`
     : "";
 
-  return fetcher<Transaction[]>(`/transactions${qs}`, { signal });
+  return fetcher<Transaction[]>(`${API_ROUTES.TRANSACTIONS}${qs}`, { signal });
 }
 
 /* ── Admin: Users ─────────────────────────────────────────────────── */
