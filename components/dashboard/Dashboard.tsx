@@ -17,6 +17,7 @@ import AddAssetModal from "./modals/AddAssetModal";
 import FeaturedSlider from "./FeaturedSlider";
 import Loader from "@/components/ui/Loader";
 import { createAsset } from "@/lib/api";
+import { API_ROUTES } from "@/lib/constants/routes";
 
 // ── Section wrapper ─────────────────────────────────────────────────────────
 
@@ -136,8 +137,8 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
   const [addModalOpen, setAddModalOpen] = useState(false);
 
   const insightsPath = clientId !== undefined
-    ? `/insights?user_id=${encodeURIComponent(clientId)}`
-    : "/insights/me";
+    ? API_ROUTES.INSIGHTS.BY_CLIENT(clientId)
+    : API_ROUTES.INSIGHTS.ME;
 
   const loadData = useCallback(
     async (silent = false) => {

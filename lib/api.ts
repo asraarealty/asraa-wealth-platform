@@ -315,7 +315,7 @@ export interface User {
 }
 
 export function fetchUsers(signal?: AbortSignal): Promise<User[]> {
-  return fetcher<User[]>("/users", { signal });
+  return fetcher<User[]>(API_ROUTES.USERS, { signal });
 }
 
 /* ── Assets ─────────────────────────────────────────────────────────── */
@@ -461,8 +461,8 @@ export async function fetchPortfolio(
 ): Promise<PortfolioFull> {
   const path =
     userId !== undefined
-      ? `/assets?user_id=${encodeURIComponent(userId)}`
-      : "/assets/me";
+      ? API_ROUTES.ASSETS.BY_USER(userId)
+      : API_ROUTES.ASSETS.ME;
 
   let res: any;
   try {
@@ -595,7 +595,7 @@ export async function fetchAdminGroupedAssets(
 
   const results = await Promise.allSettled(
     userIds.map(async (uid) => {
-      const res = await fetcher<any>(`/assets?user_id=${encodeURIComponent(uid)}`, {
+      const res = await fetcher<any>(API_ROUTES.ASSETS.BY_USER(uid), {
         signal,
         cache: "no-store",
       });
@@ -833,7 +833,7 @@ export function createAsset(
     });
   }
 
-  return fetcher<Asset>("/assets", {
+  return fetcher<Asset>(API_ROUTES.ASSETS.BASE, {
     method: "POST",
     // Property payloads still travel through generic key translation.
     body: requestPayload,
@@ -859,7 +859,7 @@ export function updateAsset(
   payload: UpdateAssetPayload,
   signal?: AbortSignal
 ): Promise<Asset> {
-  return fetcher<Asset>(`/assets/${encodeURIComponent(id)}`, {
+  return fetcher<Asset>(API_ROUTES.ASSETS.BY_ID(id), {
     method: "PUT",
     body: toApiPayload(payload),
     signal,
@@ -870,7 +870,7 @@ export function deleteAsset(
   id: number,
   signal?: AbortSignal
 ): Promise<void> {
-  return fetcher<void>(`/assets/${encodeURIComponent(id)}`, {
+  return fetcher<void>(API_ROUTES.ASSETS.BY_ID(id), {
     method: "DELETE",
     signal,
   });
@@ -901,8 +901,8 @@ export async function fetchInsights(
   // All other callers (or admins viewing their own data) use the /insights/me route.
   const path =
     clientId !== undefined
-      ? `/insights?user_id=${encodeURIComponent(clientId)}`
-      : "/insights/me";
+      ? API_ROUTES.INSIGHTS.BY_CLIENT(clientId)
+      : API_ROUTES.INSIGHTS.ME;
 
   const res = await fetcher<any>(path, { signal, raw: true, cache: "no-store" });
 
@@ -965,7 +965,7 @@ export function searchCommodities(
   query: string,
   signal?: AbortSignal
 ): Promise<CommodityResult[]> {
-  return fetcher<any>(`/commodities/search?q=${encodeURIComponent(query)}`, {
+  return fetcher<any>(`${API_ROUTES.COMMODITIES.SEARCH}?q=${encodeURIComponent(query)}`, {
     signal,
     noRedirectOn401: true,
   })
@@ -1019,7 +1019,7 @@ export function searchMutualFunds(
   signal?: AbortSignal
 ): Promise<MutualFundResult[]> {
   return fetcher<any>(
-    `/mutual-funds/search?q=${encodeURIComponent(query)}`,
+    `${API_ROUTES.MUTUAL_FUNDS.SEARCH}?q=${encodeURIComponent(query)}`,
     { signal, noRedirectOn401: true }
   ).then((response) => {
     const items = normalizeSearchResponse(response) as any[];
@@ -1121,11 +1121,11 @@ export interface PlatformSettings {
 }
 
 export function getPlatformSettings(signal?: AbortSignal): Promise<PlatformSettings> {
-  return fetcher<PlatformSettings>("/settings/platform", { signal });
+  return fetcher<PlatformSettings>(API_ROUTES.SETTINGS.PLATFORM, { signal });
 }
 
 export function updatePlatformSettings(payload: PlatformSettings): Promise<PlatformSettings> {
-  return fetcher<PlatformSettings>("/settings/platform", { method: "PUT", body: payload });
+  return fetcher<PlatformSettings>(API_ROUTES.SETTINGS.PLATFORM, { method: "PUT", body: payload });
 }
 
 /* ── Settings: Pricing Plans ─────────────────────────────────────────── */
@@ -1140,19 +1140,19 @@ export interface PricingPlan {
 }
 
 export function getPricingPlans(signal?: AbortSignal): Promise<PricingPlan[]> {
-  return fetcher<PricingPlan[]>("/settings/pricing", { signal });
+  return fetcher<PricingPlan[]>(API_ROUTES.SETTINGS.PRICING, { signal });
 }
 
 export function createPricingPlan(payload: Omit<PricingPlan, "id">): Promise<PricingPlan> {
-  return fetcher<PricingPlan>("/settings/pricing", { method: "POST", body: payload });
+  return fetcher<PricingPlan>(API_ROUTES.SETTINGS.PRICING, { method: "POST", body: payload });
 }
 
 export function updatePricingPlan(id: PricingPlan["id"], payload: Partial<Omit<PricingPlan, "id">>): Promise<PricingPlan> {
-  return fetcher<PricingPlan>(`/settings/pricing/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+  return fetcher<PricingPlan>(API_ROUTES.SETTINGS.PRICING_BY_ID(id), { method: "PUT", body: payload });
 }
 
 export function deletePricingPlan(id: PricingPlan["id"]): Promise<void> {
-  return fetcher<void>(`/settings/pricing/${encodeURIComponent(id)}`, { method: "DELETE" });
+  return fetcher<void>(API_ROUTES.SETTINGS.PRICING_BY_ID(id), { method: "DELETE" });
 }
 
 /* ── Settings: Allocation Rules ─────────────────────────────────────── */
@@ -1170,11 +1170,11 @@ export interface AllocationRules {
 }
 
 export function getAllocationRules(signal?: AbortSignal): Promise<AllocationRules> {
-  return fetcher<AllocationRules>("/settings/allocation", { signal });
+  return fetcher<AllocationRules>(API_ROUTES.SETTINGS.ALLOCATION, { signal });
 }
 
 export function updateAllocationRules(payload: AllocationRules): Promise<AllocationRules> {
-  return fetcher<AllocationRules>("/settings/allocation", { method: "PUT", body: payload });
+  return fetcher<AllocationRules>(API_ROUTES.SETTINGS.ALLOCATION, { method: "PUT", body: payload });
 }
 
 /* ── Settings: Stock Config ──────────────────────────────────────────── */
@@ -1189,11 +1189,11 @@ export interface StockConfig {
 }
 
 export function getStockConfig(signal?: AbortSignal): Promise<StockConfig> {
-  return fetcher<StockConfig>("/settings/stock", { signal });
+  return fetcher<StockConfig>(API_ROUTES.SETTINGS.STOCK, { signal });
 }
 
 export function updateStockConfig(payload: StockConfig): Promise<StockConfig> {
-  return fetcher<StockConfig>("/settings/stock", { method: "PUT", body: payload });
+  return fetcher<StockConfig>(API_ROUTES.SETTINGS.STOCK, { method: "PUT", body: payload });
 }
 
 /* ── Settings: Featured Properties ──────────────────────────────────── */
@@ -1211,27 +1211,27 @@ export interface FeaturedProperty {
 }
 
 export function getFeaturedProperties(signal?: AbortSignal): Promise<FeaturedProperty[]> {
-  return fetcher<FeaturedProperty[]>("/settings/featured-properties", { signal });
+  return fetcher<FeaturedProperty[]>(API_ROUTES.SETTINGS.FEATURED_PROPERTIES, { signal });
 }
 
 export function createFeaturedProperty(payload: Omit<FeaturedProperty, "id">): Promise<FeaturedProperty> {
-  return fetcher<FeaturedProperty>("/settings/featured-properties", { method: "POST", body: payload });
+  return fetcher<FeaturedProperty>(API_ROUTES.SETTINGS.FEATURED_PROPERTIES, { method: "POST", body: payload });
 }
 
 export function updateFeaturedProperty(id: FeaturedProperty["id"], payload: Partial<Omit<FeaturedProperty, "id">>): Promise<FeaturedProperty> {
-  return fetcher<FeaturedProperty>(`/settings/featured-properties/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+  return fetcher<FeaturedProperty>(API_ROUTES.SETTINGS.FEATURED_PROPERTIES_BY_ID(id), { method: "PUT", body: payload });
 }
 
 export function deleteFeaturedProperty(id: FeaturedProperty["id"]): Promise<void> {
-  return fetcher<void>(`/settings/featured-properties/${encodeURIComponent(id)}`, { method: "DELETE" });
+  return fetcher<void>(API_ROUTES.SETTINGS.FEATURED_PROPERTIES_BY_ID(id), { method: "DELETE" });
 }
 
 export function toggleFeaturedProperty(id: FeaturedProperty["id"]): Promise<FeaturedProperty> {
-  return fetcher<FeaturedProperty>(`/settings/featured-properties/${encodeURIComponent(id)}/toggle`, { method: "PATCH" });
+  return fetcher<FeaturedProperty>(API_ROUTES.SETTINGS.FEATURED_PROPERTIES_TOGGLE(id), { method: "PATCH" });
 }
 
 export function reorderFeaturedProperties(orderedIds: Array<FeaturedProperty["id"]>): Promise<void> {
-  return fetcher<void>("/settings/featured-properties/reorder", { method: "PATCH", body: { orderedIds } });
+  return fetcher<void>(API_ROUTES.SETTINGS.FEATURED_PROPERTIES_REORDER, { method: "PATCH", body: { orderedIds } });
 }
 
 /* ── Settings: Notifications ─────────────────────────────────────────── */
@@ -1245,11 +1245,11 @@ export interface NotificationSettings {
 }
 
 export function getNotificationSettings(signal?: AbortSignal): Promise<NotificationSettings> {
-  return fetcher<NotificationSettings>("/settings/notifications", { signal });
+  return fetcher<NotificationSettings>(API_ROUTES.SETTINGS.NOTIFICATIONS, { signal });
 }
 
 export function updateNotificationSettings(payload: NotificationSettings): Promise<NotificationSettings> {
-  return fetcher<NotificationSettings>("/settings/notifications", { method: "PUT", body: payload });
+  return fetcher<NotificationSettings>(API_ROUTES.SETTINGS.NOTIFICATIONS, { method: "PUT", body: payload });
 }
 
 /* ── Settings: Admin Users ───────────────────────────────────────────── */
@@ -1263,19 +1263,19 @@ export interface AdminUser {
 }
 
 export function getAdminUsers(signal?: AbortSignal): Promise<AdminUser[]> {
-  return fetcher<AdminUser[]>("/settings/admin-users", { signal });
+  return fetcher<AdminUser[]>(API_ROUTES.SETTINGS.ADMIN_USERS, { signal });
 }
 
 export function createAdminUser(payload: Omit<AdminUser, "id">): Promise<AdminUser> {
-  return fetcher<AdminUser>("/settings/admin-users", { method: "POST", body: payload });
+  return fetcher<AdminUser>(API_ROUTES.SETTINGS.ADMIN_USERS, { method: "POST", body: payload });
 }
 
 export function updateAdminUser(id: number, payload: Partial<Omit<AdminUser, "id">>): Promise<AdminUser> {
-  return fetcher<AdminUser>(`/settings/admin-users/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
+  return fetcher<AdminUser>(API_ROUTES.SETTINGS.ADMIN_USERS_BY_ID(id), { method: "PUT", body: payload });
 }
 
 export function deleteAdminUser(id: number): Promise<void> {
-  return fetcher<void>(`/settings/admin-users/${encodeURIComponent(id)}`, { method: "DELETE" });
+  return fetcher<void>(API_ROUTES.SETTINGS.ADMIN_USERS_BY_ID(id), { method: "DELETE" });
 }
 
 /* ── Image Upload ────────────────────────────────────────────────────── */
@@ -1361,7 +1361,7 @@ export interface PublicFeaturedProperty {
 }
 
 export function getPublicFeaturedProperties(signal?: AbortSignal): Promise<PublicFeaturedProperty[]> {
-  return fetcher<PublicFeaturedProperty[]>("/properties/featured", { signal });
+  return fetcher<PublicFeaturedProperty[]>(API_ROUTES.PROPERTIES.FEATURED, { signal });
 }
 
 /* ── Safe fetch utility ─────────────────────────────────────────────── */

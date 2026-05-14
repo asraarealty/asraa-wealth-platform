@@ -26,6 +26,7 @@ export const API_ROUTES = {
     STATUS: (id: number) => `/api/v2/clients/${id}/status`,
     RESTORE: (id: number) => `/api/v2/clients/${id}/restore`,
     BY_ID: (id: number) => `/api/v2/clients/${id}`,
+    PROFILE: (id: number) => `/api/v2/clients/${id}/profile`,
   },
 
   STOCKS: {
@@ -72,11 +73,16 @@ export const API_ROUTES = {
   SETTINGS: {
     PLATFORM: "/api/v2/settings/platform",
     PRICING: "/api/v2/settings/pricing",
+    PRICING_BY_ID: (id: number | string) => `/api/v2/settings/pricing/${encodeURIComponent(id)}`,
     ALLOCATION: "/api/v2/settings/allocation",
     STOCK: "/api/v2/settings/stock",
     FEATURED_PROPERTIES: "/api/v2/settings/featured-properties",
+    FEATURED_PROPERTIES_BY_ID: (id: number | string) => `/api/v2/settings/featured-properties/${encodeURIComponent(id)}`,
+    FEATURED_PROPERTIES_TOGGLE: (id: number | string) => `/api/v2/settings/featured-properties/${encodeURIComponent(id)}/toggle`,
+    FEATURED_PROPERTIES_REORDER: "/api/v2/settings/featured-properties/reorder",
     NOTIFICATIONS: "/api/v2/settings/notifications",
     ADMIN_USERS: "/api/v2/settings/admin-users",
+    ADMIN_USERS_BY_ID: (id: number) => `/api/v2/settings/admin-users/${encodeURIComponent(id)}`,
   },
 
   PROPERTIES: {
