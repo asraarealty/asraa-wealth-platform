@@ -243,11 +243,9 @@ async function backendGet(path: string, authHeader: string): Promise<unknown> {
   });
   if (response.status === 404) {
     throw new Error(`${path} not found (404)`);
-  }
-  if (response.status === 500) {
+  } else if (response.status === 500) {
     throw new Error(`${path} server error (500)`);
-  }
-  if (!response.ok) {
+  } else if (!response.ok) {
     throw new Error(`${path} failed with ${response.status}`);
   }
   return response.json();

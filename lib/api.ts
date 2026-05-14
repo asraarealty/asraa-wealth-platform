@@ -297,7 +297,10 @@ export function fetchTransactions(
   userId?: string,
   signal?: AbortSignal
 ): Promise<Transaction[]> {
-  return fetcher<Transaction[]>(userId ? API_ROUTES.TRANSACTIONS.BY_CLIENT(Number(userId)) : API_ROUTES.TRANSACTIONS.BASE, { signal });
+  const path = userId
+    ? API_ROUTES.TRANSACTIONS.BY_CLIENT(Number(userId))
+    : API_ROUTES.TRANSACTIONS.BASE;
+  return fetcher<Transaction[]>(path, { signal });
 }
 
 /* ── Admin: Users ─────────────────────────────────────────────────── */

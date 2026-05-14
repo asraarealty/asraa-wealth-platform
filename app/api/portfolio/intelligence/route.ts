@@ -63,11 +63,9 @@ async function backendGet<T>(path: string, authHeader: string): Promise<T> {
 
   if (res.status === 404) {
     throw new Error(`Backend ${path} not found (404)`);
-  }
-  if (res.status === 500) {
+  } else if (res.status === 500) {
     throw new Error(`Backend ${path} server error (500)`);
-  }
-  if (!res.ok) {
+  } else if (!res.ok) {
     throw new Error(`Backend ${path} responded with ${res.status}`);
   }
 
