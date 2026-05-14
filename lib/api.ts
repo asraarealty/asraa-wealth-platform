@@ -15,6 +15,7 @@ import {
 } from "./payloads/assets";
 import { safeDecimalNumber } from "./utils/numberParsing";
 import { normalizeAssetPayload, normalizeClientPayload, type ClientStatus } from "./api/normalizers";
+import { API_ROUTES } from "./constants/routes";
 
 /* ── Auth ───────────────────────────────────────────────────────────── */
 
@@ -31,7 +32,7 @@ export interface LoginResponse {
 }
 
 export function login(payload: LoginPayload): Promise<LoginResponse> {
-  return fetcher<LoginResponse>("/api/v2/auth/login", {
+  return fetcher<LoginResponse>(API_ROUTES.AUTH.LOGIN, {
     method: "POST",
     body: payload,
   });
@@ -46,11 +47,11 @@ export interface MeResponse {
 }
 
 export function getMe(): Promise<MeResponse> {
-  return fetcher<MeResponse>("/api/v2/auth/me");
+  return fetcher<MeResponse>(API_ROUTES.AUTH.ME);
 }
 
 export function logout(): Promise<void> {
-  return fetcher<void>("/api/v2/auth/logout", { method: "POST" });
+  return fetcher<void>(API_ROUTES.AUTH.LOGOUT, { method: "POST" });
 }
 
 /* ── Clients ───────────────────────────────────────────────────────── */
@@ -1074,7 +1075,7 @@ export interface SignupPayload {
 }
 
 export function signup(payload: SignupPayload): Promise<void> {
-  return fetcher<void>("/api/v2/auth/register", {
+  return fetcher<void>(API_ROUTES.AUTH.REGISTER, {
     method: "POST",
     body: payload,
   });
@@ -1087,7 +1088,7 @@ export interface ForgotPasswordPayload {
 export function forgotPassword(
   payload: ForgotPasswordPayload
 ): Promise<void> {
-  return fetcher<void>("/api/v2/auth/forgot-password", {
+  return fetcher<void>(API_ROUTES.AUTH.FORGOT_PASSWORD, {
     method: "POST",
     body: payload,
   });
@@ -1101,7 +1102,7 @@ export interface ResetPasswordPayload {
 export function resetPassword(
   payload: ResetPasswordPayload
 ): Promise<void> {
-  return fetcher<void>("/api/v2/auth/reset-password", {
+  return fetcher<void>(API_ROUTES.AUTH.RESET_PASSWORD, {
     method: "POST",
     body: payload,
   });

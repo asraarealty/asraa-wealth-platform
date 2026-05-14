@@ -1,4 +1,5 @@
 import { ApiError, fetcher } from "@/lib/fetcher";
+import { API_ROUTES } from "@/lib/constants/routes";
 import {
   buildLeasePayload,
   buildPropertyPayload,
@@ -23,14 +24,7 @@ import type {
 } from "@/lib/types/realEstate";
 import { normalizeRealEstateCategory } from "@/lib/utils/realEstateCategory";
 
-const ENDPOINTS = {
-  properties: "/real-estate/properties",
-  tenants: "/real-estate/tenants",
-  leases: "/real-estate/leases",
-  rent: "/real-estate/rent",
-  maintenance: "/real-estate/maintenance",
-  analytics: "/real-estate/analytics",
-} as const;
+const ENDPOINTS = API_ROUTES.REAL_ESTATE;
 
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const MAX_ATTEMPTS = 2;
@@ -377,7 +371,7 @@ export async function fetchProperties(
 ): Promise<PropertySummary[]> {
   try {
     const res = await withRetry(() =>
-      fetcher<PropertySummary[]>(withCategory(ENDPOINTS.properties, category), {
+      fetcher<PropertySummary[]>(withCategory(ENDPOINTS.PROPERTIES, category), {
         signal,
         cache: "no-store",
       })
@@ -393,7 +387,7 @@ export async function fetchProperties(
 export async function fetchPropertyById(propertyId: number, signal?: AbortSignal): Promise<PropertyDetail> {
   try {
     return await withRetry(() =>
-      fetcher<PropertyDetail>(`${ENDPOINTS.properties}/${encodeURIComponent(propertyId)}`, {
+      fetcher<PropertyDetail>(`${ENDPOINTS.PROPERTIES}/${encodeURIComponent(propertyId)}`, {
         signal,
         cache: "no-store",
       })
@@ -408,7 +402,7 @@ export async function fetchPropertyById(propertyId: number, signal?: AbortSignal
 }
 
 export function createProperty(input: PropertyPayloadInput, signal?: AbortSignal): Promise<PropertyDetail> {
-  return fetcher<PropertyDetail>(ENDPOINTS.properties, {
+  return fetcher<PropertyDetail>(ENDPOINTS.PROPERTIES, {
     method: "POST",
     body: buildPropertyPayload(input),
     signal,
@@ -422,7 +416,7 @@ export function createProperty(input: PropertyPayloadInput, signal?: AbortSignal
 
 export function updateProperty(input: PropertyPayloadInput, signal?: AbortSignal): Promise<PropertyDetail> {
   if (!input.id) throw new Error("Property id is required for update");
-  return fetcher<PropertyDetail>(`${ENDPOINTS.properties}/${encodeURIComponent(input.id)}`, {
+  return fetcher<PropertyDetail>(`${ENDPOINTS.PROPERTIES}/${encodeURIComponent(input.id)}`, {
     method: "PATCH",
     body: buildPropertyPayload(input),
     signal,
@@ -435,7 +429,7 @@ export async function fetchTenants(
 ): Promise<TenantSummary[]> {
   try {
     const res = await withRetry(() =>
-      fetcher<TenantSummary[]>(withCategory(ENDPOINTS.tenants, category), {
+      fetcher<TenantSummary[]>(withCategory(ENDPOINTS.TENANTS, category), {
         signal,
         cache: "no-store",
       })
@@ -450,7 +444,7 @@ export async function fetchTenants(
 
 export async function fetchTenantById(tenantId: number, signal?: AbortSignal): Promise<TenantDetail> {
   try {
-    return await fetcher<TenantDetail>(`${ENDPOINTS.tenants}/${encodeURIComponent(tenantId)}`, {
+    return await fetcher<TenantDetail>(`${ENDPOINTS.TENANTS}/${encodeURIComponent(tenantId)}`, {
       signal,
       cache: "no-store",
     });
@@ -464,7 +458,7 @@ export async function fetchTenantById(tenantId: number, signal?: AbortSignal): P
 }
 
 export function createTenant(input: TenantPayloadInput, signal?: AbortSignal): Promise<TenantDetail> {
-  return fetcher<TenantDetail>(ENDPOINTS.tenants, {
+  return fetcher<TenantDetail>(ENDPOINTS.TENANTS, {
     method: "POST",
     body: buildTenantPayload(input),
     signal,
@@ -473,7 +467,7 @@ export function createTenant(input: TenantPayloadInput, signal?: AbortSignal): P
 
 export function assignTenantToProperty(input: TenantPayloadInput, signal?: AbortSignal): Promise<TenantDetail> {
   if (!input.id) throw new Error("Tenant id is required for assignment");
-  return fetcher<TenantDetail>(`${ENDPOINTS.tenants}/${encodeURIComponent(input.id)}/assign`, {
+  return fetcher<TenantDetail>(`${ENDPOINTS.TENANTS}/${encodeURIComponent(input.id)}/assign`, {
     method: "POST",
     body: buildTenantPayload(input),
     signal,
@@ -486,7 +480,7 @@ export async function fetchLeases(
 ): Promise<LeaseSummary[]> {
   try {
     const res = await withRetry(() =>
-      fetcher<LeaseSummary[]>(withCategory(ENDPOINTS.leases, category), {
+      fetcher<LeaseSummary[]>(withCategory(ENDPOINTS.LEASES, category), {
         signal,
         cache: "no-store",
       })
@@ -501,7 +495,7 @@ export async function fetchLeases(
 
 export async function fetchLeaseById(leaseId: number, signal?: AbortSignal): Promise<LeaseDetail> {
   try {
-    return await fetcher<LeaseDetail>(`${ENDPOINTS.leases}/${encodeURIComponent(leaseId)}`, {
+    return await fetcher<LeaseDetail>(`${ENDPOINTS.LEASES}/${encodeURIComponent(leaseId)}`, {
       signal,
       cache: "no-store",
     });
@@ -515,7 +509,7 @@ export async function fetchLeaseById(leaseId: number, signal?: AbortSignal): Pro
 }
 
 export function createLease(input: LeasePayloadInput, signal?: AbortSignal): Promise<LeaseDetail> {
-  return fetcher<LeaseDetail>(ENDPOINTS.leases, {
+  return fetcher<LeaseDetail>(ENDPOINTS.LEASES, {
     method: "POST",
     body: buildLeasePayload(input),
     signal,
@@ -523,7 +517,7 @@ export function createLease(input: LeasePayloadInput, signal?: AbortSignal): Pro
 }
 
 export function renewLease(leaseId: number, signal?: AbortSignal): Promise<LeaseDetail> {
-  return fetcher<LeaseDetail>(`${ENDPOINTS.leases}/${encodeURIComponent(leaseId)}/renew`, {
+  return fetcher<LeaseDetail>(`${ENDPOINTS.LEASES}/${encodeURIComponent(leaseId)}/renew`, {
     method: "POST",
     signal,
   });
@@ -535,7 +529,7 @@ export async function fetchRentLedger(
 ): Promise<RentLedgerItem[]> {
   try {
     const res = await withRetry(() =>
-      fetcher<RentLedgerItem[]>(withCategory(`${ENDPOINTS.rent}/ledger`, category), {
+      fetcher<RentLedgerItem[]>(withCategory(`${ENDPOINTS.RENT}/ledger`, category), {
         signal,
         cache: "no-store",
       })
@@ -554,7 +548,7 @@ export async function fetchRentSummary(
 ): Promise<RentSummary> {
   try {
     return await withRetry(() =>
-      fetcher<RentSummary>(withCategory(`${ENDPOINTS.rent}/summary`, category), {
+      fetcher<RentSummary>(withCategory(`${ENDPOINTS.RENT}/summary`, category), {
         signal,
         cache: "no-store",
       })
@@ -581,7 +575,7 @@ export async function fetchMaintenanceTickets(
 ): Promise<MaintenanceTicket[]> {
   try {
     const res = await withRetry(() =>
-      fetcher<MaintenanceTicket[]>(withCategory(`${ENDPOINTS.maintenance}/tickets`, category), {
+      fetcher<MaintenanceTicket[]>(withCategory(`${ENDPOINTS.MAINTENANCE}/tickets`, category), {
         signal,
         cache: "no-store",
       })
@@ -598,7 +592,7 @@ export async function fetchWorkOrderTimeline(ticketId: number, signal?: AbortSig
   try {
     const res = await withRetry(() =>
       fetcher<WorkOrderTimelineEvent[]>(
-        `${ENDPOINTS.maintenance}/tickets/${encodeURIComponent(ticketId)}/timeline`,
+        `${ENDPOINTS.MAINTENANCE}/tickets/${encodeURIComponent(ticketId)}/timeline`,
         { signal, cache: "no-store" }
       )
     );
@@ -615,7 +609,7 @@ export function updateMaintenanceStatus(
   status: MaintenanceTicket["status"],
   signal?: AbortSignal
 ): Promise<MaintenanceTicket> {
-  return fetcher<MaintenanceTicket>(`${ENDPOINTS.maintenance}/tickets/${encodeURIComponent(ticketId)}`, {
+  return fetcher<MaintenanceTicket>(`${ENDPOINTS.MAINTENANCE}/tickets/${encodeURIComponent(ticketId)}`, {
     method: "PATCH",
     body: { status },
     signal,
@@ -628,7 +622,7 @@ export async function fetchOwnerAnalytics(
 ): Promise<OwnerAnalytics> {
   try {
     return await withRetry(() =>
-      fetcher<OwnerAnalytics>(withCategory(ENDPOINTS.analytics, category), {
+      fetcher<OwnerAnalytics>(withCategory(ENDPOINTS.ANALYTICS, category), {
         signal,
         cache: "no-store",
       })

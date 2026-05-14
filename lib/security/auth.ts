@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "./api";
 import { getSecurityEnv } from "./env";
+import { API_ROUTES } from "@/lib/constants/routes";
 
 export type AuthContext = {
   token: string;
@@ -63,7 +64,7 @@ async function backendAllowsRole(
 ): Promise<boolean> {
   const backendBase = getSecurityEnv().BACKEND_URL;
   if (!backendBase) return false;
-  const response = await fetch(`${backendBase}/api/v2/auth/me`, {
+  const response = await fetch(`${backendBase}${API_ROUTES.AUTH.ME}`, {
     headers: {
       Authorization: authHeader,
       Accept: "application/json",
