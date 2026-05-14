@@ -82,7 +82,7 @@ export function normalizePropertyPayload(input: AnyRecord): AnyRecord {
       ["acquired", "stabilizing", "operational", "value_add", "exit_ready"] as const,
       "operational"
     ),
-    purchase_price: toDecimal(input.purchase_price ?? input.purchase_value ?? input.purchasePrice ?? input.purchaseValue),
+    purchase_price: toDecimal(input.purchase_price ?? input.purchasePrice ?? input.purchaseValue),
     current_value: toDecimal(input.current_value ?? input.currentValue),
   };
   return nullifyUndefined(removeEmptyStringsAndUndefined(normalized));

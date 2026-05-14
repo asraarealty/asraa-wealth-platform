@@ -506,7 +506,7 @@ export function createLease(input: LeasePayloadInput, signal?: AbortSignal): Pro
 }
 
 export function renewLease(leaseId: number, signal?: AbortSignal): Promise<LeaseDetail> {
-  return apiClient.post<LeaseDetail>(`${ENDPOINTS.LEASES}/${encodeURIComponent(leaseId)}/renew`, undefined, { signal });
+  return apiClient.post<LeaseDetail>(`${ENDPOINTS.LEASES}/${encodeURIComponent(leaseId)}/renew`, {}, { signal });
 }
 
 export async function fetchRentLedger(
