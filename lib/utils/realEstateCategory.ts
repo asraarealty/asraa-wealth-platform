@@ -23,8 +23,6 @@ export function normalizeRealEstateCategory(value: unknown): RealEstateCategory 
 
 export function mapPropertyTypeToCategory(type: PropertyType): RealEstateCategory {
   switch (type) {
-    case "commercial":
-      return "commercial";
     case "residential":
       return "residential";
     case "industrial":
@@ -37,10 +35,7 @@ export function mapPropertyTypeToCategory(type: PropertyType): RealEstateCategor
       return "land";
     case "hospitality":
       return "hospitality";
-    case "office":
-      return "commercial";
-    case "mixed_use":
-      return "commercial";
+    // commercial, office, mixed_use and any unknown type all map to "commercial"
     default:
       return "commercial";
   }

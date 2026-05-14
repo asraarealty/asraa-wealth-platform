@@ -82,9 +82,9 @@ export default function PropertyFormModal({
     );
   }, [values]);
 
-  // Allow saving from any step once all required fields are complete, so users
-  // don't need to click through all informational steps before saving.
-  const isLast = canSubmit || step === STEPS.length - 1;
+  // canProceedToSubmit is true when all required fields are complete (allow saving
+  // from any step) OR when on the last wizard step (force save attempt).
+  const canProceedToSubmit = canSubmit || step === STEPS.length - 1;
 
   const missingRequiredFields = useMemo(() => {
     const missing: string[] = [];
@@ -228,7 +228,7 @@ export default function PropertyFormModal({
         onCancel={step === 0 ? onClose : () => setStep((current) => Math.max(0, current - 1))}
         cancelLabel={step === 0 ? "Cancel" : "Back"}
         onSave={() => {
-          if (!isLast) {
+          if (!canProceedToSubmit) {
             setStep((current) => Math.min(STEPS.length - 1, current + 1));
             return;
           }
@@ -242,7 +242,7 @@ export default function PropertyFormModal({
             setError(err instanceof Error ? err.message : "Unable to save property")
           );
         }}
-        saveLabel={isLast ? (property ? "Update Property" : "Create Property") : "Next"}
+        saveLabel={canProceedToSubmit ? (property ? "Update Property" : "Create Property") : "Next"}
         saving={submitting}
       />
     </Modal>
