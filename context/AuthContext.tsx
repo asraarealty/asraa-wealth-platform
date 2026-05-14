@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthBootstrapComplete(false);
     getToken();
 
-    fetcher<User>("/auth/me", {
+    fetcher<User>("/api/v2/auth/me", {
       signal: controller.signal,
       noRedirectOn401: true,
     })
@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        console.error("[Auth] /auth/me initialization failed with transient error:", err);
+        console.error("[Auth] /api/v2/auth/me initialization failed with transient error:", err);
         setAuthError(true);
       })
       .finally(() => {
@@ -106,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [authAttempt]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await fetcher<{ access_token?: string; accessToken?: string }>("/auth/login", {
+    const res = await fetcher<{ access_token?: string; accessToken?: string }>("/api/v2/auth/login", {
       method: "POST",
       body: { email, password },
       raw: true,
@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(accessToken);
     }
 
-    const me = await fetcher<User>("/auth/me");
+    const me = await fetcher<User>("/api/v2/auth/me");
     setUser(me);
     setAuthError(false);
     setAuthInitialized(true);
@@ -129,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async (nextPath = "/login") => {
     try {
-      await fetcher("/auth/logout", { method: "POST" });
+      await fetcher("/api/v2/auth/logout", { method: "POST" });
     } catch {}
     clearToken();
     setUser(null);

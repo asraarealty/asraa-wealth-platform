@@ -164,7 +164,7 @@ export async function fetcher<T>(
 
   const token = getToken();
 
-  const url = (path.startsWith("http") || path.startsWith("/auth/") || path.startsWith("/api/"))
+  const url = (path.startsWith("http") || path.startsWith("/api/"))
     ? path
     : `${API_BASE_URL}${path}`;
 

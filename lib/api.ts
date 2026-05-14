@@ -31,7 +31,7 @@ export interface LoginResponse {
 }
 
 export function login(payload: LoginPayload): Promise<LoginResponse> {
-  return fetcher<LoginResponse>("/auth/login", {
+  return fetcher<LoginResponse>("/api/v2/auth/login", {
     method: "POST",
     body: payload,
   });
@@ -46,11 +46,11 @@ export interface MeResponse {
 }
 
 export function getMe(): Promise<MeResponse> {
-  return fetcher<MeResponse>("/auth/me");
+  return fetcher<MeResponse>("/api/v2/auth/me");
 }
 
 export function logout(): Promise<void> {
-  return fetcher<void>("/auth/logout", { method: "POST" });
+  return fetcher<void>("/api/v2/auth/logout", { method: "POST" });
 }
 
 /* ── Clients ───────────────────────────────────────────────────────── */
@@ -1074,7 +1074,7 @@ export interface SignupPayload {
 }
 
 export function signup(payload: SignupPayload): Promise<void> {
-  return fetcher<void>("/auth/register", {
+  return fetcher<void>("/api/v2/auth/register", {
     method: "POST",
     body: payload,
   });
@@ -1087,7 +1087,7 @@ export interface ForgotPasswordPayload {
 export function forgotPassword(
   payload: ForgotPasswordPayload
 ): Promise<void> {
-  return fetcher<void>("/auth/forgot-password", {
+  return fetcher<void>("/api/v2/auth/forgot-password", {
     method: "POST",
     body: payload,
   });
@@ -1101,7 +1101,7 @@ export interface ResetPasswordPayload {
 export function resetPassword(
   payload: ResetPasswordPayload
 ): Promise<void> {
-  return fetcher<void>("/auth/reset-password", {
+  return fetcher<void>("/api/v2/auth/reset-password", {
     method: "POST",
     body: payload,
   });

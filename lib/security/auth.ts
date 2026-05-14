@@ -63,7 +63,7 @@ async function backendAllowsRole(
 ): Promise<boolean> {
   const backendBase = getSecurityEnv().BACKEND_URL;
   if (!backendBase) return false;
-  const response = await fetch(`${backendBase}/auth/me`, {
+  const response = await fetch(`${backendBase}/api/v2/auth/me`, {
     headers: {
       Authorization: authHeader,
       Accept: "application/json",
