@@ -353,7 +353,7 @@ export async function GET(request: NextRequest) {
     let clients: BackendClient[] = [];
     try {
       clients = normalizeListResponse<BackendClient>(
-        await backendGet("/clients", auth.context.authHeader)
+        await backendGet("/api/v2/clients", auth.context.authHeader)
       );
     } catch (error) {
       securityLog("warn", "enterprise_reports.clients_fetch_failed", {
@@ -366,7 +366,7 @@ export async function GET(request: NextRequest) {
       clients.map(async (client) => ({
         clientId: client.id,
         assets: normalizePortfolioResponse(
-          await backendGet(`/assets?user_id=${encodeURIComponent(client.id)}`, auth.context.authHeader)
+          await backendGet(`/api/v2/assets?user_id=${encodeURIComponent(client.id)}`, auth.context.authHeader)
         ),
       }))
     );
@@ -375,7 +375,7 @@ export async function GET(request: NextRequest) {
       clients.map(async (client) => ({
         clientId: client.id,
         rows: normalizeListResponse<BackendTransaction>(
-          await backendGet(`/transactions?client_id=${encodeURIComponent(client.id)}`, auth.context.authHeader)
+          await backendGet(`/api/v2/transactions?client_id=${encodeURIComponent(client.id)}`, auth.context.authHeader)
         ),
       }))
     );
@@ -497,12 +497,12 @@ export async function GET(request: NextRequest) {
         rentSummaryRaw,
         analyticsRaw,
       ] = await Promise.all([
-        backendGet(`/real-estate/properties${categoryQuery}`, auth.context.authHeader),
-        backendGet(`/real-estate/tenants${categoryQuery}`, auth.context.authHeader),
-        backendGet(`/real-estate/leases${categoryQuery}`, auth.context.authHeader),
-        backendGet(`/real-estate/maintenance/tickets${categoryQuery}`, auth.context.authHeader),
-        backendGet(`/real-estate/rent/summary${categoryQuery}`, auth.context.authHeader),
-        backendGet(`/real-estate/analytics${categoryQuery}`, auth.context.authHeader),
+        backendGet(`/api/v2/real-estate/properties${categoryQuery}`, auth.context.authHeader),
+        backendGet(`/api/v2/real-estate/tenants${categoryQuery}`, auth.context.authHeader),
+        backendGet(`/api/v2/real-estate/leases${categoryQuery}`, auth.context.authHeader),
+        backendGet(`/api/v2/real-estate/maintenance/tickets${categoryQuery}`, auth.context.authHeader),
+        backendGet(`/api/v2/real-estate/rent/summary${categoryQuery}`, auth.context.authHeader),
+        backendGet(`/api/v2/real-estate/analytics${categoryQuery}`, auth.context.authHeader),
       ]);
       properties = normalizeListResponse<BackendProperty>(propertiesRaw);
       tenants = normalizeListResponse<Record<string, unknown>>(tenantsRaw);

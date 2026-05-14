@@ -46,7 +46,7 @@ export interface CanonicalPropertyPayload {
 }
 
 export function buildPropertyPayload(input: PropertyPayloadInput): CanonicalPropertyPayload {
-  const payload = normalizePropertyPayload({
+  const normalized = normalizePropertyPayload({
     client_id: Number(input.clientId),
     name: safeString(input.name),
     property_type: input.type,
@@ -56,7 +56,20 @@ export function buildPropertyPayload(input: PropertyPayloadInput): CanonicalProp
     lifecycle_stage: input.lifecycleStage,
     purchase_value: safeNumber(input.purchaseValue),
     current_value: safeNumber(input.currentValue),
-  }) as unknown as CanonicalPropertyPayload;
+  }) as Record<string, unknown>;
+
+  // Build a canonical payload with only the required fields (no null extras).
+  const payload: CanonicalPropertyPayload = {
+    client_id: normalized.client_id as number,
+    name: normalized.name as string,
+    property_type: normalized.property_type as PropertyType,
+    category: (normalized.category as string | null | undefined) ?? null,
+    address: normalized.address as string,
+    occupancy_status: normalized.occupancy_status as OccupancyStatus,
+    lifecycle_stage: normalized.lifecycle_stage as PropertyLifecycleStage,
+    purchase_value: normalized.purchase_value as number,
+    current_value: normalized.current_value as number,
+  };
 
   if (input.id !== undefined) payload.id = Number(input.id);
   if (input.tenantCount !== undefined) payload.tenant_count = safeNumber(input.tenantCount);

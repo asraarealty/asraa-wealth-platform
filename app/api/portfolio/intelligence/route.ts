@@ -137,12 +137,11 @@ export async function GET(request: NextRequest) {
 
   try {
     // 1. Fetch all clients
-    // NOTE: The BACKEND_URL already points at the raw backend (e.g. http://localhost:8000).
-    // Next.js rewrites strip the /api/v2 prefix, so when calling the backend directly
-    // we must NOT include that prefix in the path.
+    // NOTE: The backend serves all API routes under /api/v2 and BACKEND_URL points directly
+    // at the backend host, so we must include the /api/v2 prefix when calling it from here.
     let clients: BackendClient[];
     try {
-      const raw = await backendGet<BackendClient[]>("/clients", auth.context.authHeader);
+      const raw = await backendGet<BackendClient[]>("/api/v2/clients", auth.context.authHeader);
       clients = Array.isArray(raw) ? raw : [];
     } catch (err) {
       // Backend unreachable or returned an error — return empty intelligence
@@ -158,7 +157,7 @@ export async function GET(request: NextRequest) {
     const portfolioSettled = await Promise.allSettled(
       clients.map(async (client) => {
         const raw = await backendGet<unknown>(
-          `/assets?user_id=${client.id}`,
+          `/api/v2/assets?user_id=${client.id}`,
           auth.context.authHeader
         );
         const items = parsePortfolioResponse(raw);

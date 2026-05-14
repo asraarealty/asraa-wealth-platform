@@ -273,8 +273,8 @@ export async function fetcher<T>(
       }
     }
 
-    emitGlobalToast("Session expired", "error");
-    throw new ApiError(401, "Session expired");
+    emitGlobalToast("Session expired — please login again.", "error");
+    throw new ApiError(401, "Session expired — please login again.");
   }
 
   // 🚫 403 → forbidden → DO NOT logout
@@ -300,9 +300,9 @@ export async function fetcher<T>(
     // Override with user-friendly messages for common status codes when no server detail is available
     if (response.status === 404 && message === `HTTP ${response.status}`) message = "Resource not found";
     if (response.status === 405 && message === `HTTP ${response.status}`) message = "This action is not supported by the server";
-    if (response.status === 409 && message === `HTTP ${response.status}`) message = "This entry already exists";
-    if (response.status === 422 && message === `HTTP ${response.status}`) message = "Please check required fields";
-    if (response.status === 500 && message === `HTTP ${response.status}`) message = "Server error — try again later";
+    if (response.status === 409 && message === `HTTP ${response.status}`) message = "This entry already exists.";
+    if (response.status === 422 && message === `HTTP ${response.status}`) message = "Validation failed — please check all required fields.";
+    if (response.status === 500 && message === `HTTP ${response.status}`) message = "Server error — please try again later.";
 
     if (process.env.NODE_ENV === "development") {
       console.debug("[fetcher] API error", { method, url, status: response.status, message });
