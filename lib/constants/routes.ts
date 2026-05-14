@@ -44,7 +44,10 @@ export const API_ROUTES = {
     BY_USER: (userId: number) => `/api/v2/assets?user_id=${userId}`,
   },
 
-  TRANSACTIONS: "/api/v2/transactions",
+  TRANSACTIONS: {
+    BASE: "/api/v2/transactions",
+    BY_CLIENT: (clientId: number) => `/api/v2/transactions?client_id=${clientId}`,
+  },
 
   USERS: "/api/v2/users",
 

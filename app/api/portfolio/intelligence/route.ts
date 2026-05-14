@@ -19,6 +19,7 @@ import { computePortfolioMetrics, computeRiskScore } from "@/lib/analytics";
 import { apiError, apiOk } from "@/lib/security/api";
 import { requireAuth } from "@/lib/security/auth";
 import { securityLog } from "@/lib/security/logging";
+import { API_ROUTES } from "@/lib/constants/routes";
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
@@ -60,7 +61,11 @@ async function backendGet<T>(path: string, authHeader: string): Promise<T> {
     cache: "no-store",
   });
 
-  if (!res.ok) {
+  if (res.status === 404) {
+    throw new Error(`Backend ${path} not found (404)`);
+  } else if (res.status === 500) {
+    throw new Error(`Backend ${path} server error (500)`);
+  } else if (!res.ok) {
     throw new Error(`Backend ${path} responded with ${res.status}`);
   }
 
@@ -137,12 +142,9 @@ export async function GET(request: NextRequest) {
 
   try {
     // 1. Fetch all clients
-    // NOTE: The BACKEND_URL already points at the raw backend (e.g. http://localhost:8000).
-    // Next.js rewrites strip the /api/v2 prefix, so when calling the backend directly
-    // we must NOT include that prefix in the path.
     let clients: BackendClient[];
     try {
-      const raw = await backendGet<BackendClient[]>("/clients", auth.context.authHeader);
+      const raw = await backendGet<BackendClient[]>(API_ROUTES.CLIENTS.BASE, auth.context.authHeader);
       clients = Array.isArray(raw) ? raw : [];
     } catch (err) {
       // Backend unreachable or returned an error — return empty intelligence
@@ -158,7 +160,7 @@ export async function GET(request: NextRequest) {
     const portfolioSettled = await Promise.allSettled(
       clients.map(async (client) => {
         const raw = await backendGet<unknown>(
-          `/assets?user_id=${client.id}`,
+          API_ROUTES.ASSETS.BY_USER(client.id),
           auth.context.authHeader
         );
         const items = parsePortfolioResponse(raw);
