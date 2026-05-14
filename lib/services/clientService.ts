@@ -1,7 +1,6 @@
 import {
   fetchClients,
   fetchAdminClients,
-  fetcher,
   approveClient as apiApproveClient,
   deleteClient as apiDeleteClient,
   updateClient as apiUpdateClient,
@@ -9,20 +8,23 @@ import {
   type Client,
   type AdminClient,
 } from "@/lib/api";
+import { apiClient } from "@/lib/api/client";
+import { API_ROUTES } from "@/lib/constants/routes";
+import {
+  buildClientPayload,
+  buildClientProfilePayload,
+  type ClientPayloadInput,
+  type ClientProfilePayloadInput,
+} from "@/lib/payloads/clients";
 
-export interface CreateClientPayload {
-  name: string;
-  email: string;
-  password: string;
-  phone?: string;
-}
+export type { ClientPayloadInput };
 
 export const createClient = (
-  data: CreateClientPayload
+  data: ClientPayloadInput & { password: string }
 ): Promise<AdminClient> =>
-  fetcher<AdminClient>("/clients", {
-    method: "POST",
-    body: data,
+  apiClient.post<AdminClient>(API_ROUTES.CLIENTS.BASE, {
+    ...buildClientPayload(data),
+    password: data.password,
   });
 
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
@@ -33,30 +35,16 @@ export type GoalKey =
   | "retirement"
   | "property_purchase";
 
-export interface ClientProfilePayload {
-  monthlyIncome?: number;
-  investmentCapacity?: number;
-  investmentHorizon?: InvestmentHorizon;
-  riskLevel?: RiskLevel;
-  goals?: GoalKey[];
-}
+export type { ClientProfilePayloadInput as ClientProfilePayload };
 
 export const createClientProfile = (
   clientId: number,
-  data: ClientProfilePayload
-): Promise<unknown> => {
-  // Backend expects snake_case keys
-  const body: Record<string, unknown> = {};
-  if (data.monthlyIncome !== undefined) body.monthly_income = data.monthlyIncome;
-  if (data.investmentCapacity !== undefined) body.investment_capacity = data.investmentCapacity;
-  if (data.investmentHorizon !== undefined) body.investment_horizon = data.investmentHorizon;
-  if (data.riskLevel !== undefined) body.risk_level = data.riskLevel;
-  if (data.goals !== undefined) body.goals = data.goals;
-  return fetcher<unknown>(`/clients/${clientId}/profile`, {
-    method: "POST",
-    body,
-  });
-};
+  data: ClientProfilePayloadInput
+): Promise<unknown> =>
+  apiClient.post<unknown>(
+    API_ROUTES.CLIENTS.PROFILE(clientId),
+    buildClientProfilePayload(data)
+  );
 
 /** Basic email format check (filter out test/garbage data from the backend). */
 function isValidEmail(email: string): boolean {

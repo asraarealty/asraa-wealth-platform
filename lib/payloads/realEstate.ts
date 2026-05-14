@@ -18,6 +18,7 @@ function safeString(value: unknown): string {
 
 export interface PropertyPayloadInput {
   clientId: number;
+  /** Used only for building the URL path in update operations; never sent in the request body. */
   id?: number;
   name: string;
   type: PropertyType;
@@ -26,23 +27,18 @@ export interface PropertyPayloadInput {
   lifecycleStage: PropertyLifecycleStage;
   purchaseValue: number | string;
   currentValue: number | string;
-  tenantCount?: number | string;
-  totalUnits?: number | string;
 }
 
 export interface CanonicalPropertyPayload {
   client_id: number;
-  id?: number;
   name: string;
   property_type: PropertyType;
   category?: string | null;
   address: string;
   occupancy_status: OccupancyStatus;
   lifecycle_stage: PropertyLifecycleStage;
-  purchase_value: number;
+  purchase_price: number;
   current_value: number;
-  tenant_count?: number;
-  total_units?: number;
 }
 
 export function buildPropertyPayload(input: PropertyPayloadInput): CanonicalPropertyPayload {
@@ -54,13 +50,9 @@ export function buildPropertyPayload(input: PropertyPayloadInput): CanonicalProp
     address: safeString(input.address),
     occupancy_status: input.occupancyStatus,
     lifecycle_stage: input.lifecycleStage,
-    purchase_value: safeNumber(input.purchaseValue),
+    purchase_price: safeNumber(input.purchaseValue),
     current_value: safeNumber(input.currentValue),
   }) as unknown as CanonicalPropertyPayload;
-
-  if (input.id !== undefined) payload.id = Number(input.id);
-  if (input.tenantCount !== undefined) payload.tenant_count = safeNumber(input.tenantCount);
-  if (input.totalUnits !== undefined) payload.total_units = safeNumber(input.totalUnits);
 
   return payload;
 }

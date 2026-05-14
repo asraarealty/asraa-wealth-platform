@@ -52,7 +52,6 @@ function normalizeEnum<T extends string>(
 
 export function normalizePropertyPayload(input: AnyRecord): AnyRecord {
   const normalized: AnyRecord = {
-    id: toDecimal(input.id ?? input.property_id),
     client_id: toDecimal(input.client_id ?? input.clientId ?? input.user_id ?? input.userId),
     name: toTrimmedString(input.name ?? input.property_name),
     property_type: normalizeEnum(
@@ -83,12 +82,8 @@ export function normalizePropertyPayload(input: AnyRecord): AnyRecord {
       ["acquired", "stabilizing", "operational", "value_add", "exit_ready"] as const,
       "operational"
     ),
-    purchase_value: toDecimal(input.purchase_value ?? input.purchaseValue),
+    purchase_price: toDecimal(input.purchase_price ?? input.purchasePrice ?? input.purchaseValue),
     current_value: toDecimal(input.current_value ?? input.currentValue),
-    created_at: toIsoDate(input.created_at ?? input.createdAt),
-    updated_at: toIsoDate(input.updated_at ?? input.updatedAt),
-    tenant_count: toDecimal(input.tenant_count ?? input.tenantCount),
-    total_units: toDecimal(input.total_units ?? input.totalUnits),
   };
   return nullifyUndefined(removeEmptyStringsAndUndefined(normalized));
 }
@@ -103,13 +98,10 @@ export function normalizeClientPayload(input: AnyRecord): AnyRecord {
 
   return nullifyUndefined(
     removeEmptyStringsAndUndefined({
-      id: toDecimal(input.id),
       name: toTrimmedString(input.name),
       email: toTrimmedString(input.email),
       phone: toTrimmedString(input.phone),
       status,
-      created_at: toIsoDate(input.created_at ?? input.createdAt),
-      updated_at: toIsoDate(input.updated_at ?? input.updatedAt),
     })
   );
 }
@@ -124,7 +116,6 @@ export function normalizeAssetPayload(input: AnyRecord): AnyRecord {
 
   return nullifyUndefined(
     removeEmptyStringsAndUndefined({
-      id: toDecimal(input.id),
       client_id: toDecimal(input.client_id ?? input.clientId ?? input.user_id ?? input.userId),
       type: canonicalType,
       symbol: toTrimmedString(input.symbol)?.toUpperCase() ?? null,
@@ -136,8 +127,6 @@ export function normalizeAssetPayload(input: AnyRecord): AnyRecord {
       current_price: toDecimal(input.current_price ?? input.currentPrice),
       purchase_value: toDecimal(input.purchase_value ?? input.purchaseValue),
       current_value: toDecimal(input.current_value ?? input.currentValue),
-      created_at: toIsoDate(input.created_at ?? input.createdAt),
-      updated_at: toIsoDate(input.updated_at ?? input.updatedAt),
       tags: Array.isArray(input.tags)
         ? input.tags
             .map((item) => toTrimmedString(item))
