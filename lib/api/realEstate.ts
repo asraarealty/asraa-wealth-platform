@@ -412,6 +412,11 @@ export function createProperty(input: PropertyPayloadInput, signal?: AbortSignal
     method: "POST",
     body: buildPropertyPayload(input),
     signal,
+  }).catch((err) => {
+    if (err instanceof ApiError && err.status === 409) {
+      throw new ApiError(409, err.message || "A property with this name already exists for this client.");
+    }
+    throw err;
   });
 }
 

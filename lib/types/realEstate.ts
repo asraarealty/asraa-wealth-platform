@@ -1,8 +1,12 @@
 export type PropertyType =
+  | "commercial"
+  | "residential"
+  | "industrial"
+  | "warehouse"
   | "office"
   | "retail"
-  | "warehouse"
-  | "industrial"
+  | "land"
+  | "hospitality"
   | "mixed_use"
   | "other";
 
@@ -14,6 +18,7 @@ export type RealEstateCategory =
   | "retail"
   | "warehouse"
   | "land"
+  | "hospitality"
   | "co-working";
 
 export type OccupancyStatus = "fully_occupied" | "partially_occupied" | "vacant";

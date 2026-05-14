@@ -250,6 +250,8 @@ export async function fetcher<T>(
     // Override with user-friendly messages for common status codes when no server detail is available
     if (response.status === 404 && message === `HTTP ${response.status}`) message = "Resource not found";
     if (response.status === 405 && message === `HTTP ${response.status}`) message = "This action is not supported by the server";
+    if (response.status === 409 && message === `HTTP ${response.status}`) message = "This entry already exists — please check for duplicates";
+    if (response.status === 422 && message === `HTTP ${response.status}`) message = "Validation failed — please check the form fields";
     if (response.status === 500 && message === `HTTP ${response.status}`) message = "Internal server error";
 
     if (process.env.NODE_ENV === "development") {

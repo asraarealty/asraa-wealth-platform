@@ -27,7 +27,7 @@ function toInitial(property?: PropertySummary): PropertyFormValues {
   if (!property) {
     return {
       name: "",
-      type: "office",
+      type: "commercial",
       address: "",
       occupancyStatus: "partially_occupied",
       lifecycleStage: "operational",
@@ -72,7 +72,6 @@ export default function PropertyFormModal({
   }, [open, property]);
 
   const title = property ? "Edit Property" : "Add Property";
-  const isLast = step === STEPS.length - 1;
 
   const canSubmit = useMemo(() => {
     return Boolean(
@@ -82,6 +81,10 @@ export default function PropertyFormModal({
         Number(values.currentValue) > 0
     );
   }, [values]);
+
+  // Allow saving from any step once all required fields are complete, so users
+  // don't need to click through all informational steps before saving.
+  const isLast = canSubmit || step === STEPS.length - 1;
 
   const missingRequiredFields = useMemo(() => {
     const missing: string[] = [];
@@ -126,10 +129,14 @@ export default function PropertyFormModal({
                 value={values.type}
                 onChange={(event) => setValues((prev) => ({ ...prev, type: event.target.value as PropertyType }))}
               >
+                <option value="commercial">Commercial</option>
+                <option value="residential">Residential</option>
+                <option value="industrial">Industrial</option>
+                <option value="warehouse">Warehouse</option>
                 <option value="office">Office</option>
                 <option value="retail">Retail</option>
-                <option value="warehouse">Warehouse</option>
-                <option value="industrial">Industrial</option>
+                <option value="land">Land</option>
+                <option value="hospitality">Hospitality</option>
                 <option value="mixed_use">Mixed Use</option>
                 <option value="other">Other</option>
               </select>
