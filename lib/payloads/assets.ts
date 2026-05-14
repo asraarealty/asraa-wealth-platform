@@ -48,7 +48,7 @@ export function buildStockPayload(input: StockPayloadInput): CanonicalStockPaylo
     avg_price: safeNumber(input.avgPrice),
     current_price: safeNumber(input.currentPrice),
     tags: Array.isArray(input.tags) ? input.tags : [],
-  }) as CanonicalStockPayload;
+  }) as unknown as CanonicalStockPayload;
 }
 
 // ── Mutual Fund ────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ export function buildFundPayload(input: FundPayloadInput): CanonicalFundPayload 
     quantity: safeNumber(quantity),
     avg_price: safeNumber(avgPrice),
     current_price: safeNumber(currentPrice),
-  }) as CanonicalFundPayload;
+  }) as unknown as CanonicalFundPayload;
 }
 
 // ── Commodity ──────────────────────────────────────────────────────
@@ -129,5 +129,5 @@ export function buildCommodityPayload(
     quantity: safeNumber(input.quantity),
     avg_price: safeNumber(input.avgPrice),
     current_price: safeNumber(input.currentPrice),
-  }) as CanonicalCommodityPayload;
+  }) as unknown as CanonicalCommodityPayload;
 }

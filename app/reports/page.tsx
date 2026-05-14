@@ -64,7 +64,7 @@ function toRows(clients: EnterpriseClientReport[]) {
   const rows = clients.map((client) => [
     client.name,
     client.email,
-    client.isActive ? "active" : "inactive",
+    client.status,
     client.portfolioValue.toFixed(2),
     client.totalInvested.toFixed(2),
     client.gainsLosses.toFixed(2),
@@ -309,7 +309,7 @@ export default function ReportsPage() {
                     <p className="text-white font-medium">{client.name}</p>
                     <p className="text-xs text-white/50">{client.email}</p>
                   </td>
-                  <td className="px-4 py-3 text-white/75">{client.isActive ? "active" : "inactive"}</td>
+                  <td className="px-4 py-3 text-white/75">{client.status}</td>
                   <td className="px-4 py-3 text-white">{fmtCurrency(client.portfolioValue)}</td>
                   <td className="px-4 py-3 text-white/80">{fmtCurrency(client.totalInvested)}</td>
                   <td className={`px-4 py-3 ${client.gainsLosses >= 0 ? "text-emerald-400" : "text-rose-400"}`}>

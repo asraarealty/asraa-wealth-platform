@@ -86,11 +86,15 @@ function useRealEstateQuery<T>(
       setError(null);
 
       try {
-        const requestPromise =
-          (cacheKey && realEstateInFlight.get(cacheKey) as Promise<T> | undefined) ??
-          loader(ac.signal);
-        if (cacheKey && !realEstateInFlight.has(cacheKey)) {
-          realEstateInFlight.set(cacheKey, requestPromise);
+        let requestPromise: Promise<T>;
+        if (cacheKey) {
+          const existing = realEstateInFlight.get(cacheKey) as Promise<T> | undefined;
+          requestPromise = existing ?? loader(ac.signal);
+          if (!existing) {
+            realEstateInFlight.set(cacheKey, requestPromise);
+          }
+        } else {
+          requestPromise = loader(ac.signal);
         }
         const result = await requestPromise;
         if (cacheKey) {

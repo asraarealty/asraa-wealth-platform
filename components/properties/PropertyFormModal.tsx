@@ -230,12 +230,15 @@ export default function PropertyFormModal({
 
             if (!result.success) {
               const nextErrors: Partial<Record<keyof PropertyFormValues, string>> = {};
+              const keyMap: Record<string, keyof PropertyFormValues> = {
+                name: "name",
+                address: "address",
+                purchase_value: "purchaseValue",
+                current_value: "currentValue",
+              };
               for (const issue of result.error.issues) {
-                const key = issue.path[0];
-                if (key === "name") nextErrors.name = issue.message;
-                if (key === "address") nextErrors.address = issue.message;
-                if (key === "purchase_value") nextErrors.purchaseValue = issue.message;
-                if (key === "current_value") nextErrors.currentValue = issue.message;
+                const key = keyMap[String(issue.path[0] ?? "")];
+                if (key) nextErrors[key] = issue.message;
               }
               setFieldErrors(nextErrors);
               setError("Please check required fields before saving.");

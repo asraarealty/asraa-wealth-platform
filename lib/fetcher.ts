@@ -228,7 +228,10 @@ export async function fetcher<T>(
         }
         return response;
       } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") throw err;
+        if (err instanceof DOMException && err.name === "AbortError") {
+          if ((signal && signal.aborted) || timeoutMs <= 0) throw err;
+          throw new NetworkError("Request timed out");
+        }
         lastNetworkError = err;
         if (attempt >= maxRetries) break;
         await new Promise((resolve) => setTimeout(resolve, calculateBackoffDelay(attempt)));
@@ -243,10 +246,11 @@ export async function fetcher<T>(
   try {
     response = await executeRequest();
   } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") {
+    if (err instanceof NetworkError && err.message === "Request timed out") {
       emitGlobalToast("Request timed out — please retry", "error");
       throw new NetworkError("Request timed out");
     }
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
     if (process.env.NODE_ENV === "development") {
       console.debug("[fetcher] Network error", { method, url, payload: body });
     }

@@ -56,7 +56,7 @@ export function buildPropertyPayload(input: PropertyPayloadInput): CanonicalProp
     lifecycle_stage: input.lifecycleStage,
     purchase_value: safeNumber(input.purchaseValue),
     current_value: safeNumber(input.currentValue),
-  }) as CanonicalPropertyPayload;
+  }) as unknown as CanonicalPropertyPayload;
 
   if (input.id !== undefined) payload.id = Number(input.id);
   if (input.tenantCount !== undefined) payload.tenant_count = safeNumber(input.tenantCount);

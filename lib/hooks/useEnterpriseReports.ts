@@ -90,7 +90,7 @@ export function useEnterpriseReports(options: UseEnterpriseReportsOptions = {}):
     const activeRequest =
       enterpriseInFlight.get(queryCacheKey) ??
       fetcher<EnterpriseReportsData>(query, {
-        cache: "force-cache",
+        cache: "no-store",
         noRedirectOn401: true,
         signal: controller.signal,
       }).then((payload) => {
