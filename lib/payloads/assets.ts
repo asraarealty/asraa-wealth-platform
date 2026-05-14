@@ -1,4 +1,5 @@
 import { safeDecimalNumber } from "@/lib/utils/numberParsing";
+import { normalizeAssetPayload } from "@/lib/api/normalizers";
 
 /**
  * Canonical asset payload builders.
@@ -37,7 +38,7 @@ export interface CanonicalStockPayload {
 }
 
 export function buildStockPayload(input: StockPayloadInput): CanonicalStockPayload {
-  return {
+  return normalizeAssetPayload({
     client_id: input.clientId,
     type: "stock",
     symbol: input.symbol.trim().toUpperCase(),
@@ -47,7 +48,7 @@ export function buildStockPayload(input: StockPayloadInput): CanonicalStockPaylo
     avg_price: safeNumber(input.avgPrice),
     current_price: safeNumber(input.currentPrice),
     tags: Array.isArray(input.tags) ? input.tags : [],
-  };
+  }) as CanonicalStockPayload;
 }
 
 // ── Mutual Fund ────────────────────────────────────────────────────
@@ -82,7 +83,7 @@ export function buildFundPayload(input: FundPayloadInput): CanonicalFundPayload 
   const avgPrice = input.avgNav ?? input.avgPrice ?? 0;
   const currentPrice = input.currentNav ?? input.currentPrice ?? avgPrice;
 
-  return {
+  return normalizeAssetPayload({
     client_id: input.clientId,
     type: input.assetType,
     fund_code: input.fundCode?.trim() || undefined,
@@ -90,7 +91,7 @@ export function buildFundPayload(input: FundPayloadInput): CanonicalFundPayload 
     quantity: safeNumber(quantity),
     avg_price: safeNumber(avgPrice),
     current_price: safeNumber(currentPrice),
-  };
+  }) as CanonicalFundPayload;
 }
 
 // ── Commodity ──────────────────────────────────────────────────────
@@ -119,7 +120,7 @@ export interface CanonicalCommodityPayload {
 export function buildCommodityPayload(
   input: CommodityPayloadInput
 ): CanonicalCommodityPayload {
-  return {
+  return normalizeAssetPayload({
     client_id: input.clientId,
     type: "commodity",
     symbol: input.symbol.trim().toUpperCase(),
@@ -128,5 +129,5 @@ export function buildCommodityPayload(
     quantity: safeNumber(input.quantity),
     avg_price: safeNumber(input.avgPrice),
     current_price: safeNumber(input.currentPrice),
-  };
+  }) as CanonicalCommodityPayload;
 }

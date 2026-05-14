@@ -133,12 +133,14 @@ export function ModalFooter({
   cancelLabel = "Cancel",
   saveLabel = "Save",
   saving,
+  saveDisabled,
 }: {
   onCancel: () => void;
   onSave: () => void;
   cancelLabel?: string;
   saveLabel?: string;
   saving?: boolean;
+  saveDisabled?: boolean;
 }) {
   return (
     <div className="flex items-center justify-end gap-3 px-6 py-4 shrink-0 modal-border-t">
@@ -152,7 +154,7 @@ export function ModalFooter({
       <button
         type="button"
         onClick={onSave}
-        disabled={saving}
+        disabled={saving || saveDisabled}
         className="px-5 py-2 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 modal-btn-primary"
       >
         {saving ? "Saving…" : saveLabel}

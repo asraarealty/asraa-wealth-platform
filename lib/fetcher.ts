@@ -116,11 +116,24 @@ interface FetcherOptions extends Omit<RequestInit, "body"> {
   raw?: boolean;
   /** Number of automatic retries for transient failures (network/5xx). */
   retries?: number;
+  /** Request timeout in milliseconds. */
+  timeoutMs?: number;
   /** When true, a 401 response throws ApiError without clearing the token or
    *  redirecting to /login. Use for optional / non-critical endpoints (e.g.
    *  stock search) where an auth failure should be surfaced as a UI error
    *  rather than a full-page redirect. */
   noRedirectOn401?: boolean;
+}
+
+const GLOBAL_TOAST_EVENT = "asraa:toast";
+
+function emitGlobalToast(message: string, type: "success" | "error" | "info" = "error") {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(GLOBAL_TOAST_EVENT, {
+      detail: { message, type },
+    })
+  );
 }
 
 export async function fetcher<T>(
@@ -133,6 +146,7 @@ export async function fetcher<T>(
     signal,
     raw,
     retries,
+    timeoutMs = 20_000,
     noRedirectOn401,
     ...rest
   } = options;
@@ -165,20 +179,47 @@ export async function fetcher<T>(
 
     while (attempt <= maxRetries) {
       try {
-        const response = await fetch(url, {
-          ...rest,
-          credentials: "include",
-          headers: {
-            ...(body !== undefined && !isFormData && !hasExplicitContentType
-              ? { "Content-Type": "application/json" }
-              : {}),
-            Accept: "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            ...(extraHeaders || {}),
-          },
-          signal,
-          body: requestBody,
-        });
+        const timeoutController = new AbortController();
+        const timeoutId =
+          timeoutMs > 0
+            ? globalThis.setTimeout(() => {
+              timeoutController.abort();
+            }, timeoutMs)
+            : null;
+
+        let requestSignal: AbortSignal = timeoutController.signal;
+        let detachParentAbort: (() => void) | null = null;
+        if (signal) {
+          if (typeof AbortSignal.any === "function") {
+            requestSignal = AbortSignal.any([signal, timeoutController.signal]);
+          } else {
+            const onAbort = () => timeoutController.abort();
+            if (signal.aborted) onAbort();
+            else signal.addEventListener("abort", onAbort, { once: true });
+            detachParentAbort = () => signal.removeEventListener("abort", onAbort);
+          }
+        }
+
+        let response: Response;
+        try {
+          response = await fetch(url, {
+            ...rest,
+            credentials: "include",
+            headers: {
+              ...(body !== undefined && !isFormData && !hasExplicitContentType
+                ? { "Content-Type": "application/json" }
+                : {}),
+              Accept: "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              ...(extraHeaders || {}),
+            },
+            signal: requestSignal,
+            body: requestBody,
+          });
+        } finally {
+          if (timeoutId !== null) globalThis.clearTimeout(timeoutId);
+          detachParentAbort?.();
+        }
 
         if (response.status >= 500 && attempt < maxRetries) {
           await new Promise((resolve) => setTimeout(resolve, calculateBackoffDelay(attempt)));
@@ -202,10 +243,14 @@ export async function fetcher<T>(
   try {
     response = await executeRequest();
   } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    if (err instanceof DOMException && err.name === "AbortError") {
+      emitGlobalToast("Request timed out — please retry", "error");
+      throw new NetworkError("Request timed out");
+    }
     if (process.env.NODE_ENV === "development") {
       console.debug("[fetcher] Network error", { method, url, payload: body });
     }
+    emitGlobalToast("Unable to reach backend API", "error");
     throw new NetworkError("Unable to reach backend API");
   }
 
@@ -224,6 +269,7 @@ export async function fetcher<T>(
       }
     }
 
+    emitGlobalToast("Session expired", "error");
     throw new ApiError(401, "Session expired");
   }
 
@@ -250,12 +296,15 @@ export async function fetcher<T>(
     // Override with user-friendly messages for common status codes when no server detail is available
     if (response.status === 404 && message === `HTTP ${response.status}`) message = "Resource not found";
     if (response.status === 405 && message === `HTTP ${response.status}`) message = "This action is not supported by the server";
-    if (response.status === 409 && message === `HTTP ${response.status}`) message = "This entry already exists — please check for duplicates";
-    if (response.status === 422 && message === `HTTP ${response.status}`) message = "Validation failed — please check the form fields";
-    if (response.status === 500 && message === `HTTP ${response.status}`) message = "Internal server error";
+    if (response.status === 409 && message === `HTTP ${response.status}`) message = "This entry already exists";
+    if (response.status === 422 && message === `HTTP ${response.status}`) message = "Please check required fields";
+    if (response.status === 500 && message === `HTTP ${response.status}`) message = "Server error — try again later";
 
     if (process.env.NODE_ENV === "development") {
       console.debug("[fetcher] API error", { method, url, status: response.status, message });
+    }
+    if ([409, 422, 500].includes(response.status)) {
+      emitGlobalToast(message, "error");
     }
     const apiErr = new ApiError(response.status, message);
     throw apiErr;

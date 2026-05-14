@@ -30,6 +30,8 @@ import { toErrorMessage } from "@/lib/fetcher";
 
 type QueryOptions = {
   enabled?: boolean;
+  cacheKey?: string;
+  cacheTtlMs?: number;
 };
 
 type QueryState<T> = {
@@ -40,14 +42,25 @@ type QueryState<T> = {
   refresh: () => Promise<void>;
 };
 
+const DEFAULT_QUERY_CACHE_TTL = 15_000;
+const realEstateCache = new Map<string, { data: unknown; updatedAt: number }>();
+const realEstateInFlight = new Map<string, Promise<unknown>>();
+
 function useRealEstateQuery<T>(
   loader: (signal?: AbortSignal) => Promise<T>,
   initialData: T,
   options: QueryOptions = {}
 ): QueryState<T> {
-  const { enabled = true } = options;
+  const { enabled = true, cacheKey, cacheTtlMs = DEFAULT_QUERY_CACHE_TTL } = options;
+  const readCached = useCallback((): T | null => {
+    if (!cacheKey) return null;
+    const entry = realEstateCache.get(cacheKey);
+    if (!entry) return null;
+    if (Date.now() - entry.updatedAt > cacheTtlMs) return null;
+    return entry.data as T;
+  }, [cacheKey, cacheTtlMs]);
   const [data, setData] = useState<T>(initialData);
-  const [loading, setLoading] = useState(enabled);
+  const [loading, setLoading] = useState(enabled && !readCached());
   const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -55,6 +68,12 @@ function useRealEstateQuery<T>(
   const runLoad = useCallback(
     async (background = false) => {
       if (!enabled) return;
+      const cached = readCached();
+      if (!background && cached !== null) {
+        setData(cached);
+        setLoading(false);
+      }
+
       abortRef.current?.abort();
       const ac = new AbortController();
       abortRef.current = ac;
@@ -67,18 +86,30 @@ function useRealEstateQuery<T>(
       setError(null);
 
       try {
-        const result = await loader(ac.signal);
+        const requestPromise =
+          (cacheKey && realEstateInFlight.get(cacheKey) as Promise<T> | undefined) ??
+          loader(ac.signal);
+        if (cacheKey && !realEstateInFlight.has(cacheKey)) {
+          realEstateInFlight.set(cacheKey, requestPromise);
+        }
+        const result = await requestPromise;
+        if (cacheKey) {
+          realEstateCache.set(cacheKey, { data: result, updatedAt: Date.now() });
+        }
         setData(result);
       } catch (err) {
         // Expected when a query is superseded or the component unmounts.
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(toErrorMessage(err));
       } finally {
+        if (cacheKey) {
+          realEstateInFlight.delete(cacheKey);
+        }
         setLoading(false);
         setRetrying(false);
       }
     },
-    [enabled, loader]
+    [cacheKey, enabled, loader, readCached]
   );
 
   useEffect(() => {
@@ -103,7 +134,7 @@ function useRealEstateQuery<T>(
 
 export function useProperties(category: RealEstateCategory = "all") {
   const loader = useCallback((signal?: AbortSignal) => fetchProperties(signal, category), [category]);
-  return useRealEstateQuery<PropertySummary[]>(loader, []);
+  return useRealEstateQuery<PropertySummary[]>(loader, [], { cacheKey: `properties:${category}` });
 }
 
 export function useProperty(propertyId?: number) {
@@ -147,7 +178,7 @@ export function useProperty(propertyId?: number) {
 
 export function useTenants(category: RealEstateCategory = "all") {
   const loader = useCallback((signal?: AbortSignal) => fetchTenants(signal, category), [category]);
-  return useRealEstateQuery<TenantSummary[]>(loader, []);
+  return useRealEstateQuery<TenantSummary[]>(loader, [], { cacheKey: `tenants:${category}` });
 }
 
 export function useTenant(tenantId?: number) {
@@ -179,7 +210,7 @@ export function useTenant(tenantId?: number) {
 
 export function useLeases(category: RealEstateCategory = "all") {
   const loader = useCallback((signal?: AbortSignal) => fetchLeases(signal, category), [category]);
-  return useRealEstateQuery<LeaseSummary[]>(loader, []);
+  return useRealEstateQuery<LeaseSummary[]>(loader, [], { cacheKey: `leases:${category}` });
 }
 
 export function useLease(leaseId?: number) {
@@ -208,7 +239,7 @@ export function useLease(leaseId?: number) {
 
 export function useRentLedger(category: RealEstateCategory = "all") {
   const loader = useCallback((signal?: AbortSignal) => fetchRentLedger(signal, category), [category]);
-  return useRealEstateQuery<RentLedgerItem[]>(loader, []);
+  return useRealEstateQuery<RentLedgerItem[]>(loader, [], { cacheKey: `rent-ledger:${category}` });
 }
 
 export function useRentSummary(category: RealEstateCategory = "all") {
@@ -222,7 +253,8 @@ export function useRentSummary(category: RealEstateCategory = "all") {
       occupancyPercent: 0,
       yieldPercent: 0,
       noi: 0,
-    }
+    },
+    { cacheKey: `rent-summary:${category}` }
   );
 }
 
@@ -231,7 +263,7 @@ export function useMaintenanceTickets(category: RealEstateCategory = "all") {
     (signal?: AbortSignal) => fetchMaintenanceTickets(signal, category),
     [category]
   );
-  return useRealEstateQuery<MaintenanceTicket[]>(loader, []);
+  return useRealEstateQuery<MaintenanceTicket[]>(loader, [], { cacheKey: `maintenance:${category}` });
 }
 
 export function useOwnerAnalytics(category: RealEstateCategory = "all") {
@@ -249,6 +281,7 @@ export function useOwnerAnalytics(category: RealEstateCategory = "all") {
       maintenanceCosts: 0,
       cashflowForecast: [],
       rentalYieldPercent: 0,
-    }
+    },
+    { cacheKey: `owner-analytics:${category}` }
   );
 }
