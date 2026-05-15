@@ -188,11 +188,11 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
             <FieldInput
               name="commodity-symbol"
               placeholder="GOLD or GOLDBEES.NS"
-               value={form.symbol}
-               onChange={(v) => {
-                 setForm((f) => ({ ...f, symbol: String(v ?? "").toUpperCase() }));
-                 setFieldErrors((prev) => ({ ...prev, symbol: undefined }));
-               }}
+              value={form.symbol}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, symbol: String(v ?? "").toUpperCase() }));
+                setFieldErrors((prev) => ({ ...prev, symbol: undefined }));
+              }}
             />
           </FormField>
           <FormField label="Commodity Name" required error={fieldErrors.name}>

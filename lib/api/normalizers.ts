@@ -52,6 +52,16 @@ function normalizeEnum<T extends string>(
   return raw && (allowed as readonly string[]).includes(raw) ? raw : fallback;
 }
 
+function extractFundCode(input: AnyRecord, canonicalType: string): string | null {
+  return (
+    toTrimmedString(
+      input.fund_code ??
+        input.fundCode ??
+        (canonicalType === "mutual_fund" ? input.symbol : undefined)
+    )?.toUpperCase() ?? null
+  );
+}
+
 export function normalizePropertyPayload(input: AnyRecord): AnyRecord {
   const normalized: AnyRecord = {
     client_id: toDecimal(input.client_id ?? input.clientId ?? input.user_id ?? input.userId),
@@ -110,12 +120,7 @@ export function normalizeClientPayload(input: AnyRecord): AnyRecord {
 
 export function normalizeAssetPayload(input: AnyRecord): AnyRecord {
   const canonicalType = toBackendAssetType(input.type ?? input.asset_type);
-  const normalizedFundCode =
-    toTrimmedString(
-      input.fund_code ??
-        input.fundCode ??
-        (canonicalType === "mutual_fund" ? input.symbol : undefined)
-    )?.toUpperCase() ?? null;
+  const normalizedFundCode = extractFundCode(input, canonicalType);
 
   return nullifyUndefined(
     removeEmptyStringsAndUndefined({

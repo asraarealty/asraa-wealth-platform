@@ -92,7 +92,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
       companyName?: string;
       current_price?: unknown;
     };
-      const stockSymbol = rawStock.symbol || "";
+    const stockSymbol = rawStock.symbol || "";
     const stockPrice = toFiniteNumber(
       rawStock.currentPrice ||
         rawStock.current_price ||
@@ -191,11 +191,11 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
             <FieldInput
               name="stock-symbol"
               placeholder="AAPL or RELIANCE.NS"
-               value={form.symbol}
-               onChange={(v) => {
-                 setForm((f) => ({ ...f, symbol: String(v ?? "").toUpperCase() }));
-                 setFieldErrors((prev) => ({ ...prev, symbol: undefined }));
-               }}
+              value={form.symbol}
+              onChange={(v) => {
+                setForm((f) => ({ ...f, symbol: String(v ?? "").toUpperCase() }));
+                setFieldErrors((prev) => ({ ...prev, symbol: undefined }));
+              }}
             />
           </FormField>
           <FormField label="Name" required error={fieldErrors.name}>
