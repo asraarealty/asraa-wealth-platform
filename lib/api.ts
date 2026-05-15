@@ -78,20 +78,25 @@ export type AdminClient = {
 };
 
 function mapAdminClient(raw: any): AdminClient {
+  const safeRaw = raw && typeof raw === "object" ? raw : {};
   // Normalise approval_status from all known backend field shapes
   const approvalStatus: AdminClient["approvalStatus"] =
-    raw.approval_status ??
-    (raw.is_approved === true || raw.approved === true ? "approved" : undefined);
+    safeRaw.approval_status ??
+    (safeRaw.is_approved === true || safeRaw.approved === true ? "approved" : undefined);
 
-  const normalized = normalizeClientPayload(raw) as Record<string, unknown>;
+  const normalized = normalizeClientPayload(safeRaw) as Record<string, unknown>;
   const status = (normalized.status as ClientStatus | undefined) ?? "inactive";
+  const name = typeof safeRaw.name === "string" && safeRaw.name.trim() ? safeRaw.name.trim() : "Unknown Client";
+  const email = typeof safeRaw.email === "string" && safeRaw.email.trim() ? safeRaw.email.trim() : "unknown@example.com";
+  const idNum = Number(safeRaw.id);
+  const id = Number.isFinite(idNum) ? idNum : 0;
 
   return {
-    id: raw.id,
-    name: raw.name,
-    email: raw.email,
-    phone: raw.phone,
-    createdAt: raw.createdAt ?? raw.created_at,
+    id,
+    name,
+    email,
+    phone: safeRaw.phone ? String(safeRaw.phone) : undefined,
+    createdAt: safeRaw.createdAt ?? safeRaw.created_at,
     status,
     isActive: status === "active",
     approvalStatus,

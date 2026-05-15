@@ -12,6 +12,17 @@ interface ClientSelectorProps {
   autoSelectId?: number | null;
 }
 
+function toText(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return fallback;
+}
+
+function safeInitial(name: unknown): string {
+  const normalized = toText(name).trim();
+  return normalized ? normalized.charAt(0).toUpperCase() : "?";
+}
+
 export default function ClientSelector({
   selectedId,
   onChange,
@@ -79,8 +90,8 @@ export default function ClientSelector({
 
   const filtered = clients.filter(
     (c) =>
-      c.name.toLowerCase().includes(query.toLowerCase()) ||
-      c.email.toLowerCase().includes(query.toLowerCase())
+      toText(c.name).toLowerCase().includes(query.toLowerCase()) ||
+      toText(c.email).toLowerCase().includes(query.toLowerCase())
   );
 
   function handleSelect(client: Client) {
@@ -135,17 +146,17 @@ export default function ClientSelector({
         <div className="flex items-center gap-2 min-w-0">
           {selectedClient ? (
             <>
-              <div
-                className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                style={{ background: "rgba(201,162,39,0.15)", color: "#c9a227", border: "1px solid rgba(201,162,39,0.2)" }}
-              >
-                {selectedClient.name.charAt(0).toUpperCase()}
-              </div>
-              <span className="truncate font-medium">{selectedClient.name}</span>
-              <span className="text-xs shrink-0" style={{ color: "rgba(255,255,255,0.35)" }}>
-                {selectedClient.email}
-              </span>
-            </>
+                <div
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                  style={{ background: "rgba(201,162,39,0.15)", color: "#c9a227", border: "1px solid rgba(201,162,39,0.2)" }}
+                >
+                  {safeInitial(selectedClient.name)}
+                </div>
+                <span className="truncate font-medium">{toText(selectedClient.name, "Unknown Client")}</span>
+                <span className="text-xs shrink-0" style={{ color: "rgba(255,255,255,0.35)" }}>
+                  {toText(selectedClient.email, "No email")}
+                </span>
+              </>
           ) : (
             <span>Select a client…</span>
           )}
@@ -222,11 +233,11 @@ export default function ClientSelector({
                         className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                         style={{ background: "rgba(201,162,39,0.15)", color: "#c9a227", border: "1px solid rgba(201,162,39,0.2)" }}
                       >
-                        {client.name.charAt(0).toUpperCase()}
+                        {safeInitial(client.name)}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="font-medium text-sm truncate text-white">{client.name}</div>
-                        <div className="text-xs truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{client.email}</div>
+                        <div className="font-medium text-sm truncate text-white">{toText(client.name, "Unknown Client")}</div>
+                        <div className="text-xs truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{toText(client.email, "No email")}</div>
                       </div>
                       <span
                         className="shrink-0 text-xs px-2 py-0.5 rounded-full"

@@ -37,8 +37,23 @@ function toTextValue(value: number | null) {
   return value === null ? "N/A" : fmtCurrency(value);
 }
 
-function downloadTSV(rows: EnterpriseClientReport[]) {
+function safeNum(value: unknown): number {
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function formatMonthLabel(monthKey: string): string {
+  if (!monthKey) return "N/A";
+  const [year, month] = monthKey.split("-");
+  const y = Number(year);
+  const m = Number(month);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) return monthKey;
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleString("en-IN", { month: "long", year: "numeric" });
+}
+
+function downloadXLSX(rows: EnterpriseClientReport[], monthKey: string, advisorNotes: string) {
   const header = [
+    "Month",
     "Client",
     "Email",
     "Holdings",
@@ -57,35 +72,40 @@ function downloadTSV(rows: EnterpriseClientReport[]) {
     "RE%",
     "Commodity%",
     "Suggested Action",
+    "Advisor Notes",
   ];
 
   const body = rows.map((row) => [
-    row.name,
-    row.email,
-    row.holdings,
-    row.transactions,
-    row.totalInvested.toFixed(2),
-    row.portfolioValue.toFixed(2),
-    row.gainsLosses.toFixed(2),
-    row.returnPercent.toFixed(2),
-    row.cagr?.toFixed(2) ?? "",
-    row.xirr?.toFixed(2) ?? "",
+    formatMonthLabel(monthKey),
+    row.name || "Unknown Client",
+    row.email || "No email",
+    safeNum(row.holdings),
+    safeNum(row.transactions),
+    safeNum(row.totalInvested).toFixed(2),
+    safeNum(row.portfolioValue).toFixed(2),
+    safeNum(row.gainsLosses).toFixed(2),
+    safeNum(row.returnPercent).toFixed(2),
+    row.cagr !== null ? safeNum(row.cagr).toFixed(2) : "",
+    row.xirr !== null ? safeNum(row.xirr).toFixed(2) : "",
     row.riskLevel,
-    row.riskScore.toFixed(1),
-    row.diversificationScore.toFixed(1),
-    row.equityPct.toFixed(1),
-    row.mfPct.toFixed(1),
-    row.realEstatePct.toFixed(1),
-    row.commodityPct.toFixed(1),
+    safeNum(row.riskScore).toFixed(1),
+    safeNum(row.diversificationScore).toFixed(1),
+    safeNum(row.equityPct).toFixed(1),
+    safeNum(row.mfPct).toFixed(1),
+    safeNum(row.realEstatePct).toFixed(1),
+    safeNum(row.commodityPct).toFixed(1),
     row.suggestedAction,
+    advisorNotes || (row.recommendations[0] ?? ""),
   ]);
 
-  const tsv = [header, ...body].map((line) => line.join("\t")).join("\n");
-  const blob = new Blob([tsv], { type: "text/tab-separated-values;charset=utf-8;" });
+  const csv = [header, ...body]
+    .map((line) => line.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `asraa-enterprise-reports-${new Date().toISOString().slice(0, 10)}.tsv`;
+  a.download = `asraa-enterprise-reports-${monthKey || new Date().toISOString().slice(0, 7)}.xlsx`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -118,8 +138,8 @@ function ClientIntelligenceVirtualTable({ rows }: { rows: EnterpriseClientReport
             {pageRows.map((row) => (
               <tr key={row.clientId} className="border-b border-white/5 last:border-b-0 hover:bg-white/[0.03] align-top">
                 <td className="px-4 py-3">
-                  <p className="text-white font-medium">{row.name}</p>
-                  <p className="text-xs text-white/50">{row.email}</p>
+                  <p className="text-white font-medium">{row.name || "Unknown Client"}</p>
+                  <p className="text-xs text-white/50">{row.email || "No email"}</p>
                 </td>
                 <td className="px-4 py-3 text-white/80">{row.holdings}</td>
                 <td className="px-4 py-3 text-white/80">{row.transactions}</td>
@@ -144,10 +164,15 @@ function ClientIntelligenceVirtualTable({ rows }: { rows: EnterpriseClientReport
                 </td>
                 <td className="px-4 py-3">
                   <p className="text-cyan-300 text-xs font-medium">{row.suggestedAction}</p>
-                  <p className="text-[11px] text-white/50 mt-1 max-w-[260px]">{row.recommendations[0]}</p>
+                  <p className="text-[11px] text-white/50 mt-1 max-w-[260px]">{row.recommendations?.[0] ?? "No advisor note available."}</p>
                 </td>
               </tr>
             ))}
+            {pageRows.length === 0 ? (
+              <tr>
+                <td colSpan={11} className="px-4 py-6 text-center text-white/55">No client rows available.</td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </div>
@@ -184,6 +209,8 @@ export default function ReportsPage() {
   const router = useRouter();
   const [riskFilter, setRiskFilter] = useState<RiskFilter>("all");
   const [printMode, setPrintMode] = useState(false);
+  const [reportMonth, setReportMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [advisorNotes, setAdvisorNotes] = useState("");
   const { category, setCategory } = useRealEstateCategory();
   const { data, loading, refreshing, error, requiresLogin, refresh } = useEnterpriseReports({ category });
 
@@ -235,8 +262,15 @@ export default function ReportsPage() {
           <option value="Medium" className="bg-slate-900">Medium</option>
           <option value="High" className="bg-slate-900">High</option>
         </select>
+        <input
+          type="month"
+          value={reportMonth}
+          onChange={(event) => setReportMonth(event.target.value)}
+          className="bg-transparent border border-white/15 rounded-lg px-3 py-1.5 text-sm text-white"
+          aria-label="Report month"
+        />
         <RealEstateCategorySwitcher value={category} onChange={setCategory} />
-        <button type="button" onClick={() => downloadTSV(filteredClients)} className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-white/80">TSV</button>
+        <button type="button" onClick={() => downloadXLSX(filteredClients, reportMonth, advisorNotes)} className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-white/80">XLSX</button>
         <button type="button" onClick={() => window.print()} className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-white/80">PDF</button>
         <button
           type="button"
@@ -275,6 +309,32 @@ export default function ReportsPage() {
         </div>
       ) : (
         <>
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-widest text-gold-light">Client-wise Monthly Report</h2>
+            <div className="glass-card rounded-2xl border border-white/10 p-4 space-y-3">
+              <p className="text-xs text-white/60">Reporting month: {formatMonthLabel(reportMonth)}</p>
+              <textarea
+                value={advisorNotes}
+                onChange={(event) => setAdvisorNotes(event.target.value)}
+                placeholder="Advisor notes for WhatsApp/email delivery"
+                className="w-full min-h-24 rounded-xl bg-white/[0.03] border border-white/10 px-3 py-2 text-sm text-white placeholder:text-white/40"
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                {filteredClients.slice(0, 8).map((client) => (
+                  <div key={client.clientId} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                    <p className="text-sm text-white font-medium truncate">{client.name || "Unknown Client"}</p>
+                    <p className="text-xs text-white/55 truncate">{client.email || "No email"}</p>
+                    <p className="text-xs text-white/70 mt-2">Value {fmtCurrency(client.portfolioValue)}</p>
+                    <p className="text-xs text-white/70">Return {fmtPercent(client.returnPercent, true)}</p>
+                  </div>
+                ))}
+                {filteredClients.length === 0 ? (
+                  <p className="text-sm text-white/55">No clients available for selected filters.</p>
+                ) : null}
+              </div>
+            </div>
+          </section>
+
           <section className="space-y-3">
             <h2 className="text-sm font-semibold uppercase tracking-widest text-gold-light">Executive Summary</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">

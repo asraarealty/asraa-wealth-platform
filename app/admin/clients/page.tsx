@@ -20,6 +20,17 @@ type LoadOptions = {
   force?: boolean;
 };
 
+function asText(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return fallback;
+}
+
+function safeInitial(value: unknown): string {
+  const text = asText(value).trim();
+  return text ? text.charAt(0).toUpperCase() : "?";
+}
+
 /** Resolve the canonical approval status from all possible backend shapes. */
 function resolveApprovalStatus(
   client: AdminClient
@@ -472,11 +483,14 @@ export default function ClientsPage() {
   }
 
   const filtered = clients.filter((c) => {
+    const name = asText(c.name, "Unknown Client");
+    const email = asText(c.email, "");
+    const phone = asText(c.phone, "");
     const matchSearch =
       !search ||
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.email.toLowerCase().includes(search.toLowerCase()) ||
-      c.phone?.includes(search);
+      name.toLowerCase().includes(search.toLowerCase()) ||
+      email.toLowerCase().includes(search.toLowerCase()) ||
+      phone.includes(search);
 
     if (filter === "pending") {
       return matchSearch && resolveApprovalStatus(c) === "pending";
@@ -642,17 +656,17 @@ export default function ClientsPage() {
                         <div className="flex items-center gap-2">
                           <div
                             className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                            style={{ background: "rgba(201,162,39,0.15)", color: "#C9A227", border: "1px solid rgba(201,162,39,0.2)" }}
-                          >
-                            {client.name.charAt(0).toUpperCase()}
-                          </div>
-                          <span className="font-medium text-white text-sm truncate max-w-[120px]" title={client.name}>{client.name}</span>
-                        </div>
-                      </td>
+                             style={{ background: "rgba(201,162,39,0.15)", color: "#C9A227", border: "1px solid rgba(201,162,39,0.2)" }}
+                           >
+                             {safeInitial(client.name)}
+                           </div>
+                           <span className="font-medium text-white text-sm truncate max-w-[120px]" title={asText(client.name, "Unknown Client")}>{asText(client.name, "Unknown Client")}</span>
+                         </div>
+                       </td>
 
                       {/* Email */}
                       <td className="px-4 py-2.5 text-gray-400 text-xs hidden md:table-cell truncate max-w-[180px]">
-                        {client.email}
+                        {asText(client.email, "No email")}
                       </td>
 
                       {/* Phone */}

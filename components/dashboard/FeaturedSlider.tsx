@@ -46,6 +46,8 @@ function PropertyCard({ property }: { property: PublicFeaturedProperty }) {
   const [imgError, setImgError] = useState(false);
   const imageUrl = resolveImageUrl(property.imageUrl);
   const hasLink = Boolean(property.redirectUrl);
+  const title = property.title?.trim() || "Featured property";
+  const location = property.location?.trim() || "Location unavailable";
 
   function handleClick() {
     if (hasLink) {
@@ -71,7 +73,7 @@ function PropertyCard({ property }: { property: PublicFeaturedProperty }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={imageUrl}
-          alt={property.title}
+          alt={title}
           className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           draggable={false}
           onError={() => setImgError(true)}
@@ -121,18 +123,16 @@ function PropertyCard({ property }: { property: PublicFeaturedProperty }) {
       {/* Bottom info area */}
       <div className="absolute bottom-0 left-0 right-0 px-3 pb-3 pt-6">
         {/* Location */}
-        {property.location && (
-          <p className="text-xs mb-0.5 flex items-center gap-1" style={{ color: "rgba(255,255,255,0.55)" }}>
-            <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-            </svg>
-            <span className="truncate">{property.location}</span>
-          </p>
-        )}
+        <p className="text-xs mb-0.5 flex items-center gap-1" style={{ color: "rgba(255,255,255,0.55)" }}>
+          <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+          </svg>
+          <span className="truncate">{location}</span>
+        </p>
 
         {/* Title */}
-        <p className="text-sm font-bold text-white truncate leading-tight">{property.title}</p>
+        <p className="text-sm font-bold text-white truncate leading-tight">{title}</p>
 
         {/* Price + CTA row */}
         <div className="flex items-center justify-between mt-2 gap-2">

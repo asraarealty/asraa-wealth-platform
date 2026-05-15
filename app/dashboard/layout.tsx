@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import ApprovalGuard from "@/components/ApprovalGuard";
 import Loader from "@/components/ui/Loader";
+import AppErrorBoundary from "@/components/ui/AppErrorBoundary";
 
 function DashboardAuthGuard({ children }: { children: ReactNode }) {
   const { user, authInitialized, isHydrating, authError, retryAuth } = useAuth();
@@ -52,7 +53,14 @@ function DashboardAuthGuard({ children }: { children: ReactNode }) {
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <DashboardAuthGuard>
-      <ApprovalGuard>{children}</ApprovalGuard>
+      <ApprovalGuard>
+        <AppErrorBoundary
+          title="Dashboard failed to load"
+          description="A runtime issue was detected while rendering dashboard data. Retry safely."
+        >
+          {children}
+        </AppErrorBoundary>
+      </ApprovalGuard>
     </DashboardAuthGuard>
   );
 }

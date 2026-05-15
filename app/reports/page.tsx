@@ -44,7 +44,13 @@ const REPORT_OPTIONS: Array<{ value: ReportType; label: string }> = [
 ];
 
 function slug(input: string): string {
-  return input.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  const safeInput = typeof input === "string" ? input : "";
+  return safeInput.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+function safeNum(value: unknown): number {
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
 }
 
 function downloadBlob(content: BlobPart, type: string, filename: string) {
@@ -62,12 +68,12 @@ function downloadBlob(content: BlobPart, type: string, filename: string) {
 function toRows(clients: EnterpriseClientReport[]) {
   const header = ["Client", "Email", "Status", "Portfolio Value", "Invested", "Returns", "Risk"];
   const rows = clients.map((client) => [
-    client.name,
-    client.email,
-    client.status,
-    client.portfolioValue.toFixed(2),
-    client.totalInvested.toFixed(2),
-    client.gainsLosses.toFixed(2),
+    client.name || "Unknown Client",
+    client.email || "No email",
+    client.status || "inactive",
+    safeNum(client.portfolioValue).toFixed(2),
+    safeNum(client.totalInvested).toFixed(2),
+    safeNum(client.gainsLosses).toFixed(2),
     client.riskLevel,
   ]);
   return { header, rows };
@@ -135,11 +141,11 @@ export default function ReportsPage() {
       setProgress(55);
 
       if (format === "csv") {
-        const csv = [header, ...rows].map((row) => row.join(",")).join("\n");
+        const csv = [header, ...rows].map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
         downloadBlob(csv, "text/csv;charset=utf-8;", fileName);
       } else if (format === "xlsx") {
-        const tsv = [header, ...rows].map((row) => row.join("\t")).join("\n");
-        downloadBlob(tsv, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+        const csv = [header, ...rows].map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+        downloadBlob(csv, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8;", fileName);
       } else {
         const htmlRows = rows
           .map(
@@ -149,7 +155,7 @@ export default function ReportsPage() {
                 .join("")}</tr>`
           )
           .join("");
-        const html = `<!doctype html><html><body><h3>${REPORT_OPTIONS.find((item) => item.value === reportType)?.label ?? "Report"}</h3><table style="border-collapse:collapse;font-family:sans-serif;"><thead><tr>${header.map((cell) => `<th style="padding:8px;border:1px solid #d1d5db;text-align:left;">${cell}</th>`).join("")}</tr></thead><tbody>${htmlRows}</tbody></table></body></html>`;
+        const html = `<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><style>body{font-family:Inter,Arial,sans-serif;padding:12px;color:#0f172a}h3{margin:0 0 10px 0}table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px;border:1px solid #d1d5db;text-align:left;vertical-align:top}@media print{body{padding:0}table{font-size:11px}}</style></head><body><h3>${REPORT_OPTIONS.find((item) => item.value === reportType)?.label ?? "Report"}</h3><table><thead><tr>${header.map((cell) => `<th>${cell}</th>`).join("")}</tr></thead><tbody>${htmlRows}</tbody></table></body></html>`;
         const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1024,height=700");
         if (!printWindow) throw new Error("Pop-up blocked");
         printWindow.document.write(html);
@@ -258,7 +264,9 @@ export default function ReportsPage() {
           </div>
           <div className="rounded-xl border border-white/10 p-3 bg-white/[0.02]">
             <p className="text-xs text-white/50">Generated at</p>
-            <p className="text-base font-semibold text-white mt-1">{data ? new Date(data.generatedAt).toLocaleString() : "N/A"}</p>
+            <p className="text-base font-semibold text-white mt-1">
+              {data && !Number.isNaN(new Date(data.generatedAt).getTime()) ? new Date(data.generatedAt).toLocaleString() : "N/A"}
+            </p>
           </div>
         </div>
       </section>
@@ -306,8 +314,8 @@ export default function ReportsPage() {
               {filteredClients.map((client) => (
                 <tr key={client.clientId} className="border-b border-white/5 last:border-b-0">
                   <td className="px-4 py-3">
-                    <p className="text-white font-medium">{client.name}</p>
-                    <p className="text-xs text-white/50">{client.email}</p>
+                    <p className="text-white font-medium">{client.name || "Unknown Client"}</p>
+                    <p className="text-xs text-white/50">{client.email || "No email"}</p>
                   </td>
                   <td className="px-4 py-3 text-white/75">{client.status}</td>
                   <td className="px-4 py-3 text-white">{fmtCurrency(client.portfolioValue)}</td>
