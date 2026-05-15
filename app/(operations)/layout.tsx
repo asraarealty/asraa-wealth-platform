@@ -7,6 +7,7 @@ import ApprovalGuard from "@/components/ApprovalGuard";
 import Loader from "@/components/ui/Loader";
 import { useAuth } from "@/context/AuthContext";
 import OperationsNav from "@/components/properties/OperationsNav";
+import AppErrorBoundary from "@/components/ui/AppErrorBoundary";
 
 function OperationsAuthGuard({ children }: { children: ReactNode }) {
   const { user, authInitialized, isHydrating, authError, retryAuth } = useAuth();
@@ -76,7 +77,12 @@ export default function OperationsLayout({ children }: { children: ReactNode }) 
             </div>
             <OperationsNav />
           </header>
-          {children}
+          <AppErrorBoundary
+            title="Operations view failed to render"
+            description="Some operational data is incomplete. Retry to recover this page."
+          >
+            {children}
+          </AppErrorBoundary>
         </div>
       </ApprovalGuard>
     </OperationsAuthGuard>

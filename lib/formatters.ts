@@ -19,7 +19,8 @@ export function fmtCurrency(n: number | null | undefined): string {
 /** Alias for fmtCurrency — formats a numeric value as Indian Rupees (₹). */
 export const formatINR = fmtCurrency;
 
-export function fmtPercent(n: number, showSign = false): string {
-  const sign = showSign && n > 0 ? "+" : "";
-  return `${sign}${n.toFixed(2)}%`;
+export function fmtPercent(n: number | null | undefined, showSign = false): string {
+  const safe = typeof n === "number" && Number.isFinite(n) ? n : 0;
+  const sign = showSign && safe > 0 ? "+" : "";
+  return `${sign}${safe.toFixed(2)}%`;
 }

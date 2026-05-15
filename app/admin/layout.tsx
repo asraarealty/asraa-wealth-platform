@@ -7,6 +7,7 @@ import Sidebar from "@/components/admin/Sidebar";
 import AdminHeader from "@/components/admin/AdminHeader";
 import AdminAuthGuard from "@/components/admin/AdminAuthGuard";
 import ApprovalGuard from "@/components/ApprovalGuard";
+import AppErrorBoundary from "@/components/ui/AppErrorBoundary";
 
 const mobileNavItems = [
   {
@@ -117,7 +118,12 @@ export default function AdminLayout({
 
           {/* Content */}
           <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 md:pb-6">
-            {children}
+            <AppErrorBoundary
+              title="Admin module encountered an error"
+              description="The admin page crashed while rendering incomplete backend data. Retry to continue."
+            >
+              {children}
+            </AppErrorBoundary>
           </main>
         </div>
       </div>

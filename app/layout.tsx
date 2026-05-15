@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { ToastProvider } from "@/context/ToastContext";
+import AppErrorBoundary from "@/components/ui/AppErrorBoundary";
 
 export const metadata: Metadata = {
   title: "Asraa Wealth Platform",
@@ -31,7 +32,9 @@ export default function RootLayout({
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full text-white" style={{ background: "linear-gradient(160deg, #050b18 0%, #071426 100%)" }}>
         <ToastProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <AppErrorBoundary>{children}</AppErrorBoundary>
+          </AuthProvider>
         </ToastProvider>
       </body>
     </html>

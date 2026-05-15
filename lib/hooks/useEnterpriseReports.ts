@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, fetcher, toErrorMessage } from "@/lib/fetcher";
 import type { EnterpriseReportsData } from "@/lib/types/enterpriseReports";
 import type { RealEstateCategory } from "@/lib/types/realEstate";
+import { API_ROUTES } from "@/lib/constants/routes";
 import { normalizeRealEstateCategory } from "@/lib/utils/realEstateCategory";
+import { normalizeEnterpriseReportsData } from "@/lib/utils/enterpriseReports";
 import { subscribeRealEstateDataUpdated } from "@/lib/events/realtime";
 
 const DEFAULT_REFRESH_MS = 30_000;
@@ -84,8 +86,8 @@ export function useEnterpriseReports(options: UseEnterpriseReportsOptions = {}):
 
     const query =
       normalizedCategory === "all"
-        ? "/api/reports/enterprise"
-        : `/api/reports/enterprise?category=${encodeURIComponent(normalizedCategory)}`;
+        ? API_ROUTES.REPORTS.ENTERPRISE
+        : `${API_ROUTES.REPORTS.ENTERPRISE}?category=${encodeURIComponent(normalizedCategory)}`;
 
     const activeRequest =
       enterpriseInFlight.get(queryCacheKey) ??
@@ -94,8 +96,9 @@ export function useEnterpriseReports(options: UseEnterpriseReportsOptions = {}):
         noRedirectOn401: true,
         signal: controller.signal,
       }).then((payload) => {
-        enterpriseReportsCache.set(queryCacheKey, { data: payload, updatedAt: Date.now() });
-        return payload;
+        const normalized = normalizeEnterpriseReportsData(payload);
+        enterpriseReportsCache.set(queryCacheKey, { data: normalized, updatedAt: Date.now() });
+        return normalized;
       }).finally(() => {
         enterpriseInFlight.delete(queryCacheKey);
       });

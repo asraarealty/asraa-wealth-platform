@@ -56,6 +56,14 @@ export const API_ROUTES = {
     BY_CLIENT: (clientId: number) => `/api/v2/insights?user_id=${clientId}`,
   },
 
+  REPORTS: {
+    ENTERPRISE: "/api/v2/reports/enterprise",
+  },
+
+  PORTFOLIO: {
+    INTELLIGENCE: "/api/v2/portfolio/intelligence",
+  },
+
   COMMODITIES: {
     SEARCH: "/api/v2/commodities/search",
   },

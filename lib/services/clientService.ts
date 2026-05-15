@@ -53,8 +53,11 @@ function isValidEmail(email: string): boolean {
 
 /** Returns true if the client looks like real data (not a test/seed record). */
 function isRealClient(c: { name: string; email: string }): boolean {
-  if (c.name.trim().toLowerCase() === "string") return false;
-  if (!isValidEmail(c.email)) return false;
+  const name = typeof c.name === "string" ? c.name.trim() : "";
+  const email = typeof c.email === "string" ? c.email.trim() : "";
+  if (!name) return false;
+  if (name.toLowerCase() === "string") return false;
+  if (!isValidEmail(email)) return false;
   return true;
 }
 
