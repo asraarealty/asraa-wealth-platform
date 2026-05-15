@@ -11,11 +11,19 @@ import { normalizeSearchResponse } from "./utils/normalizeSearchResponse";
 import {
   buildCommodityPayload,
   buildFundPayload,
+  buildPropertyAssetPayload,
   buildStockPayload,
 } from "./payloads/assets";
 import { safeDecimalNumber } from "./utils/numberParsing";
 import { normalizeAssetPayload, normalizeClientPayload, type ClientStatus } from "./api/normalizers";
 import { API_ROUTES } from "./constants/routes";
+import {
+  normalizeAssetTicker,
+  requiresTicker,
+  toFrontendAssetType,
+  type FrontendAssetType,
+} from "./constants/assetTypes";
+import { validateAssetSubmissionPayload } from "./validators";
 
 /* ── Auth ───────────────────────────────────────────────────────────── */
 
@@ -324,24 +332,37 @@ export function fetchUsers(signal?: AbortSignal): Promise<User[]> {
 
 /* ── Assets ─────────────────────────────────────────────────────────── */
 
-export type AssetType = "stock" | "mf" | "property" | "commodity";
-
-// Normalise asset type variants from the backend.
-// The backend may send "real_estate" but the frontend uses "property" throughout.
-const KNOWN_ASSET_TYPES = new Set<string>(["stock", "mf", "property", "commodity"]);
-
-const normalizeType = (type: string | undefined): AssetType => {
-  if (type === "real_estate") return "property";
-  // Backend may persist mutual funds as "mutual_fund"; UI tabs use "mf".
-  if (type === "mutual_fund") return "mf";
-  if (type && KNOWN_ASSET_TYPES.has(type)) return type as AssetType;
-  return "stock";
-};
+export type AssetType = FrontendAssetType;
 
 const hasCommodityTag = (tags: unknown): boolean => {
   if (!Array.isArray(tags)) return false;
   return tags.some((tag) => String(tag).trim().toLowerCase() === "commodity");
 };
+
+function toOptionalNumber(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) ? numeric : undefined;
+}
+
+function toOptionalText(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  const trimmed = String(value).trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function toOptionalUpperText(value: unknown): string | undefined {
+  const text = toOptionalText(value);
+  return text ? text.toUpperCase() : undefined;
+}
+
+function toStringList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const normalized = value
+    .map((item) => toOptionalText(item))
+    .filter((item): item is string => Boolean(item));
+  return normalized.length > 0 ? normalized : [];
+}
 
 /** Normalise a raw API response into a typed Asset array. */
 const normalizeAssetList = (res: unknown): Asset[] => {
@@ -354,25 +375,66 @@ const normalizeAssetList = (res: unknown): Asset[] => {
   }
 
   return (list as any[]).map((a: any) => {
-    const normalizedType = normalizeType(a.type ?? a.asset_type);
-    const type = normalizedType === "stock" && hasCommodityTag(a.tags) ? "commodity" : normalizedType;
+    const normalizedType = toFrontendAssetType(a.type ?? a.asset_type);
+    const tags = toStringList(a.tags ?? a.asset_tags) ?? [];
+    const type =
+      normalizedType === "stock" && hasCommodityTag(tags) ? "commodity" : normalizedType;
+    const quantity = toOptionalNumber(a.quantity);
+    const purchasePrice =
+      toOptionalNumber(a.purchasePrice ?? a.purchase_price ?? a.purchase_value) ??
+      (type === "property" ? toOptionalNumber(a.avgPrice ?? a.avg_price) : undefined);
+    const currentValue =
+      toOptionalNumber(a.currentValue ?? a.current_value) ??
+      (type === "property"
+        ? toOptionalNumber(a.currentPrice ?? a.current_price)
+        : undefined);
+    const currentPrice =
+      toOptionalNumber(a.currentPrice ?? a.current_price) ??
+      (type === "property" ? currentValue : undefined);
+    const avgPrice =
+      toOptionalNumber(a.avgPrice ?? a.avg_price) ??
+      (type === "property" ? purchasePrice : undefined) ??
+      0;
+    const value =
+      toOptionalNumber(a.value) ??
+      (type === "property"
+        ? currentValue
+        : (quantity ?? 0) * (currentPrice ?? avgPrice)) ??
+      0;
     return {
       ...a,
-      avgPrice: Number(a.avgPrice ?? a.avg_price ?? 0),
-      currentPrice: Number(a.currentPrice ?? a.current_price ?? 0),
+      id: Number(a.id ?? 0),
+      symbol: normalizeAssetTicker(type, a.symbol ?? a.fund_code ?? a.fundCode),
+      name: String(
+        a.name ??
+          a.fund_name ??
+          a.fundName ??
+          a.property_name ??
+          a.asset_name ??
+          ""
+      ).trim(),
+      quantity,
+      avgPrice,
+      currentPrice,
       type,
-      exchange: a.exchange ?? undefined,
+      exchange: toOptionalUpperText(a.exchange ?? a.source),
       currency: a.currency ?? undefined,
-      priceUSD: a.priceUSD ?? a.price_usd ?? undefined,
-      priceINR: a.priceINR ?? a.price_inr ?? undefined,
-      // Real estate camelCase normalization (backend may return snake_case)
-      purchasePrice: a.purchasePrice,
-      currentValue: a.currentValue,
-      rentAmount: a.rentAmount,
-      rentDueDate: a.rentDueDate,
-      tenantName: a.tenantName,
-      tenantPhone: a.tenantPhone,
-      tenantEmail: a.tenantEmail,
+      priceUSD: toOptionalNumber(a.priceUSD ?? a.price_usd),
+      priceINR: toOptionalNumber(a.priceINR ?? a.price_inr),
+      value,
+      allocation: toOptionalNumber(a.allocation) ?? 0,
+      location: toOptionalText(a.location ?? a.address),
+      purchasePrice,
+      currentValue,
+      rentAmount: toOptionalNumber(a.rentAmount ?? a.rent_amount),
+      rentDueDate: toOptionalText(a.rentDueDate ?? a.rent_due_date),
+      tenantName: toOptionalText(a.tenantName ?? a.tenant_name),
+      tenantPhone: toOptionalText(a.tenantPhone ?? a.tenant_phone),
+      tenantEmail: toOptionalText(a.tenantEmail ?? a.tenant_email),
+      tags,
+      userId: toOptionalNumber(a.userId ?? a.user_id),
+      clientId: toOptionalNumber(a.clientId ?? a.client_id ?? a.userId ?? a.user_id),
+      createdAt: toOptionalText(a.createdAt ?? a.created_at),
     };
   });
 };
@@ -645,7 +707,7 @@ function toApiPayload(payload: CreateAssetPayload | UpdateAssetPayload): Record<
     client_id: p.client_id ?? p.clientId ?? p.user_id ?? p.userId,
     avg_price: p.avg_price ?? p.avgPrice,
     current_price: p.current_price ?? p.currentPrice,
-    purchase_value: p.purchase_value ?? p.purchasePrice,
+    purchase_price: p.purchase_price ?? p.purchasePrice ?? p.purchaseValue,
     current_value: p.current_value ?? p.currentValue,
   });
   return { ...generic, ...normalized };
@@ -698,6 +760,67 @@ function redactForAssetDebug(input: Record<string, unknown>): Record<string, unk
   return redacted;
 }
 
+function getAssetValidationErrors(
+  payload: CreateAssetPayload | UpdateAssetPayload,
+  normalizedPayload: CreateAssetPayload | UpdateAssetPayload,
+  requestPayload: Record<string, unknown> | null,
+  options: { requireClientId: boolean }
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+  const type = normalizedPayload.type
+    ? toFrontendAssetType(normalizedPayload.type)
+    : undefined;
+
+  if (options.requireClientId) {
+    const targetClientId = safeDecimalNumber(
+      normalizedPayload.clientId ?? normalizedPayload.userId,
+      0
+    );
+    if (targetClientId <= 0) {
+      errors.clientId = "Client is required";
+    }
+  }
+
+  const name = String(normalizedPayload.name ?? "").trim();
+  if (!name) {
+    errors.name = "Name is required";
+  }
+
+  if (type && requiresTicker(type) && !normalizedPayload.symbol) {
+    errors.symbol = type === "mf" ? "Mutual fund code is required" : "Symbol is required";
+  }
+
+  const quantity = safeDecimalNumber(normalizedPayload.quantity, 0);
+  if (quantity <= 0) {
+    errors.quantity = "Quantity must be greater than 0";
+  }
+
+  const avgPrice = safeDecimalNumber(normalizedPayload.avgPrice, 0);
+  if (avgPrice <= 0) {
+    errors.avgPrice = "Average price must be greater than 0";
+  }
+
+  const currentPrice = safeDecimalNumber(normalizedPayload.currentPrice, 0);
+  if (currentPrice <= 0) {
+    errors.currentPrice = "Current price must be greater than 0";
+  }
+
+  if (requestPayload && Object.keys(errors).length === 0) {
+    const validationMessage = validateAssetSubmissionPayload(requestPayload, {
+      requireClientId: options.requireClientId,
+    });
+    if (validationMessage) {
+      errors.request = validationMessage;
+    }
+  }
+
+  if (payload.type === "mf" && errors.symbol === "Symbol is required") {
+    errors.symbol = "Mutual fund code is required";
+  }
+
+  return errors;
+}
+
 /**
  * Build the canonical backend payload for supported asset creation flows.
  *
@@ -706,38 +829,46 @@ function redactForAssetDebug(input: Record<string, unknown>): Record<string, unk
  * to `toApiPayload` for those payloads.
  */
 function buildCanonicalAssetPayload(
-  payload: CreateAssetPayload,
+  payload: CreateAssetPayload | UpdateAssetPayload,
   quantity: number,
   avgPrice: number,
-  currentPrice: number
+  currentPrice: number,
+  options: { requireClientId: boolean }
 ): Record<string, unknown> | null {
-  const targetClientId = Number(payload.clientId ?? payload.userId);
+  if (!payload.type) {
+    return null;
+  }
 
-  if (payload.type === "stock") {
-    if (!Number.isFinite(targetClientId) || targetClientId <= 0) {
+  const frontendType = toFrontendAssetType(payload.type);
+  const targetClientId = Number(payload.clientId ?? payload.userId);
+  const resolvedClientId =
+    Number.isFinite(targetClientId) && targetClientId > 0 ? targetClientId : undefined;
+
+  if (frontendType === "stock") {
+    if (options.requireClientId && !resolvedClientId) {
       throw new Error("Client is required");
     }
     return {
       ...buildStockPayload({
-      clientId: targetClientId,
-      symbol: payload.symbol ?? "",
-      name: payload.name,
-      exchange: payload.exchange,
-      quantity,
-      avgPrice,
-      currentPrice,
-      tags: payload.tags,
+        clientId: resolvedClientId,
+        symbol: payload.symbol ?? "",
+        name: payload.name ?? "",
+        exchange: payload.exchange,
+        quantity,
+        avgPrice,
+        currentPrice,
+        tags: payload.tags,
       }),
     };
   }
 
-  if (payload.type === "mf") {
-    if (!Number.isFinite(targetClientId) || targetClientId <= 0) {
+  if (frontendType === "mf") {
+    if (options.requireClientId && !resolvedClientId) {
       throw new Error("Client is required");
     }
     return {
       ...buildFundPayload({
-        clientId: targetClientId,
+        clientId: resolvedClientId,
         assetType: "mutual_fund",
         fundCode: payload.symbol,
         fundName: payload.name,
@@ -748,19 +879,44 @@ function buildCanonicalAssetPayload(
     };
   }
 
-  if (payload.type === "commodity") {
-    if (!Number.isFinite(targetClientId) || targetClientId <= 0) {
+  if (frontendType === "commodity") {
+    if (options.requireClientId && !resolvedClientId) {
       throw new Error("Client is required");
     }
     return {
       ...buildCommodityPayload({
-      clientId: targetClientId,
-      symbol: payload.symbol ?? "",
-      name: payload.name,
-      exchange: payload.exchange,
-      quantity,
-      avgPrice,
-      currentPrice,
+        clientId: resolvedClientId,
+        symbol: payload.symbol ?? "",
+        name: payload.name ?? "",
+        exchange: payload.exchange,
+        quantity,
+        avgPrice,
+        currentPrice,
+      }),
+    };
+  }
+
+  if (frontendType === "property") {
+    if (options.requireClientId && !resolvedClientId) {
+      throw new Error("Client is required");
+    }
+    return {
+      ...buildPropertyAssetPayload({
+        clientId: resolvedClientId,
+        symbol: payload.symbol,
+        name: payload.name ?? "",
+        location: payload.location,
+        quantity,
+        avgPrice,
+        currentPrice,
+        purchasePrice: payload.purchasePrice ?? avgPrice,
+        currentValue: payload.currentValue ?? currentPrice,
+        rentAmount: payload.rentAmount,
+        rentDueDate: payload.rentDueDate,
+        tenantName: payload.tenantName,
+        tenantPhone: payload.tenantPhone,
+        tenantEmail: payload.tenantEmail,
+        tags: payload.tags,
       }),
     };
   }
@@ -768,65 +924,104 @@ function buildCanonicalAssetPayload(
   return null;
 }
 
-export function createAsset(
-  payload: CreateAssetPayload,
-  signal?: AbortSignal
-): Promise<Asset> {
+function prepareAssetRequestPayload(
+  payload: CreateAssetPayload | UpdateAssetPayload,
+  options: { requireClientId: boolean }
+): {
+  normalizedPayload: CreateAssetPayload | UpdateAssetPayload;
+  requestPayload: Record<string, unknown>;
+} {
+  const rawPayload = payload as Record<string, unknown>;
+  const frontendType = payload.type ? toFrontendAssetType(payload.type) : undefined;
   const targetClientId = safeDecimalNumber(payload.clientId ?? payload.userId, 0);
-  const quantity = safeDecimalNumber(payload.quantity, 0);
-  const avgPrice = safeDecimalNumber(payload.avgPrice, 0);
-  const currentPrice = safeDecimalNumber(payload.currentPrice ?? payload.avgPrice, 0);
+  const quantity =
+    frontendType === "property"
+      ? safeDecimalNumber(payload.quantity ?? 1, 1)
+      : safeDecimalNumber(payload.quantity, 0);
+  const avgPrice = safeDecimalNumber(
+    payload.avgPrice ?? payload.purchasePrice ?? rawPayload.purchaseValue,
+    0
+  );
+  const currentPrice = safeDecimalNumber(
+    payload.currentPrice ?? payload.currentValue ?? payload.avgPrice,
+    avgPrice
+  );
 
-  const normalizedPayload: CreateAssetPayload = {
+  const normalizedPayload: CreateAssetPayload | UpdateAssetPayload = {
     ...payload,
-    clientId: targetClientId,
+    ...(frontendType ? { type: frontendType } : {}),
+    clientId: targetClientId > 0 ? targetClientId : undefined,
     userId: undefined,
-    symbol:
-      payload.type === "property"
-        ? payload.symbol?.trim() || undefined
-        : payload.symbol?.trim().toUpperCase() || undefined,
+    symbol: frontendType
+      ? normalizeAssetTicker(frontendType, payload.symbol)
+      : toOptionalUpperText(payload.symbol),
     name: String(payload.name ?? "").trim(),
-    exchange: payload.exchange?.trim().toUpperCase() || undefined,
+    exchange: toOptionalUpperText(payload.exchange),
+    location: toOptionalText(payload.location),
     quantity,
     avgPrice,
     currentPrice,
+    purchasePrice: safeDecimalNumber(
+      payload.purchasePrice ?? rawPayload.purchaseValue ?? avgPrice,
+      avgPrice
+    ),
+    currentValue: safeDecimalNumber(payload.currentValue ?? currentPrice, currentPrice),
+    rentAmount:
+      payload.rentAmount === undefined
+        ? undefined
+        : safeDecimalNumber(payload.rentAmount, 0),
+    rentDueDate: toOptionalText(payload.rentDueDate),
+    tenantName: toOptionalText(payload.tenantName),
+    tenantPhone: toOptionalText(payload.tenantPhone),
+    tenantEmail: toOptionalText(payload.tenantEmail),
   };
-
-  const validationErrors: Record<string, string> = {};
-
-  if (targetClientId <= 0) validationErrors.clientId = "Client is required";
-  if (!normalizedPayload.name) validationErrors.name = "Name is required";
-  if ((payload.type === "stock" || payload.type === "commodity") && !normalizedPayload.symbol) {
-    validationErrors.symbol = "Symbol is required";
-  }
-  if (payload.type === "mf" && !normalizedPayload.symbol) {
-    validationErrors.symbol = "Mutual fund code is required";
-  }
-  if (quantity <= 0) validationErrors.quantity = "Quantity must be greater than 0";
-  if (avgPrice <= 0) validationErrors.avgPrice = "Average price must be greater than 0";
-  if (currentPrice <= 0) validationErrors.currentPrice = "Current price must be greater than 0";
-
-  if (Object.keys(validationErrors).length > 0) {
-    if (process.env.NODE_ENV === "development") {
-      console.debug("[createAsset] validation_failed", {
-        rawFormState: redactForAssetDebug(payload as Record<string, unknown>),
-        normalizedPayload: redactForAssetDebug(normalizedPayload as Record<string, unknown>),
-        validationResult: { valid: false, rejectedField: Object.keys(validationErrors)[0] },
-        errors: validationErrors,
-      });
-    }
-    throw new Error(validationErrors[Object.keys(validationErrors)[0]]);
-  }
 
   const canonicalPayload = buildCanonicalAssetPayload(
     normalizedPayload,
     quantity,
     avgPrice,
-    currentPrice
+    currentPrice,
+    options
   );
   const requestPayload = sanitizeOutgoingPayload(
     canonicalPayload ?? toApiPayload(normalizedPayload)
   );
+
+  const validationErrors = getAssetValidationErrors(
+    payload,
+    normalizedPayload,
+    requestPayload,
+    options
+  );
+  if (Object.keys(validationErrors).length > 0) {
+    throw new Error(validationErrors[Object.keys(validationErrors)[0]]);
+  }
+
+  return {
+    normalizedPayload,
+    requestPayload,
+  };
+}
+
+export function createAsset(
+  payload: CreateAssetPayload,
+  signal?: AbortSignal
+): Promise<Asset> {
+  let normalizedPayload: CreateAssetPayload | UpdateAssetPayload;
+  let requestPayload: Record<string, unknown>;
+  try {
+    ({ normalizedPayload, requestPayload } = prepareAssetRequestPayload(payload, {
+      requireClientId: true,
+    }));
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.debug("[createAsset] validation_failed", {
+        rawFormState: redactForAssetDebug(payload as Record<string, unknown>),
+        error: error instanceof Error ? error.message : "Validation failed",
+      });
+    }
+    throw error;
+  }
 
   if (process.env.NODE_ENV === "development") {
     console.debug("[createAsset] submit", {
@@ -863,10 +1058,27 @@ export function updateAsset(
   payload: UpdateAssetPayload,
   signal?: AbortSignal
 ): Promise<Asset> {
+  const requestPayload = payload.type
+    ? prepareAssetRequestPayload(payload, { requireClientId: false }).requestPayload
+    : sanitizeOutgoingPayload(toApiPayload(payload));
+
   return fetcher<Asset>(API_ROUTES.ASSETS.BY_ID(id), {
     method: "PUT",
-    body: toApiPayload(payload),
+    body: requestPayload,
     signal,
+  }).catch((err) => {
+    if (err instanceof ApiError) {
+      if (err.status === 401) {
+        throw new ApiError(401, "Session expired. Please sign in again.");
+      }
+      if (err.status === 409) {
+        throw new ApiError(409, err.message || "Duplicate entry — this asset already exists for this client.");
+      }
+      if (err.status === 422) {
+        throw new ApiError(422, err.message || "Validation failed — please check all fields and try again.");
+      }
+    }
+    throw err;
   });
 }
 

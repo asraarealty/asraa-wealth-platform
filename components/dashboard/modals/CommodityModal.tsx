@@ -57,6 +57,17 @@ function toCommodityTags(tags: string[]): string[] {
   return Array.from(new Set(merged.filter(Boolean)));
 }
 
+function mapServerErrorToFieldErrors(message: string): CommodityFieldErrors {
+  const msg = message.toLowerCase();
+  const next: CommodityFieldErrors = {};
+  if (msg.includes("symbol")) next.symbol = "Commodity symbol is required";
+  if (msg.includes("name")) next.name = "Commodity name is required";
+  if (msg.includes("quantity")) next.quantity = "Quantity is invalid";
+  if (msg.includes("avg") || msg.includes("average")) next.avgPrice = "Average price is invalid";
+  if (msg.includes("current")) next.currentPrice = "Current price is invalid";
+  return next;
+}
+
 export default function CommodityModal({ asset, onClose, onSave }: CommodityModalProps) {
   const isEdit = Boolean(asset);
   const [form, setForm] = useState<CommodityForm>(EMPTY);
@@ -94,14 +105,18 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
         rawCommodity.price ||
         0
     );
+    const symbol = String(item.symbol ?? "").trim().toUpperCase();
+    const name = String(item.name ?? "").trim();
     setForm((prev) => ({
       ...prev,
-      symbol: item.symbol.toUpperCase(),
-      name: item.name,
-      exchange: (item.source || prev.exchange || DEFAULT_COMMODITY_EXCHANGE).toUpperCase(),
+      symbol,
+      name,
+      exchange: String(item.source ?? prev.exchange ?? DEFAULT_COMMODITY_EXCHANGE)
+        .trim()
+        .toUpperCase(),
       avgPrice: String(spotOrCurrent || toFiniteNumber(prev.avgPrice)),
       currentPrice: String(spotOrCurrent || toFiniteNumber(prev.currentPrice)),
-      tags: toCommodityTags([...(prev.tags ?? []), item.assetType]),
+      tags: toCommodityTags([...(prev.tags ?? []), String(item.assetType ?? "spot")]),
     }));
   }
 
@@ -148,7 +163,14 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
         tags: toCommodityTags(form.tags),
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      const message = err instanceof Error ? err.message : "Save failed";
+      const mappedErrors = mapServerErrorToFieldErrors(message);
+      if (Object.keys(mappedErrors).length > 0) {
+        setFieldErrors((prev) => ({ ...prev, ...mappedErrors }));
+        setError(null);
+      } else {
+        setError(message);
+      }
     } finally {
       setSaving(false);
     }
@@ -166,11 +188,11 @@ export default function CommodityModal({ asset, onClose, onSave }: CommodityModa
             <FieldInput
               name="commodity-symbol"
               placeholder="GOLD or GOLDBEES.NS"
-              value={form.symbol}
-              onChange={(v) => {
-                setForm((f) => ({ ...f, symbol: v.toUpperCase() }));
-                setFieldErrors((prev) => ({ ...prev, symbol: undefined }));
-              }}
+               value={form.symbol}
+               onChange={(v) => {
+                 setForm((f) => ({ ...f, symbol: String(v ?? "").toUpperCase() }));
+                 setFieldErrors((prev) => ({ ...prev, symbol: undefined }));
+               }}
             />
           </FormField>
           <FormField label="Commodity Name" required error={fieldErrors.name}>

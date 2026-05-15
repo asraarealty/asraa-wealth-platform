@@ -1,3 +1,5 @@
+import { toBackendAssetType } from "@/lib/constants/assetTypes";
+
 export type ClientStatus = "active" | "inactive" | "suspended" | "archived";
 
 type AnyRecord = Record<string, unknown>;
@@ -107,26 +109,44 @@ export function normalizeClientPayload(input: AnyRecord): AnyRecord {
 }
 
 export function normalizeAssetPayload(input: AnyRecord): AnyRecord {
-  const type = normalizeEnum(
-    input.type ?? input.asset_type,
-    ["stock", "mutual_fund", "mf", "property", "real_estate", "commodity"] as const,
-    "stock"
-  );
-  const canonicalType = type === "mf" ? "mutual_fund" : type === "real_estate" ? "property" : type;
+  const canonicalType = toBackendAssetType(input.type ?? input.asset_type);
+  const normalizedFundCode =
+    toTrimmedString(
+      input.fund_code ??
+        input.fundCode ??
+        (canonicalType === "mutual_fund" ? input.symbol : undefined)
+    )?.toUpperCase() ?? null;
 
   return nullifyUndefined(
     removeEmptyStringsAndUndefined({
       client_id: toDecimal(input.client_id ?? input.clientId ?? input.user_id ?? input.userId),
       type: canonicalType,
-      symbol: toTrimmedString(input.symbol)?.toUpperCase() ?? null,
-      fund_code: toTrimmedString(input.fund_code ?? input.fundCode)?.toUpperCase() ?? null,
+      symbol:
+        canonicalType === "mutual_fund"
+          ? null
+          : canonicalType === "property"
+            ? toTrimmedString(input.symbol) ?? null
+            : toTrimmedString(input.symbol)?.toUpperCase() ?? null,
+      fund_code: normalizedFundCode,
       name: toTrimmedString(input.name),
       exchange: toTrimmedString(input.exchange)?.toUpperCase() ?? null,
       quantity: toDecimal(input.quantity),
       avg_price: toDecimal(input.avg_price ?? input.avgPrice),
       current_price: toDecimal(input.current_price ?? input.currentPrice),
-      purchase_value: toDecimal(input.purchase_value ?? input.purchaseValue),
+      purchase_price: toDecimal(
+        input.purchase_price ??
+          input.purchasePrice ??
+          input.purchase_value ??
+          input.purchaseValue
+      ),
       current_value: toDecimal(input.current_value ?? input.currentValue),
+      location: toTrimmedString(input.location),
+      address: toTrimmedString(input.address ?? input.location),
+      rent_amount: toDecimal(input.rent_amount ?? input.rentAmount),
+      rent_due_date: toTrimmedString(input.rent_due_date ?? input.rentDueDate),
+      tenant_name: toTrimmedString(input.tenant_name ?? input.tenantName),
+      tenant_phone: toTrimmedString(input.tenant_phone ?? input.tenantPhone),
+      tenant_email: toTrimmedString(input.tenant_email ?? input.tenantEmail),
       tags: Array.isArray(input.tags)
         ? input.tags
             .map((item) => toTrimmedString(item))

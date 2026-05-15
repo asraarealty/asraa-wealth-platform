@@ -49,6 +49,18 @@ function toFiniteNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function mapServerErrorToFieldErrors(message: string): StockFieldErrors {
+  const msg = message.toLowerCase();
+  const next: StockFieldErrors = {};
+  if (msg.includes("symbol")) next.symbol = "Symbol is required";
+  if (msg.includes("name")) next.name = "Name is required";
+  if (msg.includes("exchange")) next.exchange = "Exchange is invalid";
+  if (msg.includes("quantity")) next.quantity = "Quantity is invalid";
+  if (msg.includes("avg") || msg.includes("average")) next.avgPrice = "Average price is invalid";
+  if (msg.includes("current")) next.currentPrice = "Current price is invalid";
+  return next;
+}
+
 export default function StockModal({ asset, onClose, onSave }: StockModalProps) {
   const isEdit = Boolean(asset);
   const [form, setForm] = useState<StockForm>(EMPTY);
@@ -80,7 +92,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
       companyName?: string;
       current_price?: unknown;
     };
-    const stockSymbol = rawStock.symbol || "";
+      const stockSymbol = rawStock.symbol || "";
     const stockPrice = toFiniteNumber(
       rawStock.currentPrice ||
         rawStock.current_price ||
@@ -151,7 +163,14 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
         tags: form.tags,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      const message = err instanceof Error ? err.message : "Save failed";
+      const mappedErrors = mapServerErrorToFieldErrors(message);
+      if (Object.keys(mappedErrors).length > 0) {
+        setFieldErrors((prev) => ({ ...prev, ...mappedErrors }));
+        setError(null);
+      } else {
+        setError(message);
+      }
     } finally {
       setSaving(false);
     }
@@ -172,11 +191,11 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
             <FieldInput
               name="stock-symbol"
               placeholder="AAPL or RELIANCE.NS"
-              value={form.symbol}
-              onChange={(v) => {
-                setForm((f) => ({ ...f, symbol: v.toUpperCase() }));
-                setFieldErrors((prev) => ({ ...prev, symbol: undefined }));
-              }}
+               value={form.symbol}
+               onChange={(v) => {
+                 setForm((f) => ({ ...f, symbol: String(v ?? "").toUpperCase() }));
+                 setFieldErrors((prev) => ({ ...prev, symbol: undefined }));
+               }}
             />
           </FormField>
           <FormField label="Name" required error={fieldErrors.name}>
@@ -195,7 +214,9 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
               name="stock-exchange"
               placeholder="NSE/BSE"
               value={form.exchange}
-              onChange={(v) => setForm((f) => ({ ...f, exchange: v.toUpperCase() }))}
+              onChange={(v) =>
+                setForm((f) => ({ ...f, exchange: String(v ?? "").toUpperCase() }))
+              }
             />
           </FormField>
         </div>

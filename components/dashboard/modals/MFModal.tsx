@@ -122,8 +122,8 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
     );
     setForm((f) => ({
       ...f,
-      symbol: mf.code,
-      name: mf.name,
+      symbol: String(mf.code ?? "").trim().toUpperCase(),
+      name: String(mf.name ?? "").trim(),
       avgPrice: String(nav || toFiniteNumber(f.avgPrice)),
       currentPrice: String(nav || toFiniteNumber(f.currentPrice)),
     }));

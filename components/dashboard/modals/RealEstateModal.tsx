@@ -24,6 +24,14 @@ interface REForm {
   tags: string[];
 }
 
+interface REFieldErrors {
+  name?: string;
+  purchasePrice?: string;
+  currentValue?: string;
+  rentAmount?: string;
+  tenantEmail?: string;
+}
+
 const EMPTY: REForm = {
   name: "",
   location: "",
@@ -46,6 +54,7 @@ export default function RealEstateModal({
   const [form, setForm] = useState<REForm>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<REFieldErrors>({});
 
   useEffect(() => {
     if (asset) {
@@ -68,10 +77,22 @@ export default function RealEstateModal({
       setForm(EMPTY);
     }
     setError(null);
+    setFieldErrors({});
   }, [asset]);
 
   function set(key: keyof REForm) {
     return (v: string) => setForm((f) => ({ ...f, [key]: v }));
+  }
+
+  function mapServerErrorToFieldErrors(message: string): REFieldErrors {
+    const msg = message.toLowerCase();
+    const next: REFieldErrors = {};
+    if (msg.includes("name")) next.name = "Property name is required";
+    if (msg.includes("purchase")) next.purchasePrice = "Purchase price is invalid";
+    if (msg.includes("current")) next.currentValue = "Current value is invalid";
+    if (msg.includes("rent")) next.rentAmount = "Rent amount is invalid";
+    if (msg.includes("email")) next.tenantEmail = "Tenant email is invalid";
+    return next;
   }
 
   async function handleSave() {
@@ -80,21 +101,31 @@ export default function RealEstateModal({
     const purchasePrice = Number(form.purchasePrice);
     const currentValue = Number(form.currentValue);
     const rentAmount = form.rentAmount ? Number(form.rentAmount) : undefined;
+    const nextFieldErrors: REFieldErrors = {};
 
-    if (!name) { setError("Property name is required"); return; }
+    if (!name) nextFieldErrors.name = "Property name is required";
     if (!Number.isFinite(purchasePrice) || purchasePrice <= 0) {
-      setError("Purchase price must be a positive number");
-      return;
+      nextFieldErrors.purchasePrice = "Purchase price must be a positive number";
     }
     if (!Number.isFinite(currentValue) || currentValue <= 0) {
-      setError("Current value must be a positive number");
-      return;
+      nextFieldErrors.currentValue = "Current value must be a positive number";
     }
     if (
       rentAmount !== undefined &&
       (!Number.isFinite(rentAmount) || rentAmount < 0)
     ) {
-      setError("Rent amount must be a non-negative number");
+      nextFieldErrors.rentAmount = "Rent amount must be a non-negative number";
+    }
+    if (form.tenantEmail.trim()) {
+      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.tenantEmail.trim());
+      if (!emailOk) {
+        nextFieldErrors.tenantEmail = "Tenant email is invalid";
+      }
+    }
+
+    setFieldErrors(nextFieldErrors);
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setError(null);
       return;
     }
 
@@ -117,7 +148,14 @@ export default function RealEstateModal({
         tags: form.tags,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      const message = err instanceof Error ? err.message : "Save failed";
+      const mappedErrors = mapServerErrorToFieldErrors(message);
+      if (Object.keys(mappedErrors).length > 0) {
+        setFieldErrors((prev) => ({ ...prev, ...mappedErrors }));
+        setError(null);
+      } else {
+        setError(message);
+      }
     } finally {
       setSaving(false);
     }
@@ -132,7 +170,7 @@ export default function RealEstateModal({
       <div className="space-y-4">
         {/* Property Info */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FormField label="Property Name" required>
+          <FormField label="Property Name" required error={fieldErrors.name}>
             <FieldInput
               name="property-name"
               placeholder="Sunrise Villa"
@@ -152,7 +190,7 @@ export default function RealEstateModal({
 
         {/* Financials */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FormField label="Purchase Price (₹)" required>
+          <FormField label="Purchase Price (₹)" required error={fieldErrors.purchasePrice}>
             <FieldInput
               name="purchase-price"
               type="number"
@@ -163,7 +201,7 @@ export default function RealEstateModal({
               onChange={set("purchasePrice")}
             />
           </FormField>
-          <FormField label="Current Value (₹)" required>
+          <FormField label="Current Value (₹)" required error={fieldErrors.currentValue}>
             <FieldInput
               name="current-value"
               type="number"
@@ -178,7 +216,7 @@ export default function RealEstateModal({
 
         {/* Rent */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FormField label="Monthly Rent (₹)">
+          <FormField label="Monthly Rent (₹)" error={fieldErrors.rentAmount}>
             <FieldInput
               name="rent-amount"
               type="number"
@@ -228,7 +266,7 @@ export default function RealEstateModal({
           </FormField>
         </div>
 
-        <FormField label="Tenant Email">
+        <FormField label="Tenant Email" error={fieldErrors.tenantEmail}>
           <FieldInput
             name="tenant-email"
             type="email"
