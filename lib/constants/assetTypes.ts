@@ -49,7 +49,7 @@ export function toBackendAssetType(
   if (normalized === "mf") return "mutual_fund";
   if (normalized === "real_estate") return "property";
   return BACKEND_ASSET_TYPE_SET.has(normalized)
-    ? (normalized === "real_estate" ? "property" : (normalized as BackendAssetType))
+    ? (normalized as BackendAssetType)
     : fallback;
 }
 

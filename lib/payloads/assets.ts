@@ -54,17 +54,17 @@ export interface CanonicalStockPayload {
 export function buildStockPayload(input: StockPayloadInput): CanonicalStockPayload {
   return compactPayload(
     normalizeAssetPayload({
-    client_id: input.clientId,
-    type: "stock",
-    symbol: input.symbol.trim().toUpperCase(),
-    name: input.name.trim(),
-    exchange: input.exchange?.trim().toUpperCase() || undefined,
-    quantity: safeNumber(input.quantity),
-    avg_price: safeNumber(input.avgPrice),
+      client_id: input.clientId,
+      type: "stock",
+      symbol: input.symbol.trim().toUpperCase(),
+      name: input.name.trim(),
+      exchange: input.exchange?.trim().toUpperCase() || undefined,
+      quantity: safeNumber(input.quantity),
+      avg_price: safeNumber(input.avgPrice),
       current_price: safeNumber(input.currentPrice),
       tags: Array.isArray(input.tags) ? input.tags : [],
-    }) as unknown as CanonicalStockPayload
-  );
+    }) as Record<string, unknown>
+  ) as unknown as CanonicalStockPayload;
 }
 
 // ── Mutual Fund ────────────────────────────────────────────────────
@@ -101,15 +101,15 @@ export function buildFundPayload(input: FundPayloadInput): CanonicalFundPayload 
 
   return compactPayload(
     normalizeAssetPayload({
-    client_id: input.clientId,
-    type: input.assetType,
-    fund_code: input.fundCode?.trim() || undefined,
-    name,
+      client_id: input.clientId,
+      type: input.assetType,
+      fund_code: input.fundCode?.trim() || undefined,
+      name,
       quantity: safeNumber(quantity),
       avg_price: safeNumber(avgPrice),
       current_price: safeNumber(currentPrice),
-    }) as unknown as CanonicalFundPayload
-  );
+    }) as Record<string, unknown>
+  ) as unknown as CanonicalFundPayload;
 }
 
 // ── Commodity ──────────────────────────────────────────────────────
@@ -140,16 +140,16 @@ export function buildCommodityPayload(
 ): CanonicalCommodityPayload {
   return compactPayload(
     normalizeAssetPayload({
-    client_id: input.clientId,
-    type: "commodity",
-    symbol: input.symbol.trim().toUpperCase(),
-    name: input.name.trim(),
-    exchange: input.exchange?.trim().toUpperCase() || undefined,
+      client_id: input.clientId,
+      type: "commodity",
+      symbol: input.symbol.trim().toUpperCase(),
+      name: input.name.trim(),
+      exchange: input.exchange?.trim().toUpperCase() || undefined,
       quantity: safeNumber(input.quantity),
       avg_price: safeNumber(input.avgPrice),
       current_price: safeNumber(input.currentPrice),
-    }) as unknown as CanonicalCommodityPayload
-  );
+    }) as Record<string, unknown>
+  ) as unknown as CanonicalCommodityPayload;
 }
 
 export interface PropertyAssetPayloadInput {
@@ -224,7 +224,5 @@ export function buildPropertyAssetPayload(
       tenant_email: safeString(input.tenantEmail) || undefined,
       tags: Array.isArray(input.tags) ? input.tags : [],
     }) as unknown as CanonicalPropertyAssetPayload),
-    address: location,
-    location,
   });
 }

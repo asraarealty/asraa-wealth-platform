@@ -787,7 +787,8 @@ function getAssetValidationErrors(
   }
 
   if (type && requiresTicker(type) && !normalizedPayload.symbol) {
-    errors.symbol = type === "mf" ? "Mutual fund code is required" : "Symbol is required";
+    errors.symbol =
+      type === "mf" ? "Mutual fund code is required" : "Symbol is required";
   }
 
   const quantity = safeDecimalNumber(normalizedPayload.quantity, 0);
@@ -812,10 +813,6 @@ function getAssetValidationErrors(
     if (validationMessage) {
       errors.request = validationMessage;
     }
-  }
-
-  if (payload.type === "mf" && errors.symbol === "Symbol is required") {
-    errors.symbol = "Mutual fund code is required";
   }
 
   return errors;

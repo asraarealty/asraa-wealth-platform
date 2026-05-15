@@ -214,9 +214,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
               name="stock-exchange"
               placeholder="NSE/BSE"
               value={form.exchange}
-              onChange={(v) =>
-                setForm((f) => ({ ...f, exchange: String(v ?? "").toUpperCase() }))
-              }
+              onChange={(v) => setForm((f) => ({ ...f, exchange: String(v ?? "").toUpperCase() }))}
             />
           </FormField>
         </div>
