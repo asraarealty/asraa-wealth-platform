@@ -1,151 +1,73 @@
 "use client";
-import { useInsights, useAssets } from "@/lib/hooks/useAssets";
-import { motion } from "framer-motion";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
-function fmt(n: number) {
-  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
-}
+import { useOperatingSystemData } from "@/lib/hooks/useOperatingSystem";
+import { useOperatingContext } from "@/context/OperatingContext";
+import { EmptyBlock, LoadingBlock, MetricTile, SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
 
 export default function InsightsPage() {
-  const { data: insights, isLoading: insightsLoading } = useInsights();
-  const { data: assetsData } = useAssets();
+  const { data, isLoading, isError } = useOperatingSystemData();
+  const { timeHorizon, riskProfile } = useOperatingContext();
 
-  const alerts = Array.isArray(insights?.alerts) ? insights.alerts : [];
-  const assets = assetsData?.assets ?? [];
-  const summary = assetsData?.summary;
-
-  const topAssets = [...assets].sort((a, b) => b.value - a.value).slice(0, 5);
-
-  const barData = topAssets.map((a) => ({
-    name: a.name.length > 12 ? a.name.slice(0, 12) + "…" : a.name,
-    value: a.value,
-    return: a.return_percentage,
-  }));
-
-  const pieData = [
-    { name: "Equity", value: insights?.equity_percentage ?? 0, color: "#38bdf8" },
-    { name: "Real Estate", value: insights?.real_estate_percentage ?? 0, color: "#a78bfa" },
-    { name: "Other", value: Math.max(0, 100 - (insights?.equity_percentage ?? 0) - (insights?.real_estate_percentage ?? 0)), color: "#34d399" },
-  ].filter((d) => d.value > 0);
+  if (isLoading) return <LoadingBlock label="Loading analytics intelligence..." />;
+  if (isError) return <EmptyBlock title="Analytics unavailable" message="Unable to load institutional analytics at this time." />;
 
   return (
-    <div className="px-4 pt-6 pb-4 space-y-5 max-w-lg mx-auto">
-      <h1 className="text-2xl font-extrabold text-white">Insights</h1>
-
-      {insightsLoading ? (
-        <div className="flex justify-center pt-12">
-          <div className="w-8 h-8 rounded-full border-2 border-purple-400 border-t-transparent animate-spin" />
+    <div className="space-y-5">
+      <SurfaceCard className="p-4 sm:p-5">
+        <SectionHeader
+          eyebrow="Executive Snapshot"
+          title="Institutional-quality analytics"
+          subtitle={`Horizon ${timeHorizon.toUpperCase()} · Profile ${riskProfile}`}
+        />
+        <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <MetricTile label="Portfolio Health" value={data.executive.returnPct >= 0 ? "Healthy" : "At Risk"} />
+          <MetricTile label="Risk State" value={data.executive.riskState} />
+          <MetricTile label="Equity Exposure" value={`${data.allocation.stock.toFixed(1)}%`} />
+          <MetricTile label="Property Exposure" value={`${data.allocation.property.toFixed(1)}%`} />
         </div>
-      ) : (
-        <>
-          {/* Portfolio allocation */}
-          {pieData.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="rounded-2xl p-4"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
-            >
-              <p className="text-xs font-semibold uppercase tracking-widest text-sky-400/70 mb-4">Portfolio Mix</p>
-              <div className="flex items-center gap-4">
-                <div className="w-32 h-32 shrink-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={pieData} cx="50%" cy="50%" innerRadius={35} outerRadius={56} dataKey="value" strokeWidth={2} stroke="rgba(4,9,21,0.8)">
-                        {pieData.map((e) => <Cell key={e.name} fill={e.color} />)}
-                      </Pie>
-                      <Tooltip formatter={(v: number) => `${v.toFixed(1)}%`} contentStyle={{ background: "#0a1633", border: "none", borderRadius: 8, fontSize: 11 }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex-1 space-y-3">
-                  {pieData.map((d) => (
-                    <div key={d.name}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-gray-400">{d.name}</span>
-                        <span className="text-white font-semibold">{d.value.toFixed(1)}%</span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-white/5">
-                        <div className="h-full rounded-full transition-all" style={{ width: `${d.value}%`, background: d.color }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+      </SurfaceCard>
+
+      <SurfaceCard className="p-4 sm:p-5">
+        <SectionHeader eyebrow="Diagnostic Analytics" title="Attribution and concentration" subtitle="Return drivers and allocation drift" />
+
+        <div className="mt-4 space-y-3">
+          {[
+            { label: "Stocks", val: data.allocation.stock, color: "#38bdf8" },
+            { label: "Mutual Funds", val: data.allocation.mf, color: "#34d399" },
+            { label: "Property", val: data.allocation.property, color: "#a78bfa" },
+          ].map((x) => (
+            <div key={x.label} className="v2-tile rounded-xl p-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-300 font-semibold">{x.label}</span>
+                <span className="text-white">{x.val.toFixed(1)}%</span>
               </div>
-            </motion.div>
-          )}
-
-          {/* Top holdings chart */}
-          {barData.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="rounded-2xl p-4"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
-            >
-              <p className="text-xs font-semibold uppercase tracking-widest text-sky-400/70 mb-4">Top Holdings</p>
-              <div className="h-44">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="name" tick={{ fill: "#9ca3af", fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: "#9ca3af", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${(v / 100000).toFixed(0)}L`} />
-                    <Tooltip contentStyle={{ background: "#0a1633", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 11 }} formatter={(v: number) => fmt(v)} />
-                    <Bar dataKey="value" fill="#38bdf8" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="mt-2 h-2 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${x.val}%`, background: x.color }} />
               </div>
-            </motion.div>
-          )}
-
-          {/* Summary stats */}
-          {summary && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="grid grid-cols-2 gap-3"
-            >
-              {[
-                { label: "Total Value", value: fmt(summary.total_value) },
-                { label: "Total Invested", value: fmt(summary.total_invested) },
-                { label: "Total Return", value: fmt(summary.total_return), positive: summary.total_return >= 0 },
-                { label: "Return %", value: `${summary.return_percentage >= 0 ? "+" : ""}${summary.return_percentage.toFixed(2)}%`, positive: summary.return_percentage >= 0 },
-              ].map((item) => (
-                <div key={item.label} className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider">{item.label}</p>
-                  <p className={`text-lg font-bold mt-1 ${item.positive === true ? "text-emerald-400" : item.positive === false ? "text-red-400" : "text-white"}`}>{item.value}</p>
-                </div>
-              ))}
-            </motion.div>
-          )}
-
-          {/* AI Alerts */}
-          {alerts.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="rounded-2xl p-4 space-y-3"
-              style={{ background: "rgba(167,139,250,0.06)", border: "1px solid rgba(167,139,250,0.15)" }}
-            >
-              <p className="text-xs font-semibold uppercase tracking-widest text-purple-400/70">AI Recommendations</p>
-              {alerts.map((alert, i) => (
-                <div key={i} className="flex gap-2.5 p-3 rounded-xl" style={{ background: "rgba(167,139,250,0.08)" }}>
-                  <span className="text-purple-400 text-base shrink-0 mt-0.5">◉</span>
-                  <p className="text-sm text-gray-300 leading-relaxed">{typeof alert === "string" ? alert : String(alert)}</p>
-                </div>
-              ))}
-            </motion.div>
-          )}
-
-          {alerts.length === 0 && !insightsLoading && (
-            <div className="text-center py-8 text-gray-500 text-sm">
-              <p className="text-3xl mb-2">◉</p>
-              No AI insights available yet.
             </div>
+          ))}
+        </div>
+      </SurfaceCard>
+
+      <SurfaceCard className="p-4 sm:p-5">
+        <SectionHeader eyebrow="Predictive Layer" title="Scenario and recommendation engine" subtitle="Confidence-scored next-best actions" />
+
+        <div className="mt-4 space-y-2">
+          {data.recommendations.length === 0 ? (
+            <p className="text-sm text-slate-400">No predictive opportunities at the moment.</p>
+          ) : (
+            data.recommendations.map((rec) => (
+              <div key={rec.id} className="v2-tile rounded-xl p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm text-white font-semibold">{rec.title}</p>
+                  <StatusPill label={`${Math.round(rec.confidence * 100)}% confidence`} tone="info" />
+                </div>
+                <p className="text-xs text-slate-400 mt-1">{rec.rationale}</p>
+              </div>
+            ))
           )}
-        </>
-      )}
+        </div>
+      </SurfaceCard>
     </div>
   );
 }

@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import QueryProvider from "@/providers/QueryProvider";
+import { OperatingProvider } from "@/context/OperatingContext";
 
 export const metadata: Metadata = {
   title: "Asraa Wealth Platform",
-  description: "Production-grade wealth management advisor portal",
+  description: "AI-powered wealth and real estate operating system",
 };
 
 export default function RootLayout({
@@ -17,7 +18,9 @@ export default function RootLayout({
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full bg-[#040915] text-white">
         <AuthProvider>
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            <OperatingProvider>{children}</OperatingProvider>
+          </QueryProvider>
         </AuthProvider>
       </body>
     </html>
