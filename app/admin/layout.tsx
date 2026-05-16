@@ -16,7 +16,7 @@ export default function AdminLayout({
         className="flex h-screen overflow-hidden"
         style={{
           background:
-            "linear-gradient(135deg, #0b3d2e 0%, #0a0f0d 60%, #0b3d2e 100%)",
+            "linear-gradient(135deg, #040915 0%, #0a1633 58%, #102451 100%)",
         }}
       >
         {/* Sidebar */}

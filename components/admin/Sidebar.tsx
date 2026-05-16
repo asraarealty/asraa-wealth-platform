@@ -86,14 +86,14 @@ export default function Sidebar() {
     <aside
       className="flex w-56 shrink-0 flex-col border-r"
       style={{
-        background: "linear-gradient(180deg, rgba(11,61,46,0.95) 0%, rgba(10,15,13,0.98) 100%)",
-        borderColor: "rgba(201,162,39,0.15)",
+        background: "linear-gradient(180deg, rgba(9,22,49,0.96) 0%, rgba(4,9,21,0.98) 100%)",
+        borderColor: "rgba(56,189,248,0.2)",
       }}
     >
       {/* Logo */}
       <div
         className="px-5 py-4 border-b"
-        style={{ borderColor: "rgba(201,162,39,0.12)" }}
+        style={{ borderColor: "rgba(56,189,248,0.14)" }}
       >
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-500 mb-0.5">
           Wealth Platform
@@ -116,7 +116,7 @@ export default function Sidebar() {
               onMouseEnter={(e) => {
                 if (!isActive) {
                   (e.currentTarget as HTMLElement).style.background =
-                    "rgba(201,162,39,0.06)";
+                    "rgba(56,189,248,0.08)";
                 }
               }}
               onMouseLeave={(e) => {
@@ -133,7 +133,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Sign out */}
-      <div className="p-3 border-t" style={{ borderColor: "rgba(201,162,39,0.12)" }}>
+      <div className="p-3 border-t" style={{ borderColor: "rgba(56,189,248,0.14)" }}>
         <button
           onClick={logout}
           className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-500 transition-colors text-left hover:text-red-400"

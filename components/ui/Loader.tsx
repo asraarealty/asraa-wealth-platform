@@ -4,8 +4,8 @@ export default function Loader() {
       <div
         className="h-8 w-8 animate-spin rounded-full border-4"
         style={{
-          borderColor: "rgba(201,162,39,0.2)",
-          borderTopColor: "#c9a227",
+          borderColor: "rgba(56,189,248,0.2)",
+          borderTopColor: "#38bdf8",
         }}
       />
     </div>

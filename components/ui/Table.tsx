@@ -27,8 +27,8 @@ export default function Table<T extends object>({
                 key={col.key}
                 className="border-b px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest"
                 style={{
-                  borderColor: "rgba(201,162,39,0.15)",
-                  color: "#c9a227",
+                  borderColor: "rgba(56,189,248,0.15)",
+                  color: "#38bdf8",
                 }}
               >
                 {col.header}
@@ -41,10 +41,10 @@ export default function Table<T extends object>({
             <tr
               key={String((row as Record<string, unknown>)[String(keyField)])}
               className="border-b last:border-0 transition-colors"
-              style={{ borderColor: "rgba(201,162,39,0.08)" }}
+              style={{ borderColor: "rgba(56,189,248,0.08)" }}
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLElement).style.background =
-                  "rgba(201,162,39,0.05)";
+                  "rgba(56,189,248,0.05)";
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLElement).style.background = "";

@@ -16,7 +16,7 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.06] bg-[#0A0F0D]/90 backdrop-blur-md">
+    <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.06] bg-[#040915]/90 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -24,15 +24,15 @@ export default function Header() {
             <div
               className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm text-black shadow-md"
               style={{
-                background: "linear-gradient(135deg, #C9A227, #e8d08a)",
-                boxShadow: "0 0 12px rgba(201,162,39,0.35)",
+                background: "linear-gradient(135deg, #38bdf8, #3b82f6)",
+                boxShadow: "0 0 14px rgba(56,189,248,0.38)",
               }}
             >
               A
             </div>
             <span className="text-white font-semibold text-[17px] tracking-tight">
               Asraa{" "}
-              <span style={{ color: "#C9A227" }}>Realty</span>
+              <span style={{ color: "#7dd3fc" }}>Realty</span>
             </span>
           </Link>
 
@@ -55,8 +55,8 @@ export default function Header() {
               href="/signup"
               className="hidden md:inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg text-black transition-opacity duration-200 hover:opacity-90"
               style={{
-                background: "linear-gradient(90deg, #C9A227, #d4af4a)",
-                boxShadow: "0 4px 14px rgba(201,162,39,0.25)",
+                background: "linear-gradient(90deg, #38bdf8, #3b82f6)",
+                boxShadow: "0 4px 16px rgba(56,189,248,0.28)",
               }}
             >
               Get Free Plan
@@ -114,7 +114,7 @@ export default function Header() {
                 onClick={() => setMenuOpen(false)}
                 className="block px-4 py-2.5 text-sm font-semibold text-center rounded-lg text-black"
                 style={{
-                  background: "linear-gradient(90deg, #C9A227, #d4af4a)",
+                  background: "linear-gradient(90deg, #38bdf8, #3b82f6)",
                 }}
               >
                 Get Free Plan

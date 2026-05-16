@@ -33,15 +33,15 @@ export default function Modal({
         className={`${width} rounded-2xl shadow-2xl flex flex-col max-h-[90vh]`}
         style={{
           background: "#0A1A14",
-          border: "1px solid rgba(201,162,39,0.2)",
+          border: "1px solid rgba(56,189,248,0.2)",
           boxShadow:
-            "0 24px 64px rgba(0,0,0,0.7), 0 0 0 1px rgba(201,162,39,0.08)",
+            "0 24px 64px rgba(0,0,0,0.7), 0 0 0 1px rgba(56,189,248,0.08)",
         }}
       >
         {/* Header */}
         <div
           className="flex items-center justify-between px-6 py-4 shrink-0"
-          style={{ borderBottom: "1px solid rgba(201,162,39,0.12)" }}
+          style={{ borderBottom: "1px solid rgba(56,189,248,0.12)" }}
         >
           <h2 className="text-base font-semibold text-white">{title}</h2>
           <button
@@ -121,14 +121,14 @@ export function FieldInput({
       className="w-full px-3 py-2.5 text-sm text-white placeholder-white/30 rounded-xl transition focus:outline-none"
       style={{
         background: "rgba(255,255,255,0.06)",
-        border: "1px solid rgba(201,162,39,0.2)",
+        border: "1px solid rgba(56,189,248,0.2)",
       }}
       onFocus={(e) => {
-        e.currentTarget.style.borderColor = "rgba(201,162,39,0.5)";
-        e.currentTarget.style.boxShadow = "0 0 0 2px rgba(201,162,39,0.12)";
+        e.currentTarget.style.borderColor = "rgba(56,189,248,0.5)";
+        e.currentTarget.style.boxShadow = "0 0 0 2px rgba(56,189,248,0.12)";
       }}
       onBlur={(e) => {
-        e.currentTarget.style.borderColor = "rgba(201,162,39,0.2)";
+        e.currentTarget.style.borderColor = "rgba(56,189,248,0.2)";
         e.currentTarget.style.boxShadow = "none";
       }}
     />
@@ -149,7 +149,7 @@ export function ModalFooter({
   return (
     <div
       className="flex items-center justify-end gap-3 px-6 py-4 shrink-0"
-      style={{ borderTop: "1px solid rgba(201,162,39,0.12)" }}
+      style={{ borderTop: "1px solid rgba(56,189,248,0.12)" }}
     >
       <button
         type="button"
@@ -168,7 +168,7 @@ export function ModalFooter({
         disabled={saving}
         className="px-5 py-2 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
         style={{
-          background: saving ? "rgba(201,162,39,0.5)" : "#c9a227",
+          background: saving ? "rgba(56,189,248,0.5)" : "#38bdf8",
           color: "#071a14",
         }}
       >

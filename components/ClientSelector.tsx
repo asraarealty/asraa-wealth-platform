@@ -52,12 +52,12 @@ export default function ClientSelector({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 text-sm py-4" style={{ color: "rgba(201,162,39,0.6)" }}>
+      <div className="flex items-center gap-2 text-sm py-4" style={{ color: "rgba(56,189,248,0.6)" }}>
         <svg
           className="animate-spin h-4 w-4"
           fill="none"
           viewBox="0 0 24 24"
-          style={{ color: "#c9a227" }}
+          style={{ color: "#38bdf8" }}
         >
           <circle
             className="opacity-25"
@@ -86,9 +86,9 @@ export default function ClientSelector({
           onClick={load}
           className="text-sm font-medium text-left px-3 py-1.5 rounded-lg transition"
           style={{
-            color: "#c9a227",
-            background: "rgba(201,162,39,0.1)",
-            border: "1px solid rgba(201,162,39,0.2)",
+            color: "#38bdf8",
+            background: "rgba(56,189,248,0.1)",
+            border: "1px solid rgba(56,189,248,0.2)",
           }}
         >
           Retry
@@ -107,14 +107,14 @@ export default function ClientSelector({
         className="w-full px-4 py-2 text-sm text-white placeholder-white/30 rounded-lg transition focus:outline-none"
         style={{
           background: "rgba(255,255,255,0.05)",
-          border: "1px solid rgba(201,162,39,0.2)",
+          border: "1px solid rgba(56,189,248,0.2)",
         }}
         onFocus={(e) => {
-          e.currentTarget.style.borderColor = "rgba(201,162,39,0.5)";
-          e.currentTarget.style.boxShadow = "0 0 0 2px rgba(201,162,39,0.15)";
+          e.currentTarget.style.borderColor = "rgba(56,189,248,0.5)";
+          e.currentTarget.style.boxShadow = "0 0 0 2px rgba(56,189,248,0.15)";
         }}
         onBlur={(e) => {
-          e.currentTarget.style.borderColor = "rgba(201,162,39,0.2)";
+          e.currentTarget.style.borderColor = "rgba(56,189,248,0.2)";
           e.currentTarget.style.boxShadow = "none";
         }}
       />
@@ -135,9 +135,9 @@ export default function ClientSelector({
                 style={
                   isSelected
                     ? {
-                        background: "rgba(201,162,39,0.12)",
-                        borderLeft: "3px solid #c9a227",
-                        border: "1px solid rgba(201,162,39,0.25)",
+                        background: "rgba(56,189,248,0.12)",
+                        borderLeft: "3px solid #38bdf8",
+                        border: "1px solid rgba(56,189,248,0.25)",
                         color: "white",
                       }
                     : {
@@ -148,8 +148,8 @@ export default function ClientSelector({
                 }
                 onMouseEnter={(e) => {
                   if (!isSelected) {
-                    e.currentTarget.style.background = "rgba(201,162,39,0.07)";
-                    e.currentTarget.style.borderColor = "rgba(201,162,39,0.15)";
+                    e.currentTarget.style.background = "rgba(56,189,248,0.07)";
+                    e.currentTarget.style.borderColor = "rgba(56,189,248,0.15)";
                   }
                 }}
                 onMouseLeave={(e) => {

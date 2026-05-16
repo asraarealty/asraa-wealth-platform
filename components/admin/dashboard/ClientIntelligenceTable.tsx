@@ -44,7 +44,7 @@ export default function ClientIntelligenceTable({ rows }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr
-              style={{ borderBottom: "1px solid rgba(201,162,39,0.12)" }}
+              style={{ borderBottom: "1px solid rgba(56,189,248,0.12)" }}
             >
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gold-light whitespace-nowrap">
                 Client
@@ -84,9 +84,9 @@ export default function ClientIntelligenceTable({ rows }: Props) {
                     <div
                       className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                       style={{
-                        background: "rgba(201,162,39,0.15)",
-                        color: "#c9a227",
-                        border: "1px solid rgba(201,162,39,0.2)",
+                        background: "rgba(56,189,248,0.15)",
+                        color: "#38bdf8",
+                        border: "1px solid rgba(56,189,248,0.2)",
                       }}
                     >
                       {row.name.charAt(0).toUpperCase()}
@@ -142,7 +142,7 @@ export default function ClientIntelligenceTable({ rows }: Props) {
                     {/* Stacked bar */}
                     <div className="flex h-2 w-28 rounded-full overflow-hidden shrink-0">
                       <div
-                        style={{ width: `${row.equityPct}%`, background: "#c9a227" }}
+                        style={{ width: `${row.equityPct}%`, background: "#38bdf8" }}
                       />
                       <div
                         style={{ width: `${row.mfPct}%`, background: "#10b981" }}
@@ -176,7 +176,7 @@ export default function ClientIntelligenceTable({ rows }: Props) {
       {/* Legend */}
       <div className="flex items-center gap-5 px-4 py-3 border-t border-white/[0.04] text-xs text-gray-500">
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#c9a227" }} />
+          <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#38bdf8" }} />
           Equity
         </span>
         <span className="flex items-center gap-1.5">

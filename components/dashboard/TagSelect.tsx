@@ -69,7 +69,7 @@ export default function TagSelect({
         className="flex flex-wrap gap-1.5 min-h-[40px] p-2 rounded-xl cursor-text"
         style={{
           background: "rgba(255,255,255,0.06)",
-          border: "1px solid rgba(201,162,39,0.2)",
+          border: "1px solid rgba(56,189,248,0.2)",
         }}
         onClick={() => inputRef.current?.focus()}
       >
@@ -78,9 +78,9 @@ export default function TagSelect({
             key={tag}
             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
             style={{
-              background: "rgba(201,162,39,0.15)",
-              border: "1px solid rgba(201,162,39,0.3)",
-              color: "#d4af4a",
+              background: "rgba(56,189,248,0.15)",
+              border: "1px solid rgba(56,189,248,0.3)",
+              color: "#7dd3fc",
             }}
           >
             {tag}
@@ -118,7 +118,7 @@ export default function TagSelect({
           className="absolute z-50 mt-1 w-full rounded-xl overflow-hidden shadow-xl"
           style={{
             background: "rgba(8,48,36,0.97)",
-            border: "1px solid rgba(201,162,39,0.2)",
+            border: "1px solid rgba(56,189,248,0.2)",
             backdropFilter: "blur(20px)",
           }}
         >
@@ -133,7 +133,7 @@ export default function TagSelect({
               style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
               onMouseEnter={(e) =>
                 ((e.currentTarget as HTMLElement).style.background =
-                  "rgba(201,162,39,0.1)")
+                  "rgba(56,189,248,0.1)")
               }
               onMouseLeave={(e) =>
                 ((e.currentTarget as HTMLElement).style.background = "")
@@ -149,10 +149,10 @@ export default function TagSelect({
                 addTag(input);
               }}
               className="px-3 py-2 text-sm cursor-pointer transition-colors"
-              style={{ color: "#d4af4a" }}
+              style={{ color: "#7dd3fc" }}
               onMouseEnter={(e) =>
                 ((e.currentTarget as HTMLElement).style.background =
-                  "rgba(201,162,39,0.1)")
+                  "rgba(56,189,248,0.1)")
               }
               onMouseLeave={(e) =>
                 ((e.currentTarget as HTMLElement).style.background = "")

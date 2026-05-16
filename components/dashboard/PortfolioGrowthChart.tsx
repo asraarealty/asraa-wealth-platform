@@ -77,7 +77,7 @@ export default function PortfolioGrowthChart({ totalValue, gainPercent }: Props)
     <div className="glass-card card-hover rounded-2xl p-5">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <p className="text-xs uppercase tracking-widest font-semibold mb-1" style={{ color: "rgba(201,162,39,0.65)" }}>
+          <p className="text-xs uppercase tracking-widest font-semibold mb-1" style={{ color: "rgba(56,189,248,0.65)" }}>
             Portfolio Growth
           </p>
           <p className="text-xl font-bold text-white tracking-tight">
@@ -180,7 +180,7 @@ export default function PortfolioGrowthChart({ totalValue, gainPercent }: Props)
           cx={toX(peakIdx)}
           cy={toY(data[peakIdx].value)}
           r={5}
-          fill="#c9a227"
+          fill="#38bdf8"
           filter="url(#dotGlow)"
         />
         <circle
@@ -188,7 +188,7 @@ export default function PortfolioGrowthChart({ totalValue, gainPercent }: Props)
           cy={toY(data[peakIdx].value)}
           r={9}
           fill="none"
-          stroke="#c9a227"
+          stroke="#38bdf8"
           strokeOpacity={0.25}
           strokeWidth={1.5}
         />

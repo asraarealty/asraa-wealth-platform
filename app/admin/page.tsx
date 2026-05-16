@@ -143,7 +143,7 @@ export default function AdminPage() {
 
       {/* HEADER */}
       <div>
-        <h1 className="text-2xl font-bold text-[#c9a227]">Financial Intelligence</h1>
+        <h1 className="text-2xl font-bold text-sky-300">Financial Intelligence</h1>
         <p className="text-sm text-gray-400 mt-1">
           Actionable insights across all client portfolios.
         </p>
@@ -193,7 +193,7 @@ export default function AdminPage() {
 
         {/* Client selector */}
         <div className="glass-card rounded-2xl p-5 mb-4">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#c9a227" }}>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#7dd3fc" }}>
             Select Client
           </p>
           <ClientSelector
@@ -209,7 +209,7 @@ export default function AdminPage() {
         {!selectedClient && (
           <div
             className="glass-card rounded-2xl p-10 text-center"
-            style={{ border: "1px solid rgba(201,162,39,0.15)" }}
+            style={{ border: "1px solid rgba(56,189,248,0.18)" }}
           >
             <p className="text-gray-400 text-sm">
               Select a client above to view their holdings.
@@ -220,7 +220,7 @@ export default function AdminPage() {
         {selectedClient && assets.length === 0 && (
           <div
             className="glass-card rounded-2xl p-10 text-center"
-            style={{ border: "1px solid rgba(201,162,39,0.15)" }}
+            style={{ border: "1px solid rgba(56,189,248,0.18)" }}
           >
             <p className="text-gray-400 text-sm">
               No assets found for <span className="text-white font-medium">{selectedClient.name}</span>.
@@ -255,7 +255,7 @@ function SectionHeading({
 }) {
   return (
     <div className="flex items-center justify-between mb-3">
-      <h2 className="text-sm font-semibold uppercase tracking-widest text-[#c9a227]">
+      <h2 className="text-sm font-semibold uppercase tracking-widest text-sky-300">
         {title}
       </h2>
       {link && (

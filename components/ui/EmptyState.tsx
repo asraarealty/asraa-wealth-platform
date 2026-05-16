@@ -22,7 +22,7 @@ export default function EmptyState({
           className="w-12 h-12 opacity-30"
           fill="none"
           viewBox="0 0 48 48"
-          stroke="#c9a227"
+          stroke="#38bdf8"
           strokeWidth={1.5}
         >
           <circle cx="24" cy="24" r="20" />

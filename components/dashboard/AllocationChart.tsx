@@ -10,7 +10,7 @@ interface Slice {
 }
 
 const SLICE_COLORS = [
-  "#c9a227",
+  "#38bdf8",
   "#2ecc71",
   "#3498db",
   "#9b59b6",
@@ -70,7 +70,7 @@ export default function AllocationChart({ allocation }: Props) {
 
   return (
     <div className="glass-card card-hover rounded-2xl p-5">
-      <p className="text-xs uppercase tracking-widest font-semibold mb-4" style={{ color: "rgba(201,162,39,0.65)" }}>
+      <p className="text-xs uppercase tracking-widest font-semibold mb-4" style={{ color: "rgba(56,189,248,0.65)" }}>
         Allocation
       </p>
 
@@ -151,7 +151,7 @@ export default function AllocationChart({ allocation }: Props) {
             x={cx}
             y={cy + 10}
             textAnchor="middle"
-            fill="rgba(201,162,39,0.8)"
+            fill="rgba(56,189,248,0.8)"
             fontSize={9}
           >
             Diversified
