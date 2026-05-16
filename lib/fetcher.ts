@@ -63,9 +63,10 @@ export async function fetcher<T>(
 
   const token = getToken();
 
-  const url = (path.startsWith("http") || path.startsWith("/auth/"))
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const url = path.startsWith("http") || normalizedPath.startsWith(API_BASE_URL)
     ? path
-    : `${API_BASE_URL}${path}`;
+    : `${API_BASE_URL}${normalizedPath}`;
 
   let response: Response;
 
