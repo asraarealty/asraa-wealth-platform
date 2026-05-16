@@ -145,10 +145,30 @@ export default function DashboardPage() {
       </div>
 
       <SurfaceCard className="p-4 sm:p-5">
-        <SectionHeader eyebrow="Module Slots" title="Configurable dashboard composition" subtitle="Reserved slots for institution-specific widgets and workflows" />
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="v2-slot">Module Slot A · Liquidity stress model</div>
-          <div className="v2-slot">Module Slot B · Deal pipeline intelligence</div>
+        <SectionHeader
+          eyebrow="Real Estate Operations"
+          title="Property health snapshot"
+          subtitle="Rent pipeline, occupancy and cashflow at a glance"
+          action={<Link href="/real-estate" className="v2-link">Full ops →</Link>}
+        />
+        <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <MetricTile label="RE Asset Value" value={fmt(data.realEstate.totalValue)} />
+          <MetricTile label="Monthly Rent" value={fmt(data.realEstate.monthlyRent)} />
+          <MetricTile label="Occupied Units" value={String(data.realEstate.occupied)} />
+          <div className="v2-tile rounded-xl flex flex-col justify-between">
+            <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Rent Alerts</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {data.realEstate.overdueRent > 0 && (
+                <StatusPill label={`${data.realEstate.overdueRent} overdue`} tone="danger" />
+              )}
+              {data.realEstate.dueSoonRent > 0 && (
+                <StatusPill label={`${data.realEstate.dueSoonRent} due soon`} tone="warn" />
+              )}
+              {data.realEstate.overdueRent === 0 && data.realEstate.dueSoonRent === 0 && (
+                <StatusPill label="All clear" tone="success" />
+              )}
+            </div>
+          </div>
         </div>
       </SurfaceCard>
     </div>
