@@ -81,8 +81,8 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
                 onClick={() => handleSort(key)}
                 className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest whitespace-nowrap select-none ${key ? "cursor-pointer hover:text-gold-light" : ""}`}
                 style={{
-                  borderBottom: "1px solid rgba(201,162,39,0.15)",
-                  color: sortKey === key ? "#d4af4a" : "#c9a227",
+                  borderBottom: "1px solid rgba(56,189,248,0.15)",
+                  color: sortKey === key ? "#7dd3fc" : "#38bdf8",
                 }}
               >
                 {label}
@@ -102,8 +102,8 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
             return (
               <tr
                 key={pos.id}
-                className="transition-colors hover:bg-[rgba(201,162,39,0.04)]"
-                style={{ borderBottom: "1px solid rgba(201,162,39,0.07)" }}
+                className="transition-colors hover:bg-[rgba(56,189,248,0.04)]"
+                style={{ borderBottom: "1px solid rgba(56,189,248,0.07)" }}
               >
                 {/* Name */}
                 <td className="px-4 py-3">

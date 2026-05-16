@@ -118,7 +118,7 @@ export default function KPISection({ portfolio }: KPISectionProps) {
           label="Stocks"
           value={fmtCurrency(stockValue)}
           percentage={pct(stockValue)}
-          color="#c9a227"
+          color="#38bdf8"
         />
         <BreakdownCard
           label="Mutual Funds"

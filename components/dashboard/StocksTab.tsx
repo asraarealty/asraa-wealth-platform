@@ -61,7 +61,7 @@ export default function StocksTab({
         <button
           onClick={() => { setEditing(null); setModalOpen(true); }}
           className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl transition-colors"
-          style={{ background: "#c9a227", color: "#071a14" }}
+          style={{ background: "#38bdf8", color: "#04102a" }}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -78,7 +78,7 @@ export default function StocksTab({
             <button
               onClick={() => { setEditing(null); setModalOpen(true); }}
               className="px-4 py-2 text-sm font-semibold rounded-xl"
-              style={{ background: "#c9a227", color: "#071a14" }}
+              style={{ background: "#38bdf8", color: "#04102a" }}
             >
               + Add Stock
             </button>
@@ -95,8 +95,8 @@ export default function StocksTab({
                       key={h}
                       className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest whitespace-nowrap"
                       style={{
-                        borderBottom: "1px solid rgba(201,162,39,0.15)",
-                        color: "#c9a227",
+                        borderBottom: "1px solid rgba(56,189,248,0.15)",
+                        color: "#38bdf8",
                       }}
                     >
                       {h}
@@ -112,11 +112,11 @@ export default function StocksTab({
                 return (
                   <tr
                     key={a.id}
-                    style={{ borderBottom: "1px solid rgba(201,162,39,0.07)" }}
+                    style={{ borderBottom: "1px solid rgba(56,189,248,0.07)" }}
                     className="transition-colors"
                     onMouseEnter={(e) =>
                       ((e.currentTarget as HTMLElement).style.background =
-                        "rgba(201,162,39,0.04)")
+                        "rgba(56,189,248,0.04)")
                     }
                     onMouseLeave={(e) =>
                       ((e.currentTarget as HTMLElement).style.background = "")
@@ -138,9 +138,9 @@ export default function StocksTab({
                             key={tag}
                             className="text-xs px-2 py-0.5 rounded-full"
                             style={{
-                              background: "rgba(201,162,39,0.12)",
-                              color: "#d4af4a",
-                              border: "1px solid rgba(201,162,39,0.2)",
+                              background: "rgba(56,189,248,0.12)",
+                              color: "#7dd3fc",
+                              border: "1px solid rgba(56,189,248,0.2)",
                             }}
                           >
                             {tag}
@@ -154,9 +154,9 @@ export default function StocksTab({
                           onClick={() => { setEditing(a); setModalOpen(true); }}
                           className="text-xs px-2.5 py-1 rounded-lg transition-colors"
                           style={{
-                            background: "rgba(201,162,39,0.1)",
-                            color: "#d4af4a",
-                            border: "1px solid rgba(201,162,39,0.2)",
+                            background: "rgba(56,189,248,0.1)",
+                            color: "#7dd3fc",
+                            border: "1px solid rgba(56,189,248,0.2)",
                           }}
                         >
                           Edit

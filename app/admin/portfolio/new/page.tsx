@@ -83,7 +83,7 @@ export default function NewPortfolioPage() {
     <div className="max-w-xl mx-auto text-white space-y-6">
       {/* HEADER */}
       <div>
-        <h1 className="text-2xl font-bold" style={{ color: "#c9a227" }}>
+        <h1 className="text-2xl font-bold" style={{ color: "#38bdf8" }}>
           Add Position
         </h1>
         <p className="text-sm text-gray-400 mt-1">
@@ -95,13 +95,13 @@ export default function NewPortfolioPage() {
       <div
         className="p-5 rounded-2xl"
         style={{
-          background: "rgba(11,61,46,0.6)",
-          border: "1px solid rgba(201,162,39,0.2)",
+          background: "rgba(13,29,63,0.68)",
+          border: "1px solid rgba(56,189,248,0.2)",
         }}
       >
         <p
           className="text-xs font-semibold uppercase tracking-widest mb-3"
-          style={{ color: "#c9a227" }}
+          style={{ color: "#38bdf8" }}
         >
           Select Client *
         </p>
@@ -116,8 +116,8 @@ export default function NewPortfolioPage() {
         onSubmit={handleSubmit}
         className="space-y-4 p-6 rounded-2xl"
         style={{
-          background: "rgba(11,61,46,0.6)",
-          border: "1px solid rgba(201,162,39,0.2)",
+          background: "rgba(13,29,63,0.68)",
+          border: "1px solid rgba(56,189,248,0.2)",
         }}
       >
         {/* ASSET TYPE */}
@@ -127,7 +127,7 @@ export default function NewPortfolioPage() {
             value={form.type}
             onChange={(e) => handleChange("type", e.target.value)}
             className="w-full mt-1 p-2 rounded-xl bg-transparent border border-gray-600 focus:outline-none focus:ring-1 text-white"
-            style={{ background: "rgba(11,61,46,0.8)" }}
+            style={{ background: "rgba(10,24,54,0.8)" }}
             required
           >
             {ASSET_TYPES.map((t) => (
@@ -221,7 +221,7 @@ export default function NewPortfolioPage() {
             disabled={loading}
             className="px-4 py-2 rounded-xl font-semibold text-black"
             style={{
-              background: "linear-gradient(90deg, #C9A227, #d4af4a)",
+              background: "linear-gradient(90deg, #38bdf8, #7dd3fc)",
             }}
           >
             {loading ? "Adding..." : "Add Position"}

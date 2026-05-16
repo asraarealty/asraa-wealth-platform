@@ -60,7 +60,7 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="w-full rounded-2xl p-8 shadow-2xl bg-[#0A0F0D] border border-[#C9A22733]">
+    <div className="w-full rounded-2xl p-8 shadow-2xl bg-[#0b1a3a]/85 border border-sky-400/25 backdrop-blur-xl">
       <h2 className="text-xl font-bold text-white mb-6">Welcome back</h2>
 
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -72,7 +72,7 @@ export default function LoginForm() {
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-2 rounded bg-black/40 text-white outline-none focus:ring-2 focus:ring-yellow-500"
+          className="w-full p-2 rounded bg-[#020817]/50 text-white outline-none border border-sky-400/15 focus:ring-2 focus:ring-sky-400"
         />
 
         {/* Password */}
@@ -84,7 +84,7 @@ export default function LoginForm() {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 rounded bg-black/40 text-white outline-none focus:ring-2 focus:ring-yellow-500"
+            className="w-full p-2 rounded bg-[#020817]/50 text-white outline-none border border-sky-400/15 focus:ring-2 focus:ring-sky-400"
           />
           <button
             type="button"
@@ -102,7 +102,7 @@ export default function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-2 bg-yellow-500 text-black rounded disabled:opacity-50"
+          className="w-full py-2 bg-gradient-to-r from-sky-400 to-blue-500 text-white rounded disabled:opacity-50 shadow-[0_8px_20px_rgba(56,189,248,0.25)]"
         >
           {loading ? "Signing in..." : "Sign In"}
         </button>

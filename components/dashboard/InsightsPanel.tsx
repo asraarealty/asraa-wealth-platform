@@ -77,15 +77,15 @@ export default function InsightsPanel({ insights }: InsightsPanelProps) {
         <div
           className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
           style={{
-            background: "rgba(201,162,39,0.15)",
-            border: "1px solid rgba(201,162,39,0.25)",
+            background: "rgba(56,189,248,0.15)",
+            border: "1px solid rgba(56,189,248,0.25)",
           }}
         >
           <svg
             className="w-4 h-4"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#c9a227"
+            stroke="#38bdf8"
             strokeWidth={1.8}
           >
             <path
@@ -109,7 +109,7 @@ export default function InsightsPanel({ insights }: InsightsPanelProps) {
         <p className="text-xs font-semibold uppercase tracking-widest text-gold-light mb-3">
           Portfolio Allocation
         </p>
-        <AllocationBar label="Equity" percent={equityPercentage} color="#c9a227" />
+        <AllocationBar label="Equity" percent={equityPercentage} color="#38bdf8" />
         <AllocationBar label="Real Estate" percent={realEstatePercentage} color="#3498db" />
         <AllocationBar label="Debt / Other" percent={debtPercentage} color="#9b59b6" />
       </div>

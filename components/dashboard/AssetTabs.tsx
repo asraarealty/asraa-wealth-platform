@@ -78,9 +78,9 @@ export default function AssetTabs({
               style={
                 active
                   ? {
-                      background: "rgba(201,162,39,0.15)",
-                      color: "#d4af4a",
-                      border: "1px solid rgba(201,162,39,0.25)",
+                      background: "rgba(56,189,248,0.15)",
+                      color: "#7dd3fc",
+                      border: "1px solid rgba(56,189,248,0.25)",
                     }
                   : {
                       color: "rgba(255,255,255,0.5)",
@@ -95,7 +95,7 @@ export default function AssetTabs({
                   className="text-xs px-1.5 py-0.5 rounded-full font-semibold"
                   style={
                     active
-                      ? { background: "rgba(201,162,39,0.25)", color: "#d4af4a" }
+                      ? { background: "rgba(56,189,248,0.25)", color: "#7dd3fc" }
                       : { background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)" }
                   }
                 >

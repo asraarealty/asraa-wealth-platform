@@ -136,7 +136,7 @@ export default function AdminPortfolioPage() {
     <div className="space-y-6 text-white">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold" style={{ color: "#c9a227" }}>
+        <h1 className="text-2xl font-bold" style={{ color: "#38bdf8" }}>
           Client Portfolio
         </h1>
         <p className="text-sm text-gray-400 mt-1">
@@ -146,7 +146,7 @@ export default function AdminPortfolioPage() {
 
       {/* Client Selector */}
       <div className="glass-card rounded-2xl p-5">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#c9a227" }}>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#38bdf8" }}>
           Select Client
         </p>
         <ClientSelector
@@ -162,13 +162,13 @@ export default function AdminPortfolioPage() {
       {!selectedClient && (
         <div
           className="glass-card rounded-2xl p-10 text-center"
-          style={{ border: "1px solid rgba(201,162,39,0.15)" }}
+          style={{ border: "1px solid rgba(56,189,248,0.15)" }}
         >
           <div
             className="mx-auto w-12 h-12 rounded-xl flex items-center justify-center mb-4"
-            style={{ background: "rgba(201,162,39,0.1)", border: "1px solid rgba(201,162,39,0.2)" }}
+            style={{ background: "rgba(56,189,248,0.1)", border: "1px solid rgba(56,189,248,0.2)" }}
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="#c9a227" strokeWidth={1.8}>
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="#38bdf8" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
             </svg>
           </div>
@@ -198,12 +198,12 @@ export default function AdminPortfolioPage() {
           {/* ── Client header ── */}
           <div
             className="flex flex-wrap items-center gap-3 px-5 py-4 rounded-xl"
-            style={{ background: "rgba(201,162,39,0.08)", border: "1px solid rgba(201,162,39,0.2)" }}
+            style={{ background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.2)" }}
           >
             {/* Avatar */}
             <div
               className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-              style={{ background: "rgba(201,162,39,0.2)", color: "#c9a227" }}
+              style={{ background: "rgba(56,189,248,0.2)", color: "#38bdf8" }}
             >
               {clientInitial}
             </div>
@@ -255,7 +255,7 @@ export default function AdminPortfolioPage() {
               <button
                 onClick={() => setAddModalOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors"
-                style={{ background: "#c9a227", color: "#071a14" }}
+                style={{ background: "#38bdf8", color: "#04102a" }}
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -323,7 +323,7 @@ export default function AdminPortfolioPage() {
           {assets.length === 0 && (
             <div
               className="glass-card rounded-2xl p-10 text-center"
-              style={{ border: "1px solid rgba(201,162,39,0.15)" }}
+              style={{ border: "1px solid rgba(56,189,248,0.15)" }}
             >
               <p className="text-gray-400 text-sm">
                 No assets found for {selectedClient.name}. Add their first investment below.

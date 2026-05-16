@@ -68,7 +68,7 @@ export default function NewClientPage() {
     <div className="max-w-xl mx-auto text-white space-y-6">
       {/* HEADER */}
       <div>
-        <h1 className="text-2xl font-bold" style={{ color: "#c9a227" }}>
+        <h1 className="text-2xl font-bold" style={{ color: "#38bdf8" }}>
           Add Client
         </h1>
         <p className="text-sm text-gray-400 mt-1">
@@ -81,8 +81,8 @@ export default function NewClientPage() {
         onSubmit={handleSubmit}
         className="space-y-4 p-6 rounded-2xl"
         style={{
-          background: "rgba(11,61,46,0.6)",
-          border: "1px solid rgba(201,162,39,0.2)",
+          background: "rgba(13,29,63,0.68)",
+          border: "1px solid rgba(56,189,248,0.2)",
         }}
       >
         {/* NAME */}
@@ -132,7 +132,7 @@ export default function NewClientPage() {
             disabled={loading}
             className="px-4 py-2 rounded-xl font-semibold text-black"
             style={{
-              background: "linear-gradient(90deg, #C9A227, #d4af4a)",
+              background: "linear-gradient(90deg, #38bdf8, #7dd3fc)",
             }}
           >
             {loading ? "Creating..." : "Create Client"}

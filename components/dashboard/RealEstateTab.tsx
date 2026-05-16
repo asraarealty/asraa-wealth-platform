@@ -96,7 +96,7 @@ export default function RealEstateTab({
         <button
           onClick={() => { setEditing(null); setModalOpen(true); }}
           className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl transition-colors"
-          style={{ background: "#c9a227", color: "#071a14" }}
+          style={{ background: "#38bdf8", color: "#04102a" }}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -113,7 +113,7 @@ export default function RealEstateTab({
             <button
               onClick={() => { setEditing(null); setModalOpen(true); }}
               className="px-4 py-2 text-sm font-semibold rounded-xl"
-              style={{ background: "#c9a227", color: "#071a14" }}
+              style={{ background: "#38bdf8", color: "#04102a" }}
             >
               + Add Property
             </button>
@@ -152,9 +152,9 @@ export default function RealEstateTab({
                       onClick={() => { setEditing(a); setModalOpen(true); }}
                       className="text-xs px-2.5 py-1 rounded-lg transition-colors"
                       style={{
-                        background: "rgba(201,162,39,0.1)",
-                        color: "#d4af4a",
-                        border: "1px solid rgba(201,162,39,0.2)",
+                        background: "rgba(56,189,248,0.1)",
+                        color: "#7dd3fc",
+                        border: "1px solid rgba(56,189,248,0.2)",
                       }}
                     >
                       Edit
@@ -200,7 +200,7 @@ export default function RealEstateTab({
                       {a.rent_amount ? fmt(a.rent_amount) : "—"}
                     </p>
                     {yieldPct != null && (
-                      <p className="text-xs font-medium mt-0.5" style={{ color: "#d4af4a" }}>
+                      <p className="text-xs font-medium mt-0.5" style={{ color: "#7dd3fc" }}>
                         {yieldPct.toFixed(2)}% yield
                       </p>
                     )}
@@ -226,11 +226,11 @@ export default function RealEstateTab({
                   <div
                     className="rounded-xl p-3 space-y-1"
                     style={{
-                      background: "rgba(201,162,39,0.05)",
-                      border: "1px solid rgba(201,162,39,0.1)",
+                      background: "rgba(56,189,248,0.05)",
+                      border: "1px solid rgba(56,189,248,0.1)",
                     }}
                   >
-                    <p className="text-xs font-semibold" style={{ color: "#d4af4a" }}>
+                    <p className="text-xs font-semibold" style={{ color: "#7dd3fc" }}>
                       Tenant
                     </p>
                     <p className="text-sm text-white">{a.tenant_name}</p>
@@ -251,9 +251,9 @@ export default function RealEstateTab({
                         key={tag}
                         className="text-xs px-2 py-0.5 rounded-full"
                         style={{
-                          background: "rgba(201,162,39,0.12)",
-                          color: "#d4af4a",
-                          border: "1px solid rgba(201,162,39,0.2)",
+                          background: "rgba(56,189,248,0.12)",
+                          color: "#7dd3fc",
+                          border: "1px solid rgba(56,189,248,0.2)",
                         }}
                       >
                         {tag}

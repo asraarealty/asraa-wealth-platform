@@ -236,7 +236,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
   }
 
   return (
-    <div className="min-h-screen text-white bg-[#071a14] p-6 space-y-6">
+    <div className="min-h-screen text-white bg-[#040915] p-6 space-y-6">
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -248,9 +248,9 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
               <span
                 className="ml-2 text-xs px-2 py-0.5 rounded-full font-semibold"
                 style={{
-                  background: "rgba(201,162,39,0.12)",
-                  color: "#d4af4a",
-                  border: "1px solid rgba(201,162,39,0.2)",
+                  background: "rgba(56,189,248,0.14)",
+                  color: "#7dd3fc",
+                  border: "1px solid rgba(56,189,248,0.24)",
                 }}
               >
                 Admin
@@ -263,9 +263,9 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
             <button
               className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-colors"
               style={{
-                background: "rgba(201,162,39,0.15)",
-                color: "#d4af4a",
-                border: "1px solid rgba(201,162,39,0.25)",
+                background: "rgba(56,189,248,0.18)",
+                color: "#7dd3fc",
+                border: "1px solid rgba(56,189,248,0.3)",
               }}
               onClick={() => {
                 window.location.href = "/admin/clients/new";
@@ -318,10 +318,10 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
           <>
             {/* Empty state */}
             {shouldShowEmptyState && (
-              <div
-                className="glass-card rounded-2xl p-10 text-center"
-                style={{ border: "1px solid rgba(201,162,39,0.15)" }}
-              >
+                <div
+                  className="glass-card rounded-2xl p-10 text-center"
+                  style={{ border: "1px solid rgba(56,189,248,0.18)" }}
+                >
                 <p className="text-gray-400 text-sm">
                   No assets yet. Add your first investment.
                 </p>
@@ -418,7 +418,7 @@ export default function Dashboard({ clientId }: { clientId?: string }) {
       {!loading && !error && isAdmin && resolvedClientId === undefined && (
         <div
           className="glass-card rounded-2xl p-10 text-center"
-          style={{ border: "1px solid rgba(201,162,39,0.15)" }}
+          style={{ border: "1px solid rgba(56,189,248,0.18)" }}
         >
           <p className="text-gray-400 text-sm">
             Select a client above to view their portfolio.

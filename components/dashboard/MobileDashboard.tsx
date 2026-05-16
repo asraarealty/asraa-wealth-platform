@@ -238,8 +238,8 @@ function StockCard({
             <span
               className="px-2 py-0.5 rounded-full text-xs"
               style={{
-                background: "rgba(201,162,39,0.12)",
-                color: "#d4af4a",
+                background: "rgba(56,189,248,0.12)",
+                color: "#7dd3fc",
               }}
             >
               {asset.tags![0]}
@@ -253,9 +253,9 @@ function StockCard({
           onClick={onEdit}
           className="flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors"
           style={{
-            background: "rgba(201,162,39,0.1)",
-            color: "#d4af4a",
-            border: "1px solid rgba(201,162,39,0.2)",
+            background: "rgba(56,189,248,0.1)",
+            color: "#7dd3fc",
+            border: "1px solid rgba(56,189,248,0.2)",
           }}
         >
           Edit
@@ -323,9 +323,9 @@ function MFCard({
           onClick={onEdit}
           className="flex-1 py-1.5 text-xs font-semibold rounded-lg"
           style={{
-            background: "rgba(201,162,39,0.1)",
-            color: "#d4af4a",
-            border: "1px solid rgba(201,162,39,0.2)",
+            background: "rgba(56,189,248,0.1)",
+            color: "#7dd3fc",
+            border: "1px solid rgba(56,189,248,0.2)",
           }}
         >
           Edit
@@ -425,9 +425,9 @@ function PropertyCard({
           onClick={onEdit}
           className="flex-1 py-1.5 text-xs font-semibold rounded-lg"
           style={{
-            background: "rgba(201,162,39,0.1)",
-            color: "#d4af4a",
-            border: "1px solid rgba(201,162,39,0.2)",
+            background: "rgba(56,189,248,0.1)",
+            color: "#7dd3fc",
+            border: "1px solid rgba(56,189,248,0.2)",
           }}
         >
           Edit
@@ -467,7 +467,7 @@ function MobileEmptyState({
       <button
         onClick={onAdd}
         className="px-5 py-2.5 text-sm font-semibold rounded-xl"
-        style={{ background: "#c9a227", color: "#071a14" }}
+        style={{ background: "#38bdf8", color: "#04102a" }}
       >
         + Add {label}
       </button>
@@ -602,7 +602,7 @@ export default function MobileDashboard({
 
   return (
     <div
-      className="min-h-screen bg-[#071a14] text-white flex flex-col"
+      className="min-h-screen bg-[#040915] text-white flex flex-col"
       style={{ maxWidth: "100vw", overflowX: "hidden" }}
     >
       {/* ── Sticky Header ──────────────────────────────────────────── */}
@@ -612,7 +612,7 @@ export default function MobileDashboard({
           background: "rgba(7,26,20,0.92)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
-          borderBottom: "1px solid rgba(201,162,39,0.1)",
+          borderBottom: "1px solid rgba(56,189,248,0.1)",
         }}
       >
         <div className="flex items-start justify-between gap-2">
@@ -630,9 +630,9 @@ export default function MobileDashboard({
                     <span
                       className="ml-2 text-xs px-2 py-0.5 rounded-full font-semibold align-middle"
                       style={{
-                        background: "rgba(201,162,39,0.12)",
-                        color: "#d4af4a",
-                        border: "1px solid rgba(201,162,39,0.2)",
+                        background: "rgba(56,189,248,0.12)",
+                        color: "#7dd3fc",
+                        border: "1px solid rgba(56,189,248,0.2)",
                       }}
                     >
                       Admin
@@ -678,7 +678,7 @@ export default function MobileDashboard({
               <button
                 onClick={() => setActiveTab("profile")}
                 className="px-5 py-2.5 text-sm font-semibold rounded-xl"
-                style={{ background: "#c9a227", color: "#071a14" }}
+                style={{ background: "#38bdf8", color: "#04102a" }}
               >
                 Select Client
               </button>
@@ -719,7 +719,7 @@ export default function MobileDashboard({
                   >
                     <p className="text-xs text-gray-400 uppercase tracking-wide">AUM</p>
                     <p className="text-lg font-bold text-white">{fmtCompact(totalValue)}</p>
-                    <p className="text-xs" style={{ color: "#d4af4a" }}>
+                    <p className="text-xs" style={{ color: "#7dd3fc" }}>
                       Total value
                     </p>
                   </div>
@@ -752,7 +752,7 @@ export default function MobileDashboard({
                     <p className="text-lg font-bold text-white">
                       {topAssetPct.toFixed(0)}%
                     </p>
-                    <p className="text-xs" style={{ color: "#d4af4a" }}>
+                    <p className="text-xs" style={{ color: "#7dd3fc" }}>
                       {topAssetLabel}
                     </p>
                   </div>
@@ -794,7 +794,7 @@ export default function MobileDashboard({
                     <button
                       onClick={openAdd}
                       className="px-5 py-2.5 text-sm font-semibold rounded-xl"
-                      style={{ background: "#c9a227", color: "#071a14" }}
+                      style={{ background: "#38bdf8", color: "#04102a" }}
                     >
                       + Add Asset
                     </button>
@@ -920,7 +920,7 @@ export default function MobileDashboard({
             >
               <div
                 className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-lg font-bold"
-                style={{ background: "rgba(201,162,39,0.15)", color: "#d4af4a" }}
+                style={{ background: "rgba(56,189,248,0.15)", color: "#7dd3fc" }}
               >
                 {(user?.name ?? user?.email ?? "U")[0].toUpperCase()}
               </div>
@@ -933,9 +933,9 @@ export default function MobileDashboard({
                   <span
                     className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-semibold"
                     style={{
-                      background: "rgba(201,162,39,0.12)",
-                      color: "#d4af4a",
-                      border: "1px solid rgba(201,162,39,0.2)",
+                      background: "rgba(56,189,248,0.12)",
+                      color: "#7dd3fc",
+                      border: "1px solid rgba(56,189,248,0.2)",
                     }}
                   >
                     Admin
@@ -951,7 +951,7 @@ export default function MobileDashboard({
                 style={{ borderRadius: 12 }}
               >
                 <p className="text-xs font-semibold uppercase tracking-widest mb-3"
-                  style={{ color: "#d4af4a" }}>
+                  style={{ color: "#7dd3fc" }}>
                   Select Client
                 </p>
                 <ClientSelector
@@ -992,9 +992,9 @@ export default function MobileDashboard({
             width: 52,
             height: 52,
             borderRadius: "50%",
-            background: "#c9a227",
-            color: "#071a14",
-            boxShadow: "0 4px 20px rgba(201,162,39,0.5)",
+            background: "#38bdf8",
+            color: "#04102a",
+            boxShadow: "0 4px 20px rgba(56,189,248,0.5)",
           }}
           aria-label="Add asset"
         >
@@ -1018,7 +1018,7 @@ export default function MobileDashboard({
           background: "rgba(7,26,20,0.95)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
-          borderTop: "1px solid rgba(201,162,39,0.12)",
+          borderTop: "1px solid rgba(56,189,248,0.12)",
         }}
       >
         {NAV_ITEMS.map((item) => {
@@ -1028,7 +1028,7 @@ export default function MobileDashboard({
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               className="flex flex-col items-center gap-1 px-3 py-1 transition-colors"
-              style={{ color: active ? "#c9a227" : "rgba(255,255,255,0.35)" }}
+              style={{ color: active ? "#38bdf8" : "rgba(255,255,255,0.35)" }}
             >
               {item.icon(active)}
               <span className="text-xs font-medium">{item.label}</span>

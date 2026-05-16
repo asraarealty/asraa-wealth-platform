@@ -81,15 +81,15 @@ export default function RecommendationCard({ rows }: Props) {
         <div
           className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
           style={{
-            background: "rgba(201,162,39,0.15)",
-            border: "1px solid rgba(201,162,39,0.25)",
+            background: "rgba(56,189,248,0.15)",
+            border: "1px solid rgba(56,189,248,0.25)",
           }}
         >
           <svg
             className="w-4 h-4"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#c9a227"
+            stroke="#38bdf8"
             strokeWidth={1.8}
           >
             <path
@@ -122,9 +122,9 @@ export default function RecommendationCard({ rows }: Props) {
                 <div
                   className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                   style={{
-                    background: "rgba(201,162,39,0.15)",
-                    color: "#c9a227",
-                    border: "1px solid rgba(201,162,39,0.2)",
+                    background: "rgba(56,189,248,0.15)",
+                    color: "#38bdf8",
+                    border: "1px solid rgba(56,189,248,0.2)",
                   }}
                 >
                   {row.name.charAt(0).toUpperCase()}

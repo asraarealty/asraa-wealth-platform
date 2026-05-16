@@ -94,11 +94,11 @@ export default function AddAssetModal({ onClose, onSave }: AddAssetModalProps) {
               onMouseLeave={() => setHovered(null)}
               className="flex flex-col items-center gap-3 p-4 rounded-2xl text-center transition-all"
               style={{
-                background: hovered === t.id ? "rgba(201,162,39,0.08)" : "rgba(255,255,255,0.03)",
-                border: `1px solid ${hovered === t.id ? "rgba(201,162,39,0.35)" : "rgba(201,162,39,0.15)"}`,
+                background: hovered === t.id ? "rgba(56,189,248,0.08)" : "rgba(255,255,255,0.03)",
+                border: `1px solid ${hovered === t.id ? "rgba(56,189,248,0.35)" : "rgba(56,189,248,0.15)"}`,
               }}
             >
-              <span style={{ color: "#c9a227" }}>{t.icon}</span>
+              <span style={{ color: "#38bdf8" }}>{t.icon}</span>
               <div>
                 <p className="text-sm font-semibold text-white">{t.label}</p>
                 <p className="text-xs text-gray-500 mt-0.5">{t.description}</p>

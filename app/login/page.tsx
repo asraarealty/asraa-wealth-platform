@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#0A0F0D]">
+    <div className="min-h-screen flex flex-col bg-[#040915]">
       <Header />
 
       {/* Main content */}
@@ -49,7 +49,7 @@ export default function LoginPage() {
                   href="https://wa.me/919999999999"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 text-green-400 border border-green-500/30"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 text-sky-300 border border-sky-500/30"
                 >
                   Chat with us on WhatsApp
                 </Link>

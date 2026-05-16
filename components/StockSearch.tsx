@@ -161,7 +161,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
           className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
           fill="none"
           viewBox="0 0 24 24"
-          stroke="rgba(201,162,39,0.5)"
+          stroke="rgba(56,189,248,0.5)"
           strokeWidth={2}
         >
           <path
@@ -180,15 +180,15 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
           className="w-full pl-10 pr-4 py-2.5 text-sm text-white placeholder-white/30 rounded-xl transition focus:outline-none"
           style={{
             background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(201,162,39,0.2)",
+            border: "1px solid rgba(56,189,248,0.2)",
           }}
           onFocusCapture={(e) => {
-            e.currentTarget.style.borderColor = "rgba(201,162,39,0.5)";
-            e.currentTarget.style.boxShadow = "0 0 0 2px rgba(201,162,39,0.12)";
+            e.currentTarget.style.borderColor = "rgba(56,189,248,0.5)";
+            e.currentTarget.style.boxShadow = "0 0 0 2px rgba(56,189,248,0.12)";
             if (results.length > 0) setOpen(true);
           }}
           onBlur={(e) => {
-            e.currentTarget.style.borderColor = "rgba(201,162,39,0.2)";
+            e.currentTarget.style.borderColor = "rgba(56,189,248,0.2)";
             e.currentTarget.style.boxShadow = "none";
           }}
           aria-label="Search stocks"
@@ -200,7 +200,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
             className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin h-4 w-4"
             fill="none"
             viewBox="0 0 24 24"
-            style={{ color: "#c9a227" }}
+            style={{ color: "#38bdf8" }}
           >
             <circle
               className="opacity-25"
@@ -228,10 +228,10 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
           role="listbox"
           className="absolute z-50 mt-1.5 w-full rounded-xl shadow-2xl overflow-hidden max-h-80 overflow-y-auto"
           style={{
-            background: "rgba(8,48,36,0.97)",
-            border: "1px solid rgba(201,162,39,0.2)",
+            background: "rgba(7,20,48,0.97)",
+            border: "1px solid rgba(56,189,248,0.2)",
             backdropFilter: "blur(20px)",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,162,39,0.08)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(56,189,248,0.08)",
           }}
         >
           {results.length === 0 && !loading && (
@@ -250,7 +250,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
               style={{
                 background:
                   i === activeIndex
-                    ? "rgba(201,162,39,0.1)"
+                    ? "rgba(56,189,248,0.1)"
                     : "transparent",
                 borderBottom:
                   i < results.length - 1
@@ -280,7 +280,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
                 </div>
               </div>
               <div className="hidden sm:block text-right shrink-0">
-                <div className="text-xs" style={{ color: "rgba(201,162,39,0.5)" }}>Mkt Cap</div>
+                <div className="text-xs" style={{ color: "rgba(56,189,248,0.5)" }}>Mkt Cap</div>
                 <div className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
                   {formatMarketCap(stock.marketCap, getCurrency(stock.symbol))}
                 </div>

@@ -195,7 +195,7 @@ export default function RealEstateModal({
         {/* Divider */}
         <div
           className="text-xs font-semibold uppercase tracking-wider pt-1"
-          style={{ color: "rgba(201,162,39,0.5)" }}
+          style={{ color: "rgba(56,189,248,0.5)" }}
         >
           Tenant Details
         </div>

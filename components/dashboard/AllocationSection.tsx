@@ -18,7 +18,7 @@ export default function AllocationSection({ portfolio }: AllocationSectionProps)
   const { totalValue, stockValue, mfValue, propertyValue } = portfolio;
 
   const segments: Segment[] = [
-    { label: "Stocks", value: stockValue, color: "#c9a227", bg: "rgba(201,162,39,0.12)" },
+    { label: "Stocks", value: stockValue, color: "#38bdf8", bg: "rgba(56,189,248,0.12)" },
     { label: "Mutual Funds", value: mfValue, color: "#2ecc71", bg: "rgba(46,204,113,0.12)" },
     { label: "Property", value: propertyValue, color: "#3498db", bg: "rgba(52,152,219,0.12)" },
   ].filter((s) => s.value > 0);

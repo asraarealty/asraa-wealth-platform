@@ -48,7 +48,7 @@ export default function ClientsPage() {
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: "#c9a227" }}>
+          <h1 className="text-2xl font-bold" style={{ color: "#38bdf8" }}>
             Clients
           </h1>
           <p className="text-sm text-gray-400 mt-1">
@@ -61,8 +61,8 @@ export default function ClientsPage() {
           href="/admin/clients/new"
           className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl text-black transition-opacity hover:opacity-90"
           style={{
-            background: "linear-gradient(90deg, #C9A227, #d4af4a)",
-            boxShadow: "0 2px 10px rgba(201,162,39,0.3)",
+            background: "linear-gradient(90deg, #38bdf8, #7dd3fc)",
+            boxShadow: "0 2px 10px rgba(56,189,248,0.3)",
           }}
         >
           <svg
@@ -85,7 +85,7 @@ export default function ClientsPage() {
             className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
             fill="none"
             viewBox="0 0 24 24"
-            stroke="rgba(201,162,39,0.5)"
+            stroke="rgba(56,189,248,0.5)"
             strokeWidth={2}
           >
             <path
@@ -102,8 +102,8 @@ export default function ClientsPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-sm rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-1"
             style={{
-              background: "rgba(11,61,46,0.6)",
-              border: "1px solid rgba(201,162,39,0.2)",
+              background: "rgba(13,29,63,0.68)",
+              border: "1px solid rgba(56,189,248,0.2)",
             }}
           />
         </div>
@@ -124,7 +124,7 @@ export default function ClientsPage() {
                 href="/admin/clients/new"
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl text-black"
                 style={{
-                  background: "linear-gradient(90deg, #C9A227, #d4af4a)",
+                  background: "linear-gradient(90deg, #38bdf8, #7dd3fc)",
                 }}
               >
                 + Add Client
