@@ -36,8 +36,8 @@ lib/
 # Install dependencies
 npm install
 
-# Set your API base URL
-echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
+# Set your backend URL used by Next.js rewrites/proxy
+echo "BACKEND_URL=http://localhost:8000" > .env.local
 
 # Run development server
 npm run dev
@@ -49,7 +49,8 @@ Open [http://localhost:3000](http://localhost:3000) — you will be redirected t
 
 | Variable | Description |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | Base URL for the FastAPI backend (e.g. `https://api.asraa.com`) |
+| `BACKEND_URL` | Base URL for the FastAPI backend that Next.js rewrites proxy to (e.g. `https://api.asraarealty.in`) |
+| `NEXT_PUBLIC_API_URL` | Optional legacy fallback for rewrite target if `BACKEND_URL` is not set |
 
 ## Build
 
