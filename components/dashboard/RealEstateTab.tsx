@@ -62,7 +62,8 @@ export default function RealEstateTab({
   const [editing, setEditing] = useState<Asset | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const properties = assets.filter((a) => a.type === "property");
+  const safeAssets = Array.isArray(assets) ? assets : [];
+  const properties = safeAssets.filter((a) => a?.type === "property");
 
   async function handleSave(
     payload: CreateAssetPayload | UpdateAssetPayload
@@ -138,7 +139,7 @@ export default function RealEstateTab({
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <h3 className="font-semibold text-white text-sm truncate">
-                      {a.name}
+                      {a.name || "Unnamed property"}
                     </h3>
                     {a.location && (
                       <p className="text-xs mt-0.5 truncate" style={{ color: "rgba(255,255,255,0.45)" }}>
@@ -243,10 +244,10 @@ export default function RealEstateTab({
                 )}
 
                 {/* Tags */}
-                {(a.tags ?? []).length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {(a.tags ?? []).map((tag) => (
-                      <span
+                 {(Array.isArray(a.tags) ? a.tags : []).length > 0 && (
+                   <div className="flex flex-wrap gap-1">
+                    {(Array.isArray(a.tags) ? a.tags : []).map((tag) => (
+                       <span
                         key={tag}
                         className="text-xs px-2 py-0.5 rounded-full"
                         style={{

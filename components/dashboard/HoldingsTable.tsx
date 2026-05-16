@@ -33,6 +33,7 @@ const COLUMNS: { key: SortKey | null; label: string }[] = [
 ];
 
 export default function HoldingsTable({ positions }: HoldingsTableProps) {
+  const safePositions = Array.isArray(positions) ? positions : [];
   const [sortKey, setSortKey] = useState<SortKey>("value");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
@@ -46,7 +47,7 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
     }
   }
 
-  const sorted = [...positions].sort((a, b) => {
+  const sorted = [...safePositions].sort((a, b) => {
     let av: any = a[sortKey] ?? "";
     let bv: any = b[sortKey] ?? "";
     if (typeof av === "string") av = av.toLowerCase();
@@ -56,7 +57,7 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
     return 0;
   });
 
-  if (positions.length === 0) {
+  if (safePositions.length === 0) {
     return (
       <div
         className="rounded-xl p-8 text-center"
@@ -105,7 +106,7 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
                 <td className="px-4 py-3">
                   <div className="min-w-0">
                     <p className="text-white font-medium truncate max-w-[160px]">
-                      {pos.name}
+                      {pos.name || "Unnamed asset"}
                     </p>
                     {pos.symbol && (
                       <p className="text-xs text-gray-500 font-mono mt-0.5">

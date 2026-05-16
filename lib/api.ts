@@ -74,12 +74,14 @@ export function fetchClients(signal?: AbortSignal): Promise<Client[]> {
  * Fetch full client list for admin with normalized mapping.
  */
 export async function fetchAdminClients(signal?: AbortSignal): Promise<AdminClient[]> {
-  const res = await fetcher<any[]>("/clients/admin", { signal, raw: true, cache: 'no-store' });
-  return res.map((c: any) => ({
+  const rawRes = await fetcher<any>("/clients/admin", { signal, raw: true, cache: "no-store" });
+  const res = unwrap<any>(rawRes);
+  const list = Array.isArray(res) ? res : [];
+  return list.map((c: any) => ({
     id: c.id,
-    name: c.name,
-    email: c.email,
-    phone: c.phone,
+    name: c.name ?? "",
+    email: c.email ?? "",
+    phone: c.phone ?? undefined,
     isActive: Boolean(c.is_active ?? c.isActive ?? true),
     createdAt: c.created_at ?? c.createdAt,
   }));
@@ -180,7 +182,7 @@ const normalizeType = (type: string | undefined): AssetType => {
 
 export interface Asset {
   id: number;
-  type: "stock" | "mf" | "property";
+  type: AssetType;
   symbol?: string;
   name: string;
   quantity?: number;
@@ -222,6 +224,36 @@ function unwrap<T>(res: any): T {
   return (res.data ?? res) as T;
 }
 
+function toFiniteNumber(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function normalizeTags(tags: unknown): string[] {
+  if (!Array.isArray(tags)) return [];
+  return tags
+    .filter((tag): tag is string => typeof tag === "string")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function normalizeAssetRecord(a: any, userId?: number): Asset {
+  return {
+    ...a,
+    id: toFiniteNumber(a?.id, 0),
+    type: normalizeType(a?.asset_type ?? a?.type),
+    name: String(a?.name ?? a?.symbol ?? "Unnamed asset").trim() || "Unnamed asset",
+    symbol: typeof a?.symbol === "string" ? a.symbol : undefined,
+    quantity: toFiniteNumber(a?.quantity ?? 0, 0),
+    avgPrice: toFiniteNumber(a?.avg_price ?? a?.avgPrice ?? 0, 0),
+    currentPrice: toFiniteNumber(a?.current_price ?? a?.currentPrice ?? 0, 0),
+    value: toFiniteNumber(a?.value ?? 0, 0),
+    allocation: toFiniteNumber(a?.allocation ?? 0, 0),
+    tags: normalizeTags(a?.tags),
+    userId: userId ?? (toFiniteNumber(a?.user_id ?? a?.userId, 0) || undefined),
+  };
+}
+
 export interface DashboardSummary {
   totalValue: number;
   stockValue: number;
@@ -256,13 +288,7 @@ export async function fetchDashboardData(signal?: AbortSignal): Promise<Dashboar
 
   const rawAssets = Array.isArray(res?.assets) ? res.assets : (Array.isArray(res) ? res : []);
   
-  const assets: Asset[] = rawAssets.map((a: any) => ({
-    ...a,
-    avgPrice: Number(a.avg_price ?? a.avgPrice ?? 0),
-    currentPrice: Number(a.current_price ?? a.currentPrice ?? 0),
-    type: normalizeType(a.asset_type ?? a.type),
-    value: Number(a.value ?? 0),
-  }));
+  const assets: Asset[] = rawAssets.map((a: any) => normalizeAssetRecord(a));
 
   const summary: DashboardSummary = {
     totalValue: Number(res?.summary?.total_value ?? 0),
@@ -297,14 +323,9 @@ export async function fetchAdminGroupedAssets(
   const grouped: Record<number, Asset[]> = {};
   for (const [userId, rawAssets] of Object.entries(res ?? {})) {
     if (!Array.isArray(rawAssets)) continue;
-    grouped[Number(userId)] = rawAssets.map((a: any) => ({
-      ...a,
-      avgPrice: Number(a.avg_price ?? a.avgPrice ?? 0),
-      currentPrice: Number(a.current_price ?? a.currentPrice ?? 0),
-      type: normalizeType(a.asset_type ?? a.type),
-      value: Number(a.value ?? 0),
-      userId: Number(userId)
-    }));
+      grouped[Number(userId)] = rawAssets.map((a: any) =>
+        normalizeAssetRecord(a, Number(userId))
+      );
   }
   return grouped;
 }

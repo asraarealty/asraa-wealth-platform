@@ -54,10 +54,11 @@ export default function AssetTabs({
   onEdit,
   onDelete,
 }: AssetTabsProps) {
+  const safeAssets = Array.isArray(assets) ? assets : [];
   const counts: Record<Tab, number> = {
-    stocks: assets.filter((a) => a.type === "stock").length,
-    mutual_funds: assets.filter((a) => a.type === "mf").length,
-    real_estate: assets.filter((a) => a.type === "property").length,
+    stocks: safeAssets.filter((a) => a?.type === "stock").length,
+    mutual_funds: safeAssets.filter((a) => a?.type === "mf").length,
+    real_estate: safeAssets.filter((a) => a?.type === "property").length,
   };
 
   return (
@@ -108,13 +109,13 @@ export default function AssetTabs({
 
       {/* Tab content */}
       {activeTab === "stocks" && (
-        <StocksTab assets={assets} onAdd={onAdd} onEdit={onEdit} onDelete={onDelete} />
+        <StocksTab assets={safeAssets} onAdd={onAdd} onEdit={onEdit} onDelete={onDelete} />
       )}
       {activeTab === "mutual_funds" && (
-        <MutualFundsTab assets={assets} onAdd={onAdd} onEdit={onEdit} onDelete={onDelete} />
+        <MutualFundsTab assets={safeAssets} onAdd={onAdd} onEdit={onEdit} onDelete={onDelete} />
       )}
       {activeTab === "real_estate" && (
-        <RealEstateTab assets={assets} onAdd={onAdd} onEdit={onEdit} onDelete={onDelete} />
+        <RealEstateTab assets={safeAssets} onAdd={onAdd} onEdit={onEdit} onDelete={onDelete} />
       )}
     </div>
   );
