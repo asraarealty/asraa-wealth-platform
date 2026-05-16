@@ -1,4 +1,7 @@
-import type { Asset } from "@/lib/types/assets";
+import type { Asset as DashboardAsset } from "@/lib/types/assets";
+import type { Asset as AdminAsset } from "@/lib/api";
+
+type Asset = DashboardAsset | AdminAsset;
 
 export type CanonicalAssetType = "stock" | "mf" | "property" | "commodity";
 
@@ -21,6 +24,14 @@ function n(value: unknown, fallback = 0): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function read(asset: Asset, ...keys: string[]) {
+  const record = asset as unknown as Record<string, unknown>;
+  for (const key of keys) {
+    if (record[key] !== undefined) return record[key];
+  }
+  return undefined;
+}
+
 function normalizeType(type: string | undefined | null): CanonicalAssetType {
   const t = String(type ?? "").toLowerCase();
   if (t === "real_estate") return "property";
@@ -35,43 +46,43 @@ export function toCanonicalAssetHolding(asset: Asset): CanonicalAssetHolding {
   const type = normalizeType(asset.type);
   const units =
     type === "mf"
-      ? n(asset.units ?? asset.quantity, 0)
+      ? n(read(asset, "units", "quantity"), 0)
       : type === "property"
       ? 1
       : n(asset.quantity, 0);
 
   const avgPrice =
     type === "property"
-      ? n(asset.purchase_price, 0)
+      ? n(read(asset, "purchase_price", "purchasePrice"), 0)
       : type === "mf"
-      ? n(asset.nav ?? asset.avg_price, 0)
-      : n(asset.avg_price, 0);
+      ? n(read(asset, "nav", "avg_price", "avgPrice"), 0)
+      : n(read(asset, "avg_price", "avgPrice"), 0);
 
   const currentPrice =
     type === "property"
-      ? n(asset.current_value, 0)
+      ? n(read(asset, "current_value", "currentValue"), 0)
       : type === "mf"
-      ? n(asset.nav ?? asset.current_price ?? asset.avg_price, 0)
-      : n(asset.current_price ?? asset.avg_price, 0);
+      ? n(read(asset, "nav", "current_price", "currentPrice", "avg_price", "avgPrice"), 0)
+      : n(read(asset, "current_price", "currentPrice", "avg_price", "avgPrice"), 0);
 
   const investedValue =
-    type === "property" ? n(asset.purchase_price, 0) : units * avgPrice;
+    type === "property" ? n(read(asset, "purchase_price", "purchasePrice"), 0) : units * avgPrice;
 
   const fallbackValue =
-    n(asset.value, 0) ||
-    (type === "property" ? n(asset.current_value, 0) : units * currentPrice);
+    n(read(asset, "value"), 0) ||
+    (type === "property" ? n(read(asset, "current_value", "currentValue"), 0) : units * currentPrice);
 
   return {
     id: n(asset.id, 0),
     type,
-    name: asset.name || asset.symbol || "Unnamed asset",
-    symbol: asset.symbol || asset.name || String(asset.id),
+    name: asset.name || (read(asset, "symbol") as string | undefined) || "Unnamed asset",
+    symbol: (read(asset, "symbol") as string | undefined) || asset.name || String(asset.id),
     units,
     avgPrice,
     currentPrice,
     investedValue,
     fallbackValue,
-    monthlyIncome: type === "property" ? n(asset.rent_amount, 0) : 0,
+    monthlyIncome: type === "property" ? n(read(asset, "rent_amount", "rentAmount"), 0) : 0,
     raw: asset,
   };
 }

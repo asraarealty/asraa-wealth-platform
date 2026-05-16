@@ -1,185 +1,117 @@
 "use client";
-import { useState } from "react";
-import { useAssets, useDeleteAsset } from "@/lib/hooks/useAssets";
-import { motion, AnimatePresence } from "framer-motion";
+
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { AssetCard } from "@/components/admin/platform/AssetCard";
+import { OperationalEmptyState } from "@/components/admin/platform/EmptyState";
+import { PlatformConfirmModal } from "@/components/admin/platform/PlatformModal";
+import { LoadingBlock, SectionHeader, SurfaceCard } from "@/components/v2/ui";
+import { useAssets, useDeleteAsset } from "@/lib/hooks/useAssets";
+import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 import type { Asset, AssetType } from "@/lib/types/assets";
 
-function fmt(n: number) {
-  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
-}
-
-const TYPE_COLORS: Record<string, string> = {
-  stock: "#38bdf8",
-  mf: "#34d399",
-  property: "#a78bfa",
-  commodity: "#f59e0b",
-};
-const TABS: { key: AssetType | "all"; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "stock", label: "Stocks" },
-  { key: "mf", label: "Mutual Funds" },
-  { key: "commodity", label: "Commodities" },
-  { key: "property", label: "Property" },
+const TABS: { key: AssetType | "all"; label: string; emptyTitle: string; emptyHint: string }[] = [
+  { key: "all", label: "All assets", emptyTitle: "Portfolio not onboarded", emptyHint: "Holdings sync" },
+  { key: "stock", label: "Stocks", emptyTitle: "No equity book yet", emptyHint: "Equity onboarding" },
+  { key: "mf", label: "Mutual funds", emptyTitle: "No fund mandates yet", emptyHint: "Fund onboarding" },
+  { key: "commodity", label: "Commodities", emptyTitle: "No commodity hedges yet", emptyHint: "Hedge onboarding" },
+  { key: "property", label: "Property", emptyTitle: "Property pipeline pending", emptyHint: "Real estate onboarding" },
 ];
-
-function getEditHref(asset: Asset): string {
-  if (asset.type === "stock") return `/stocks/${asset.id}/edit`;
-  if (asset.type === "mf") return `/mutual-funds/${asset.id}/edit`;
-  if (asset.type === "property") return `/properties/${asset.id}/edit`;
-  return `/assets/${asset.id}/edit`;
-}
-
-function AssetCard({ asset, onDelete }: { asset: Asset; onDelete: (id: number) => void }) {
-  const positive = asset.return_percentage >= 0;
-  const color = TYPE_COLORS[asset.type] ?? "#38bdf8";
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, scale: 0.97 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className="rounded-2xl p-4"
-      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
-    >
-      <div className="flex items-start gap-3">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-base font-bold shrink-0"
-          style={{ background: `${color}22`, color }}
-        >
-          {asset.name.charAt(0).toUpperCase()}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-white text-sm truncate">{asset.name}</p>
-          <p className="text-xs text-gray-500 capitalize">{asset.symbol ?? asset.type}</p>
-        </div>
-        <div className="text-right shrink-0">
-          <p className="font-bold text-white text-sm">{fmt(asset.value)}</p>
-          <p className={`text-xs font-medium ${positive ? "text-emerald-400" : "text-red-400"}`}>
-            {asset.return_percentage >= 0 ? "+" : ""}{asset.return_percentage.toFixed(2)}%
-          </p>
-        </div>
-      </div>
-
-      {/* Details */}
-      <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-400">
-        {asset.type === "stock" && (
-          <>
-            <span>Qty: <span className="text-white">{asset.quantity ?? "—"}</span></span>
-            <span>Avg: <span className="text-white">{asset.avg_price ? fmt(asset.avg_price) : "—"}</span></span>
-            <span>CMP: <span className="text-white">{asset.current_price ? fmt(asset.current_price) : "—"}</span></span>
-          </>
-        )}
-        {asset.type === "mf" && (
-          <>
-            <span>Units: <span className="text-white">{asset.units ?? "—"}</span></span>
-            <span>NAV: <span className="text-white">{asset.nav ? fmt(asset.nav) : "—"}</span></span>
-          </>
-        )}
-        {asset.type === "property" && (
-          <>
-            <span className="col-span-2">📍 <span className="text-white">{asset.location ?? "—"}</span></span>
-            {asset.tenant_name && <span className="col-span-2">👤 <span className="text-white">{asset.tenant_name}</span></span>}
-          </>
-        )}
-        {asset.type === "commodity" && (
-          <>
-            <span>Qty: <span className="text-white">{asset.quantity ?? "—"}</span></span>
-            <span>CMP: <span className="text-white">{asset.current_price ? fmt(asset.current_price) : "—"}</span></span>
-          </>
-        )}
-      </div>
-
-      <div className="flex gap-2 mt-3">
-        <Link
-          href={getEditHref(asset)}
-          className="flex-1 py-2 rounded-xl text-xs font-semibold text-center text-sky-400 border border-sky-500/20 hover:bg-sky-500/10 transition-colors"
-        >
-          Edit
-        </Link>
-        <button
-          onClick={() => { if (confirm("Delete this asset?")) onDelete(asset.id); }}
-          className="flex-1 py-2 rounded-xl text-xs font-semibold text-red-400 border border-red-500/20 hover:bg-red-500/10 transition-colors"
-        >
-          Delete
-        </button>
-      </div>
-    </motion.div>
-  );
-}
 
 export default function AssetsPage() {
   const [activeTab, setActiveTab] = useState<AssetType | "all">("all");
+  const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
   const { data, isLoading } = useAssets();
-  const deleteAsset = useDeleteAsset();
+  const deleteAssetMutation = useDeleteAsset();
 
   const assets = data?.assets ?? [];
-  const filtered = activeTab === "all" ? assets : assets.filter((a: Asset) => a.type === activeTab);
+  const summary = data?.summary;
+  const filtered = useMemo(
+    () => (activeTab === "all" ? assets : assets.filter((asset: Asset) => asset.type === activeTab)),
+    [activeTab, assets]
+  );
+  const activeTabMeta = TABS.find((tab) => tab.key === activeTab) ?? TABS[0];
 
   return (
-    <div className="px-4 pt-6 pb-4 space-y-4 max-w-lg mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-extrabold text-white">Assets</h1>
-        <Link
-          href="/assets/new"
-          className="px-4 py-2 rounded-xl text-sm font-semibold text-sky-400 border border-sky-500/20 hover:bg-sky-500/10 transition-colors"
-        >
-          + Add
-        </Link>
-      </div>
+    <div className="space-y-5">
+      <SurfaceCard className="p-4 sm:p-5">
+        <SectionHeader
+          eyebrow="Portfolio operating system"
+          title="Asset intelligence workspace"
+          subtitle="Unified valuation, risk, income, and operating controls across every asset class"
+          action={<Link href="/assets/new" className="rounded-xl bg-sky-400 px-4 py-2 text-sm font-semibold text-[#04102a] transition hover:bg-sky-300">Add Asset</Link>}
+        />
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Metric label="Live value" value={fmtCurrency(summary?.total_value ?? 0)} />
+          <Metric label="Invested capital" value={fmtCurrency(summary?.total_invested ?? 0)} />
+          <Metric label="Unrealized PnL" value={fmtCurrency(summary?.total_return ?? 0)} accent={(summary?.total_return ?? 0) >= 0 ? "text-emerald-200" : "text-rose-200"} />
+          <Metric label="Return %" value={fmtPercent(summary?.return_percentage ?? 0, true)} accent={(summary?.return_percentage ?? 0) >= 0 ? "text-emerald-200" : "text-rose-200"} />
+        </div>
+      </SurfaceCard>
 
-      {/* Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-              activeTab === tab.key
-                ? "bg-sky-500/20 text-sky-400 border border-sky-500/30"
-                : "text-gray-500 border border-white/5 hover:text-gray-300"
-            }`}
-          >
-            {tab.label} {tab.key !== "all" && `(${assets.filter((a: Asset) => a.type === tab.key).length})`}
-          </button>
-        ))}
-      </div>
+      <SurfaceCard className="p-4 sm:p-5">
+        <div className="flex flex-wrap items-center gap-2">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${activeTab === tab.key ? "border-sky-300/30 bg-sky-500/10 text-sky-100" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"}`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </SurfaceCard>
 
-      {/* Loading */}
-      {isLoading && (
-        <div className="flex justify-center pt-12">
-          <div className="w-8 h-8 rounded-full border-2 border-sky-400 border-t-transparent animate-spin" />
+      {isLoading ? (
+        <LoadingBlock label="Loading asset intelligence…" />
+      ) : filtered.length === 0 ? (
+        <OperationalEmptyState
+          title={activeTabMeta.emptyTitle}
+          description={activeTab === "all" ? "Connect the first holding to activate live valuation, allocation intelligence, and operating controls." : `Start the ${activeTabMeta.label.toLowerCase()} workflow to populate this operating book.`}
+          hint={activeTabMeta.emptyHint}
+          action={<Link href="/assets/new" className="rounded-xl bg-sky-400 px-4 py-2 text-sm font-semibold text-[#04102a]">Add asset</Link>}
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {filtered.map((asset: Asset) => {
+            const liveValue = asset.type === "property" ? Number(asset.current_value ?? asset.value ?? 0) : Number(asset.value ?? 0);
+            const allocationPct = summary && summary.total_value > 0 ? (liveValue * 100) / summary.total_value : 0;
+            return (
+              <AssetCard
+                key={asset.id}
+                asset={asset}
+                liveValue={liveValue}
+                livePrice={asset.type === "property" ? Number(asset.current_value ?? asset.value ?? 0) : Number(asset.current_price ?? asset.nav ?? asset.avg_price ?? 0)}
+                allocationPct={allocationPct}
+                onDelete={() => setAssetToDelete(asset)}
+                deleteLabel="Delete"
+              />
+            );
+          })}
         </div>
       )}
 
-      {/* Assets */}
-      {!isLoading && (
-        <AnimatePresence mode="popLayout">
-          {filtered.length === 0 ? (
-            <motion.div
-              key="empty"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-16 text-gray-500 text-sm"
-            >
-              No {activeTab === "all" ? "assets" : activeTab === "mf" ? "mutual funds" : activeTab === "commodity" ? "commodities" : activeTab} yet.
-              <br />
-              <Link href="/assets/new" className="text-sky-400 font-semibold mt-2 inline-block">Add one now →</Link>
-            </motion.div>
-          ) : (
-            <div className="space-y-3">
-              {filtered.map((asset: Asset) => (
-                <AssetCard
-                  key={asset.id}
-                  asset={asset}
-                  onDelete={(id) => deleteAsset.mutate(id)}
-                />
-              ))}
-            </div>
-          )}
-        </AnimatePresence>
-      )}
+      {assetToDelete ? (
+        <PlatformConfirmModal
+          title="Delete Asset"
+          description="This asset will be removed from active operations and the portfolio valuation engine."
+          confirmLabel="Delete asset"
+          onClose={() => setAssetToDelete(null)}
+          onConfirm={() => deleteAssetMutation.mutate(assetToDelete.id, { onSuccess: () => setAssetToDelete(null) })}
+          pending={deleteAssetMutation.isPending}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function Metric({ label, value, accent }: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+      <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">{label}</p>
+      <p className={`mt-2 text-lg font-semibold text-white ${accent ?? ""}`}>{value}</p>
     </div>
   );
 }

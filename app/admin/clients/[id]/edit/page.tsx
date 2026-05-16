@@ -1,0 +1,70 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ClientEditForm } from "@/components/admin/ClientEditForm";
+import { LoadingBlock, SurfaceCard } from "@/components/v2/ui";
+import { toErrorMessage } from "@/lib/fetcher";
+import { ADMIN_CLIENTS_QUERY_KEY } from "@/lib/hooks/useAdminClients";
+import {
+  archiveClient,
+  fetchClientById,
+  updateClient,
+  updateClientStatus,
+  type ClientUpdatePayload,
+} from "@/lib/services/clientService";
+
+export default function EditClientPage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const clientId = useMemo(() => Number(params.id), [params.id]);
+
+  const query = useQuery({
+    queryKey: ["admin", "clients", clientId, "detail"],
+    queryFn: () => fetchClientById(clientId),
+    enabled: Number.isFinite(clientId),
+  });
+
+  if (query.isLoading) return <LoadingBlock label="Loading client workspace…" />;
+
+  if (query.error || !query.data) {
+    return (
+      <SurfaceCard className="p-6">
+        <p className="text-sm font-semibold text-rose-300">Client workspace unavailable</p>
+        <p className="mt-2 text-sm text-slate-400">{toErrorMessage(query.error)}</p>
+      </SurfaceCard>
+    );
+  }
+
+  return (
+    <ClientEditForm
+      mode="edit"
+      client={query.data}
+      error={saveError}
+      submitting={saving}
+      onSubmit={async ({ status, ...payload }: ClientUpdatePayload & { status: "active" | "inactive" | "suspended" | "archived" }) => {
+        try {
+          setSaving(true);
+          setSaveError(null);
+          await updateClient(clientId, payload);
+          if (status === "archived") {
+            await archiveClient(clientId);
+          } else {
+            await updateClientStatus(clientId, status);
+          }
+          await queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY });
+          await queryClient.invalidateQueries({ queryKey: ["admin", "clients", clientId, "detail"] });
+          router.push("/admin/clients");
+        } catch (value) {
+          setSaveError(toErrorMessage(value));
+        } finally {
+          setSaving(false);
+        }
+      }}
+    />
+  );
+}
