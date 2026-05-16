@@ -272,15 +272,15 @@ export function ClientDetailPanel({ client, onClose }: Props) {
                     {p.tenantName && (
                       <span>Tenant: {p.tenantName}</span>
                     )}
-                    {(p.rentAmount || p.rent_amount) ? (
+                    {p.rentAmount ? (
                       <span>
                         Rent:{" "}
-                        {fmtCurrency(p.rentAmount || p.rent_amount || 0)}/mo
+                        {fmtCurrency(p.rentAmount)}/mo
                       </span>
                     ) : null}
-                    {(p.rentDueDate || p.rent_due_date) && (
+                    {p.rentDueDate && (
                       <span>
-                        Due: {fmtDate(p.rentDueDate || p.rent_due_date)}
+                        Due: {fmtDate(p.rentDueDate)}
                       </span>
                     )}
                   </div>

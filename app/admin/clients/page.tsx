@@ -505,6 +505,7 @@ export default function ClientsPage() {
                           >
                             {client.name
                               .split(" ")
+                              .filter((n: string) => n)
                               .map((n: string) => n[0])
                               .slice(0, 2)
                               .join("")

@@ -90,7 +90,7 @@ export function useAdminClients(): UseAdminClientsResult {
 
           const monthlyRentIncome = assets
             .filter((a) => a.type === "property")
-            .reduce((s, a) => s + (a.rentAmount || a.rent_amount || 0), 0);
+            .reduce((s, a) => s + (a.rentAmount ?? 0), 0);
 
           const allocationMix =
             totalNetWorth > 0
