@@ -37,11 +37,11 @@ function fmtDate(iso?: string): string {
 function AllocationMiniBar({
   mix,
 }: {
-  mix: { stock: number; mf: number; property: number };
+  mix: { stock: number; mf: number; property: number; commodity: number };
 }) {
-  const total = mix.stock + mix.mf + mix.property;
+  const total = mix.stock + mix.mf + mix.property + mix.commodity;
   if (total === 0)
-    return <span className="text-slate-600 text-[11px]">No assets</span>;
+    return <span className="text-slate-600 text-[11px]">Awaiting synced holdings</span>;
   return (
     <div className="flex items-center gap-1.5">
       <div className="flex rounded-full overflow-hidden h-1.5 w-20">
@@ -54,11 +54,15 @@ function AllocationMiniBar({
         {mix.property > 0 && (
           <div style={{ width: `${mix.property}%`, background: "#34d399" }} />
         )}
+        {mix.commodity > 0 && (
+          <div style={{ width: `${mix.commodity}%`, background: "#f59e0b" }} />
+        )}
       </div>
       <span className="text-[10px] text-slate-400 whitespace-nowrap">
         {mix.stock > 0 ? `E${mix.stock.toFixed(0)}%` : ""}
         {mix.mf > 0 ? ` F${mix.mf.toFixed(0)}%` : ""}
         {mix.property > 0 ? ` R${mix.property.toFixed(0)}%` : ""}
+        {mix.commodity > 0 ? ` C${mix.commodity.toFixed(0)}%` : ""}
       </span>
     </div>
   );

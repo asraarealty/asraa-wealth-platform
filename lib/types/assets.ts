@@ -1,4 +1,4 @@
-export type AssetType = "stock" | "mf" | "property";
+export type AssetType = "stock" | "mf" | "property" | "commodity";
 
 export interface Asset {
   id: number;
@@ -14,6 +14,8 @@ export interface Asset {
   current_price: number | null;
   units: number | null;
   nav: number | null;
+  commodity_type?: string | null;
+  unit?: string | null;
   location: string | null;
   purchase_price: number | null;
   current_value: number | null;
@@ -38,6 +40,7 @@ export interface DashboardAllocation {
   stock: number;
   mf: number;
   property: number;
+  commodity: number;
 }
 
 export interface DashboardResponse {

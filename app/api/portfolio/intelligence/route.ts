@@ -33,6 +33,8 @@ interface BackendClient {
 
 interface BackendPortfolioItem {
   id: number;
+  asset_type?: string;
+  type?: string;
   symbol: string;
   name: string;
   quantity: number;
@@ -73,9 +75,18 @@ async function backendGet<T>(path: string, authHeader: string): Promise<T> {
   return json as T;
 }
 
-/** True for stock-market symbols (not mutual-fund IDs or real-estate codes). */
-function isStockSymbol(symbol: string): boolean {
-  return !symbol.startsWith("PROP-") && !/^\d+$/.test(symbol);
+function normalizeAssetType(value: string | undefined): string {
+  const t = String(value ?? "").toLowerCase();
+  if (t === "real_estate") return "property";
+  if (t === "mutual_fund") return "mf";
+  return t;
+}
+
+/** True for stock holdings only. */
+function isStockItem(item: BackendPortfolioItem): boolean {
+  const type = normalizeAssetType(item.asset_type ?? item.type);
+  if (type) return type === "stock";
+  return !item.symbol.startsWith("PROP-") && !/^\d+$/.test(item.symbol);
 }
 
 type SuggestedAction = "Rebalance" | "Hold" | "Diversify";
@@ -141,7 +152,7 @@ export async function GET(request: NextRequest) {
     const allStockSymbols = new Set<string>();
     for (const items of clientPortfolios.values()) {
       for (const item of items) {
-        if (isStockSymbol(item.symbol)) {
+        if (isStockItem(item)) {
           allStockSymbols.add(item.symbol);
         }
       }
@@ -154,7 +165,7 @@ export async function GET(request: NextRequest) {
 
       // Enrich: replace current_price with live price for equity symbols
       const enrichedItems = rawItems.map((item) => {
-        if (!isStockSymbol(item.symbol)) return item;
+        if (!isStockItem(item)) return item;
         const livePrice = priceMap.get(item.symbol);
         if (livePrice === undefined) return item; // keep backend value or avg fallback
         return {
