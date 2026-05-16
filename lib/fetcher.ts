@@ -1,3 +1,4 @@
+// Path prefix only (not a full domain URL); rewritten by Next.js to BACKEND_URL.
 export const API_BASE_URL = "/api/v2";
 
 // ── Error types ─────────────────────────────────────────
@@ -64,9 +65,13 @@ export async function fetcher<T>(
   const token = getToken();
 
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  const url = path.startsWith("http") || normalizedPath.startsWith(API_BASE_URL)
-    ? path
-    : `${API_BASE_URL}${normalizedPath}`;
+  let url = path;
+
+  if (!path.startsWith("http")) {
+    url = normalizedPath.startsWith(API_BASE_URL)
+      ? normalizedPath
+      : `${API_BASE_URL}${normalizedPath}`;
+  }
 
   let response: Response;
 
