@@ -22,7 +22,10 @@ export function useAssets() {
     queryKey: ASSETS_KEY,
     queryFn: () => fetcher<RawEnvelope<AssetsData>>("/assets/me", { raw: true }),
     select: (res): AssetsData => {
-      const data = res?.data ?? (res as unknown as AssetsData);
+      // Backend returns { success, data: { summary, allocation, assets } }
+      // but may also return the inner data object directly.
+      const isEnvelope = res && typeof res === "object" && "data" in res && res.data != null;
+      const data: AssetsData = isEnvelope ? (res.data as AssetsData) : (res as unknown as AssetsData);
       return {
         summary: data?.summary ?? { total_value: 0, total_invested: 0, total_return: 0, return_percentage: 0 },
         allocation: data?.allocation ?? { stock: 0, mf: 0, property: 0 },
@@ -36,8 +39,12 @@ export function useInsights() {
   return useQuery<RawEnvelope<InsightsResponse>, Error, InsightsResponse>({
     queryKey: INSIGHTS_KEY,
     queryFn: () => fetcher<RawEnvelope<InsightsResponse>>("/insights/me", { raw: true }),
-    select: (res): InsightsResponse =>
-      res?.data ?? (res as unknown as InsightsResponse) ?? { equity_percentage: 0, real_estate_percentage: 0, alerts: [] },
+    select: (res): InsightsResponse => {
+      const isEnvelope = res && typeof res === "object" && "data" in res && res.data != null;
+      return isEnvelope
+        ? (res.data as InsightsResponse)
+        : (res as unknown as InsightsResponse) ?? { equity_percentage: 0, real_estate_percentage: 0, alerts: [] };
+    },
   });
 }
 

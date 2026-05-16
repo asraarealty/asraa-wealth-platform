@@ -169,8 +169,8 @@ export default function DashboardPage() {
           style={{ background: "rgba(167,139,250,0.06)", border: "1px solid rgba(167,139,250,0.15)" }}
         >
           <p className="text-xs font-semibold uppercase tracking-widest text-purple-400/70 mb-2">AI Insights</p>
-          {alerts.slice(0, 3).map((alert: string, i: number) => (
-            <div key={`${i}-${alert.slice(0, 20)}`} className="flex gap-2 text-xs text-gray-300">
+          {alerts.slice(0, 3).map((alert: string) => (
+            <div key={String(alert).slice(0, 40)} className="flex gap-2 text-xs text-gray-300">
               <span className="text-purple-400 shrink-0 mt-0.5">◉</span>
               <span>{typeof alert === "string" ? alert : String(alert)}</span>
             </div>

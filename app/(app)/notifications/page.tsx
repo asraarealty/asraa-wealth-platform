@@ -16,12 +16,12 @@ export default function NotificationsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {alerts.map((alert, i) => (
+          {alerts.map((alert, idx) => (
             <motion.div
-              key={`${i}-${alert.slice(0, 20)}`}
+              key={String(alert).slice(0, 60)}
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.05 }}
+              transition={{ delay: idx * 0.05 }}
               className="rounded-2xl p-4 flex gap-3"
               style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
             >
