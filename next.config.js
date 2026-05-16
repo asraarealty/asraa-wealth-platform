@@ -15,6 +15,7 @@ const nextConfig = {
       },
       {
         source: "/auth/:path*",
+        // Preserve compatibility for callers using `/auth/*` while backend serves `/api/v2/auth/*`.
         destination: `${backendUrl}/api/v2/auth/:path*`,
       },
     ];
