@@ -1,36 +1,57 @@
 "use client";
-import { useInsights } from "@/lib/hooks/useAssets";
-import { motion } from "framer-motion";
+
+import { useMemo, useState } from "react";
+import { useOperatingSystemData } from "@/lib/hooks/useOperatingSystem";
+import { EmptyBlock, LoadingBlock, SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
+
+const FILTERS = ["all", "risk", "cashflow", "rent", "drift", "opportunity"] as const;
+type Filter = (typeof FILTERS)[number];
 
 export default function NotificationsPage() {
-  const { data: insights } = useInsights();
-  const alerts = Array.isArray(insights?.alerts) ? insights.alerts : [];
+  const { data, isLoading, isError } = useOperatingSystemData();
+  const [filter, setFilter] = useState<Filter>("all");
+
+  const items = useMemo(() => {
+    return data.typedAlerts.filter((a) => (filter === "all" ? true : a.type === filter));
+  }, [data.typedAlerts, filter]);
+
+  if (isLoading) return <LoadingBlock label="Loading notifications..." />;
+  if (isError) return <EmptyBlock title="Event center unavailable" message="Could not retrieve notification signals." />;
 
   return (
-    <div className="px-4 pt-6 pb-4 max-w-lg mx-auto">
-      <h1 className="text-2xl font-extrabold text-white mb-6">Notifications</h1>
-      {alerts.length === 0 ? (
-        <div className="rounded-2xl p-8 text-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-          <p className="text-4xl mb-3">🔔</p>
-          <p className="text-gray-400 text-sm">No notifications yet.</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {alerts.map((alert, idx) => (
-            <motion.div
-              key={String(alert).slice(0, 60)}
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: idx * 0.05 }}
-              className="rounded-2xl p-4 flex gap-3"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
-            >
-              <span className="text-purple-400 mt-0.5 shrink-0">◉</span>
-              <p className="text-sm text-gray-300">{typeof alert === "string" ? alert : String(alert)}</p>
-            </motion.div>
+    <div className="space-y-5">
+      <SurfaceCard className="p-4 sm:p-5">
+        <SectionHeader eyebrow="Notifications" title="Typed event center" subtitle="Risk, rent, drift, cashflow and opportunity intelligence" />
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {FILTERS.map((f) => (
+            <button key={f} onClick={() => setFilter(f)} className={`v2-filter ${filter === f ? "v2-filter-active" : ""}`}>
+              {f.toUpperCase()}
+            </button>
           ))}
         </div>
-      )}
+      </SurfaceCard>
+
+      <div className="space-y-2">
+        {items.length === 0 ? (
+          <EmptyBlock title="No events" message="No events match the current filter." />
+        ) : (
+          items.map((item) => (
+            <SurfaceCard key={item.id} className="p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-white">{item.title}</p>
+                  <p className="text-xs text-slate-400 mt-1">{item.message}</p>
+                </div>
+                <StatusPill
+                  label={item.type}
+                  tone={item.type === "risk" ? "danger" : item.type === "opportunity" ? "success" : item.type === "drift" ? "warn" : "info"}
+                />
+              </div>
+            </SurfaceCard>
+          ))
+        )}
+      </div>
     </div>
   );
 }
