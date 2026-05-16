@@ -24,6 +24,11 @@ interface AuthContextValue {
   logout: () => Promise<void>;
 }
 
+interface LoginResult {
+  access_token?: string;
+  accessToken?: string;
+}
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -48,13 +53,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await fetcher<{ access_token: string }>("/auth/login", {
+    const res = await fetcher<LoginResult>("/auth/login", {
       method: "POST",
       body: { email, password },
       raw: true,
     });
 
-    setToken(res.access_token);
+    const token = res?.access_token ?? res?.accessToken;
+    if (!token) {
+      throw new Error("Login response did not include an access token");
+    }
+
+    setToken(token);
 
     const me = await fetcher<User>("/auth/me");
     setUser(me);
