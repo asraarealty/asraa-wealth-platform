@@ -35,7 +35,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   } = useOperatingContext();
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/login");
+    if (loading) return;
+
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
+    if ((user.role ?? "").toLowerCase() === "admin") {
+      router.replace("/admin");
+    }
   }, [user, loading, router]);
 
   useEffect(() => {

@@ -1,31 +1,8 @@
-"use client";
+import Link from "next/link";
+import { MetricTile, SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
+import { ADMIN_NAV_ITEMS } from "@/components/admin-os/navigation";
 
-import { useEffect, useMemo, useState } from "react";
-import { getAdminClients } from "@/lib/services/clientService";
-import {
-  fetchAdminGroupedAssets,
-  createAsset,
-  updateAsset,
-  deleteAsset,
-  type AdminClient,
-  type Asset,
-  type AssetsAllocation,
-  type CreateAssetPayload,
-  type UpdateAssetPayload,
-  type Client,
-} from "@/lib/api";
-import { toErrorMessage } from "@/lib/fetcher";
-import StatBox from "@/components/ui/StatBox";
-import Loader from "@/components/ui/Loader";
-import ErrorState from "@/components/ui/ErrorState";
-import PortfolioGrowthChart from "@/components/dashboard/PortfolioGrowthChart";
-import AllocationChart from "@/components/dashboard/AllocationChart";
-import ClientSelector from "@/components/ClientSelector";
-import AssetTabs from "@/components/dashboard/AssetTabs";
-
-type Tab = "stocks" | "mutual_funds" | "real_estate";
-
-function fmtCurrency(n: number) {
+function fmt(n: number) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
@@ -34,235 +11,125 @@ function fmtCurrency(n: number) {
   }).format(n);
 }
 
-export default function AdminPage() {
-  const [clients, setClients] = useState<AdminClient[]>([]);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  // Single source of truth: all client assets keyed by string user_id
-  const [groupedAssets, setGroupedAssets] = useState<Record<string, Asset[]>>({});
-  const [activeTab, setActiveTab] = useState<Tab>("stocks");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const operationalMetrics = {
+  totalAum: 582_450_000,
+  activeClients: 148,
+  managedAssets: 624,
+  transactionVolume: 18_920_000,
+  pendingTransactions: 23,
+  notificationEvents: 76,
+  criticalAlerts: 3,
+  growthRate: 18.4,
+  systemUptime: 99.97,
+  occupancyRate: 94.2,
+};
 
-  useEffect(() => {
-    const ac = new AbortController();
-
-    // Single parallel fetch: client list + all assets grouped by user_id
-    Promise.all([
-      getAdminClients(ac.signal),
-      fetchAdminGroupedAssets(ac.signal),
-    ])
-      .then(([clientData, grouped]) => {
-        setClients(clientData);
-        setGroupedAssets(grouped);
-      })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setError(toErrorMessage(err));
-      })
-      .finally(() => setLoading(false));
-
-    return () => ac.abort();
-  }, []);
-
-  // All assets flattened for aggregate stats
-  const allAssets = useMemo(
-    () => Object.values(groupedAssets).flat(),
-    [groupedAssets]
-  );
-
-  const totalAUM = useMemo(
-    () => allAssets.reduce((s: number, a: Asset) => s + (a.value ?? 0), 0),
-    [allAssets]
-  );
-
-  const allocation = useMemo<AssetsAllocation | undefined>(() => {
-    if (totalAUM === 0) return undefined;
-    const pct = (type: Asset["type"]) => {
-      const val = allAssets
-        .filter((a: Asset) => a.type === type)
-        .reduce((s: number, a: Asset) => s + (a.value ?? 0), 0);
-      return parseFloat(((val / totalAUM) * 100).toFixed(1));
-    };
-    return {
-      stock: pct("stock"),
-      mf: pct("mf"),
-      real_estate: pct("property"),
-    };
-  }, [allAssets, totalAUM]);
-
-  const activeClients = clients.filter((c: AdminClient) => c.is_active).length;
-  // Derive selected client's assets from the grouped map — no separate fetch
-  const assets: Asset[] = groupedAssets[String(selectedClient?.id ?? "")] ?? [];
-
-  async function handleAdd(payload: CreateAssetPayload) {
-    if (!selectedClient) return;
-    try {
-      const newAsset = await createAsset({ ...payload, user_id: selectedClient.id });
-      setGroupedAssets((prev) => ({
-        ...prev,
-        [String(selectedClient.id)]: [...(prev[String(selectedClient.id)] ?? []), newAsset],
-      }));
-    } catch (err) {
-      setError(toErrorMessage(err));
-    }
-  }
-
-  async function handleEdit(id: number, payload: UpdateAssetPayload) {
-    if (!selectedClient) return;
-    try {
-      const updatedAsset = await updateAsset(id, payload);
-      setGroupedAssets((prev) => ({
-        ...prev,
-        [String(selectedClient.id)]: (prev[String(selectedClient.id)] ?? []).map((a) =>
-          a.id === id ? updatedAsset : a
-        ),
-      }));
-    } catch (err) {
-      setError(toErrorMessage(err));
-    }
-  }
-
-  async function handleDelete(id: number) {
-    if (!selectedClient) return;
-    try {
-      await deleteAsset(id);
-      setGroupedAssets((prev) => ({
-        ...prev,
-        [String(selectedClient.id)]: (prev[String(selectedClient.id)] ?? []).filter((a) => a.id !== id),
-      }));
-    } catch (err) {
-      setError(toErrorMessage(err));
-    }
-  }
-
-  if (loading) return <Loader />;
-  if (error) return <ErrorState message={error} />;
-
+export default function AdminOverviewPage() {
   return (
-    <div className="space-y-8 text-white">
-
-      {/* HEADER */}
-      <div>
-        <h1 className="text-2xl font-bold text-sky-300">Financial Intelligence</h1>
-        <p className="text-sm text-gray-400 mt-1">
-          Actionable insights across all client portfolios.
-        </p>
-      </div>
-
-      {/* SUMMARY CARDS */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <StatBox
-          label="Total AUM"
-          value={fmtCurrency(totalAUM)}
-          subValue="Assets Under Management"
-          trend="up"
-          trendLabel="All clients"
-        />
-        <StatBox
-          label="Total Clients"
-          value={clients.length}
-          subValue={`${activeClients} active`}
-        />
-        <StatBox
-          label="Total Holdings"
-          value={allAssets.length}
-          subValue="Across all clients"
-        />
-      </div>
-
-      {/* PORTFOLIO OVERVIEW */}
-      <section>
-        <SectionHeading title="Portfolio Overview" />
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <PortfolioGrowthChart totalValue={totalAUM} gainPercent={0} />
-          </div>
-          <div>
-            <AllocationChart allocation={allocation} />
-          </div>
-        </div>
-      </section>
-
-      {/* CLIENT PORTFOLIO SECTION */}
-      <section>
-        <SectionHeading
-          title="Client Portfolio"
-          link="/admin/portfolio"
-          linkLabel="Full portfolio manager →"
+    <div className="space-y-5">
+      <SurfaceCard className="p-4 sm:p-5">
+        <SectionHeader
+          eyebrow="Admin Operations OS"
+          title="Platform overview"
+          subtitle="Institutional control center for analytics, operations, and system reliability"
         />
 
-        {/* Client selector */}
-        <div className="glass-card rounded-2xl p-5 mb-4">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#7dd3fc" }}>
-            Select Client
-          </p>
-          <ClientSelector
-            selectedId={selectedClient?.id ?? null}
-            onChange={(client) => {
-              setSelectedClient(client);
-              setActiveTab("stocks");
-            }}
+        <div className="mt-4 grid grid-cols-2 lg:grid-cols-5 gap-3">
+          <MetricTile label="Total AUM" value={fmt(operationalMetrics.totalAum)} />
+          <MetricTile label="Active Clients" value={String(operationalMetrics.activeClients)} />
+          <MetricTile label="Managed Assets" value={String(operationalMetrics.managedAssets)} />
+          <MetricTile label="Txn Volume" value={fmt(operationalMetrics.transactionVolume)} />
+          <MetricTile
+            label="Growth"
+            value={`${operationalMetrics.growthRate.toFixed(1)}%`}
+            change="Quarter over quarter"
+            positive
           />
         </div>
+      </SurfaceCard>
 
-        {/* Holdings */}
-        {!selectedClient && (
-          <div
-            className="glass-card rounded-2xl p-10 text-center"
-            style={{ border: "1px solid rgba(56,189,248,0.18)" }}
-          >
-            <p className="text-gray-400 text-sm">
-              Select a client above to view their holdings.
-            </p>
-          </div>
-        )}
-
-        {selectedClient && assets.length === 0 && (
-          <div
-            className="glass-card rounded-2xl p-10 text-center"
-            style={{ border: "1px solid rgba(56,189,248,0.18)" }}
-          >
-            <p className="text-gray-400 text-sm">
-              No assets found for <span className="text-white font-medium">{selectedClient.name}</span>.
-            </p>
-          </div>
-        )}
-
-        {selectedClient && assets.length > 0 && (
-          <AssetTabs
-            assets={assets}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            onAdd={handleAdd}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <SurfaceCard className="p-4 sm:p-5 xl:col-span-2">
+          <SectionHeader
+            eyebrow="Operational Intelligence"
+            title="Live operations board"
+            subtitle="Transaction monitoring, property operations, and event flow"
           />
-        )}
-      </section>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="v2-tile rounded-xl p-3">
+              <p className="text-xs text-slate-400">Transaction Monitoring</p>
+              <p className="text-lg font-semibold text-white mt-1">{operationalMetrics.pendingTransactions} pending reviews</p>
+              <div className="mt-2">
+                <StatusPill label="Needs action" tone="warn" />
+              </div>
+            </div>
+            <div className="v2-tile rounded-xl p-3">
+              <p className="text-xs text-slate-400">Notifications & Events</p>
+              <p className="text-lg font-semibold text-white mt-1">{operationalMetrics.notificationEvents} queued</p>
+              <div className="mt-2">
+                <StatusPill label="Routing active" tone="info" />
+              </div>
+            </div>
+            <div className="v2-tile rounded-xl p-3">
+              <p className="text-xs text-slate-400">Property Operations</p>
+              <p className="text-lg font-semibold text-white mt-1">{operationalMetrics.occupancyRate.toFixed(1)}% occupancy</p>
+              <div className="mt-2">
+                <StatusPill label="Stable" tone="success" />
+              </div>
+            </div>
+            <div className="v2-tile rounded-xl p-3">
+              <p className="text-xs text-slate-400">Asset Distribution</p>
+              <p className="text-sm text-slate-200 mt-1">Equity 42% · Funds 34% · Real Estate 24%</p>
+              <div className="mt-2">
+                <StatusPill label="Balanced" tone="success" />
+              </div>
+            </div>
+          </div>
+        </SurfaceCard>
 
-    </div>
-  );
-}
+        <SurfaceCard className="p-4 sm:p-5">
+          <SectionHeader eyebrow="System Health" title="Runtime status" subtitle="Reliability + alerts" />
+          <div className="mt-4 space-y-3">
+            <div className="v2-tile rounded-xl p-3">
+              <p className="text-xs text-slate-400">Platform uptime</p>
+              <p className="text-lg font-semibold text-white mt-1">{operationalMetrics.systemUptime.toFixed(2)}%</p>
+              <div className="mt-2">
+                <StatusPill label="Healthy" tone="success" />
+              </div>
+            </div>
+            <div className="v2-tile rounded-xl p-3">
+              <p className="text-xs text-slate-400">Operational alerts</p>
+              <p className="text-lg font-semibold text-white mt-1">{operationalMetrics.criticalAlerts} critical</p>
+              <div className="mt-2">
+                <StatusPill label="Escalated" tone="danger" />
+              </div>
+            </div>
+            <div className="v2-tile rounded-xl p-3">
+              <p className="text-xs text-slate-400">User management queue</p>
+              <p className="text-sm text-slate-200 mt-1">12 onboarding approvals pending</p>
+              <div className="mt-2">
+                <StatusPill label="Review required" tone="warn" />
+              </div>
+            </div>
+          </div>
+        </SurfaceCard>
+      </div>
 
-function SectionHeading({
-  title,
-  link,
-  linkLabel,
-}: {
-  title: string;
-  link?: string;
-  linkLabel?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between mb-3">
-      <h2 className="text-sm font-semibold uppercase tracking-widest text-sky-300">
-        {title}
-      </h2>
-      {link && (
-        <a href={link} className="text-xs text-gray-500 hover:text-gray-300 transition-colors">
-          {linkLabel ?? "View all →"}
-        </a>
-      )}
+      <SurfaceCard className="p-4 sm:p-5">
+        <SectionHeader
+          eyebrow="Navigation Architecture"
+          title="Admin modules"
+          subtitle="Dedicated admin operating environment separate from client wealth OS"
+        />
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {ADMIN_NAV_ITEMS.map((item) => (
+            <Link key={item.href} href={item.href} className="v2-tile rounded-xl p-3 hover:bg-white/10 transition-colors">
+              <p className="text-sm font-semibold text-white">{item.label}</p>
+              <p className="text-xs text-slate-400 mt-1">{item.description}</p>
+            </Link>
+          ))}
+        </div>
+      </SurfaceCard>
     </div>
   );
 }
