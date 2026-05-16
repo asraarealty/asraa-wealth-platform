@@ -467,7 +467,7 @@ function MobileEmptyState({
       <button
         onClick={onAdd}
         className="px-5 py-2.5 text-sm font-semibold rounded-xl"
-        style={{ background: "#38bdf8", color: "#071a14" }}
+        style={{ background: "#38bdf8", color: "#04102a" }}
       >
         + Add {label}
       </button>
@@ -602,7 +602,7 @@ export default function MobileDashboard({
 
   return (
     <div
-      className="min-h-screen bg-[#071a14] text-white flex flex-col"
+      className="min-h-screen bg-[#040915] text-white flex flex-col"
       style={{ maxWidth: "100vw", overflowX: "hidden" }}
     >
       {/* ── Sticky Header ──────────────────────────────────────────── */}
@@ -678,7 +678,7 @@ export default function MobileDashboard({
               <button
                 onClick={() => setActiveTab("profile")}
                 className="px-5 py-2.5 text-sm font-semibold rounded-xl"
-                style={{ background: "#38bdf8", color: "#071a14" }}
+                style={{ background: "#38bdf8", color: "#04102a" }}
               >
                 Select Client
               </button>
@@ -794,7 +794,7 @@ export default function MobileDashboard({
                     <button
                       onClick={openAdd}
                       className="px-5 py-2.5 text-sm font-semibold rounded-xl"
-                      style={{ background: "#38bdf8", color: "#071a14" }}
+                      style={{ background: "#38bdf8", color: "#04102a" }}
                     >
                       + Add Asset
                     </button>
@@ -993,7 +993,7 @@ export default function MobileDashboard({
             height: 52,
             borderRadius: "50%",
             background: "#38bdf8",
-            color: "#071a14",
+            color: "#04102a",
             boxShadow: "0 4px 20px rgba(56,189,248,0.5)",
           }}
           aria-label="Add asset"

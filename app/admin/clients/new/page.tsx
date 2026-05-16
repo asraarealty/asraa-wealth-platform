@@ -81,7 +81,7 @@ export default function NewClientPage() {
         onSubmit={handleSubmit}
         className="space-y-4 p-6 rounded-2xl"
         style={{
-          background: "rgba(11,61,46,0.6)",
+          background: "rgba(13,29,63,0.68)",
           border: "1px solid rgba(56,189,248,0.2)",
         }}
       >

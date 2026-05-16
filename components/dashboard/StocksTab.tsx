@@ -61,7 +61,7 @@ export default function StocksTab({
         <button
           onClick={() => { setEditing(null); setModalOpen(true); }}
           className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl transition-colors"
-          style={{ background: "#38bdf8", color: "#071a14" }}
+          style={{ background: "#38bdf8", color: "#04102a" }}
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -78,7 +78,7 @@ export default function StocksTab({
             <button
               onClick={() => { setEditing(null); setModalOpen(true); }}
               className="px-4 py-2 text-sm font-semibold rounded-xl"
-              style={{ background: "#38bdf8", color: "#071a14" }}
+              style={{ background: "#38bdf8", color: "#04102a" }}
             >
               + Add Stock
             </button>

@@ -228,7 +228,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
           role="listbox"
           className="absolute z-50 mt-1.5 w-full rounded-xl shadow-2xl overflow-hidden max-h-80 overflow-y-auto"
           style={{
-            background: "rgba(8,48,36,0.97)",
+            background: "rgba(7,20,48,0.97)",
             border: "1px solid rgba(56,189,248,0.2)",
             backdropFilter: "blur(20px)",
             boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(56,189,248,0.08)",

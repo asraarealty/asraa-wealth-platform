@@ -169,7 +169,7 @@ export function ModalFooter({
         className="px-5 py-2 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
         style={{
           background: saving ? "rgba(56,189,248,0.5)" : "#38bdf8",
-          color: "#071a14",
+          color: "#04102a",
         }}
       >
         {saving ? "Saving…" : saveLabel}

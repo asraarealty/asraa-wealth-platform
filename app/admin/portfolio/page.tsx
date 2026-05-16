@@ -255,7 +255,7 @@ export default function AdminPortfolioPage() {
               <button
                 onClick={() => setAddModalOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors"
-                style={{ background: "#38bdf8", color: "#071a14" }}
+                style={{ background: "#38bdf8", color: "#04102a" }}
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />

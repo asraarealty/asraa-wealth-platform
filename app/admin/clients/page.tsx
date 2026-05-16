@@ -102,7 +102,7 @@ export default function ClientsPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-sm rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-1"
             style={{
-              background: "rgba(11,61,46,0.6)",
+              background: "rgba(13,29,63,0.68)",
               border: "1px solid rgba(56,189,248,0.2)",
             }}
           />
