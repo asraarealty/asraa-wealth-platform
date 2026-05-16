@@ -46,8 +46,8 @@ export default function ClientSelector({
 
   const filtered = clients.filter(
     (c) =>
-      c.name.toLowerCase().includes(filter.toLowerCase()) ||
-      c.email.toLowerCase().includes(filter.toLowerCase())
+      String(c.name ?? "").toLowerCase().includes(filter.toLowerCase()) ||
+      String(c.email ?? "").toLowerCase().includes(filter.toLowerCase())
   );
 
   if (loading) {
@@ -161,10 +161,10 @@ export default function ClientSelector({
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="font-medium text-sm truncate">{client.name}</div>
-                    <div className="text-xs truncate" style={{ color: "rgba(255,255,255,0.35)" }}>
-                      {client.email}
-                    </div>
+                     <div className="font-medium text-sm truncate">{client.name || "Unnamed client"}</div>
+                     <div className="text-xs truncate" style={{ color: "rgba(255,255,255,0.35)" }}>
+                      {client.email || "No email"}
+                     </div>
                   </div>
                   <div className="shrink-0">
                     <span

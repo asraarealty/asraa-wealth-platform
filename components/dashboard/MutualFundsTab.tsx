@@ -27,7 +27,8 @@ export default function MutualFundsTab({
   const [editing, setEditing] = useState<Asset | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const mfs = assets.filter((a) => a.type === "mf");
+  const safeAssets = Array.isArray(assets) ? assets : [];
+  const mfs = safeAssets.filter((a) => a?.type === "mf");
 
   async function handleSave(
     payload: CreateAssetPayload | UpdateAssetPayload
@@ -125,14 +126,14 @@ export default function MutualFundsTab({
                       {a.symbol ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-gray-200 max-w-[200px] truncate">
-                      {a.name}
+                      {a.name || "Unnamed fund"}
                     </td>
                     <td className="px-4 py-3 text-gray-300">{a.quantity ?? "—"}</td>
                     <td className="px-4 py-3 text-gray-300">{fmt(a.avg_price)}</td>
                     <td className="px-4 py-3 text-white font-medium">{fmt(a.value)}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
-                        {(a.tags ?? []).map((tag) => (
+                        {(Array.isArray(a.tags) ? a.tags : []).map((tag) => (
                           <span
                             key={tag}
                             className="text-xs px-2 py-0.5 rounded-full"
