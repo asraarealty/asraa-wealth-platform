@@ -11,12 +11,18 @@ interface AssetsData {
   assets: Asset[];
 }
 
+interface RawEnvelope<T> {
+  success: boolean;
+  data: T;
+  error: string | null;
+}
+
 export function useAssets() {
-  return useQuery<DashboardResponse, Error, AssetsData>({
+  return useQuery<RawEnvelope<AssetsData>, Error, AssetsData>({
     queryKey: ASSETS_KEY,
-    queryFn: () => fetcher<DashboardResponse>("/assets/me", { raw: true }),
-    select: (res: any): AssetsData => {
-      const data = res?.data ?? res;
+    queryFn: () => fetcher<RawEnvelope<AssetsData>>("/assets/me", { raw: true }),
+    select: (res): AssetsData => {
+      const data = res?.data ?? (res as unknown as AssetsData);
       return {
         summary: data?.summary ?? { total_value: 0, total_invested: 0, total_return: 0, return_percentage: 0 },
         allocation: data?.allocation ?? { stock: 0, mf: 0, property: 0 },
@@ -27,10 +33,11 @@ export function useAssets() {
 }
 
 export function useInsights() {
-  return useQuery<InsightsResponse>({
+  return useQuery<RawEnvelope<InsightsResponse>, Error, InsightsResponse>({
     queryKey: INSIGHTS_KEY,
-    queryFn: () => fetcher<InsightsResponse>("/insights/me", { raw: true }),
-    select: (res: any): InsightsResponse => res?.data ?? res ?? { equity_percentage: 0, real_estate_percentage: 0, alerts: [] },
+    queryFn: () => fetcher<RawEnvelope<InsightsResponse>>("/insights/me", { raw: true }),
+    select: (res): InsightsResponse =>
+      res?.data ?? (res as unknown as InsightsResponse) ?? { equity_percentage: 0, real_estate_percentage: 0, alerts: [] },
   });
 }
 

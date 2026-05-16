@@ -18,7 +18,7 @@ export default function NotificationsPage() {
         <div className="space-y-3">
           {alerts.map((alert, i) => (
             <motion.div
-              key={i}
+              key={`${i}-${alert.slice(0, 20)}`}
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
