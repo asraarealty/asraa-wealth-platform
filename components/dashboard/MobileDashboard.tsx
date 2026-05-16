@@ -201,7 +201,7 @@ function StockCard({
   onEdit,
   onDelete,
 }: CardProps) {
-  const invested = (asset.quantity ?? 0) * (asset.avg_price ?? 0);
+  const invested = (asset.quantity ?? 0) * (asset.avgPrice ?? 0);
   const gain = (asset.value ?? 0) - invested;
   const gainPct = invested > 0 ? (gain / invested) * 100 : 0;
 
@@ -231,7 +231,7 @@ function StockCard({
       <div className="flex items-center gap-3 text-xs text-gray-500">
         <span>{asset.quantity ?? "—"} shares</span>
         <span>·</span>
-        <span>avg {fmt(asset.avg_price)}</span>
+        <span>avg {fmt(asset.avgPrice)}</span>
         {(asset.tags ?? []).length > 0 && (
           <>
             <span>·</span>
@@ -283,7 +283,7 @@ function MFCard({
   onEdit,
   onDelete,
 }: CardProps) {
-  const invested = (asset.quantity ?? 0) * (asset.avg_price ?? 0);
+  const invested = (asset.quantity ?? 0) * (asset.avgPrice ?? 0);
   const gain = (asset.value ?? 0) - invested;
   const gainPct = invested > 0 ? (gain / invested) * 100 : 0;
 
@@ -315,7 +315,7 @@ function MFCard({
       <div className="flex items-center gap-3 text-xs text-gray-500">
         <span>{asset.quantity ?? "—"} units</span>
         <span>·</span>
-        <span>avg NAV {fmt(asset.avg_price)}</span>
+        <span>avg NAV {fmt(asset.avgPrice)}</span>
       </div>
 
       <div className="flex items-center gap-2 pt-1" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
@@ -354,13 +354,13 @@ function PropertyCard({
   onDelete,
 }: CardProps) {
   const appreciation =
-    asset.current_value != null &&
-    asset.purchase_price != null &&
-    asset.purchase_price > 0
-      ? ((asset.current_value - asset.purchase_price) / asset.purchase_price) * 100
+    asset.currentValue != null &&
+    asset.purchasePrice != null &&
+    asset.purchasePrice > 0
+      ? ((asset.currentValue - asset.purchasePrice) / asset.purchasePrice) * 100
       : null;
 
-  const rentDue = asset.rent_due_date ? new Date(asset.rent_due_date) : null;
+  const rentDue = asset.rentDueDate ? new Date(asset.rentDueDate) : null;
   const rentLate = rentDue ? rentDue < new Date() : false;
 
   return (
@@ -381,7 +381,7 @@ function PropertyCard({
         </div>
         <div className="text-right shrink-0">
           <p className="font-bold text-white text-sm">
-            {fmt(asset.current_value)}
+            {fmt(asset.currentValue)}
           </p>
           {appreciation != null && (
             <p
@@ -395,16 +395,16 @@ function PropertyCard({
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        {asset.rent_amount != null && (
+        {asset.rentAmount != null && (
           <div
             className="rounded-lg p-2.5"
             style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
           >
             <p className="text-xs text-gray-500">Monthly Rent</p>
-            <p className="text-sm font-bold text-white mt-0.5">{fmt(asset.rent_amount)}</p>
+            <p className="text-sm font-bold text-white mt-0.5">{fmt(asset.rentAmount)}</p>
           </div>
         )}
-        {asset.rent_due_date && (
+        {asset.rentDueDate && (
           <div
             className="rounded-lg p-2.5"
             style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}

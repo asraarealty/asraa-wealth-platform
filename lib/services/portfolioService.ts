@@ -1,36 +1,29 @@
 import {
-  fetchPortfolioItems,
+  fetchDashboardData,
   fetchAdminGroupedAssets,
-  fetcher,
   type Asset,
-  type Portfolio,
-  type PortfolioMeta,
-  type PortfolioResult,
+  type DashboardData,
 } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
-import type { ClientIntelligence } from "@/components/admin/dashboard/intelligenceHelpers";
-
-export type { PortfolioResult };
 
 /**
- * Fetch portfolio items for a specific client (or all clients when clientId
- * is omitted).  Always returns `{ items, meta }`; never throws on non-abort
+ * Fetch dashboard data for the current user. 
+ * Always returns a valid DashboardData object; never throws on non-abort
  * errors.
  */
-export async function getPortfolioItems(
-  clientId?: number,
+export async function getDashboardData(
   signal?: AbortSignal
-): Promise<PortfolioResult> {
+): Promise<DashboardData> {
   try {
-    const result = await fetchPortfolioItems(clientId, signal);
-
-    console.log("NORMALIZED:", result);
-
-    return result;
+    return await fetchDashboardData(signal);
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
-    console.error("[portfolioService] getPortfolioItems failed:", toErrorMessage(err));
-    return { items: [], meta: {} };
+    console.error("[portfolioService] getDashboardData failed:", toErrorMessage(err));
+    return { 
+      assets: [], 
+      summary: { totalValue: 0, stockValue: 0, mfValue: 0, propertyValue: 0, roiPercent: 0 },
+      allocation: { equity: 0, property: 0, mutualFunds: 0 }
+    };
   }
 }
 
@@ -59,7 +52,7 @@ export async function getAdminPortfolio(signal?: AbortSignal): Promise<Asset[]> 
 export function groupAssetsByUserId(assets: Asset[]): Record<number, Asset[]> {
   const grouped: Record<number, Asset[]> = {};
   for (const asset of assets) {
-    const uid = asset.user_id;
+    const uid = asset.userId;
     if (uid === undefined || uid === null) continue;
     if (!grouped[uid]) grouped[uid] = [];
     grouped[uid].push(asset);

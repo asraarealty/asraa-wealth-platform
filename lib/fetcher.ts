@@ -1,5 +1,3 @@
-import * as Sentry from "@sentry/nextjs";
-
 export const API_BASE_URL = "/api/v2";
 
 // ── Error types ─────────────────────────────────────────
@@ -87,7 +85,6 @@ export async function fetcher<T>(
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
     const networkErr = new NetworkError("Unable to reach backend API");
-    Sentry.captureException(networkErr, { extra: { url, payload: options?.body } });
     throw networkErr;
   }
 
@@ -127,7 +124,6 @@ export async function fetcher<T>(
         message;
     } catch {}
     const apiErr = new ApiError(response.status, message);
-    Sentry.captureException(apiErr, { extra: { url, payload: options?.body } });
     throw apiErr;
   }
 

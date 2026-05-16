@@ -47,8 +47,8 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
   }
 
   const sorted = [...positions].sort((a, b) => {
-    let av: string | number = a[sortKey];
-    let bv: string | number = b[sortKey];
+    let av: any = a[sortKey] ?? "";
+    let bv: any = b[sortKey] ?? "";
     if (typeof av === "string") av = av.toLowerCase();
     if (typeof bv === "string") bv = bv.toLowerCase();
     if (av < bv) return sortDir === "asc" ? -1 : 1;
@@ -103,7 +103,7 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
               >
                 {/* Name */}
                 <td className="px-4 py-3">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-white font-medium truncate max-w-[160px]">
                       {pos.name}
                     </p>
@@ -117,14 +117,14 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
                 {/* Type */}
                 <td className="px-4 py-3">
                   <span
-                    className={`text-xs px-2 py-0.5 rounded-full border font-medium ${TYPE_BADGE_STYLES[pos.type]}`}
+                    className={`text-xs px-2 py-0.5 rounded-full border font-medium ${TYPE_BADGE_STYLES[pos.type] || "bg-gray-500/10 text-gray-400"}`}
                   >
-                    {TYPE_LABELS[pos.type]}
+                    {TYPE_LABELS[pos.type] || "Other"}
                   </span>
                 </td>
                 {/* Qty */}
                 <td className="px-4 py-3 text-gray-300 tabular-nums">
-                  {pos.quantity.toLocaleString("en-IN")}
+                  {(pos.quantity ?? 0).toLocaleString("en-IN")}
                 </td>
                 {/* Avg Price */}
                 <td className="px-4 py-3 text-gray-300 tabular-nums whitespace-nowrap">

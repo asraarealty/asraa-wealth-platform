@@ -62,11 +62,27 @@ export type AdminClient = {
   name: string;
   email: string;
   phone?: string;
+  isActive: boolean;
   createdAt?: string;
 };
 
 export function fetchClients(signal?: AbortSignal): Promise<Client[]> {
   return fetcher<Client[]>("/clients", { signal });
+}
+
+/**
+ * Fetch full client list for admin with normalized mapping.
+ */
+export async function fetchAdminClients(signal?: AbortSignal): Promise<AdminClient[]> {
+  const res = await fetcher<any[]>("/clients/admin", { signal, raw: true, cache: 'no-store' });
+  return res.map((c: any) => ({
+    id: c.id,
+    name: c.name,
+    email: c.email,
+    phone: c.phone,
+    isActive: Boolean(c.is_active ?? c.isActive ?? true),
+    createdAt: c.created_at ?? c.createdAt,
+  }));
 }
 
 /* ── Stocks ────────────────────────────────────────────────────────── */
@@ -140,34 +156,26 @@ export function fetchUsers(signal?: AbortSignal): Promise<User[]> {
 
 /* ── Assets ─────────────────────────────────────────────────────────── */
 
-export type AssetType = "stock" | "mf" | "property";
+export type AssetType = "stock" | "mf" | "property" | "commodity";
 
 // Normalise asset type variants from the backend.
 // The backend may send "real_estate" but the frontend uses "property" throughout.
-const KNOWN_ASSET_TYPES = new Set<string>(["stock", "mf", "property"]);
+const KNOWN_ASSET_TYPES = new Set<string>(["stock", "mf", "property", "commodity"]);
 
-const normalizeType = (type: string | undefined): AssetType => {
-  if (type === "real_estate") return "property";
-  if (type && KNOWN_ASSET_TYPES.has(type)) return type as AssetType;
+/**
+ * Centralized asset type mapping utility.
+ */
+export const MAP_ASSET_TYPE = (type: string | undefined | null): AssetType => {
+  if (!type) return "stock";
+  const normalized = type.toLowerCase();
+  if (normalized === "real_estate" || normalized === "real-estate") return "property";
+  if (normalized === "mutual_fund" || normalized === "mutual-fund") return "mf";
+  if (KNOWN_ASSET_TYPES.has(normalized)) return normalized as AssetType;
   return "stock";
 };
 
-/** Normalise a raw API response into a typed Asset array. */
-const normalizeAssetList = (res: unknown): Asset[] => {
-  const list: unknown = Array.isArray(res)
-    ? res
-    : (res as any)?.data ?? (res as any)?.assets ?? (res as any)?.positions ?? [];
-
-  if (!Array.isArray(list)) {
-    return [];
-  }
-
-  return (list as any[]).map((a: any) => ({
-    ...a,
-    avgPrice: Number(a.avgPrice ?? a.avg_price ?? 0),
-    currentPrice: Number(a.currentPrice ?? a.current_price ?? 0),
-    type: normalizeType(a.type ?? a.asset_type),
-  }));
+const normalizeType = (type: string | undefined): AssetType => {
+  return MAP_ASSET_TYPE(type);
 };
 
 export interface Asset {
@@ -202,11 +210,19 @@ export type CreateAssetPayload = Omit<
 export type UpdateAssetPayload = Partial<CreateAssetPayload>;
 
 /**
- * Full portfolio response shape returned by /portfolio/me or /portfolio?user_id=...
- * Includes aggregate totals from the backend so the UI does not need to recompute them.
+ * Safely unwrap the backend response envelope: { success, data, meta }
+ * Handles potential double-nesting response?.data?.data
  */
-export interface PortfolioFull {
-  positions: Asset[];
+function unwrap<T>(res: any): T {
+  if (!res) return res;
+  // Check for response.data.data per requirements
+  if (res.data && typeof res.data === 'object' && 'data' in res.data) {
+    return res.data.data as T;
+  }
+  return (res.data ?? res) as T;
+}
+
+export interface DashboardSummary {
   totalValue: number;
   stockValue: number;
   mfValue: number;
@@ -214,88 +230,83 @@ export interface PortfolioFull {
   roiPercent: number;
 }
 
+export interface DashboardAllocation {
+  equity: number;
+  property: number;
+  mutualFunds: number;
+}
+
 /**
- * Fetch the portfolio envelope (positions + pre-computed totals) from the backend.
+ * Full dashboard response shape returned by /assets/me
+ * Backend is the source of truth for all calculations.
  */
-export async function fetchPortfolio(
-  userId?: number,
-  signal?: AbortSignal
-): Promise<PortfolioFull> {
-  const path =
-    userId !== undefined
-      ? `/portfolio?user_id=${encodeURIComponent(userId)}`
-      : "/portfolio/me";
+export interface DashboardData {
+  assets: Asset[];
+  summary: DashboardSummary;
+  allocation: DashboardAllocation;
+}
 
-  let res: any;
-  try {
-    res = await fetcher<any>(path, { signal, raw: true, cache: "no-store" });
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 404) {
-      return {
-        positions: [],
-        totalValue: 0,
-        stockValue: 0,
-        mfValue: 0,
-        propertyValue: 0,
-        roiPercent: 0,
-      };
-    }
-    throw err;
-  }
+/**
+ * Fetch all dashboard data (assets, summary, allocation) from the live assets endpoint.
+ * Maps backend snake_case to frontend camelCase.
+ */
+export async function fetchDashboardData(signal?: AbortSignal): Promise<DashboardData> {
+  const rawRes = await fetcher<any>("/assets/me", { signal, raw: true, cache: "no-store" });
+  const res = unwrap<any>(rawRes);
 
-  const rawPositions: unknown = Array.isArray(res)
-    ? res
-    : res?.positions ?? res?.data ?? res?.assets ?? [];
+  const rawAssets = Array.isArray(res?.assets) ? res.assets : (Array.isArray(res) ? res : []);
+  
+  const assets: Asset[] = rawAssets.map((a: any) => ({
+    ...a,
+    avgPrice: Number(a.avg_price ?? a.avgPrice ?? 0),
+    currentPrice: Number(a.current_price ?? a.currentPrice ?? 0),
+    type: normalizeType(a.asset_type ?? a.type),
+    value: Number(a.value ?? 0),
+  }));
 
-  const positions = normalizeAssetList(rawPositions);
+  const summary: DashboardSummary = {
+    totalValue: Number(res?.summary?.total_value ?? 0),
+    stockValue: Number(res?.summary?.stock_value ?? 0),
+    mfValue: Number(res?.summary?.mf_value ?? 0),
+    propertyValue: Number(res?.summary?.property_value ?? 0),
+    roiPercent: Number(res?.summary?.roi_percent ?? 0),
+  };
 
-  // Prefer server-provided totals; fall back to client-side computation when omitted.
-  const totalVal =
-    typeof res?.total_value === "number"
-      ? res.total_value
-      : positions.reduce((s: number, p: Asset) => s + Number(p.value ?? 0), 0);
-
-  const totalInvested = positions.reduce(
-    (s: number, p: Asset) => s + Number(p.quantity ?? 0) * Number(p.avgPrice ?? 0),
-    0
-  );
-
-  const stockVal =
-    typeof res?.stock_value === "number"
-      ? res.stock_value
-      : positions
-          .filter((p: Asset) => p.type === "stock")
-          .reduce((s: number, p: Asset) => s + Number(p.value ?? 0), 0);
-
-  const mfVal =
-    typeof res?.mf_value === "number"
-      ? res.mf_value
-      : positions
-          .filter((p: Asset) => p.type === "mf")
-          .reduce((s: number, p: Asset) => s + Number(p.value ?? 0), 0);
-
-  const propertyVal =
-    typeof res?.property_value === "number"
-      ? res.property_value
-      : positions
-          .filter((p: Asset) => p.type === "property")
-          .reduce((s: number, p: Asset) => s + Number(p.value ?? 0), 0);
-
-  const roiVal =
-    typeof res?.roi_percent === "number"
-      ? res.roi_percent
-      : totalInvested > 0
-      ? ((totalVal - totalInvested) / totalInvested) * 100
-      : 0;
+  const allocation: DashboardAllocation = {
+    equity: Number(res?.allocation?.equity ?? 0),
+    property: Number(res?.allocation?.property ?? res?.allocation?.real_estate ?? 0),
+    mutualFunds: Number(res?.allocation?.mutual_funds ?? 0),
+  };
 
   return {
-    positions,
-    totalValue: totalVal,
-    stockValue: Number(stockVal ?? 0),
-    mfValue: Number(mfVal ?? 0),
-    propertyValue: Number(propertyVal ?? 0),
-    roiPercent: Number(roiVal ?? 0),
+    assets,
+    summary,
+    allocation,
   };
+}
+
+/**
+ * Fetch all portfolio items grouped by user ID for the admin panel.
+ */
+export async function fetchAdminGroupedAssets(
+  signal?: AbortSignal
+): Promise<Record<number, Asset[]>> {
+  const rawRes = await fetcher<any>("/assets/admin", { signal, raw: true, cache: "no-store" });
+  const res = unwrap<any>(rawRes);
+  
+  const grouped: Record<number, Asset[]> = {};
+  for (const [userId, rawAssets] of Object.entries(res ?? {})) {
+    if (!Array.isArray(rawAssets)) continue;
+    grouped[Number(userId)] = rawAssets.map((a: any) => ({
+      ...a,
+      avgPrice: Number(a.avg_price ?? a.avgPrice ?? 0),
+      currentPrice: Number(a.current_price ?? a.currentPrice ?? 0),
+      type: normalizeType(a.asset_type ?? a.type),
+      value: Number(a.value ?? 0),
+      userId: Number(userId)
+    }));
+  }
+  return grouped;
 }
 
 export function createAsset(
@@ -343,7 +354,7 @@ export interface InsightItem {
 
 export interface InsightsResponse {
   equityPercentage: number;
-  realEstatePercentage: number;
+  propertyPercentage: number;
   /** Backend may return plain strings or structured InsightItem objects */
   alerts: (string | InsightItem)[];
 }
@@ -359,22 +370,23 @@ export async function fetchInsights(
       ? `/insights?user_id=${encodeURIComponent(clientId)}`
       : "/insights/me";
 
-  const res = await fetcher<any>(path, { signal, raw: true, cache: "no-store" });
+  const rawRes = await fetcher<any>(path, { signal, raw: true, cache: "no-store" });
+  const res = unwrap<any>(rawRes);
 
-  if (res && typeof res === "object" && "alerts" in res) {
+  if (res && typeof res === "object" && !Array.isArray(res)) {
     return {
       equityPercentage: Number(res.equity_percentage ?? 0),
-      realEstatePercentage: Number(res.real_estate_percentage ?? 0),
+      propertyPercentage: Number(res.property_percentage ?? res.real_estate_percentage ?? 0),
       alerts: Array.isArray(res.alerts) ? res.alerts : [],
     };
   }
 
   // Fallback: if backend returns an array of InsightItem objects
   if (Array.isArray(res)) {
-    return { equityPercentage: 0, realEstatePercentage: 0, alerts: [] };
+    return { equityPercentage: 0, propertyPercentage: 0, alerts: [] };
   }
 
-  return { equityPercentage: 0, realEstatePercentage: 0, alerts: [] };
+  return { equityPercentage: 0, propertyPercentage: 0, alerts: [] };
 }
 
 /* ── Mutual Funds ───────────────────────────────────────────────────── */

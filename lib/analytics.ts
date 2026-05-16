@@ -5,7 +5,7 @@
  * Asset-class classification by symbol convention:
  *   Equity       – any symbol that is NOT a pure number AND does not start with "PROP-"
  *   Mutual Fund  – symbol is a pure integer string (e.g. "120716")
- *   Real Estate  – symbol starts with "PROP-"
+ *   Property     – symbol starts with "PROP-"
  */
 
 // ── Minimal portfolio item shape ────────────────────────────────────────────
@@ -23,12 +23,12 @@ function isMutualFund(symbol: string): boolean {
   return /^\d+$/.test(symbol);
 }
 
-function isRealEstate(symbol: string): boolean {
+function isProperty(symbol: string): boolean {
   return symbol.startsWith("PROP-");
 }
 
 function isEquity(symbol: string): boolean {
-  return !isMutualFund(symbol) && !isRealEstate(symbol);
+  return !isMutualFund(symbol) && !isProperty(symbol);
 }
 
 /** Return the effective current price, falling back to avg_price when missing */
@@ -84,7 +84,7 @@ export function computePortfolioMetrics(
 export interface Allocation {
   equity: number;     // percentage
   mf: number;         // percentage
-  real_estate: number; // percentage
+  property: number;   // percentage
 }
 
 export type RiskLevel = "Low" | "Medium" | "High";
@@ -100,17 +100,17 @@ export interface RiskResult {
  */
 export function computeAllocation(items: PortfolioItem[]): Allocation {
   if (items.length === 0) {
-    return { equity: 0, mf: 0, real_estate: 0 };
+    return { equity: 0, mf: 0, property: 0 };
   }
 
   let equityVal = 0;
   let mfVal = 0;
-  let reVal = 0;
+  let propVal = 0;
 
   for (const item of items) {
     const val = item.quantity * effectivePrice(item);
-    if (isRealEstate(item.symbol)) {
-      reVal += val;
+    if (isProperty(item.symbol)) {
+      propVal += val;
     } else if (isMutualFund(item.symbol)) {
       mfVal += val;
     } else {
@@ -118,15 +118,15 @@ export function computeAllocation(items: PortfolioItem[]): Allocation {
     }
   }
 
-  const total = equityVal + mfVal + reVal;
-  if (total === 0) return { equity: 0, mf: 0, real_estate: 0 };
+  const total = equityVal + mfVal + propVal;
+  if (total === 0) return { equity: 0, mf: 0, property: 0 };
 
   const equity = parseFloat(((equityVal / total) * 100).toFixed(1));
   const mf = parseFloat(((mfVal / total) * 100).toFixed(1));
   // Derive the third from the remainder to avoid floating-point drift
-  const real_estate = parseFloat((100 - equity - mf).toFixed(1));
+  const property = parseFloat((100 - equity - mf).toFixed(1));
 
-  return { equity, mf, real_estate };
+  return { equity, mf, property };
 }
 
 /**
@@ -205,11 +205,11 @@ export function generateRecommendations(
     });
   }
 
-  if (allocation.real_estate < 20) {
+  if (allocation.property < 20) {
     recs.push({
       message: "Add real estate investment",
       type: "buy",
-      priority: allocation.real_estate < 5 ? "high" : "medium",
+      priority: allocation.property < 5 ? "high" : "medium",
     });
   }
 
@@ -291,7 +291,7 @@ export function deriveClientAlerts(
   const classCount = [
     allocation.equity > 0,
     allocation.mf > 0,
-    allocation.real_estate > 0,
+    allocation.property > 0,
   ].filter(Boolean).length;
 
   if (classCount <= 1) {
