@@ -10,13 +10,13 @@ const nextConfig = {
   async rewrites() {
     return [
       {
-        source: "/api/v2/:path*",
-        destination: `${BACKEND_URL}/api/v2/:path*`,
-      },
-      {
-        source: "/auth/:path*",
-        // Preserve compatibility for callers using `/auth/*` while backend serves `/api/v2/auth/*`.
-        destination: `${BACKEND_URL}/api/v2/auth/:path*`,
+        // Proxy all /api/* requests to the FastAPI backend.
+        // When rewrites() returns a plain array, Next.js applies them as
+        // "afterFiles" rewrites — after filesystem and API-route matching —
+        // so internal route handlers under app/api/* are still served by
+        // Next.js and not forwarded to the backend.
+        source: "/api/:path*",
+        destination: `${BACKEND_URL}/api/:path*`,
       },
     ];
   },
