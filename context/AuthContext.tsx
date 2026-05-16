@@ -59,9 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       raw: true,
     });
 
-    const token = res?.access_token ?? res?.accessToken;
+    const token = res.access_token ?? res.accessToken;
     if (!token) {
-      throw new Error("Login response did not include an access token");
+      throw new Error(
+        "Login response missing access token (expected access_token or accessToken)"
+      );
     }
 
     setToken(token);
