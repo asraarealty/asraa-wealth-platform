@@ -49,7 +49,7 @@ Open [http://localhost:3000](http://localhost:3000) — you will be redirected t
 
 | Variable | Description |
 |---|---|
-| `BACKEND_URL` | Base URL for the FastAPI backend that Next.js rewrites proxy to (e.g. `https://api.asraarealty.in`) |
+| `BACKEND_URL` | Base URL for the FastAPI backend that Next.js rewrites proxy to (e.g. `https://api.example.com`) |
 | `NEXT_PUBLIC_API_URL` | Optional legacy fallback for rewrite target if `BACKEND_URL` is not set |
 
 ## Build

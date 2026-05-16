@@ -1,3 +1,4 @@
+// Path prefix only (not a full domain URL); rewritten by Next.js to BACKEND_URL.
 export const API_BASE_URL = "/api/v2";
 
 // ── Error types ─────────────────────────────────────────
