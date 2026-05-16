@@ -133,3 +133,6 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(var(--asraa-accent-rgb), 0.52);
 }
+
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
