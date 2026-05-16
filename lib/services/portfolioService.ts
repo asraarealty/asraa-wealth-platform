@@ -6,6 +6,23 @@ import {
 } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
 
+type RiskLevel = "Low" | "Medium" | "High";
+type SuggestedAction = "Rebalance" | "Hold" | "Diversify";
+
+export interface ClientIntelligence {
+  clientId: number;
+  name: string;
+  email: string;
+  isActive: boolean;
+  portfolioValue: number;
+  returnPercent: number;
+  riskLevel: RiskLevel;
+  equityPct: number;
+  mfPct: number;
+  realEstatePct: number;
+  suggestedAction: SuggestedAction;
+}
+
 /**
  * Fetch dashboard data for the current user. 
  * Always returns a valid DashboardData object; never throws on non-abort
