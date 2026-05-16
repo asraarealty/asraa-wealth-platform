@@ -1,16 +1,39 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { useAdminClients } from "@/lib/hooks/useAdminClients";
-import type { EnrichedClient } from "@/lib/hooks/useAdminClients";
+import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ClientDetailPanel } from "@/components/admin/ClientDetailPanel";
-import { SurfaceCard, SectionHeader, StatusPill, LoadingBlock } from "@/components/v2/ui";
+import { ActionMenu } from "@/components/admin/platform/ActionMenu";
+import { AllocationRing } from "@/components/admin/platform/AllocationRing";
+import { OperationalEmptyState } from "@/components/admin/platform/EmptyState";
+import { IntelligenceWidget } from "@/components/admin/platform/IntelligenceWidget";
+import { PlatformConfirmModal } from "@/components/admin/platform/PlatformModal";
+import { StatusBadge } from "@/components/admin/platform/StatusBadge";
+import { LoadingBlock, SectionHeader, SurfaceCard } from "@/components/v2/ui";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
-
-// ── Helpers ────────────────────────────────────────────────────────────────
+import { ADMIN_CLIENTS_QUERY_KEY, useAdminClients, type EnrichedClient } from "@/lib/hooks/useAdminClients";
+import {
+  archiveClient,
+  restoreClient,
+  updateClientStatus,
+  type ClientOperationalStatus,
+} from "@/lib/services/clientService";
+import { toErrorMessage } from "@/lib/fetcher";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
+
+type StatusFilter = "all" | "active" | "inactive" | "suspended" | "archived";
+
+type ConfirmAction = {
+  client: EnrichedClient;
+  type: "status" | "archive" | "restore";
+  nextStatus?: ClientOperationalStatus;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  tone?: "danger" | "primary";
+};
 
 function fmtCompact(n: number): string {
   return new Intl.NumberFormat("en-IN", {
@@ -22,7 +45,7 @@ function fmtCompact(n: number): string {
 }
 
 function fmtDate(iso?: string): string {
-  if (!iso) return "—";
+  if (!iso) return "Awaiting signal";
   try {
     return new Intl.DateTimeFormat("en-IN", {
       day: "2-digit",
@@ -34,639 +57,483 @@ function fmtDate(iso?: string): string {
   }
 }
 
-function AllocationMiniBar({
-  mix,
-}: {
-  mix: { stock: number; mf: number; property: number; commodity: number };
-}) {
-  const total = mix.stock + mix.mf + mix.property + mix.commodity;
-  if (total === 0)
-    return <span className="text-slate-600 text-[11px]">Awaiting synced holdings</span>;
+function getPhoneHref(phone?: string) {
+  const digits = String(phone ?? "").replace(/\D/g, "");
+  return digits ? `tel:${digits}` : undefined;
+}
+
+function getWhatsappHref(phone?: string) {
+  const digits = String(phone ?? "").replace(/\D/g, "");
+  return digits ? `https://wa.me/${digits}` : undefined;
+}
+
+function AllocationMiniBar({ client }: { client: EnrichedClient }) {
+  const total = client.assets.length;
+  if (total === 0 || client.totalNetWorth <= 0) {
+    return <span className="text-xs text-slate-400">{client.operationalFallback}</span>;
+  }
+
   return (
-    <div className="flex items-center gap-1.5">
-      <div className="flex rounded-full overflow-hidden h-1.5 w-20">
-        {mix.stock > 0 && (
-          <div style={{ width: `${mix.stock}%`, background: "#38bdf8" }} />
-        )}
-        {mix.mf > 0 && (
-          <div style={{ width: `${mix.mf}%`, background: "#818cf8" }} />
-        )}
-        {mix.property > 0 && (
-          <div style={{ width: `${mix.property}%`, background: "#34d399" }} />
-        )}
-        {mix.commodity > 0 && (
-          <div style={{ width: `${mix.commodity}%`, background: "#f59e0b" }} />
-        )}
+    <div className="space-y-2">
+      <div className="flex h-2 w-full overflow-hidden rounded-full bg-white/5">
+        {[
+          { value: client.allocationMix.stock, color: "#38bdf8" },
+          { value: client.allocationMix.mf, color: "#818cf8" },
+          { value: client.allocationMix.property, color: "#34d399" },
+          { value: client.allocationMix.commodity, color: "#f59e0b" },
+        ]
+          .filter((segment) => segment.value > 0)
+          .map((segment) => (
+            <div key={`${segment.color}-${segment.value}`} style={{ width: `${segment.value}%`, background: segment.color }} />
+          ))}
       </div>
-      <span className="text-[10px] text-slate-400 whitespace-nowrap">
-        {mix.stock > 0 ? `E${mix.stock.toFixed(0)}%` : ""}
-        {mix.mf > 0 ? ` F${mix.mf.toFixed(0)}%` : ""}
-        {mix.property > 0 ? ` R${mix.property.toFixed(0)}%` : ""}
-        {mix.commodity > 0 ? ` C${mix.commodity.toFixed(0)}%` : ""}
-      </span>
+      <p className="text-[11px] text-slate-400">
+        Eq {client.allocationMix.stock.toFixed(0)}% · MF {client.allocationMix.mf.toFixed(0)}% · Re {client.allocationMix.property.toFixed(0)}% · Cmd {client.allocationMix.commodity.toFixed(0)}%
+      </p>
     </div>
   );
 }
-
-type SortKey = keyof EnrichedClient | "";
-type SortDir = "asc" | "desc";
-
-// ── KPI Strip ──────────────────────────────────────────────────────────────
 
 function KpiStrip({
-  kpis,
-  loading,
+  data,
 }: {
-  kpis: {
-    totalClients: number;
-    activeClients: number;
-    inactiveClients: number;
-    totalAUM: number;
-    totalProperties: number;
-    avgPortfolioValue: number;
-  };
-  loading: boolean;
+  data: Array<{ label: string; value: string; tone: "info" | "success" | "warn" | "danger" | "neutral" }>;
 }) {
-  const tiles = [
-    {
-      label: "Total Clients",
-      value: loading ? "—" : String(kpis.totalClients),
-      tone: "info" as const,
-    },
-    {
-      label: "Active Accounts",
-      value: loading ? "—" : String(kpis.activeClients),
-      tone: "success" as const,
-    },
-    {
-      label: "Inactive Accounts",
-      value: loading ? "—" : String(kpis.inactiveClients),
-      tone: kpis.inactiveClients > 0 ? ("warn" as const) : ("success" as const),
-    },
-    {
-      label: "Total Managed AUM",
-      value: loading ? "—" : fmtCompact(kpis.totalAUM),
-      tone: "info" as const,
-    },
-    {
-      label: "Managed Properties",
-      value: loading ? "—" : String(kpis.totalProperties),
-      tone: "info" as const,
-    },
-    {
-      label: "Avg Portfolio",
-      value: loading ? "—" : fmtCompact(kpis.avgPortfolioValue),
-      tone: "info" as const,
-    },
-  ];
-
-  const toneStyle: Record<string, { bg: string; text: string; border: string }> = {
-    info: {
-      bg: "rgba(56,189,248,0.07)",
-      text: "#38bdf8",
-      border: "rgba(56,189,248,0.2)",
-    },
-    success: {
-      bg: "rgba(52,211,153,0.07)",
-      text: "#34d399",
-      border: "rgba(52,211,153,0.2)",
-    },
-    warn: {
-      bg: "rgba(251,191,36,0.07)",
-      text: "#fbbf24",
-      border: "rgba(251,191,36,0.2)",
-    },
-    danger: {
-      bg: "rgba(239,68,68,0.07)",
-      text: "#f87171",
-      border: "rgba(239,68,68,0.2)",
-    },
+  const tones: Record<string, string> = {
+    info: "border-sky-400/20 bg-sky-500/10 text-sky-100",
+    success: "border-emerald-400/20 bg-emerald-500/10 text-emerald-100",
+    warn: "border-amber-400/20 bg-amber-500/10 text-amber-100",
+    danger: "border-rose-400/20 bg-rose-500/10 text-rose-100",
+    neutral: "border-white/10 bg-white/[0.04] text-slate-100",
   };
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
-      {tiles.map(({ label, value, tone }) => {
-        const s = toneStyle[tone];
-        return (
-          <div
-            key={label}
-            className="rounded-xl p-4"
-            style={{
-              background: s.bg,
-              border: `1px solid ${s.border}`,
-            }}
-          >
-            <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">
-              {label}
-            </p>
-            <p
-              className="text-xl font-extrabold mt-1.5 leading-none"
-              style={{ color: s.text }}
-            >
-              {value}
-            </p>
-          </div>
-        );
-      })}
+    <div className="grid grid-cols-2 gap-3 xl:grid-cols-7">
+      {data.map((tile) => (
+        <div key={tile.label} className={`rounded-[1.25rem] border p-4 ${tones[tile.tone]}`}>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-slate-300/70">{tile.label}</p>
+          <p className="mt-2 text-xl font-semibold text-white">{tile.value}</p>
+        </div>
+      ))}
     </div>
   );
 }
-
-// ── Column header ──────────────────────────────────────────────────────────
-
-function TH({
-  label,
-  sortKey,
-  currentSort,
-  currentDir,
-  onSort,
-}: {
-  label: string;
-  sortKey: SortKey;
-  currentSort: SortKey;
-  currentDir: SortDir;
-  onSort: (k: SortKey) => void;
-}) {
-  const active = sortKey !== "" && currentSort === sortKey;
-  return (
-    <th
-      className="px-3 py-3 text-left text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-400 whitespace-nowrap select-none"
-      style={{ cursor: sortKey ? "pointer" : "default" }}
-      onClick={() => sortKey && onSort(sortKey)}
-    >
-      <span className="inline-flex items-center gap-1">
-        {label}
-        {sortKey && (
-          <span
-            className={`transition-opacity ${active ? "opacity-100" : "opacity-30"}`}
-          >
-            {active && currentDir === "desc" ? "↓" : "↑"}
-          </span>
-        )}
-      </span>
-    </th>
-  );
-}
-
-// ── Main Page ──────────────────────────────────────────────────────────────
 
 export default function ClientsPage() {
   const { clients, kpis, loading, error, refresh } = useAdminClients();
-
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(10);
-  const [selectedClient, setSelectedClient] = useState<EnrichedClient | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+  const [pendingAction, setPendingAction] = useState<ConfirmAction | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
 
-  const handleSort = useCallback(
-    (key: SortKey) => {
-      if (sortKey === key) {
-        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-      } else {
-        setSortKey(key);
-        setSortDir("asc");
-      }
-      setPage(1);
-    },
-    [sortKey]
+  const selectedClient = useMemo(
+    () => clients.find((client) => client.id === selectedClientId) ?? null,
+    [clients, selectedClientId]
   );
 
-  const filtered = useMemo(() => {
-    let result = clients;
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) ||
-          c.email.toLowerCase().includes(q) ||
-          c.phone?.includes(q)
-      );
+  useEffect(() => {
+    if (selectedClientId == null && clients[0]) setSelectedClientId(clients[0].id);
+    if (selectedClientId != null && !clients.some((client) => client.id === selectedClientId)) {
+      setSelectedClientId(clients[0]?.id ?? null);
     }
+  }, [clients, selectedClientId]);
 
-    if (statusFilter === "active") result = result.filter((c) => c.isActive);
-    if (statusFilter === "inactive") result = result.filter((c) => !c.isActive);
+  const filteredClients = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return clients.filter((client) => {
+      const matchesSearch =
+        !query ||
+        [
+          client.name,
+          client.email,
+          client.phone,
+          client.relationshipManager,
+          client.leadSource,
+          client.campaignSegmentation,
+          client.tags.join(" "),
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(query));
+      const matchesStatus = statusFilter === "all" || client.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [clients, search, statusFilter]);
 
-    if (sortKey) {
-      result = [...result].sort((a, b) => {
-        const av = a[sortKey as keyof EnrichedClient] ?? "";
-        const bv = b[sortKey as keyof EnrichedClient] ?? "";
-        let cmp = 0;
-        if (typeof av === "number" && typeof bv === "number") {
-          cmp = av - bv;
-        } else {
-          cmp = String(av).localeCompare(String(bv));
-        }
-        return sortDir === "asc" ? cmp : -cmp;
-      });
+  const totalPages = Math.max(1, Math.ceil(filteredClients.length / pageSize));
+  const paginatedClients = filteredClients.slice((page - 1) * pageSize, page * pageSize);
+
+  const propertyAssets = clients.flatMap((client) => client.assets.filter((asset) => asset.type === "property"));
+  const occupiedProperties = propertyAssets.filter((asset) => Boolean(asset.tenantName ?? asset.tenant_name)).length;
+  const dueSoonProperties = propertyAssets.filter((asset) => {
+    if (!asset.rentDueDate && !asset.rent_due_date) return false;
+    const due = new Date(String(asset.rentDueDate ?? asset.rent_due_date)).getTime();
+    const diff = Math.ceil((due - Date.now()) / (1000 * 60 * 60 * 24));
+    return diff >= 0 && diff <= 5;
+  }).length;
+  const overdueProperties = propertyAssets.filter((asset) => {
+    if (!asset.rentDueDate && !asset.rent_due_date) return false;
+    const due = new Date(String(asset.rentDueDate ?? asset.rent_due_date)).getTime();
+    return due < Date.now();
+  }).length;
+
+  const widgetHeatmap = [...clients].sort((a, b) => b.totalNetWorth - a.totalNetWorth).slice(0, 5);
+  const widgetRisk = [...clients].sort((a, b) => b.equityExposurePct - a.equityExposurePct).slice(0, 5);
+  const widgetActivity = [...clients]
+    .filter((client) => client.lastActivity)
+    .sort((a, b) => new Date(String(b.lastActivity)).getTime() - new Date(String(a.lastActivity)).getTime())
+    .slice(0, 5);
+  const widgetApprovalQueue = clients.filter(
+    (client) => client.approvalStatus !== "approved" || client.onboardingStatus !== "live"
+  );
+
+  async function runAction(action: ConfirmAction) {
+    try {
+      setActionLoadingId(action.client.id);
+      setActionError(null);
+      if (action.type === "status" && action.nextStatus) {
+        await updateClientStatus(action.client.id, action.nextStatus);
+      }
+      if (action.type === "archive") {
+        await archiveClient(action.client.id);
+      }
+      if (action.type === "restore") {
+        await restoreClient(action.client.id);
+      }
+      await queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY });
+      setPendingAction(null);
+      refresh();
+    } catch (value) {
+      setActionError(toErrorMessage(value));
+    } finally {
+      setActionLoadingId(null);
     }
+  }
 
-    return result;
-  }, [clients, search, statusFilter, sortKey, sortDir]);
+  function openStatusAction(client: EnrichedClient, nextStatus: ClientOperationalStatus) {
+    const title = nextStatus === "active" ? "Activate Client" : nextStatus === "inactive" ? "Deactivate Client" : "Suspend Client";
+    const description =
+      nextStatus === "active"
+        ? "This will restore the client to live operational coverage."
+        : nextStatus === "inactive"
+        ? "This will disable client operational access."
+        : "This will pause all operational access until the client is restored.";
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+    setPendingAction({
+      client,
+      type: "status",
+      nextStatus,
+      title,
+      description,
+      confirmLabel: nextStatus === "active" ? "Activate" : nextStatus === "inactive" ? "Deactivate" : "Suspend",
+      tone: nextStatus === "active" ? "primary" : "danger",
+    });
+  }
 
-  const commonTHProps = { currentSort: sortKey, currentDir: sortDir, onSort: handleSort };
+  const kpiTiles = [
+    { label: "Total clients", value: String(kpis.totalClients), tone: "neutral" as const },
+    { label: "Active", value: String(kpis.activeClients), tone: "success" as const },
+    { label: "Inactive", value: String(kpis.inactiveClients), tone: "warn" as const },
+    { label: "Suspended", value: String(kpis.suspendedClients), tone: "danger" as const },
+    { label: "Archived", value: String(kpis.archivedClients), tone: "danger" as const },
+    { label: "Managed AUM", value: fmtCompact(kpis.totalAUM), tone: "info" as const },
+    { label: "Property book", value: String(kpis.totalProperties), tone: "info" as const },
+  ];
 
   return (
     <div className="space-y-5 text-white">
-      {/* Header */}
       <SurfaceCard className="p-4 sm:p-5">
         <SectionHeader
-          eyebrow="Client Operations Intelligence"
-          title="Clients workspace"
-          subtitle="Institutional client management, portfolio intelligence, and operational oversight"
+          eyebrow="Institutional client operations"
+          title="Admin client workspace"
+          subtitle="Operational intelligence, relationship oversight, portfolio risk, and real estate execution in one command layer"
           action={
-            <Link
-              href="/admin/clients/new"
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl text-black"
-              style={{
-                background: "linear-gradient(90deg, #38bdf8, #7dd3fc)",
-                boxShadow: "0 2px 8px rgba(56,189,248,0.25)",
-              }}
-            >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
+            <Link href="/admin/clients/new" className="rounded-xl bg-sky-400 px-4 py-2 text-sm font-semibold text-[#04102a] transition hover:bg-sky-300">
               Add Client
             </Link>
           }
         />
       </SurfaceCard>
 
-      {/* KPI Strip */}
-      <KpiStrip kpis={kpis} loading={loading} />
+      <KpiStrip data={kpiTiles} />
 
-      {/* Operations Table */}
-      <SurfaceCard className="p-4 sm:p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-          {/* Search */}
-          <div className="relative flex-1 max-w-xs">
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-sky-300/50"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"
-              />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search clients…"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="v2-input pl-8 w-full"
-            />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <IntelligenceWidget eyebrow="AUM heatmap" title="Top client concentration" detail="Largest capital clusters across live operational books.">
+          <div className="space-y-3">
+            {widgetHeatmap.length === 0 ? (
+              <p className="text-sm text-slate-400">Portfolio not onboarded yet.</p>
+            ) : (
+              widgetHeatmap.map((client) => (
+                <button key={client.id} type="button" onClick={() => setSelectedClientId(client.id)} className="block w-full rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition hover:border-sky-300/30 hover:bg-sky-500/[0.08]">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-white">{client.name}</p>
+                      <p className="text-xs text-slate-400">{client.operationalFallback}</p>
+                    </div>
+                    <p className="text-xs font-semibold text-sky-200">{fmtCompact(client.totalNetWorth)}</p>
+                  </div>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/5">
+                    <div className="h-full rounded-full bg-sky-400" style={{ width: `${kpis.totalAUM > 0 ? (client.totalNetWorth / kpis.totalAUM) * 100 : 0}%` }} />
+                  </div>
+                </button>
+              ))
+            )}
           </div>
+        </IntelligenceWidget>
 
-          {/* Status filter */}
-          <div className="flex items-center gap-1.5">
-            {(["all", "active", "inactive"] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => {
-                  setStatusFilter(f);
-                  setPage(1);
-                }}
-                className={`v2-action capitalize ${statusFilter === f ? "v2-filter-active" : ""}`}
-              >
-                {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
+        <IntelligenceWidget eyebrow="Risk exposure" title="Equity and concentration watch" detail="Accounts breaching operating concentration thresholds.">
+          <div className="space-y-3">
+            {widgetRisk.map((client) => (
+              <button key={client.id} type="button" onClick={() => setSelectedClientId(client.id)} className="flex w-full items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition hover:border-amber-300/30 hover:bg-amber-500/[0.08]">
+                <div>
+                  <p className="text-sm font-semibold text-white">{client.name}</p>
+                  <p className="text-xs text-slate-400">{client.concentrationRisk}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-amber-100">{fmtPercent(client.equityExposurePct)}</p>
+                  <p className="text-[11px] text-slate-400">Equity exposure</p>
+                </div>
               </button>
             ))}
+            {widgetRisk.length === 0 ? <p className="text-sm text-slate-400">Awaiting holdings sync.</p> : null}
+          </div>
+        </IntelligenceWidget>
+
+        <IntelligenceWidget eyebrow="Rental pipeline" title="Real estate operations" detail="Occupancy, due-soon rent events, and portfolio rental pressure.">
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Occupied</p><p className="mt-1 text-lg font-semibold text-white">{occupiedProperties}</p></div>
+            <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Vacant / pipeline</p><p className="mt-1 text-lg font-semibold text-white">{Math.max(propertyAssets.length - occupiedProperties, 0)}</p></div>
+            <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Rent due soon</p><p className="mt-1 text-lg font-semibold text-amber-100">{dueSoonProperties}</p></div>
+            <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Overdue rent</p><p className="mt-1 text-lg font-semibold text-rose-100">{overdueProperties}</p></div>
+          </div>
+        </IntelligenceWidget>
+
+        <IntelligenceWidget eyebrow="Live market movement" title="Portfolio health" detail="Derived live valuation and unrealized movement using the canonical valuation engine.">
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Unrealized PnL</p><p className={`mt-1 text-lg font-semibold ${clients.reduce((sum, client) => sum + client.unrealizedPnL, 0) >= 0 ? "text-emerald-100" : "text-rose-100"}`}>{fmtCurrency(clients.reduce((sum, client) => sum + client.unrealizedPnL, 0))}</p></div>
+              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Avg portfolio</p><p className="mt-1 text-lg font-semibold text-white">{fmtCompact(kpis.avgPortfolioValue)}</p></div>
+            </div>
+            <AllocationRing
+              segments={[
+                { label: "Equity", value: clients.reduce((sum, client) => sum + client.allocationMix.stock, 0) / Math.max(clients.length, 1), color: "#38bdf8" },
+                { label: "Funds", value: clients.reduce((sum, client) => sum + client.allocationMix.mf, 0) / Math.max(clients.length, 1), color: "#818cf8" },
+                { label: "Property", value: clients.reduce((sum, client) => sum + client.allocationMix.property, 0) / Math.max(clients.length, 1), color: "#34d399" },
+                { label: "Commodity", value: clients.reduce((sum, client) => sum + client.allocationMix.commodity, 0) / Math.max(clients.length, 1), color: "#f59e0b" },
+              ]}
+              size={110}
+            />
+          </div>
+        </IntelligenceWidget>
+
+        <IntelligenceWidget eyebrow="Client activity feed" title="Latest relationship signals" detail="Operational touch points and engagement recency.">
+          <div className="space-y-3">
+            {widgetActivity.map((client) => (
+              <button key={client.id} type="button" onClick={() => setSelectedClientId(client.id)} className="flex w-full items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition hover:border-sky-300/30 hover:bg-white/[0.06]">
+                <div>
+                  <p className="text-sm font-semibold text-white">{client.name}</p>
+                  <p className="text-xs text-slate-400">{client.activitySignal}</p>
+                </div>
+                <p className="text-xs text-slate-300">{fmtDate(client.lastActivity)}</p>
+              </button>
+            ))}
+            {widgetActivity.length === 0 ? <p className="text-sm text-slate-400">Awaiting first relationship signal.</p> : null}
+          </div>
+        </IntelligenceWidget>
+
+        <IntelligenceWidget eyebrow="Approval queue" title="Onboarding and approval state" detail="Accounts requiring relationship or compliance progression.">
+          <div className="space-y-3">
+            {widgetApprovalQueue.slice(0, 5).map((client) => (
+              <button key={client.id} type="button" onClick={() => setSelectedClientId(client.id)} className="flex w-full items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition hover:border-sky-300/30 hover:bg-white/[0.06]">
+                <div>
+                  <p className="text-sm font-semibold text-white">{client.name}</p>
+                  <p className="text-xs text-slate-400">{client.onboardingStatus ?? "Awaiting onboarding progression"}</p>
+                </div>
+                <StatusBadge label={client.approvalStatus} />
+              </button>
+            ))}
+            {widgetApprovalQueue.length === 0 ? <p className="text-sm text-slate-400">Approval queue clear.</p> : null}
+          </div>
+        </IntelligenceWidget>
+      </div>
+
+      <SurfaceCard className="p-4 sm:p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+            <input
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder="Search by client, coverage owner, source, or tag"
+              className="w-full max-w-md rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none transition focus:border-sky-300/40 focus:bg-sky-500/[0.08]"
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              {(["all", "active", "inactive", "suspended", "archived"] as const).map((filter) => (
+                <button
+                  key={filter}
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter(filter);
+                    setPage(1);
+                  }}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition ${statusFilter === filter ? "border-sky-300/30 bg-sky-500/10 text-sky-100" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"}`}
+                >
+                  {filter}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Page size */}
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value) as typeof pageSize);
-              setPage(1);
-            }}
-            className="v2-select"
-          >
-            {PAGE_SIZE_OPTIONS.map((n) => (
-              <option key={n} value={n}>
-                {n} / page
-              </option>
-            ))}
-          </select>
-
-          {/* Refresh */}
-          <button
-            onClick={refresh}
-            className="v2-action"
-            title="Refresh"
-          >
-            <svg
-              className="w-3.5 h-3.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+          <div className="flex items-center gap-2">
+            <select
+              value={pageSize}
+              onChange={(event) => {
+                setPageSize(Number(event.target.value) as (typeof PAGE_SIZE_OPTIONS)[number]);
+                setPage(1);
+              }}
+              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Result count */}
-        <p className="text-[11px] text-slate-500 mb-3">
-          {loading
-            ? "Loading clients…"
-            : `${filtered.length} client${filtered.length !== 1 ? "s" : ""}${
-                search || statusFilter !== "all" ? " (filtered)" : ""
-              }`}
-        </p>
-
-        {error ? (
-          <div className="v2-tile rounded-xl p-4 text-center">
-            <p className="text-sm text-rose-400 font-semibold">
-              Failed to load clients
-            </p>
-            <p className="text-xs text-slate-500 mt-1">{error}</p>
-            <button
-              onClick={refresh}
-              className="mt-3 v2-action"
-            >
-              Retry
+              {PAGE_SIZE_OPTIONS.map((option) => (
+                <option key={option} value={option}>{option} / page</option>
+              ))}
+            </select>
+            <button type="button" onClick={refresh} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10">
+              Refresh
             </button>
           </div>
+        </div>
+
+        <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
+          <p>{loading ? "Loading client command table…" : `${filteredClients.length} client command rows`}</p>
+          <p>{actionError ? <span className="text-rose-300">{actionError}</span> : "Operational actions route through /api/v2 client endpoints"}</p>
+        </div>
+
+        {error ? (
+          <div className="mt-4 rounded-[1.25rem] border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-200">{error}</div>
         ) : loading ? (
-          <LoadingBlock label="Loading client data…" />
-        ) : paginated.length === 0 ? (
-          <div className="v2-tile rounded-xl p-8 text-center">
-            <p className="text-sm font-semibold text-white">No clients found</p>
-            <p className="text-xs text-slate-400 mt-1">
-              {search || statusFilter !== "all"
-                ? "Try adjusting your filters."
-                : "Add your first client to get started."}
-            </p>
+          <LoadingBlock label="Loading client operations table…" />
+        ) : paginatedClients.length === 0 ? (
+          <div className="mt-4">
+            <OperationalEmptyState
+              title="No institutional client rows available"
+              description={search || statusFilter !== "all" ? "Adjust filters to reopen the command table." : "Create the first client workspace to begin operational coverage."}
+              hint={search || statusFilter !== "all" ? "Filter intelligence" : "Onboarding command"}
+              action={<Link href="/admin/clients/new" className="rounded-xl bg-sky-400 px-4 py-2 text-sm font-semibold text-[#04102a]">Create client workspace</Link>}
+            />
           </div>
         ) : (
-          <>
-            {/* Scrollable table */}
-            <div className="overflow-x-auto -mx-4 sm:-mx-5">
-              <table className="min-w-full">
-                <thead>
-                  <tr
-                    style={{
-                      borderBottom: "1px solid rgba(255,255,255,0.07)",
-                    }}
-                  >
-                    <TH
-                      label="Client"
-                      sortKey="name"
-                      {...commonTHProps}
-                    />
-                    <TH
-                      label="Email"
-                      sortKey="email"
-                      {...commonTHProps}
-                    />
-                    <TH
-                      label="Net Worth"
-                      sortKey="totalNetWorth"
-                      {...commonTHProps}
-                    />
-                    <TH
-                      label="Allocation"
-                      sortKey=""
-                      {...commonTHProps}
-                    />
-                    <TH
-                      label="Rent/Mo"
-                      sortKey="monthlyRentIncome"
-                      {...commonTHProps}
-                    />
-                    <TH
-                      label="Props"
-                      sortKey="propertiesCount"
-                      {...commonTHProps}
-                    />
-                    <TH
-                      label="Equity %"
-                      sortKey="equityExposurePct"
-                      {...commonTHProps}
-                    />
-                    <TH
-                      label="Last Activity"
-                      sortKey="lastActivity"
-                      {...commonTHProps}
-                    />
-                    <TH
-                      label="Status"
-                      sortKey="isActive"
-                      {...commonTHProps}
-                    />
-                    <th className="px-3 py-3 text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-400">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginated.map((client) => (
-                    <tr
-                      key={client.id}
-                      className="border-b border-white/5 hover:bg-white/[0.035] transition-colors cursor-pointer"
-                      onClick={() => setSelectedClient(client)}
-                    >
-                      {/* Client Name */}
-                      <td className="px-3 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                            style={{
-                              background: "rgba(56,189,248,0.15)",
-                              color: "#38bdf8",
-                              border: "1px solid rgba(56,189,248,0.25)",
-                            }}
-                          >
-                            {client.name
-                              .split(" ")
-                              .filter((n: string) => n)
-                              .map((n: string) => n[0])
-                              .slice(0, 2)
-                              .join("")
-                              .toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="text-xs font-semibold text-white whitespace-nowrap">
-                              {client.name}
-                            </p>
-                            {client.phone && (
-                              <p className="text-[10px] text-slate-500">
-                                {client.phone}
-                              </p>
-                            )}
-                          </div>
+          <div className="mt-4 overflow-x-auto rounded-[1.25rem] border border-white/8">
+            <table className="min-w-full text-left">
+              <thead className="bg-white/[0.03] text-[11px] uppercase tracking-[0.16em] text-slate-400">
+                <tr>
+                  <th className="px-4 py-3">Client</th>
+                  <th className="px-4 py-3">Relationship</th>
+                  <th className="px-4 py-3">Portfolio</th>
+                  <th className="px-4 py-3">Allocation</th>
+                  <th className="px-4 py-3">Real estate</th>
+                  <th className="px-4 py-3">AI intelligence</th>
+                  <th className="px-4 py-3">Activity</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedClients.map((client) => (
+                  <tr key={client.id} className="cursor-pointer border-t border-white/8 transition hover:bg-white/[0.04]" onClick={() => setSelectedClientId(client.id)}>
+                    <td className="px-4 py-4 align-top">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-500/10 text-sm font-semibold text-sky-100">
+                          {client.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
                         </div>
-                      </td>
-
-                      {/* Email */}
-                      <td className="px-3 py-3">
-                        <p className="text-xs text-slate-300 whitespace-nowrap">
-                          {client.email}
-                        </p>
-                      </td>
-
-                      {/* Net Worth */}
-                      <td className="px-3 py-3">
-                        <p className="text-xs font-semibold text-white whitespace-nowrap">
-                          {client.totalNetWorth > 0
-                            ? fmtCompact(client.totalNetWorth)
-                            : "—"}
-                        </p>
-                      </td>
-
-                      {/* Allocation Mix */}
-                      <td className="px-3 py-3">
-                        <AllocationMiniBar mix={client.allocationMix} />
-                      </td>
-
-                      {/* Monthly Rent */}
-                      <td className="px-3 py-3">
-                        <p className="text-xs text-slate-300 whitespace-nowrap">
-                          {client.monthlyRentIncome > 0
-                            ? fmtCompact(client.monthlyRentIncome)
-                            : "—"}
-                        </p>
-                      </td>
-
-                      {/* Properties Count */}
-                      <td className="px-3 py-3 text-center">
-                        <span className="text-xs font-semibold text-slate-300">
-                          {client.propertiesCount || "—"}
-                        </span>
-                      </td>
-
-                      {/* Equity Exposure */}
-                      <td className="px-3 py-3">
-                        <p className="text-xs text-slate-300 whitespace-nowrap">
-                          {client.totalNetWorth > 0
-                            ? fmtPercent(client.equityExposurePct)
-                            : "—"}
-                        </p>
-                      </td>
-
-                      {/* Last Activity */}
-                      <td className="px-3 py-3">
-                        <p className="text-xs text-slate-400 whitespace-nowrap">
-                          {fmtDate(client.lastActivity)}
-                        </p>
-                      </td>
-
-                      {/* Status */}
-                      <td className="px-3 py-3">
-                        <StatusPill
-                          label={client.isActive ? "Active" : "Inactive"}
-                          tone={client.isActive ? "success" : "danger"}
+                        <div>
+                          <p className="text-sm font-semibold text-white">{client.name}</p>
+                          <p className="text-xs text-slate-400">{client.email}</p>
+                          <p className="mt-2 text-[11px] text-slate-500">{client.phone || "Call channel pending"}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <p className="text-sm text-white">{client.relationshipManager || "Coverage owner unassigned"}</p>
+                      <p className="mt-1 text-xs text-slate-400">{client.leadSource || "Lead source awaiting capture"}</p>
+                      <p className="mt-2 text-[11px] text-sky-200/80">{client.tags.length > 0 ? client.tags.join(" · ") : "Segmentation pending"}</p>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <p className="text-sm font-semibold text-white">{client.totalNetWorth > 0 ? fmtCurrency(client.totalNetWorth) : client.operationalFallback}</p>
+                      <p className={`mt-1 text-xs ${client.unrealizedPnL >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{client.totalNetWorth > 0 ? `${fmtPercent(client.unrealizedPnLPct, true)} unrealized` : client.activitySignal}</p>
+                    </td>
+                    <td className="px-4 py-4 align-top"><AllocationMiniBar client={client} /></td>
+                    <td className="px-4 py-4 align-top">
+                      <p className="text-sm text-white">{client.propertiesCount > 0 ? `${client.propertiesCount} properties` : "Property pipeline pending"}</p>
+                      <p className="mt-1 text-xs text-slate-400">{client.propertiesCount > 0 ? `${client.occupiedProperties}/${client.propertiesCount} occupied · ${fmtCurrency(client.monthlyRentIncome)}/mo` : "No active rent pipeline"}</p>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <p className="text-sm text-white">{client.diversificationScore}/100 diversification</p>
+                      <p className="mt-1 text-xs text-slate-400">{client.concentrationRisk}</p>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <p className="text-sm text-white">{fmtDate(client.lastActivity)}</p>
+                      <p className="mt-1 text-xs text-slate-400">{client.activitySignal}</p>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <div className="space-y-2">
+                        <StatusBadge label={client.status} />
+                        <StatusBadge label={client.approvalStatus} />
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 align-top text-right">
+                      <div className="flex justify-end">
+                        <ActionMenu
+                          items={[
+                            { label: "View Intelligence", onSelect: () => setSelectedClientId(client.id) },
+                            { label: "Edit Client", href: `/admin/clients/${client.id}/edit` },
+                            { label: "WhatsApp", href: getWhatsappHref(client.phone), disabled: !getWhatsappHref(client.phone) },
+                            { label: "Call", href: getPhoneHref(client.phone), disabled: !getPhoneHref(client.phone) },
+                            { label: "Email", href: client.email ? `mailto:${client.email}` : undefined, disabled: !client.email },
+                            { label: "Activate", onSelect: () => openStatusAction(client, "active"), disabled: client.status === "active" },
+                            { label: "Deactivate", onSelect: () => openStatusAction(client, "inactive"), disabled: client.status === "inactive" },
+                            { label: "Suspend", onSelect: () => openStatusAction(client, "suspended"), disabled: client.status === "suspended" },
+                            { label: "Restore", onSelect: () => setPendingAction({ client, type: "restore", title: "Restore Client", description: "This client will return to the active operational roster.", confirmLabel: "Restore", tone: "primary" }), disabled: client.status !== "archived" },
+                            { label: "Archive", onSelect: () => setPendingAction({ client, type: "archive", title: "Archive Client", description: "This client will be removed from active operations but can be restored later.", confirmLabel: "Archive Client" }), disabled: client.status === "archived" },
+                            { label: "Delete (soft)", onSelect: () => setPendingAction({ client, type: "archive", title: "Archive Client", description: "This client will be removed from active operations but can be restored later.", confirmLabel: "Archive Client" }), disabled: client.status === "archived", tone: "danger" },
+                          ]}
                         />
-                      </td>
-
-                      {/* Actions */}
-                      <td className="px-3 py-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedClient(client);
-                          }}
-                          className="v2-action text-sky-300"
-                          title="View detail"
-                        >
-                          View
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/8">
-                <p className="text-[11px] text-slate-500">
-                  Page {page} of {totalPages} ·{" "}
-                  {(page - 1) * pageSize + 1}–
-                  {Math.min(page * pageSize, filtered.length)} of{" "}
-                  {filtered.length}
-                </p>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="v2-action disabled:opacity-30"
-                  >
-                    ←
-                  </button>
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const p =
-                      totalPages <= 5
-                        ? i + 1
-                        : page <= 3
-                        ? i + 1
-                        : page >= totalPages - 2
-                        ? totalPages - 4 + i
-                        : page - 2 + i;
-                    return (
-                      <button
-                        key={p}
-                        onClick={() => setPage(p)}
-                        className={`v2-action w-7 h-7 p-0 ${
-                          page === p ? "v2-filter-active" : ""
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    );
-                  })}
-                  <button
-                    onClick={() =>
-                      setPage((p) => Math.min(totalPages, p + 1))
-                    }
-                    disabled={page === totalPages}
-                    className="v2-action disabled:opacity-30"
-                  >
-                    →
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
+
+        <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
+          <p>Page {page} / {totalPages}</p>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={page === 1} className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 disabled:opacity-40">Previous</button>
+            <button type="button" onClick={() => setPage((value) => Math.min(totalPages, value + 1))} disabled={page === totalPages} className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 disabled:opacity-40">Next</button>
+          </div>
+        </div>
       </SurfaceCard>
 
-      {/* Client Detail Slide-Over */}
-      <ClientDetailPanel
-        client={selectedClient}
-        onClose={() => setSelectedClient(null)}
-      />
+      <ClientDetailPanel client={selectedClient} onClose={() => setSelectedClientId(null)} onRefresh={refresh} />
+
+      {pendingAction ? (
+        <PlatformConfirmModal
+          title={pendingAction.title}
+          description={pendingAction.description}
+          confirmLabel={pendingAction.confirmLabel}
+          onClose={() => setPendingAction(null)}
+          onConfirm={() => void runAction(pendingAction)}
+          pending={actionLoadingId === pendingAction.client.id}
+          tone={pendingAction.tone}
+        />
+      ) : null}
     </div>
   );
 }
