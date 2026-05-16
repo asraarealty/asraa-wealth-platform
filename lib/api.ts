@@ -244,6 +244,7 @@ export interface PortfolioFull {
   stockValue: number;
   mfValue: number;
   propertyValue: number;
+  commodityValue: number;
   roiPercent: number;
 }
 
@@ -334,7 +335,10 @@ function summarizePortfolio(positions: Asset[]): PortfolioFull {
   const propertyValue = positions
     .filter((asset) => normalizeType(asset.asset_type ?? asset.type) === "property")
     .reduce((sum, asset) => sum + toFiniteNumber(asset.value, 0), 0);
-  const totalValue = stockValue + mfValue + propertyValue;
+  const commodityValue = positions
+    .filter((asset) => normalizeType(asset.asset_type ?? asset.type) === "commodity")
+    .reduce((sum, asset) => sum + toFiniteNumber(asset.value, 0), 0);
+  const totalValue = stockValue + mfValue + propertyValue + commodityValue;
 
   return {
     positions,
@@ -342,6 +346,7 @@ function summarizePortfolio(positions: Asset[]): PortfolioFull {
     stockValue,
     mfValue,
     propertyValue,
+    commodityValue,
     roiPercent: 0,
   };
 }
@@ -351,6 +356,7 @@ export interface DashboardSummary {
   stockValue: number;
   mfValue: number;
   propertyValue: number;
+  commodityValue: number;
   roiPercent: number;
 }
 
@@ -358,6 +364,7 @@ export interface DashboardAllocation {
   equity: number;
   property: number;
   mutualFunds: number;
+  commodity: number;
 }
 
 /**
@@ -387,6 +394,7 @@ export async function fetchDashboardData(signal?: AbortSignal): Promise<Dashboar
     stockValue: Number(res?.summary?.stock_value ?? 0),
     mfValue: Number(res?.summary?.mf_value ?? 0),
     propertyValue: Number(res?.summary?.property_value ?? 0),
+    commodityValue: Number(res?.summary?.commodity_value ?? 0),
     roiPercent: Number(res?.summary?.roi_percent ?? 0),
   };
 
@@ -394,6 +402,7 @@ export async function fetchDashboardData(signal?: AbortSignal): Promise<Dashboar
     equity: Number(res?.allocation?.equity ?? 0),
     property: Number(res?.allocation?.property ?? res?.allocation?.real_estate ?? 0),
     mutualFunds: Number(res?.allocation?.mutual_funds ?? 0),
+    commodity: Number(res?.allocation?.commodity ?? 0),
   };
 
   return {
@@ -447,6 +456,7 @@ export async function fetchPortfolio(
       stockValue: dashboard.summary.stockValue,
       mfValue: dashboard.summary.mfValue,
       propertyValue: dashboard.summary.propertyValue,
+      commodityValue: dashboard.summary.commodityValue,
       roiPercent: dashboard.summary.roiPercent,
     };
   }

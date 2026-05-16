@@ -11,10 +11,12 @@ export interface EnrichedClient extends AdminClient {
   stockValue: number;
   mfValue: number;
   propertyValue: number;
+  commodityValue: number;
   equityExposurePct: number;
+  commodityExposurePct: number;
   propertiesCount: number;
   monthlyRentIncome: number;
-  allocationMix: { stock: number; mf: number; property: number };
+  allocationMix: { stock: number; mf: number; property: number; commodity: number };
   lastActivity: string | undefined;
   assets: Asset[];
 }
@@ -77,12 +79,17 @@ export function useAdminClients(): UseAdminClientsResult {
           const propertyValue = assets
             .filter((a) => a.type === "property")
             .reduce((s, a) => s + (a.value || 0), 0);
-          const totalNetWorth = stockValue + mfValue + propertyValue;
+          const commodityValue = assets
+            .filter((a) => a.type === "commodity")
+            .reduce((s, a) => s + (a.value || 0), 0);
+          const totalNetWorth = stockValue + mfValue + propertyValue + commodityValue;
 
           const equityExposurePct =
             totalNetWorth > 0
               ? ((stockValue + mfValue) / totalNetWorth) * 100
               : 0;
+          const commodityExposurePct =
+            totalNetWorth > 0 ? (commodityValue / totalNetWorth) * 100 : 0;
 
           const propertiesCount = assets.filter(
             (a) => a.type === "property"
@@ -98,8 +105,9 @@ export function useAdminClients(): UseAdminClientsResult {
                   stock: (stockValue / totalNetWorth) * 100,
                   mf: (mfValue / totalNetWorth) * 100,
                   property: (propertyValue / totalNetWorth) * 100,
+                  commodity: (commodityValue / totalNetWorth) * 100,
                 }
-              : { stock: 0, mf: 0, property: 0 };
+              : { stock: 0, mf: 0, property: 0, commodity: 0 };
 
           // Derive last activity from asset timestamps or client creation date
           const assetDates = assets
@@ -124,7 +132,9 @@ export function useAdminClients(): UseAdminClientsResult {
             stockValue,
             mfValue,
             propertyValue,
+            commodityValue,
             equityExposurePct,
+            commodityExposurePct,
             propertiesCount,
             monthlyRentIncome,
             allocationMix,

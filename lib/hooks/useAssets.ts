@@ -7,7 +7,7 @@ export const INSIGHTS_KEY = ["insights", "me"] as const;
 
 interface AssetsData {
   summary: { total_value: number; total_invested: number; total_return: number; return_percentage: number };
-  allocation: { stock: number; mf: number; property: number };
+  allocation: { stock: number; mf: number; property: number; commodity: number };
   assets: Asset[];
 }
 
@@ -28,7 +28,7 @@ export function useAssets() {
       const data: AssetsData = isEnvelope ? (res.data as AssetsData) : (res as unknown as AssetsData);
       return {
         summary: data?.summary ?? { total_value: 0, total_invested: 0, total_return: 0, return_percentage: 0 },
-        allocation: data?.allocation ?? { stock: 0, mf: 0, property: 0 },
+        allocation: data?.allocation ?? { stock: 0, mf: 0, property: 0, commodity: 0 },
         assets: Array.isArray(data?.assets) ? data.assets : [],
       };
     },

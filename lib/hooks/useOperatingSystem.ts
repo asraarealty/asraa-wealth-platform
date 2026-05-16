@@ -5,6 +5,9 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchTransactions, type Transaction } from "@/lib/api";
 import { useAssets, useInsights } from "@/lib/hooks/useAssets";
 import type { Asset } from "@/lib/types/assets";
+import { createCanonicalAssetUniverse } from "@/lib/services/assets";
+import { resolveLivePrices } from "@/lib/services/market";
+import { computePortfolioValuation } from "@/lib/services/portfolio";
 
 type EventType = "risk" | "cashflow" | "rent" | "drift" | "opportunity";
 
@@ -88,16 +91,62 @@ export function useOperatingSystemData() {
     queryFn: () => fetchTransactions(),
   });
 
+  const canonicalHoldings = useMemo(
+    () => createCanonicalAssetUniverse(assetsQuery.data?.assets ?? []),
+    [assetsQuery.data?.assets]
+  );
+
+  const livePricesQuery = useQuery({
+    queryKey: [
+      "market-pricing",
+      canonicalHoldings.map((h) => `${h.id}:${h.type}:${h.symbol}:${h.currentPrice}`).join("|"),
+    ],
+    queryFn: () => resolveLivePrices(canonicalHoldings),
+    enabled: canonicalHoldings.length > 0,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+
   const data = useMemo(() => {
-    const summary = assetsQuery.data?.summary ?? {
+    const backendSummary = assetsQuery.data?.summary ?? {
       total_value: 0,
       total_invested: 0,
       total_return: 0,
       return_percentage: 0,
     };
 
-    const allocation = assetsQuery.data?.allocation ?? { stock: 0, mf: 0, property: 0 };
+    const backendAllocation = assetsQuery.data?.allocation ?? {
+      stock: 0,
+      mf: 0,
+      property: 0,
+      commodity: 0,
+    };
     const assets = assetsQuery.data?.assets ?? [];
+    const valuation = computePortfolioValuation(
+      canonicalHoldings,
+      livePricesQuery.data ?? {}
+    );
+    const useLiveValuation = canonicalHoldings.length > 0;
+
+    const summary = {
+      total_value: useLiveValuation ? valuation.liveValue : backendSummary.total_value,
+      total_invested: useLiveValuation ? valuation.investedValue : backendSummary.total_invested,
+      total_return: useLiveValuation ? valuation.unrealizedPnL : backendSummary.total_return,
+      return_percentage: useLiveValuation
+        ? valuation.unrealizedPnLPct
+        : backendSummary.return_percentage,
+      monthly_income: useLiveValuation ? valuation.monthlyIncome : 0,
+      net_worth: useLiveValuation ? valuation.netWorth : backendSummary.total_value,
+    };
+
+    const allocation = {
+      stock: useLiveValuation ? valuation.allocationPct.stock : backendAllocation.stock,
+      mf: useLiveValuation ? valuation.allocationPct.mf : backendAllocation.mf,
+      property: useLiveValuation ? valuation.allocationPct.property : backendAllocation.property,
+      commodity: useLiveValuation
+        ? valuation.allocationPct.commodity
+        : backendAllocation.commodity,
+    };
     const properties = assets.filter((a) => a.type === "property");
     const alerts = Array.isArray(insightsQuery.data?.alerts) ? insightsQuery.data.alerts : [];
     const transactions = Array.isArray(transactionsQuery.data) ? transactionsQuery.data : [];
@@ -197,6 +246,8 @@ export function useOperatingSystemData() {
       totalInvested: summary.total_invested,
       totalReturn: summary.total_return,
       returnPct: summary.return_percentage,
+      monthlyIncome: summary.monthly_income,
+      netWorth: summary.net_worth,
       riskState: allocation.stock > 70 ? "High" : allocation.stock >= 45 ? "Medium" : "Low",
     };
 
@@ -213,16 +264,31 @@ export function useOperatingSystemData() {
       realEstate,
       executive,
     };
-  }, [assetsQuery.data, insightsQuery.data, transactionsQuery.data]);
+  }, [
+    assetsQuery.data,
+    insightsQuery.data,
+    transactionsQuery.data,
+    canonicalHoldings,
+    livePricesQuery.data,
+  ]);
 
   return {
     data,
-    isLoading: assetsQuery.isLoading || insightsQuery.isLoading || transactionsQuery.isLoading,
-    isError: assetsQuery.isError || insightsQuery.isError || transactionsQuery.isError,
+    isLoading:
+      assetsQuery.isLoading ||
+      insightsQuery.isLoading ||
+      transactionsQuery.isLoading ||
+      livePricesQuery.isLoading,
+    isError:
+      assetsQuery.isError ||
+      insightsQuery.isError ||
+      transactionsQuery.isError ||
+      livePricesQuery.isError,
     refetchAll: () => {
       assetsQuery.refetch();
       insightsQuery.refetch();
       transactionsQuery.refetch();
+      livePricesQuery.refetch();
     },
   };
 }

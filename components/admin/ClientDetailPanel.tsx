@@ -22,10 +22,10 @@ function fmtDate(iso?: string): string {
 function AllocationBar({
   mix,
 }: {
-  mix: { stock: number; mf: number; property: number };
+  mix: { stock: number; mf: number; property: number; commodity: number };
 }) {
-  const total = mix.stock + mix.mf + mix.property;
-  if (total === 0) return <span className="text-slate-500 text-xs">No assets</span>;
+  const total = mix.stock + mix.mf + mix.property + mix.commodity;
+  if (total === 0) return <span className="text-slate-500 text-xs">Awaiting live holdings sync</span>;
   return (
     <div className="flex rounded-full overflow-hidden h-2 w-full">
       {mix.stock > 0 && (
@@ -44,6 +44,12 @@ function AllocationBar({
         <div
           style={{ width: `${mix.property}%`, background: "#34d399" }}
           title={`Real Estate ${mix.property.toFixed(1)}%`}
+        />
+      )}
+      {mix.commodity > 0 && (
+        <div
+          style={{ width: `${mix.commodity}%`, background: "#f59e0b" }}
+          title={`Commodity ${mix.commodity.toFixed(1)}%`}
         />
       )}
     </div>
@@ -95,6 +101,7 @@ export function ClientDetailPanel({ client, onClose }: Props) {
   const propertyAssets = client.assets.filter((a) => a.type === "property");
   const stockAssets = client.assets.filter((a) => a.type === "stock");
   const mfAssets = client.assets.filter((a) => a.type === "mf");
+  const commodityAssets = client.assets.filter((a) => a.type === "commodity");
 
   const alertItems = insights?.alerts ?? [];
 
@@ -200,6 +207,13 @@ export function ClientDetailPanel({ client, onClose }: Props) {
                     ? fmtCurrency(client.monthlyRentIncome)
                     : "—",
               },
+              {
+                label: "Commodity Exposure",
+                value:
+                  client.totalNetWorth > 0
+                    ? fmtPercent(client.commodityExposurePct)
+                    : "—",
+              },
             ].map(({ label, value }) => (
               <div
                 key={label}
@@ -239,6 +253,13 @@ export function ClientDetailPanel({ client, onClose }: Props) {
                   style={{ background: "#34d399" }}
                 />
                 Real Estate {client.allocationMix.property.toFixed(1)}%
+              </span>
+              <span>
+                <span
+                  className="inline-block w-2 h-2 rounded-full mr-1"
+                  style={{ background: "#f59e0b" }}
+                />
+                Commodity {client.allocationMix.commodity.toFixed(1)}%
               </span>
             </div>
           </div>
@@ -291,15 +312,15 @@ export function ClientDetailPanel({ client, onClose }: Props) {
 
           <Divider />
 
-          {/* 3. Stocks & Mutual Funds */}
-          <SectionTitle title="Stocks & Mutual Funds" sub="Section 3" />
-          {stockAssets.length === 0 && mfAssets.length === 0 ? (
+          {/* 3. Stocks, Mutual Funds & Commodities */}
+          <SectionTitle title="Stocks, Mutual Funds & Commodities" sub="Section 3" />
+          {stockAssets.length === 0 && mfAssets.length === 0 && commodityAssets.length === 0 ? (
             <p className="text-xs text-slate-500 mb-3">
-              No equity or fund holdings.
+              No liquid-market holdings.
             </p>
           ) : (
             <div className="space-y-2 mb-3">
-              {[...stockAssets, ...mfAssets]
+              {[...stockAssets, ...mfAssets, ...commodityAssets]
                 .sort((a, b) => (b.value || 0) - (a.value || 0))
                 .slice(0, 8)
                 .map((asset) => (
@@ -315,12 +336,18 @@ export function ClientDetailPanel({ client, onClose }: Props) {
                             background:
                               asset.type === "stock"
                                 ? "rgba(56,189,248,0.15)"
-                                : "rgba(129,140,248,0.15)",
+                                : asset.type === "mf"
+                                ? "rgba(129,140,248,0.15)"
+                                : "rgba(245,158,11,0.15)",
                             color:
-                              asset.type === "stock" ? "#38bdf8" : "#818cf8",
+                              asset.type === "stock"
+                                ? "#38bdf8"
+                                : asset.type === "mf"
+                                ? "#818cf8"
+                                : "#f59e0b",
                           }}
                         >
-                          {asset.type === "stock" ? "EQ" : "MF"}
+                          {asset.type === "stock" ? "EQ" : asset.type === "mf" ? "MF" : "CMD"}
                         </span>
                         <p className="text-xs font-semibold text-white truncate">
                           {asset.symbol || asset.name}

@@ -53,6 +53,10 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+        <div className="mt-3 grid grid-cols-2 lg:grid-cols-2 gap-3">
+          <MetricTile label="Monthly Income" value={fmt(data.executive.monthlyIncome ?? 0)} />
+          <MetricTile label="Net Worth" value={fmt(data.executive.netWorth ?? data.executive.totalValue)} />
+        </div>
       </SurfaceCard>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -85,6 +89,7 @@ export default function DashboardPage() {
               { label: "Stocks", val: data.allocation.stock, color: "#38bdf8" },
               { label: "Mutual Funds", val: data.allocation.mf, color: "#34d399" },
               { label: "Property", val: data.allocation.property, color: "#a78bfa" },
+              { label: "Commodities", val: data.allocation.commodity ?? 0, color: "#f59e0b" },
             ].map((x) => (
               <div key={x.label}>
                 <div className="flex items-center justify-between text-xs">

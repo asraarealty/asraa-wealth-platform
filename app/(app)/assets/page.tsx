@@ -9,13 +9,26 @@ function fmt(n: number) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
 }
 
-const TYPE_COLORS: Record<string, string> = { stock: "#38bdf8", mf: "#34d399", property: "#a78bfa" };
+const TYPE_COLORS: Record<string, string> = {
+  stock: "#38bdf8",
+  mf: "#34d399",
+  property: "#a78bfa",
+  commodity: "#f59e0b",
+};
 const TABS: { key: AssetType | "all"; label: string }[] = [
   { key: "all", label: "All" },
   { key: "stock", label: "Stocks" },
   { key: "mf", label: "Mutual Funds" },
+  { key: "commodity", label: "Commodities" },
   { key: "property", label: "Property" },
 ];
+
+function getEditHref(asset: Asset): string {
+  if (asset.type === "stock") return `/stocks/${asset.id}/edit`;
+  if (asset.type === "mf") return `/mutual-funds/${asset.id}/edit`;
+  if (asset.type === "property") return `/properties/${asset.id}/edit`;
+  return `/assets/${asset.id}/edit`;
+}
 
 function AssetCard({ asset, onDelete }: { asset: Asset; onDelete: (id: number) => void }) {
   const positive = asset.return_percentage >= 0;
@@ -69,11 +82,17 @@ function AssetCard({ asset, onDelete }: { asset: Asset; onDelete: (id: number) =
             {asset.tenant_name && <span className="col-span-2">👤 <span className="text-white">{asset.tenant_name}</span></span>}
           </>
         )}
+        {asset.type === "commodity" && (
+          <>
+            <span>Qty: <span className="text-white">{asset.quantity ?? "—"}</span></span>
+            <span>CMP: <span className="text-white">{asset.current_price ? fmt(asset.current_price) : "—"}</span></span>
+          </>
+        )}
       </div>
 
       <div className="flex gap-2 mt-3">
         <Link
-          href={`/assets/${asset.id}/edit`}
+          href={getEditHref(asset)}
           className="flex-1 py-2 rounded-xl text-xs font-semibold text-center text-sky-400 border border-sky-500/20 hover:bg-sky-500/10 transition-colors"
         >
           Edit
@@ -144,7 +163,7 @@ export default function AssetsPage() {
               animate={{ opacity: 1 }}
               className="text-center py-16 text-gray-500 text-sm"
             >
-              No {activeTab === "all" ? "assets" : activeTab === "mf" ? "mutual funds" : activeTab} yet.
+              No {activeTab === "all" ? "assets" : activeTab === "mf" ? "mutual funds" : activeTab === "commodity" ? "commodities" : activeTab} yet.
               <br />
               <Link href="/assets/new" className="text-sky-400 font-semibold mt-2 inline-block">Add one now →</Link>
             </motion.div>

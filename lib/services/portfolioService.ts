@@ -38,8 +38,8 @@ export async function getDashboardData(
     console.error("[portfolioService] getDashboardData failed:", toErrorMessage(err));
     return { 
       assets: [], 
-      summary: { totalValue: 0, stockValue: 0, mfValue: 0, propertyValue: 0, roiPercent: 0 },
-      allocation: { equity: 0, property: 0, mutualFunds: 0 }
+      summary: { totalValue: 0, stockValue: 0, mfValue: 0, propertyValue: 0, commodityValue: 0, roiPercent: 0 },
+      allocation: { equity: 0, property: 0, mutualFunds: 0, commodity: 0 }
     };
   }
 }
