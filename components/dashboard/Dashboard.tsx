@@ -166,7 +166,7 @@ export default function PortfolioDashboard({ clientId }: DashboardProps) {
         // KPI values are always correct rather than showing zeros.
         let portfolioEnvelope: RawPortfolioResponse;
         if (Array.isArray(rawPortfolio)) {
-          const positions = rawPortfolio as RawPortfolioResponse["positions"];
+          const positions = (rawPortfolio as RawPortfolioResponse["positions"]) ?? [];
           const totalValue = positions.reduce((s, p) => s + (p.value ?? 0), 0);
           const stockValue = positions
             .filter((p) => p.type === "stock")

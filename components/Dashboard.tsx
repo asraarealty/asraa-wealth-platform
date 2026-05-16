@@ -14,10 +14,10 @@ import {
   type PortfolioFull,
   type InsightsResponse,
 } from "@/lib/api";
-import { Tab } from "@/lib/types"; // Import the shared Tab type
 import { toErrorMessage, ApiError } from "@/lib/fetcher";
 import ClientSelector from "./ClientSelector"; // Keep this import
 import PortfolioGrowthChart from "./dashboard/PortfolioGrowthChart";
+import AllocationChart from "./dashboard/AllocationChart";
 import AIInsightsPanel from "./dashboard/AIInsightsPanel";
 import ClientRecommendations from "./dashboard/ClientRecommendations";
 import AssetTabs from "./dashboard/AssetTabs";
@@ -25,6 +25,8 @@ import StatBox from "./ui/StatBox";
 import Loader from "./ui/Loader";
 import ErrorState from "./ui/ErrorState";
 import MobileDashboard from "./dashboard/MobileDashboard";
+
+type Tab = "stocks" | "mutual_funds" | "real_estate";
 
 function useIsMobile(breakpoint = 768) {
   // Always start with `false` so the server-rendered HTML (desktop layout)

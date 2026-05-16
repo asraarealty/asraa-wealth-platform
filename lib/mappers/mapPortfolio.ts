@@ -1,5 +1,8 @@
 import { Asset, PortfolioFull } from "../api";
 
+export type PortfolioData = PortfolioFull;
+export type Position = Asset;
+
 // ── Raw API types (snake_case from Backend) ───────────────────────────────
 
 export interface RawPosition {

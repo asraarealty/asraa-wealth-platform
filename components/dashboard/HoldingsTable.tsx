@@ -11,12 +11,14 @@ const TYPE_LABELS: Record<Position["type"], string> = {
   stock: "Stock",
   mf: "Mutual Fund",
   property: "Property",
+  commodity: "Commodity",
 };
 
 const TYPE_BADGE_STYLES: Record<Position["type"], string> = {
   stock: "bg-gold/10 text-gold-light border-gold/20",
   mf: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   property: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  commodity: "bg-orange-500/10 text-orange-400 border-orange-500/20",
 };
 
 type SortKey = "name" | "type" | "value" | "returnPercent";
@@ -95,7 +97,8 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
         </thead>
         <tbody>
           {sorted.map((pos) => {
-            const isPositive = pos.returnPercent >= 0;
+            const returnPercent = pos.returnPercent ?? 0;
+            const isPositive = returnPercent >= 0;
             return (
               <tr
                 key={pos.id}
@@ -133,7 +136,7 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
                 </td>
                 {/* Current Price */}
                 <td className="px-4 py-3 text-white font-medium tabular-nums whitespace-nowrap">
-                  {fmtCurrency(pos.currentPrice)}
+                  {fmtCurrency(pos.currentPrice ?? 0)}
                 </td>
                 {/* Value */}
                 <td className="px-4 py-3 text-white font-semibold tabular-nums whitespace-nowrap">
@@ -145,7 +148,7 @@ export default function HoldingsTable({ positions }: HoldingsTableProps) {
                     isPositive ? "text-emerald-400" : "text-red-400"
                   }`}
                 >
-                  {isPositive ? "▲" : "▼"} {fmtPercent(Math.abs(pos.returnPercent))}
+                  {isPositive ? "▲" : "▼"} {fmtPercent(Math.abs(returnPercent))}
                 </td>
               </tr>
             );

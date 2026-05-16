@@ -53,7 +53,9 @@ export interface Client {
   email: string;
   phone?: string;
   isActive: boolean;
+  is_active?: boolean;
   createdAt: string;
+  created_at?: string;
 }
 
 // Type definition for AdminClient as requested
@@ -63,7 +65,9 @@ export type AdminClient = {
   email: string;
   phone?: string;
   isActive: boolean;
+  is_active?: boolean;
   createdAt?: string;
+  created_at?: string;
 };
 
 export function fetchClients(signal?: AbortSignal): Promise<Client[]> {
@@ -83,7 +87,9 @@ export async function fetchAdminClients(signal?: AbortSignal): Promise<AdminClie
     email: c.email ?? "",
     phone: c.phone ?? undefined,
     isActive: Boolean(c.is_active ?? c.isActive ?? true),
+    is_active: Boolean(c.is_active ?? c.isActive ?? true),
     createdAt: c.created_at ?? c.createdAt,
+    created_at: c.created_at ?? c.createdAt,
   }));
 }
 
@@ -150,6 +156,7 @@ export interface User {
   email: string;
   role: string;
   isActive: boolean;
+  is_active?: boolean;
 }
 
 export function fetchUsers(signal?: AbortSignal): Promise<User[]> {
@@ -183,26 +190,40 @@ const normalizeType = (type: string | undefined): AssetType => {
 export interface Asset {
   id: number;
   type: AssetType;
+  asset_type?: string;
   symbol?: string;
   name: string;
   quantity?: number;
   avgPrice: number;
+  avg_price?: number;
   currentPrice?: number;
+  current_price?: number;
   value: number;
   allocation: number;
+  returnPercent?: number;
+  return_percent?: number;
   /** Real estate */
   location?: string;
   purchasePrice?: number;
+  purchase_price?: number;
   currentValue?: number;
+  current_value?: number;
   rentAmount?: number;
+  rent_amount?: number;
   rentDueDate?: string;
+  rent_due_date?: string;
   tenantName?: string;
+  tenant_name?: string;
   tenantPhone?: string;
+  tenant_phone?: string;
   tenantEmail?: string;
+  tenant_email?: string;
   /** Common */
   tags?: string[];
   userId?: number;
+  user_id?: number;
   createdAt?: string;
+  created_at?: string;
 }
 
 export type CreateAssetPayload = Omit<
@@ -210,6 +231,21 @@ export type CreateAssetPayload = Omit<
   "id" | "value" | "allocation" | "createdAt"
 >;
 export type UpdateAssetPayload = Partial<CreateAssetPayload>;
+
+export interface AssetsAllocation {
+  stock: number;
+  mf: number;
+  real_estate: number;
+}
+
+export interface PortfolioFull {
+  positions: Asset[];
+  totalValue: number;
+  stockValue: number;
+  mfValue: number;
+  propertyValue: number;
+  roiPercent: number;
+}
 
 /**
  * Safely unwrap the backend response envelope: { success, data, meta }
@@ -238,19 +274,75 @@ function normalizeTags(tags: unknown): string[] {
 }
 
 function normalizeAssetRecord(a: any, userId?: number): Asset {
+  const type = normalizeType(a?.asset_type ?? a?.type);
+  const avgPrice = toFiniteNumber(a?.avg_price ?? a?.avgPrice ?? 0, 0);
+  const currentPrice = toFiniteNumber(a?.current_price ?? a?.currentPrice ?? 0, 0);
+  const purchasePrice = toFiniteNumber(a?.purchase_price ?? a?.purchasePrice ?? 0, 0);
+  const currentValue = toFiniteNumber(a?.current_value ?? a?.currentValue ?? 0, 0);
+  const rentAmount = toFiniteNumber(a?.rent_amount ?? a?.rentAmount ?? 0, 0);
+  const normalizedUserId = userId ?? (toFiniteNumber(a?.user_id ?? a?.userId, 0) || undefined);
+  const quantity = toFiniteNumber(a?.quantity ?? 0, 0);
+  const value = toFiniteNumber(a?.value ?? 0, 0);
+  const invested = quantity * avgPrice;
+  const returnPercent = invested > 0 ? ((value - invested) / invested) * 100 : 0;
+
   return {
     ...a,
     id: toFiniteNumber(a?.id, 0),
-    type: normalizeType(a?.asset_type ?? a?.type),
+    type,
+    asset_type: type,
     name: String(a?.name ?? a?.symbol ?? "Unnamed asset").trim() || "Unnamed asset",
     symbol: typeof a?.symbol === "string" ? a.symbol : undefined,
-    quantity: toFiniteNumber(a?.quantity ?? 0, 0),
-    avgPrice: toFiniteNumber(a?.avg_price ?? a?.avgPrice ?? 0, 0),
-    currentPrice: toFiniteNumber(a?.current_price ?? a?.currentPrice ?? 0, 0),
-    value: toFiniteNumber(a?.value ?? 0, 0),
+    quantity,
+    avgPrice,
+    avg_price: avgPrice,
+    currentPrice,
+    current_price: currentPrice,
+    value,
     allocation: toFiniteNumber(a?.allocation ?? 0, 0),
+    returnPercent,
+    return_percent: returnPercent,
+    purchasePrice,
+    purchase_price: purchasePrice,
+    currentValue,
+    current_value: currentValue,
+    rentAmount,
+    rent_amount: rentAmount,
+    rentDueDate: a?.rent_due_date ?? a?.rentDueDate,
+    rent_due_date: a?.rent_due_date ?? a?.rentDueDate,
+    tenantName: a?.tenant_name ?? a?.tenantName,
+    tenant_name: a?.tenant_name ?? a?.tenantName,
+    tenantPhone: a?.tenant_phone ?? a?.tenantPhone,
+    tenant_phone: a?.tenant_phone ?? a?.tenantPhone,
+    tenantEmail: a?.tenant_email ?? a?.tenantEmail,
+    tenant_email: a?.tenant_email ?? a?.tenantEmail,
     tags: normalizeTags(a?.tags),
-    userId: userId ?? (toFiniteNumber(a?.user_id ?? a?.userId, 0) || undefined),
+    userId: normalizedUserId,
+    user_id: normalizedUserId,
+    createdAt: a?.created_at ?? a?.createdAt,
+    created_at: a?.created_at ?? a?.createdAt,
+  };
+}
+
+function summarizePortfolio(positions: Asset[]): PortfolioFull {
+  const stockValue = positions
+    .filter((asset) => normalizeType(asset.asset_type ?? asset.type) === "stock")
+    .reduce((sum, asset) => sum + toFiniteNumber(asset.value, 0), 0);
+  const mfValue = positions
+    .filter((asset) => normalizeType(asset.asset_type ?? asset.type) === "mf")
+    .reduce((sum, asset) => sum + toFiniteNumber(asset.value, 0), 0);
+  const propertyValue = positions
+    .filter((asset) => normalizeType(asset.asset_type ?? asset.type) === "property")
+    .reduce((sum, asset) => sum + toFiniteNumber(asset.value, 0), 0);
+  const totalValue = stockValue + mfValue + propertyValue;
+
+  return {
+    positions,
+    totalValue,
+    stockValue,
+    mfValue,
+    propertyValue,
+    roiPercent: 0,
   };
 }
 
@@ -330,6 +422,39 @@ export async function fetchAdminGroupedAssets(
   return grouped;
 }
 
+export async function fetchAssets(
+  userId?: number,
+  signal?: AbortSignal
+): Promise<Asset[]> {
+  if (userId === undefined) {
+    const dashboard = await fetchDashboardData(signal);
+    return dashboard.assets;
+  }
+
+  const grouped = await fetchAdminGroupedAssets(signal);
+  return grouped[userId] ?? [];
+}
+
+export async function fetchPortfolio(
+  userId?: number,
+  signal?: AbortSignal
+): Promise<PortfolioFull> {
+  if (userId === undefined) {
+    const dashboard = await fetchDashboardData(signal);
+    return {
+      positions: dashboard.assets,
+      totalValue: dashboard.summary.totalValue,
+      stockValue: dashboard.summary.stockValue,
+      mfValue: dashboard.summary.mfValue,
+      propertyValue: dashboard.summary.propertyValue,
+      roiPercent: dashboard.summary.roiPercent,
+    };
+  }
+
+  const assets = await fetchAssets(userId, signal);
+  return summarizePortfolio(assets);
+}
+
 export function createAsset(
   payload: CreateAssetPayload,
   signal?: AbortSignal
@@ -376,6 +501,9 @@ export interface InsightItem {
 export interface InsightsResponse {
   equityPercentage: number;
   propertyPercentage: number;
+  equity_percentage?: number;
+  property_percentage?: number;
+  real_estate_percentage?: number;
   /** Backend may return plain strings or structured InsightItem objects */
   alerts: (string | InsightItem)[];
 }
@@ -398,6 +526,9 @@ export async function fetchInsights(
     return {
       equityPercentage: Number(res.equity_percentage ?? 0),
       propertyPercentage: Number(res.property_percentage ?? res.real_estate_percentage ?? 0),
+      equity_percentage: Number(res.equity_percentage ?? 0),
+      property_percentage: Number(res.property_percentage ?? res.real_estate_percentage ?? 0),
+      real_estate_percentage: Number(res.real_estate_percentage ?? res.property_percentage ?? 0),
       alerts: Array.isArray(res.alerts) ? res.alerts : [],
     };
   }
@@ -418,6 +549,7 @@ export interface MutualFundResult {
   nav: number;
   category?: string;
   fundHouse?: string;
+  fund_house?: string;
 }
 
 export function searchMutualFunds(
