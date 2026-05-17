@@ -33,6 +33,7 @@ function n(value: unknown, fallback = 0): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+/** Utility pause used by retry backoff between quote attempts. */
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -237,7 +238,7 @@ function commodityPriceFromPayload(payload: any): number {
     : [];
 
   for (const item of candidates) {
-    const price = n(item?.current_price ?? item?.price ?? item?.ltp ?? item?.last_price, NaN);
+    const price = extractPrice(item);
     if (Number.isFinite(price) && price > 0) return price;
   }
   return 0;

@@ -82,6 +82,24 @@ function transactionEvents(items: Transaction[]): EventItem[] {
   }));
 }
 
+function getMarketSyncNotice(params: {
+  hasStockHoldings: boolean;
+  livePricesError: boolean;
+  stockQuotesAvailable?: boolean;
+  bulkQuotesAvailable?: boolean;
+}): string | null {
+  if (!params.hasStockHoldings) return null;
+  if (params.livePricesError) {
+    return "Live market sync unavailable — using latest stored valuation.";
+  }
+
+  if (params.stockQuotesAvailable === false && params.bulkQuotesAvailable === false) {
+    return "Live market sync unavailable — using latest stored valuation.";
+  }
+
+  return null;
+}
+
 export function useOperatingSystemData() {
   const assetsQuery = useAssets();
   const insightsQuery = useInsights();
@@ -272,14 +290,12 @@ export function useOperatingSystemData() {
   ]);
 
   const hasStockHoldings = canonicalHoldings.some((holding) => holding.type === "stock");
-  const marketSyncNotice =
-    hasStockHoldings &&
-    (livePricesQuery.isError ||
-      (marketCapabilitiesQuery.data
-        ? !marketCapabilitiesQuery.data.stockQuotes && !marketCapabilitiesQuery.data.bulkQuotes
-        : false))
-      ? "Live market sync unavailable — using latest stored valuation."
-      : null;
+  const marketSyncNotice = getMarketSyncNotice({
+    hasStockHoldings,
+    livePricesError: livePricesQuery.isError,
+    stockQuotesAvailable: marketCapabilitiesQuery.data?.stockQuotes,
+    bulkQuotesAvailable: marketCapabilitiesQuery.data?.bulkQuotes,
+  });
 
   return {
     data,

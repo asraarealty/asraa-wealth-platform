@@ -11,7 +11,7 @@ export interface MarketCapabilities {
   checkedAt: string;
 }
 
-const CAPABILITIES_TTL_MS = 5 * 60 * 1000;
+const CAPABILITIES_FRESH_MS = 5 * 60 * 1000;
 
 const DEFAULT_CAPABILITIES: MarketCapabilities = {
   stockQuotes: false,
@@ -28,6 +28,10 @@ let cachedCapabilities: MarketCapabilities | null = null;
 let cachedAt = 0;
 let inflightCapabilities: Promise<MarketCapabilities> | null = null;
 
+/**
+ * Returns true when the endpoint is reachable but failed for operational reasons
+ * (auth, rate limit, validation), and false when the endpoint is unavailable.
+ */
 function endpointSupported(error: unknown): boolean {
   if (error instanceof ApiError) {
     if (error.status === 404 || error.status === 405 || error.status === 501) return false;
@@ -94,7 +98,7 @@ export async function getMarketCapabilities(options: {
   staleWhileRevalidate?: boolean;
 } = {}): Promise<MarketCapabilities> {
   const now = Date.now();
-  const fresh = cachedCapabilities && now - cachedAt < CAPABILITIES_TTL_MS;
+  const fresh = cachedCapabilities && now - cachedAt < CAPABILITIES_FRESH_MS;
 
   if (!options.forceRefresh && fresh && cachedCapabilities) {
     return cachedCapabilities;

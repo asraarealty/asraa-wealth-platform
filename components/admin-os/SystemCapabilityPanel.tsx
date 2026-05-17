@@ -43,8 +43,16 @@ export function SystemCapabilityPanel() {
       value: capabilities?.realtimeStreaming ? "active" : "pending",
       tone: capabilities?.realtimeStreaming ? "success" : "warn",
     },
-    { label: "AI intelligence", value: "active", tone: "success" as const },
-    { label: "Exports", value: "active", tone: "success" as const },
+    {
+      label: "AI intelligence",
+      value: capabilities?.aiIntelligence ? "active" : "inactive",
+      tone: statusTone(Boolean(capabilities?.aiIntelligence)),
+    },
+    {
+      label: "Exports",
+      value: capabilities?.exports ? "active" : "inactive",
+      tone: statusTone(Boolean(capabilities?.exports)),
+    },
   ];
 
   return (
