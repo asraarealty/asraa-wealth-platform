@@ -1,14 +1,31 @@
 import { fetcher, type Client } from "@/lib/api";
 
 export type ClientOperationalStatus =
-  | "pending"
+  | "lead"
+  | "onboarding"
+  | "pending_kyc"
   | "approved"
   | "active"
-  | "inactive"
   | "suspended"
-  | "archived"
-  | "rejected";
+  | "archived";
 export type ClientApprovalStatus = "approved" | "rejected" | "pending";
+
+export const ALLOWED_TRANSITIONS: Record<ClientOperationalStatus, ClientOperationalStatus[]> = {
+  lead: ["onboarding"],
+  onboarding: ["pending_kyc"],
+  pending_kyc: ["approved"],
+  approved: ["active"],
+  active: ["suspended", "archived"],
+  suspended: ["active"],
+  archived: [],
+};
+
+export function canTransitionClientStatus(
+  current: ClientOperationalStatus,
+  next: ClientOperationalStatus
+) {
+  return current === next || ALLOWED_TRANSITIONS[current].includes(next);
+}
 
 export interface ClientNotificationPreferences {
   email: boolean;
@@ -27,6 +44,7 @@ export interface ClientProfile {
   dob?: string;
   createdAt?: string;
   status: ClientOperationalStatus;
+  canonicalStatus: ClientOperationalStatus;
   isActive: boolean;
   isArchived: boolean;
   archivedAt?: string;
@@ -131,15 +149,33 @@ function toNotificationPreferences(value: unknown): ClientNotificationPreference
 }
 
 function normalizeStatus(value: unknown, raw: Record<string, unknown>): ClientOperationalStatus {
+  const canonical = String(raw.canonical_status ?? raw.canonicalStatus ?? "").toLowerCase();
+  if (["lead", "onboarding", "pending_kyc", "approved", "active", "suspended", "archived"].includes(canonical)) {
+    return canonical as ClientOperationalStatus;
+  }
+
   const explicit = String(value ?? "").toLowerCase();
-  if (["pending", "approved", "active", "inactive", "suspended", "archived", "rejected"].includes(explicit)) {
+  if (["lead", "onboarding", "pending_kyc", "approved", "active", "suspended", "archived"].includes(explicit)) {
     return explicit as ClientOperationalStatus;
   }
+  if (explicit === "pending") return "onboarding";
+  if (explicit === "inactive" || explicit === "rejected") return "archived";
   if (raw.archived_at || raw.archivedAt || raw.deleted_at || raw.deletedAt || raw.is_archived) {
     return "archived";
   }
   if (Boolean(raw.is_suspended ?? raw.isSuspended)) return "suspended";
-  return Boolean(raw.is_active ?? raw.isActive ?? true) ? "active" : "inactive";
+
+  const onboardingStatus = String(raw.onboarding_status ?? raw.onboardingStatus ?? "").toLowerCase();
+  if (onboardingStatus === "lead") return "lead";
+  if (["pipeline", "onboarding", "documents", "verification"].includes(onboardingStatus)) return "onboarding";
+
+  const kycStatus = String(raw.kyc_status ?? raw.kycStatus ?? "").toLowerCase();
+  if (["pending", "in_progress", "under_review", "review"].includes(kycStatus)) return "pending_kyc";
+
+  const approved = raw.is_approved === true || raw.approved === true || onboardingStatus === "live" || kycStatus === "approved";
+  if (approved && Boolean(raw.is_active ?? raw.isActive ?? false)) return "active";
+  if (approved) return "approved";
+  return "lead";
 }
 
 function normalizeApprovalStatus(value: unknown, raw: Record<string, unknown>): ClientApprovalStatus {
@@ -148,6 +184,9 @@ function normalizeApprovalStatus(value: unknown, raw: Record<string, unknown>): 
     return explicit as ClientApprovalStatus;
   }
   if (raw.is_approved === true || raw.approved === true) return "approved";
+  const canonicalStatus = String(raw.canonical_status ?? raw.canonicalStatus ?? raw.status ?? "").toLowerCase();
+  if (["approved", "active"].includes(canonicalStatus)) return "approved";
+  if (canonicalStatus === "archived") return "rejected";
   if (raw.is_rejected === true || raw.rejected === true) return "rejected";
   return "pending";
 }
@@ -166,6 +205,7 @@ export function normalizeClientRecord(value: unknown): ClientProfile {
     dob: toStringValue(raw.dob ?? raw.date_of_birth ?? raw.dateOfBirth),
     createdAt: toStringValue(raw.created_at ?? raw.createdAt),
     status,
+    canonicalStatus: status,
     isActive: status === "active",
     isArchived: status === "archived",
     archivedAt: toStringValue(raw.archived_at ?? raw.archivedAt ?? raw.deleted_at ?? raw.deletedAt),
@@ -233,6 +273,7 @@ export function buildClientPayload(payload: ClientUpdatePayload) {
     const value = payload[key];
     if (value !== undefined) body[outputKey] = value;
   }
+  if (payload.status !== undefined) body.canonical_status = payload.status;
 
   if (payload.tags !== undefined) body.tags = payload.tags;
   if (payload.notificationPreferences !== undefined) {
@@ -284,31 +325,51 @@ export function updateClient(id: number, payload: ClientUpdatePayload, signal?: 
   });
 }
 
-export function updateClientStatus(id: number, status: ClientOperationalStatus, signal?: AbortSignal) {
+export function updateClientStatus(
+  id: number,
+  status: ClientOperationalStatus,
+  signal?: AbortSignal,
+  currentStatus?: ClientOperationalStatus
+) {
+  if (currentStatus && !canTransitionClientStatus(currentStatus, status)) {
+    throw new Error(`Invalid lifecycle transition: ${currentStatus} -> ${status}`);
+  }
+  logClientAuditAction("status.update.requested", { id, status, currentStatus: currentStatus ?? null });
   return fetchClientResource(`/clients/${encodeURIComponent(id)}/status`, {
     method: "PATCH",
-    body: { status, is_active: status === "active" },
+    body: { status, canonical_status: status, is_active: status === "active" },
     signal,
   });
 }
 
-export function approveClient(id: number, signal?: AbortSignal) {
-  return updateClient(id, { approvalStatus: "approved", status: "approved", onboardingStatus: "live" }, signal);
+export function approveClient(
+  id: number,
+  signal?: AbortSignal,
+  currentStatus?: ClientOperationalStatus
+) {
+  if (currentStatus && !canTransitionClientStatus(currentStatus, "approved")) {
+    throw new Error(`Invalid lifecycle transition: ${currentStatus} -> approved`);
+  }
+  logClientAuditAction("client.approve.requested", { id, currentStatus: currentStatus ?? null });
+  return updateClient(id, { approvalStatus: "approved", status: "approved", onboardingStatus: "live", kycStatus: "approved" }, signal);
 }
 
 export function rejectClient(id: number, signal?: AbortSignal) {
-  return updateClient(id, { approvalStatus: "rejected", status: "rejected" }, signal);
+  return updateClient(id, { approvalStatus: "rejected", status: "archived" }, signal);
 }
 
 export function suspendClient(id: number, signal?: AbortSignal) {
+  logClientAuditAction("client.suspend.requested", { id });
   return updateClientStatus(id, "suspended", signal);
 }
 
 export function deactivateClient(id: number, signal?: AbortSignal) {
-  return updateClientStatus(id, "inactive", signal);
+  logClientAuditAction("client.deactivate.requested", { id });
+  return updateClientStatus(id, "archived", signal);
 }
 
 export function archiveClient(id: number, signal?: AbortSignal) {
+  logClientAuditAction("client.archive.requested", { id });
   return fetchClientResource(`/clients/${encodeURIComponent(id)}/archive`, {
     method: "POST",
     signal,
@@ -316,6 +377,7 @@ export function archiveClient(id: number, signal?: AbortSignal) {
 }
 
 export function restoreClient(id: number, signal?: AbortSignal) {
+  logClientAuditAction("client.restore.requested", { id });
   return fetchClientResource(`/clients/${encodeURIComponent(id)}/restore`, {
     method: "PATCH",
     signal,
@@ -323,6 +385,7 @@ export function restoreClient(id: number, signal?: AbortSignal) {
 }
 
 export function deleteClient(id: number, signal?: AbortSignal) {
+  logClientAuditAction("client.delete.requested", { id });
   return fetcher<void>(`/clients/${encodeURIComponent(id)}`, {
     method: "DELETE",
     signal,
@@ -332,4 +395,12 @@ export function deleteClient(id: number, signal?: AbortSignal) {
 export async function getClients(signal?: AbortSignal): Promise<Client[]> {
   const data = await fetcher<Client[]>("/clients", { signal });
   return Array.isArray(data) ? data : [];
+}
+
+function logClientAuditAction(action: string, payload: Record<string, unknown>) {
+  try {
+    console.info("[client-audit]", JSON.stringify({ action, at: new Date().toISOString(), ...payload }));
+  } catch {
+    // no-op
+  }
 }

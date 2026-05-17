@@ -100,6 +100,7 @@ type MutualFundSeed = {
 
 const MARKET_REFRESH_INTERVAL_MS = 45_000;
 const MARKET_STALE_MS = 40_000;
+const SEARCH_FRESH_MS = 30_000;
 const WATCHLIST_STORAGE_KEY = "asraa.market.watchlist";
 
 const STOCK_UNIVERSE: StockSeed[] = [
@@ -167,6 +168,7 @@ let snapshot: MarketSnapshot = {
 
 const listeners = new Set<() => void>();
 const searchJobs = new Map<string, Promise<UnifiedSearchGroups>>();
+const searchCache = new Map<string, { data: UnifiedSearchGroups; updatedAt: number }>();
 const commodityJobs = new Map<string, Promise<MarketAsset | null>>();
 const fundJobs = new Map<string, Promise<MarketAsset | null>>();
 let refreshJob: Promise<MarketAsset[]> | null = null;
@@ -629,6 +631,11 @@ async function searchUnifiedGroups(query: string): Promise<UnifiedSearchGroups> 
   const key = query.trim().toLowerCase();
   if (!key) return { stocks: [], mutualFunds: [], commodities: [] };
 
+  const cached = searchCache.get(key);
+  if (cached && Date.now() - cached.updatedAt < SEARCH_FRESH_MS) {
+    return cached.data;
+  }
+
   const existing = searchJobs.get(key);
   if (existing) return existing;
 
@@ -673,9 +680,14 @@ async function searchUnifiedGroups(query: string): Promise<UnifiedSearchGroups> 
       searchLabel: item.fundHouse ?? item.fund_house,
     })) as MarketAsset[],
     commodities,
-  })).finally(() => {
-    searchJobs.delete(key);
-  });
+  }))
+    .then((result) => {
+      searchCache.set(key, { data: result, updatedAt: Date.now() });
+      return result;
+    })
+    .finally(() => {
+      searchJobs.delete(key);
+    });
 
   searchJobs.set(key, job);
   return job;
@@ -692,6 +704,16 @@ export async function searchMarket(query: string) {
         groups: { stocks: [], mutualFunds: [], commodities: [] },
       },
     });
+    return;
+  }
+
+  if (
+    snapshot.search.query.toLowerCase() === normalized.toLowerCase() &&
+    !snapshot.search.isSearching &&
+    (snapshot.search.groups.stocks.length > 0 ||
+      snapshot.search.groups.mutualFunds.length > 0 ||
+      snapshot.search.groups.commodities.length > 0)
+  ) {
     return;
   }
 

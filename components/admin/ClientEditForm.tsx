@@ -57,7 +57,7 @@ function createInitialState(client?: ClientProfile | null): ClientFormState {
     leadSource: client?.leadSource ?? "",
     tags: client?.tags?.join(", ") ?? "",
     campaignSegmentation: client?.campaignSegmentation ?? "",
-    status: client?.status ?? "active",
+    status: client?.canonicalStatus ?? client?.status ?? "lead",
     approvalStatus: client?.approvalStatus ?? "pending",
     subscriptionTier: client?.subscriptionTier ?? "standard",
     onboardingStatus: client?.onboardingStatus ?? "pipeline",
@@ -222,13 +222,13 @@ export function ClientEditForm({
         <Section title="Operational controls" description="Lifecycle state, approval flow, service tier, and notification routing.">
           <Field label="Client status">
             <select className={INPUT_CLASS} value={form.status} onChange={(event) => setField("status", event.target.value as ClientOperationalStatus)}>
+              <option value="lead">Lead</option>
+              <option value="onboarding">Onboarding</option>
+              <option value="pending_kyc">Pending KYC</option>
+              <option value="approved">Approved</option>
               <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
               <option value="suspended">Suspended</option>
               <option value="archived">Archived</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
             </select>
           </Field>
           <Field label="Approval status">

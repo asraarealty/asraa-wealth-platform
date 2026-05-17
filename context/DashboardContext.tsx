@@ -214,8 +214,11 @@ async function fetchDashboardFull(): Promise<DashboardOperatingData> {
   const summaryRaw = asRecord(payload.summary);
   const portfolioRaw = asRecord(payload.portfolio);
   const allocationRaw = asRecord(payload.allocation);
-  const riskRaw = asRecord(payload.risk) as DashboardRisk;
-  const insightsRaw = asArray<Record<string, unknown> | string>(payload.insights);
+  const intelligenceRaw = asRecord(payload.intelligence);
+  const riskRaw = asRecord(payload.risk ?? intelligenceRaw.risk) as DashboardRisk;
+  const insightsRaw = asArray<Record<string, unknown> | string>(
+    payload.insights ?? intelligenceRaw.alerts
+  );
   const recommendationsRaw = asArray<Record<string, unknown>>(payload.recommendations);
   const activityRaw = asArray<Record<string, unknown>>(payload.activity_feed ?? payload.activityFeed);
 

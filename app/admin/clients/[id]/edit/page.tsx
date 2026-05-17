@@ -54,13 +54,8 @@ export default function EditClientPage() {
           await updateClient(clientId, payload);
           if (status === "archived") {
             await archiveClient(clientId);
-          } else if (status === "approved" || status === "rejected" || status === "pending") {
-            await updateClient(clientId, {
-              status,
-              approvalStatus: status === "approved" ? "approved" : status === "rejected" ? "rejected" : "pending",
-            });
           } else {
-            await updateClientStatus(clientId, status);
+            await updateClientStatus(clientId, status, undefined, query.data.canonicalStatus);
           }
           await queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY });
           await queryClient.invalidateQueries({ queryKey: ["admin", "clients", clientId, "detail"] });
