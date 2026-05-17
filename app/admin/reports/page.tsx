@@ -1,3 +1,5 @@
+"use client";
+
 import { LiveAdminModulePage } from "@/components/admin-os/LiveAdminModulePage";
 
 export default function AdminReportsPage() {

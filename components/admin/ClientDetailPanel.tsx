@@ -141,7 +141,7 @@ export function ClientDetailPanel({
     .slice(0, 8);
 
   async function runClientAction() {
-    if (!pendingClientAction) return;
+    if (!pendingClientAction || !client) return;
     try {
       setClientActionPending(true);
       setAssetError(null);
