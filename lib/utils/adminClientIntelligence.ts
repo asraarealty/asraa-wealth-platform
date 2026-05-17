@@ -1,7 +1,7 @@
 import type { Asset } from "@/lib/api";
 import type { ClientOperationalStatus, ClientProfile } from "@/lib/services/clientService";
 import { createCanonicalAssetUniverse } from "@/lib/services/assets";
-import { computePortfolioValuation } from "@/lib/services/portfolio";
+import { computePortfolioIntelligenceState } from "@/lib/services/portfolio";
 
 export interface EnrichedClient extends ClientProfile {
   totalNetWorth: number;
@@ -85,19 +85,6 @@ export function deriveActivitySignal(client: ClientProfile, assets: Asset[]) {
   return `Active within ${Math.max(inactivityDays, 0)} day(s)`;
 }
 
-function concentrationLabel(allocation: { stock: number; mf: number; property: number; commodity: number }) {
-  const largest = Math.max(allocation.stock, allocation.mf, allocation.property, allocation.commodity);
-  if (largest >= 60) return "High concentration";
-  if (largest >= 35) return "Moderate concentration";
-  return "Balanced allocation";
-}
-
-function diversificationScore(allocation: { stock: number; mf: number; property: number; commodity: number }) {
-  const activeClasses = [allocation.stock, allocation.mf, allocation.property, allocation.commodity].filter((value) => value > 0).length;
-  const largest = Math.max(allocation.stock, allocation.mf, allocation.property, allocation.commodity);
-  return Math.max(0, Math.round(activeClasses * 20 + (100 - largest) * 0.4));
-}
-
 export function enrichClients(
   clients: ClientProfile[],
   groupedAssets: Record<number, Asset[]>
@@ -105,7 +92,6 @@ export function enrichClients(
   const enriched = clients.map((client) => {
     const assets = groupedAssets[client.id] ?? [];
     const holdings = createCanonicalAssetUniverse(assets);
-    const valuation = computePortfolioValuation(holdings, {});
     const propertyAssets = assets.filter((asset) => asset.type === "property");
     const occupiedProperties = propertyAssets.filter((asset) => Boolean(asset.tenantName ?? asset.tenant_name)).length;
     const topHolding = [...assets].sort((a, b) => Number(b.value ?? 0) - Number(a.value ?? 0))[0];
@@ -117,37 +103,41 @@ export function enrichClients(
     ]
       .filter(Boolean)
       .sort((a, b) => new Date(String(b)).getTime() - new Date(String(a)).getTime())[0] as string | undefined;
+    const intelligence = computePortfolioIntelligenceState({
+      holdings,
+      lastActivityAt: String(lastActivity ?? ""),
+    });
 
     const allocationMix = {
-      stock: valuation.allocationPct.stock,
-      mf: valuation.allocationPct.mf,
-      property: valuation.allocationPct.property,
-      commodity: valuation.allocationPct.commodity,
+      stock: intelligence.allocation.stock,
+      mf: intelligence.allocation.mf,
+      property: intelligence.allocation.property,
+      commodity: intelligence.allocation.commodity,
     };
 
     return {
       ...client,
-      totalNetWorth: valuation.liveValue,
-      investedValue: valuation.investedValue,
-      unrealizedPnL: valuation.unrealizedPnL,
-      unrealizedPnLPct: valuation.unrealizedPnLPct,
-      stockValue: valuation.holdings.filter((holding) => holding.type === "stock").reduce((sum, holding) => sum + holding.liveValue, 0),
-      mfValue: valuation.holdings.filter((holding) => holding.type === "mf").reduce((sum, holding) => sum + holding.liveValue, 0),
-      propertyValue: valuation.holdings.filter((holding) => holding.type === "property").reduce((sum, holding) => sum + holding.liveValue, 0),
-      commodityValue: valuation.holdings.filter((holding) => holding.type === "commodity").reduce((sum, holding) => sum + holding.liveValue, 0),
-      equityExposurePct: Number((valuation.exposurePct.stock + valuation.exposurePct.mf).toFixed(2)),
-      commodityExposurePct: valuation.exposurePct.commodity,
+      totalNetWorth: intelligence.summary.netWorth,
+      investedValue: intelligence.summary.totalInvested,
+      unrealizedPnL: intelligence.summary.totalReturn,
+      unrealizedPnLPct: intelligence.summary.returnPct,
+      stockValue: intelligence.valuation.holdings.filter((holding) => holding.type === "stock").reduce((sum, holding) => sum + holding.liveValue, 0),
+      mfValue: intelligence.valuation.holdings.filter((holding) => holding.type === "mf").reduce((sum, holding) => sum + holding.liveValue, 0),
+      propertyValue: intelligence.valuation.holdings.filter((holding) => holding.type === "property").reduce((sum, holding) => sum + holding.liveValue, 0),
+      commodityValue: intelligence.valuation.holdings.filter((holding) => holding.type === "commodity").reduce((sum, holding) => sum + holding.liveValue, 0),
+      equityExposurePct: Number((intelligence.allocation.stock + intelligence.allocation.mf).toFixed(2)),
+      commodityExposurePct: intelligence.allocation.commodity,
       propertiesCount: propertyAssets.length,
-      monthlyRentIncome: propertyAssets.reduce((sum, asset) => sum + Number(asset.rentAmount ?? asset.rent_amount ?? 0), 0),
+      monthlyRentIncome: intelligence.realEstate.monthlyIncome,
       occupiedProperties,
-      occupancyPct: pct(occupiedProperties, propertyAssets.length),
+      occupancyPct: intelligence.realEstate.occupancyPct,
       allocationMix,
       lastActivity,
       topHoldingName: topHolding?.name,
-      diversificationScore: diversificationScore(allocationMix),
-      concentrationRisk: concentrationLabel(allocationMix),
+      diversificationScore: intelligence.rules.diversification.score,
+      concentrationRisk: intelligence.rules.concentration.label,
       operationalFallback: deriveOperationalFallback(assets),
-      activitySignal: deriveActivitySignal(client, assets),
+      activitySignal: intelligence.rules.inactivity.days == null ? deriveActivitySignal(client, assets) : intelligence.rules.inactivity.label,
       assets,
     };
   });

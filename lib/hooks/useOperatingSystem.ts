@@ -7,7 +7,7 @@ import { useAssets, useInsights } from "@/lib/hooks/useAssets";
 import type { Asset } from "@/lib/types/assets";
 import { createCanonicalAssetUniverse } from "@/lib/services/assets";
 import { resolveLivePrices } from "@/lib/services/market";
-import { computePortfolioValuation } from "@/lib/services/portfolio";
+import { computePortfolioIntelligenceState } from "@/lib/services/portfolio";
 
 type EventType = "risk" | "cashflow" | "rent" | "drift" | "opportunity";
 
@@ -108,50 +108,38 @@ export function useOperatingSystemData() {
   });
 
   const data = useMemo(() => {
-    const backendSummary = assetsQuery.data?.summary ?? {
-      total_value: 0,
-      total_invested: 0,
-      total_return: 0,
-      return_percentage: 0,
-    };
-
-    const backendAllocation = assetsQuery.data?.allocation ?? {
-      stock: 0,
-      mf: 0,
-      property: 0,
-      commodity: 0,
-    };
     const assets = assetsQuery.data?.assets ?? [];
-    const valuation = computePortfolioValuation(
-      canonicalHoldings,
-      livePricesQuery.data ?? {}
-    );
-    const useLiveValuation = canonicalHoldings.length > 0;
-
+    const transactions = Array.isArray(transactionsQuery.data) ? transactionsQuery.data : [];
+    const lastActivityAt = [
+      ...transactions.map((tx) => tx.date),
+      ...assets.map((asset) => asset.created_at),
+    ]
+      .filter(Boolean)
+      .sort((a, b) => +new Date(String(b)) - +new Date(String(a)))[0];
+    const intelligence = computePortfolioIntelligenceState({
+      holdings: canonicalHoldings,
+      livePriceMap: livePricesQuery.data ?? {},
+      lastActivityAt: String(lastActivityAt ?? ""),
+    });
     const summary = {
-      total_value: useLiveValuation ? valuation.liveValue : backendSummary.total_value,
-      total_invested: useLiveValuation ? valuation.investedValue : backendSummary.total_invested,
-      total_return: useLiveValuation ? valuation.unrealizedPnL : backendSummary.total_return,
-      return_percentage: useLiveValuation
-        ? valuation.unrealizedPnLPct
-        : backendSummary.return_percentage,
-      monthly_income: useLiveValuation ? valuation.monthlyIncome : 0,
-      net_worth: useLiveValuation ? valuation.netWorth : backendSummary.total_value,
+      total_value: intelligence.summary.totalValue,
+      total_invested: intelligence.summary.totalInvested,
+      total_return: intelligence.summary.totalReturn,
+      return_percentage: intelligence.summary.returnPct,
+      monthly_income: intelligence.summary.monthlyIncome,
+      net_worth: intelligence.summary.netWorth,
     };
-
-    const allocation = {
-      stock: useLiveValuation ? valuation.allocationPct.stock : backendAllocation.stock,
-      mf: useLiveValuation ? valuation.allocationPct.mf : backendAllocation.mf,
-      property: useLiveValuation ? valuation.allocationPct.property : backendAllocation.property,
-      commodity: useLiveValuation
-        ? valuation.allocationPct.commodity
-        : backendAllocation.commodity,
-    };
+    const allocation = intelligence.allocation;
     const properties = assets.filter((a) => a.type === "property");
     const alerts = Array.isArray(insightsQuery.data?.alerts) ? insightsQuery.data.alerts : [];
-    const transactions = Array.isArray(transactionsQuery.data) ? transactionsQuery.data : [];
 
-    const typedAlerts: EventItem[] = alerts.slice(0, 12).map((alert, i) => {
+    const computedRuleAlerts = [
+      `Concentration: ${intelligence.rules.concentration.label}`,
+      `Diversification: ${intelligence.rules.diversification.label}`,
+      `Inactivity: ${intelligence.rules.inactivity.label}`,
+      `Exposure imbalance: ${intelligence.rules.exposureImbalance.label}`,
+    ];
+    const typedAlerts: EventItem[] = [...computedRuleAlerts, ...alerts].slice(0, 12).map((alert, i) => {
       const text = typeof alert === "string" ? alert : String(alert);
       return {
         id: `alert-${i}-${text.slice(0, 12)}`,
@@ -169,8 +157,8 @@ export function useOperatingSystemData() {
       .sort((a, b) => +new Date(b.timestamp) - +new Date(a.timestamp))
       .slice(0, 25);
 
-    const overdueRent = rentEvents.filter((e) => e.title.toLowerCase().includes("overdue")).length;
-    const dueSoonRent = rentEvents.filter((e) => e.title.toLowerCase().includes("due soon")).length;
+    const overdueRent = intelligence.realEstate.overdueRent;
+    const dueSoonRent = intelligence.realEstate.dueSoonRent;
 
     const priorityActions = [
       overdueRent > 0
@@ -181,19 +169,19 @@ export function useOperatingSystemData() {
             severity: "high" as const,
           }
         : null,
-      allocation.stock > 70
+      intelligence.rules.exposureImbalance.level !== "low"
         ? {
-            id: "equity-drift",
-            title: "Portfolio drift detected",
-            description: `Equity exposure at ${allocation.stock.toFixed(1)}%.`,
+            id: "exposure-imbalance",
+            title: "Exposure imbalance detected",
+            description: intelligence.rules.exposureImbalance.label,
             severity: "medium" as const,
           }
         : null,
-      summary.total_return < 0
+      intelligence.rules.inactivity.level === "high"
         ? {
-            id: "negative-return",
-            title: "Protect downside risk",
-            description: `Current return is ${summary.return_percentage.toFixed(2)}%. Review hedges.`,
+            id: "inactivity-watch",
+            title: "Client inactivity watch",
+            description: intelligence.rules.inactivity.label,
             severity: "medium" as const,
           }
         : null,
@@ -206,20 +194,20 @@ export function useOperatingSystemData() {
     ].filter(Boolean) as { id: string; title: string; description: string; severity: "low" | "medium" | "high" }[];
 
     const recommendations = [
-      allocation.property < 15
+      intelligence.rules.diversification.level !== "low"
         ? {
-            id: "rebalance-property",
-            title: "Increase real estate allocation",
-            rationale: `Property allocation is ${allocation.property.toFixed(1)}%, below strategic floor of 15%.`,
-            confidence: 0.79,
+            id: "diversification",
+            title: "Improve diversification profile",
+            rationale: intelligence.rules.diversification.label,
+            confidence: intelligence.rules.diversification.level === "high" ? 0.86 : 0.71,
           }
         : null,
-      allocation.stock > 65
+      intelligence.rules.concentration.level !== "low"
         ? {
-            id: "reduce-equity",
-            title: "Trim concentrated equity exposure",
-            rationale: "Current concentration increases volatility and drawdown probability.",
-            confidence: 0.84,
+            id: "concentration",
+            title: "Reduce concentration risk",
+            rationale: intelligence.rules.concentration.label,
+            confidence: intelligence.rules.concentration.level === "high" ? 0.88 : 0.74,
           }
         : null,
       dueSoonRent > 0
@@ -234,9 +222,12 @@ export function useOperatingSystemData() {
 
     const realEstate = {
       properties,
-      totalValue: properties.reduce((sum, p) => sum + (p.current_value ?? p.value ?? 0), 0),
-      monthlyRent: properties.reduce((sum, p) => sum + (p.rent_amount ?? 0), 0),
-      occupied: properties.filter((p) => Boolean(p.tenant_name)).length,
+      totalValue: intelligence.realEstate.totalValue,
+      monthlyRent: intelligence.realEstate.monthlyIncome,
+      occupied: intelligence.realEstate.occupied,
+      occupancyPct: intelligence.realEstate.occupancyPct,
+      leaseExpiry: intelligence.realEstate.leaseExpiry,
+      rentalYieldPct: intelligence.realEstate.rentalYieldPct,
       overdueRent,
       dueSoonRent,
     };
@@ -248,7 +239,7 @@ export function useOperatingSystemData() {
       returnPct: summary.return_percentage,
       monthlyIncome: summary.monthly_income,
       netWorth: summary.net_worth,
-      riskState: allocation.stock > 70 ? "High" : allocation.stock >= 45 ? "Medium" : "Low",
+      riskState: intelligence.rules.riskState,
     };
 
     return {
