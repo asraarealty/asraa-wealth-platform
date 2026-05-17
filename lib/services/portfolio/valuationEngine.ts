@@ -32,30 +32,42 @@ function pct(value: number, total: number): number {
   return Number(((value / total) * 100).toFixed(2));
 }
 
+function resolveFallbackStockPrice(holding: CanonicalAssetHolding): number {
+  const storedBackendPrice = n(holding.currentPrice, 0);
+  const avgCost = n(holding.avgPrice, 0);
+  const investedPerUnit = holding.units > 0 ? n(holding.investedValue / holding.units, 0) : 0;
+  const investedValuePrice = investedPerUnit > 0 ? investedPerUnit : n(holding.investedValue, 0);
+
+  return storedBackendPrice || avgCost || investedValuePrice;
+}
+
 export function computePortfolioValuation(
   holdings: CanonicalAssetHolding[],
   livePriceMap: Record<number, MarketPricePoint>
 ): PortfolioValuation {
   const valuations: HoldingValuation[] = holdings.map((holding) => {
-    const livePrice = n(
-      livePriceMap[holding.id]?.price,
-      n(holding.currentPrice, holding.avgPrice)
-    );
+    const liveMarketPrice = n(livePriceMap[holding.id]?.price, 0);
+    const fallbackStockPrice = resolveFallbackStockPrice(holding);
+    const fallbackGenericPrice = n(holding.currentPrice, n(holding.avgPrice, fallbackStockPrice));
+    const livePrice = holding.type === "stock"
+      ? n(liveMarketPrice, fallbackStockPrice)
+      : n(liveMarketPrice, fallbackGenericPrice);
 
-    const liveValue =
+    const computedLiveValue =
       holding.type === "property"
         ? n(holding.raw.current_value, n(holding.fallbackValue, livePrice))
         : livePrice * n(holding.units, 0);
 
     const investedValue = n(holding.investedValue, 0);
+    const liveValue = n(computedLiveValue, n(holding.fallbackValue, investedValue));
 
     return {
       id: holding.id,
       type: holding.type,
       livePrice,
-      liveValue: n(liveValue, n(holding.fallbackValue, 0)),
+      liveValue,
       investedValue,
-      unrealizedPnL: n(liveValue, 0) - investedValue,
+      unrealizedPnL: liveValue - investedValue,
     };
   });
 
@@ -99,4 +111,3 @@ export function computePortfolioValuation(
     exposurePct: allocationPct,
   };
 }
-

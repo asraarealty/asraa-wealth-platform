@@ -6,7 +6,7 @@ import { fetchTransactions, type Transaction } from "@/lib/api";
 import { useAssets, useInsights } from "@/lib/hooks/useAssets";
 import type { Asset } from "@/lib/types/assets";
 import { createCanonicalAssetUniverse } from "@/lib/services/assets";
-import { resolveLivePrices } from "@/lib/services/market";
+import { getMarketCapabilities, resolveLivePrices } from "@/lib/services/market";
 import { computePortfolioIntelligenceState } from "@/lib/services/portfolio";
 
 type EventType = "risk" | "cashflow" | "rent" | "drift" | "opportunity";
@@ -105,6 +105,12 @@ export function useOperatingSystemData() {
     enabled: canonicalHoldings.length > 0,
     staleTime: 60_000,
     refetchInterval: 60_000,
+  });
+
+  const marketCapabilitiesQuery = useQuery({
+    queryKey: ["market-capabilities"],
+    queryFn: () => getMarketCapabilities({ staleWhileRevalidate: true }),
+    staleTime: 5 * 60_000,
   });
 
   const data = useMemo(() => {
@@ -261,7 +267,19 @@ export function useOperatingSystemData() {
     transactionsQuery.data,
     canonicalHoldings,
     livePricesQuery.data,
+    marketCapabilitiesQuery.data,
+    livePricesQuery.isError,
   ]);
+
+  const hasStockHoldings = canonicalHoldings.some((holding) => holding.type === "stock");
+  const marketSyncNotice =
+    hasStockHoldings &&
+    (livePricesQuery.isError ||
+      (marketCapabilitiesQuery.data
+        ? !marketCapabilitiesQuery.data.stockQuotes && !marketCapabilitiesQuery.data.bulkQuotes
+        : false))
+      ? "Live market sync unavailable — using latest stored valuation."
+      : null;
 
   return {
     data,
@@ -273,8 +291,8 @@ export function useOperatingSystemData() {
     isError:
       assetsQuery.isError ||
       insightsQuery.isError ||
-      transactionsQuery.isError ||
-      livePricesQuery.isError,
+      transactionsQuery.isError,
+    marketSyncNotice,
     refetchAll: () => {
       assetsQuery.refetch();
       insightsQuery.refetch();
