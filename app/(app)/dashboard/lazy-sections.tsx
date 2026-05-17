@@ -204,12 +204,3 @@ export function RealEstateActivitySection({ data }: { data: DashboardOperatingDa
     </div>
   );
 }
-
-export function DashboardSectionSkeleton() {
-  return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-      <div className="xl:col-span-2 h-48 rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
-      <div className="h-48 rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
-    </div>
-  );
-}

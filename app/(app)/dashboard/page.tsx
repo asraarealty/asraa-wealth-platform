@@ -48,9 +48,9 @@ function DashboardSectionSkeleton() {
 function buildIntelCards(data: ReturnType<typeof useOperatingSystemData>["data"]) {
   const cards: { title: string; message: string; tone: IntelTone; confidence?: number }[] = [];
   const risk = data.risk ?? {};
-  const concentration = (risk.concentration ?? {}) as { label?: string; level?: string };
-  const diversification = (risk.diversification ?? {}) as { score?: number; label?: string; level?: string };
-  const inactivity = (risk.inactivity ?? {}) as { days?: number | null; label?: string; level?: string };
+  const concentration = risk.concentration ?? {};
+  const diversification = risk.diversification ?? {};
+  const inactivity = risk.inactivity ?? {};
   const { realEstate, allocation, executive } = data;
 
   const rentDep =
