@@ -12,6 +12,14 @@ function pct(value: number, total: number): number {
   return Number(((value / total) * 100).toFixed(2));
 }
 
+function readRaw(holding: CanonicalAssetHolding, ...keys: string[]) {
+  const record = holding.raw as unknown as Record<string, unknown>;
+  for (const key of keys) {
+    if (record[key] !== undefined) return record[key];
+  }
+  return undefined;
+}
+
 function daysSince(iso?: string): number | null {
   if (!iso) return null;
   const value = new Date(iso).getTime();
@@ -138,18 +146,18 @@ export function computePortfolioIntelligenceState(params: {
 
   const properties = holdings.filter((holding) => holding.type === "property");
   const occupied = properties.filter((holding) =>
-    Boolean(holding.raw.tenant_name ?? holding.raw.tenantName)
+    Boolean(readRaw(holding, "tenant_name", "tenantName"))
   ).length;
   const overdueRent = properties.filter((holding) =>
-    dueBucket(holding.raw.rent_due_date ?? holding.raw.rentDueDate) === "overdue"
+    dueBucket((readRaw(holding, "rent_due_date", "rentDueDate") as string | null | undefined) ?? null) === "overdue"
   ).length;
   const dueSoonRent = properties.filter((holding) =>
-    dueBucket(holding.raw.rent_due_date ?? holding.raw.rentDueDate) === "soon"
+    dueBucket((readRaw(holding, "rent_due_date", "rentDueDate") as string | null | undefined) ?? null) === "soon"
   ).length;
   const leaseExpiry = properties.filter((holding) => {
-    const rawValue = holding.raw.rent_due_date ?? holding.raw.rentDueDate;
+    const rawValue = readRaw(holding, "rent_due_date", "rentDueDate");
     if (!rawValue) return false;
-    const due = new Date(rawValue).getTime();
+    const due = new Date(String(rawValue)).getTime();
     if (!Number.isFinite(due)) return false;
     const diff = Math.ceil((due - Date.now()) / (1000 * 60 * 60 * 24));
     return diff >= 0 && diff <= 30;
@@ -159,7 +167,7 @@ export function computePortfolioIntelligenceState(params: {
     .reduce((sum, holding) => sum + n(holding.liveValue, 0), 0);
   const annualIncome = properties.reduce(
     (sum, holding) =>
-      sum + n(holding.raw.rent_amount ?? holding.raw.rentAmount ?? holding.monthlyIncome, 0) * 12,
+      sum + n(readRaw(holding, "rent_amount", "rentAmount") ?? holding.monthlyIncome, 0) * 12,
     0
   );
   const monthlyIncome = annualIncome / 12;
@@ -199,4 +207,3 @@ export function computePortfolioIntelligenceState(params: {
     valuation,
   };
 }
-
