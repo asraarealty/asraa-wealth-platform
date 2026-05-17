@@ -20,6 +20,18 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
       <path d="M1.5 12.5C1.5 10 4 8 7 8C10 8 12.5 10 12.5 12.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   ),
+  "/admin/market": (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0">
+      <path d="M1.5 10.5L4.5 7.5L7 9L10.5 4.5L12.5 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M1.5 2V12.5H12.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  "/admin/analytics": (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0">
+      <path d="M2 11.5V7.5M6 11.5V3.5M10 11.5V5.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <path d="M1.5 12.5H12.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  ),
   "/admin/assets": (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0">
       <path d="M7 1L13 4.5V9.5L7 13L1 9.5V4.5L7 1Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
