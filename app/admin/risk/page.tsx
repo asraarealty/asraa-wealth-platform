@@ -158,7 +158,7 @@ export default function AdminRiskIntelligencePage() {
           {highRisk.length > 0 ? (
             <IntelligenceCard
               title={`${highRisk.length} client${highRisk.length > 1 ? "s require" : " requires"} immediate review`}
-              message={`Concentration risk or equity exposure exceeds safe thresholds. Schedule portfolio rebalancing reviews.`}
+              message={`Equity exposure exceeds 70% or concentration risk is flagged high by the allocation engine. Schedule targeted portfolio rebalancing reviews.`}
               tone="danger"
               confidence={0.91}
             />

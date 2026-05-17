@@ -189,7 +189,7 @@ export default function DashboardPage() {
             sub="Rental + yield"
           />
           <div className="v2-tile rounded-xl p-4">
-            <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-medium">Risk State</p>
+            <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-medium">Portfolio Risk</p>
             <div className="mt-2">
               <StatusPill label={data.executive.riskState} tone={riskTone} />
             </div>
