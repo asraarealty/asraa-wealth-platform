@@ -1,15 +1,20 @@
-import { AdminModulePage } from "@/components/admin-os/AdminModulePage";
+import { LiveAdminModulePage } from "@/components/admin-os/LiveAdminModulePage";
 
 export default function AdminVendorsPage() {
   return (
-    <AdminModulePage
+    <LiveAdminModulePage
       title="Vendors"
       description="Manage external partners, service SLAs, and integration performance across institutional operations."
-      metrics={[
-        { label: "Active Vendors", value: "22", tone: "info" },
-        { label: "SLA Breaches", value: "2", tone: "warn" },
-        { label: "Healthy Integrations", value: "95%", tone: "success" },
-      ]}
+      buildMetrics={(clients, kpis) => {
+        const propertyBook = kpis.totalProperties;
+        const breaches = clients.filter((c) => c.status === "suspended" || c.status === "archived").length;
+        const health = clients.length ? ((clients.length - breaches) * 100) / clients.length : 100;
+        return [
+          { label: "Operational vendor dependencies", value: String(propertyBook), tone: "info" },
+          { label: "Escalated workflows", value: String(breaches), tone: breaches > 0 ? "warn" : "success" },
+          { label: "Healthy operations", value: `${health.toFixed(1)}%`, tone: "success" },
+        ];
+      }}
       workflow={[
         "Track vendor obligations, incidents, and service-level adherence.",
         "Measure connector reliability for external systems.",

@@ -14,33 +14,33 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   },
   {
     href: "/admin/clients",
-    label: "Clients",
+    label: "Client Operations",
     shortLabel: "Clients",
-    description: "Lifecycle and relationship operations",
+    description: "Client Operations Center: lifecycle, approvals, and relationship command",
   },
   {
     href: "/admin/assets",
-    label: "Assets",
+    label: "Asset Intelligence",
     shortLabel: "Assets",
-    description: "Allocation and performance orchestration",
+    description: "Holdings orchestration, valuation intelligence, and exposure control",
   },
   {
     href: "/admin/real-estate",
     label: "Real Estate",
     shortLabel: "Real Estate",
-    description: "Property operations and occupancy control",
+    description: "Real Estate Operations: tenant, lease, collection, and maintenance workflows",
   },
   {
     href: "/admin/transactions",
-    label: "Transactions",
-    shortLabel: "Transactions",
-    description: "Settlement monitoring and exceptions",
+    label: "Approval Workflows",
+    shortLabel: "Approvals",
+    description: "Operational approvals, exceptions, and execution queues",
   },
   {
     href: "/admin/insights",
-    label: "Analytics",
-    shortLabel: "Analytics",
-    description: "Growth signals and predictive analytics",
+    label: "Advisory Workspace",
+    shortLabel: "Advisory",
+    description: "Advisor recommendations, planning context, and follow-up operations",
   },
   {
     href: "/admin/risk",
@@ -50,9 +50,9 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   },
   {
     href: "/admin/notifications",
-    label: "Notifications",
-    shortLabel: "Notifications",
-    description: "Event routing and audience delivery",
+    label: "Communication Center",
+    shortLabel: "Comms",
+    description: "WhatsApp, email, call, reminder, and notification operations",
   },
   {
     href: "/admin/activity",
@@ -68,15 +68,15 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   },
   {
     href: "/admin/reports",
-    label: "Reports",
+    label: "Reporting & Exports",
     shortLabel: "Reports",
-    description: "Executive and regulatory exports",
+    description: "PDF, CSV, and XLSX reporting operations with enterprise snapshots",
   },
   {
     href: "/admin/system-settings",
-    label: "System Settings",
-    shortLabel: "Settings",
-    description: "Platform policy and runtime controls",
+    label: "System Operations",
+    shortLabel: "System",
+    description: "Policy controls, runtime posture, and operating environment health",
   },
 ];
 

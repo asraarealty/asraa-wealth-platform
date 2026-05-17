@@ -12,6 +12,7 @@ import {
   fetchClientById,
   updateClient,
   updateClientStatus,
+  type ClientOperationalStatus,
   type ClientUpdatePayload,
 } from "@/lib/services/clientService";
 
@@ -46,13 +47,18 @@ export default function EditClientPage() {
       client={query.data}
       error={saveError}
       submitting={saving}
-      onSubmit={async ({ status, ...payload }: ClientUpdatePayload & { status: "active" | "inactive" | "suspended" | "archived" }) => {
+      onSubmit={async ({ status, ...payload }: ClientUpdatePayload & { status: ClientOperationalStatus }) => {
         try {
           setSaving(true);
           setSaveError(null);
           await updateClient(clientId, payload);
           if (status === "archived") {
             await archiveClient(clientId);
+          } else if (status === "approved" || status === "rejected" || status === "pending") {
+            await updateClient(clientId, {
+              status,
+              approvalStatus: status === "approved" ? "approved" : status === "rejected" ? "rejected" : "pending",
+            });
           } else {
             await updateClientStatus(clientId, status);
           }

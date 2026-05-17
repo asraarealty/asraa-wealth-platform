@@ -1,6 +1,13 @@
 import { fetcher, type Client } from "@/lib/api";
 
-export type ClientOperationalStatus = "active" | "inactive" | "suspended" | "archived";
+export type ClientOperationalStatus =
+  | "pending"
+  | "approved"
+  | "active"
+  | "inactive"
+  | "suspended"
+  | "archived"
+  | "rejected";
 export type ClientApprovalStatus = "approved" | "rejected" | "pending";
 
 export interface ClientNotificationPreferences {
@@ -15,6 +22,7 @@ export interface ClientProfile {
   name: string;
   email: string;
   phone?: string;
+  whatsapp?: string;
   address?: string;
   dob?: string;
   createdAt?: string;
@@ -26,12 +34,17 @@ export interface ClientProfile {
   subscriptionTier?: string;
   onboardingStatus?: string;
   relationshipManager?: string;
+  advisorAssigned?: string;
   leadSource?: string;
   campaignSegmentation?: string;
   tags: string[];
   notes?: string;
   netWorth?: number;
   riskProfile?: string;
+  onboardingStage?: string;
+  kycStatus?: string;
+  investmentObjective?: string;
+  financialPlanningStatus?: string;
   incomeBracket?: string;
   investmentPreference?: string;
   lastLogin?: string;
@@ -40,9 +53,11 @@ export interface ClientProfile {
 }
 
 export interface ClientUpdatePayload {
+  status?: ClientOperationalStatus;
   name?: string;
   email?: string;
   phone?: string;
+  whatsapp?: string;
   address?: string;
   dob?: string;
   netWorth?: number;
@@ -50,12 +65,17 @@ export interface ClientUpdatePayload {
   incomeBracket?: string;
   investmentPreference?: string;
   relationshipManager?: string;
+  advisorAssigned?: string;
   leadSource?: string;
   tags?: string[];
   campaignSegmentation?: string;
   approvalStatus?: ClientApprovalStatus;
   subscriptionTier?: string;
   onboardingStatus?: string;
+  onboardingStage?: string;
+  kycStatus?: string;
+  investmentObjective?: string;
+  financialPlanningStatus?: string;
   notificationPreferences?: Partial<ClientNotificationPreferences>;
   notes?: string;
 }
@@ -112,7 +132,7 @@ function toNotificationPreferences(value: unknown): ClientNotificationPreference
 
 function normalizeStatus(value: unknown, raw: Record<string, unknown>): ClientOperationalStatus {
   const explicit = String(value ?? "").toLowerCase();
-  if (["active", "inactive", "suspended", "archived"].includes(explicit)) {
+  if (["pending", "approved", "active", "inactive", "suspended", "archived", "rejected"].includes(explicit)) {
     return explicit as ClientOperationalStatus;
   }
   if (raw.archived_at || raw.archivedAt || raw.deleted_at || raw.deletedAt || raw.is_archived) {
@@ -141,6 +161,7 @@ export function normalizeClientRecord(value: unknown): ClientProfile {
     name: toStringValue(raw.name) ?? "Unnamed client",
     email: toStringValue(raw.email) ?? "",
     phone: toStringValue(raw.phone),
+    whatsapp: toStringValue(raw.whatsapp),
     address: toStringValue(raw.address),
     dob: toStringValue(raw.dob ?? raw.date_of_birth ?? raw.dateOfBirth),
     createdAt: toStringValue(raw.created_at ?? raw.createdAt),
@@ -152,12 +173,17 @@ export function normalizeClientRecord(value: unknown): ClientProfile {
     subscriptionTier: toStringValue(raw.subscription_tier ?? raw.subscriptionTier),
     onboardingStatus: toStringValue(raw.onboarding_status ?? raw.onboardingStatus),
     relationshipManager: toStringValue(raw.relationship_manager ?? raw.relationshipManager),
+    advisorAssigned: toStringValue(raw.advisor_assigned ?? raw.advisorAssigned),
     leadSource: toStringValue(raw.lead_source ?? raw.leadSource),
     campaignSegmentation: toStringValue(raw.campaign_segmentation ?? raw.campaignSegmentation),
     tags: toTags(raw.tags),
     notes: toStringValue(raw.notes),
     netWorth: toNumberValue(raw.net_worth ?? raw.netWorth),
     riskProfile: toStringValue(raw.risk_profile ?? raw.riskProfile),
+    onboardingStage: toStringValue(raw.onboarding_stage ?? raw.onboardingStage),
+    kycStatus: toStringValue(raw.kyc_status ?? raw.kycStatus),
+    investmentObjective: toStringValue(raw.investment_objective ?? raw.investmentObjective),
+    financialPlanningStatus: toStringValue(raw.financial_planning_status ?? raw.financialPlanningStatus),
     incomeBracket: toStringValue(raw.income_bracket ?? raw.incomeBracket),
     investmentPreference: toStringValue(raw.investment_preference ?? raw.investmentPreference),
     lastLogin: toStringValue(raw.last_login ?? raw.lastLogin),
@@ -178,9 +204,11 @@ function serializeNotificationPreferences(value?: Partial<ClientNotificationPref
 export function buildClientPayload(payload: ClientUpdatePayload) {
   const body: Record<string, unknown> = {};
   const mapping: Array<[keyof ClientUpdatePayload, string]> = [
+    ["status", "status"],
     ["name", "name"],
     ["email", "email"],
     ["phone", "phone"],
+    ["whatsapp", "whatsapp"],
     ["address", "address"],
     ["dob", "dob"],
     ["netWorth", "net_worth"],
@@ -188,11 +216,16 @@ export function buildClientPayload(payload: ClientUpdatePayload) {
     ["incomeBracket", "income_bracket"],
     ["investmentPreference", "investment_preference"],
     ["relationshipManager", "relationship_manager"],
+    ["advisorAssigned", "advisor_assigned"],
     ["leadSource", "lead_source"],
     ["campaignSegmentation", "campaign_segmentation"],
     ["approvalStatus", "approval_status"],
     ["subscriptionTier", "subscription_tier"],
     ["onboardingStatus", "onboarding_status"],
+    ["onboardingStage", "onboarding_stage"],
+    ["kycStatus", "kyc_status"],
+    ["investmentObjective", "investment_objective"],
+    ["financialPlanningStatus", "financial_planning_status"],
     ["notes", "notes"],
   ];
 
@@ -259,6 +292,22 @@ export function updateClientStatus(id: number, status: ClientOperationalStatus, 
   });
 }
 
+export function approveClient(id: number, signal?: AbortSignal) {
+  return updateClient(id, { approvalStatus: "approved", status: "approved", onboardingStatus: "live" }, signal);
+}
+
+export function rejectClient(id: number, signal?: AbortSignal) {
+  return updateClient(id, { approvalStatus: "rejected", status: "rejected" }, signal);
+}
+
+export function suspendClient(id: number, signal?: AbortSignal) {
+  return updateClientStatus(id, "suspended", signal);
+}
+
+export function deactivateClient(id: number, signal?: AbortSignal) {
+  return updateClientStatus(id, "inactive", signal);
+}
+
 export function archiveClient(id: number, signal?: AbortSignal) {
   return fetchClientResource(`/clients/${encodeURIComponent(id)}/archive`, {
     method: "POST",
@@ -269,6 +318,13 @@ export function archiveClient(id: number, signal?: AbortSignal) {
 export function restoreClient(id: number, signal?: AbortSignal) {
   return fetchClientResource(`/clients/${encodeURIComponent(id)}/restore`, {
     method: "PATCH",
+    signal,
+  });
+}
+
+export function deleteClient(id: number, signal?: AbortSignal) {
+  return fetcher<void>(`/clients/${encodeURIComponent(id)}`, {
+    method: "DELETE",
     signal,
   });
 }

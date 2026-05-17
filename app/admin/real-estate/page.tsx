@@ -1,15 +1,21 @@
-import { AdminModulePage } from "@/components/admin-os/AdminModulePage";
+import { LiveAdminModulePage } from "@/components/admin-os/LiveAdminModulePage";
 
 export default function AdminRealEstatePage() {
   return (
-    <AdminModulePage
+    <LiveAdminModulePage
       title="Real Estate"
       description="Track occupancy, lease lifecycle, maintenance risk, and property-level operating performance."
-      metrics={[
-        { label: "Managed Properties", value: "59", tone: "info" },
-        { label: "Occupancy", value: "94.2%", tone: "success" },
-        { label: "Critical Maintenance", value: "4", tone: "warn" },
-      ]}
+      buildMetrics={(clients, kpis) => {
+        const propertyAssets = clients.flatMap((c) => c.assets.filter((a) => a.type === "property"));
+        const occupied = propertyAssets.filter((a) => Boolean(a.tenantName ?? a.tenant_name)).length;
+        const occupancy = propertyAssets.length ? (occupied * 100) / propertyAssets.length : 0;
+        const overdue = propertyAssets.filter((a) => (a.rentDueDate || a.rent_due_date) && new Date(String(a.rentDueDate ?? a.rent_due_date)).getTime() < Date.now()).length;
+        return [
+          { label: "Managed Properties", value: String(kpis.totalProperties), tone: "info" },
+          { label: "Occupancy", value: `${occupancy.toFixed(1)}%`, tone: "success" },
+          { label: "Overdue Rent Alerts", value: String(overdue), tone: overdue > 0 ? "warn" : "success" },
+        ];
+      }}
       workflow={[
         "Consolidate property telemetry from rent and maintenance systems.",
         "Highlight units at risk of vacancy or delayed collections.",

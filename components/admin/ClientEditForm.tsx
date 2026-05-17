@@ -13,6 +13,7 @@ interface ClientFormState {
   name: string;
   email: string;
   phone: string;
+  whatsapp: string;
   address: string;
   dob: string;
   netWorth: string;
@@ -20,6 +21,7 @@ interface ClientFormState {
   incomeBracket: string;
   investmentPreference: string;
   relationshipManager: string;
+  advisorAssigned: string;
   leadSource: string;
   tags: string;
   campaignSegmentation: string;
@@ -27,6 +29,10 @@ interface ClientFormState {
   approvalStatus: ClientApprovalStatus;
   subscriptionTier: string;
   onboardingStatus: string;
+  onboardingStage: string;
+  kycStatus: string;
+  investmentObjective: string;
+  financialPlanningStatus: string;
   notes: string;
   notificationEmail: boolean;
   notificationWhatsapp: boolean;
@@ -39,6 +45,7 @@ function createInitialState(client?: ClientProfile | null): ClientFormState {
     name: client?.name ?? "",
     email: client?.email ?? "",
     phone: client?.phone ?? "",
+    whatsapp: client?.whatsapp ?? "",
     address: client?.address ?? "",
     dob: client?.dob ?? "",
     netWorth: client?.netWorth != null ? String(client.netWorth) : "",
@@ -46,6 +53,7 @@ function createInitialState(client?: ClientProfile | null): ClientFormState {
     incomeBracket: client?.incomeBracket ?? "",
     investmentPreference: client?.investmentPreference ?? "",
     relationshipManager: client?.relationshipManager ?? "",
+    advisorAssigned: client?.advisorAssigned ?? "",
     leadSource: client?.leadSource ?? "",
     tags: client?.tags?.join(", ") ?? "",
     campaignSegmentation: client?.campaignSegmentation ?? "",
@@ -53,6 +61,10 @@ function createInitialState(client?: ClientProfile | null): ClientFormState {
     approvalStatus: client?.approvalStatus ?? "pending",
     subscriptionTier: client?.subscriptionTier ?? "standard",
     onboardingStatus: client?.onboardingStatus ?? "pipeline",
+    onboardingStage: client?.onboardingStage ?? "",
+    kycStatus: client?.kycStatus ?? "pending",
+    investmentObjective: client?.investmentObjective ?? "",
+    financialPlanningStatus: client?.financialPlanningStatus ?? "",
     notes: client?.notes ?? "",
     notificationEmail: Boolean(client?.notificationPreferences.email),
     notificationWhatsapp: Boolean(client?.notificationPreferences.whatsapp),
@@ -116,6 +128,7 @@ export function ClientEditForm({
       name: form.name.trim(),
       email: form.email.trim(),
       phone: form.phone.trim() || undefined,
+      whatsapp: form.whatsapp.trim() || undefined,
       address: form.address.trim() || undefined,
       dob: form.dob || undefined,
       netWorth: form.netWorth ? Number(form.netWorth) : undefined,
@@ -123,6 +136,7 @@ export function ClientEditForm({
       incomeBracket: form.incomeBracket || undefined,
       investmentPreference: form.investmentPreference || undefined,
       relationshipManager: form.relationshipManager || undefined,
+      advisorAssigned: form.advisorAssigned || undefined,
       leadSource: form.leadSource || undefined,
       tags: form.tags
         .split(",")
@@ -132,6 +146,10 @@ export function ClientEditForm({
       approvalStatus: form.approvalStatus,
       subscriptionTier: form.subscriptionTier || undefined,
       onboardingStatus: form.onboardingStatus || undefined,
+      onboardingStage: form.onboardingStage || undefined,
+      kycStatus: form.kycStatus || undefined,
+      investmentObjective: form.investmentObjective || undefined,
+      financialPlanningStatus: form.financialPlanningStatus || undefined,
       notes: form.notes.trim() || undefined,
       notificationPreferences: {
         email: form.notificationEmail,
@@ -165,6 +183,7 @@ export function ClientEditForm({
           <Field label="Name"><input required className={INPUT_CLASS} value={form.name} onChange={(event) => setField("name", event.target.value)} /></Field>
           <Field label="Email"><input required type="email" className={INPUT_CLASS} value={form.email} onChange={(event) => setField("email", event.target.value)} /></Field>
           <Field label="Phone"><input className={INPUT_CLASS} value={form.phone} onChange={(event) => setField("phone", event.target.value)} /></Field>
+          <Field label="WhatsApp"><input className={INPUT_CLASS} value={form.whatsapp} onChange={(event) => setField("whatsapp", event.target.value)} /></Field>
           <Field label="Date of birth"><input type="date" className={INPUT_CLASS} value={form.dob} onChange={(event) => setField("dob", event.target.value)} /></Field>
           <Field label="Address" fullWidth><textarea rows={3} className={INPUT_CLASS} value={form.address} onChange={(event) => setField("address", event.target.value)} /></Field>
         </Section>
@@ -194,6 +213,7 @@ export function ClientEditForm({
 
         <Section title="Relationship intelligence" description="Coverage ownership, acquisition source, and segmentation context for operations and campaigns.">
           <Field label="Relationship manager"><input className={INPUT_CLASS} value={form.relationshipManager} onChange={(event) => setField("relationshipManager", event.target.value)} /></Field>
+          <Field label="Advisor assigned"><input className={INPUT_CLASS} value={form.advisorAssigned} onChange={(event) => setField("advisorAssigned", event.target.value)} /></Field>
           <Field label="Lead source"><input className={INPUT_CLASS} value={form.leadSource} onChange={(event) => setField("leadSource", event.target.value)} /></Field>
           <Field label="Tags" fullWidth><input className={INPUT_CLASS} value={form.tags} onChange={(event) => setField("tags", event.target.value)} placeholder="family office, priority, nri" /></Field>
           <Field label="Campaign segmentation" fullWidth><input className={INPUT_CLASS} value={form.campaignSegmentation} onChange={(event) => setField("campaignSegmentation", event.target.value)} placeholder="income desk / property onboarding / hedge campaign" /></Field>
@@ -206,6 +226,9 @@ export function ClientEditForm({
               <option value="inactive">Inactive</option>
               <option value="suspended">Suspended</option>
               <option value="archived">Archived</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
             </select>
           </Field>
           <Field label="Approval status">
@@ -217,6 +240,17 @@ export function ClientEditForm({
           </Field>
           <Field label="Subscription tier"><input className={INPUT_CLASS} value={form.subscriptionTier} onChange={(event) => setField("subscriptionTier", event.target.value)} placeholder="standard / premium / private" /></Field>
           <Field label="Onboarding status"><input className={INPUT_CLASS} value={form.onboardingStatus} onChange={(event) => setField("onboardingStatus", event.target.value)} placeholder="pipeline / kyc / live" /></Field>
+          <Field label="Onboarding stage"><input className={INPUT_CLASS} value={form.onboardingStage} onChange={(event) => setField("onboardingStage", event.target.value)} placeholder="documents / verification / ready" /></Field>
+          <Field label="KYC status">
+            <select className={INPUT_CLASS} value={form.kycStatus} onChange={(event) => setField("kycStatus", event.target.value)}>
+              <option value="">Select status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </Field>
+          <Field label="Investment objective"><input className={INPUT_CLASS} value={form.investmentObjective} onChange={(event) => setField("investmentObjective", event.target.value)} placeholder="growth / income / preservation" /></Field>
+          <Field label="Financial planning status"><input className={INPUT_CLASS} value={form.financialPlanningStatus} onChange={(event) => setField("financialPlanningStatus", event.target.value)} placeholder="not started / in progress / completed" /></Field>
           <Field label="Relationship notes" fullWidth><textarea rows={4} className={INPUT_CLASS} value={form.notes} onChange={(event) => setField("notes", event.target.value)} placeholder="Latest meeting notes, escalation context, service notes…" /></Field>
           <Field label="Notification preferences" fullWidth>
             <div className="grid grid-cols-2 gap-3 rounded-2xl border border-white/8 bg-[#071229] p-4 sm:grid-cols-4">

@@ -14,8 +14,13 @@ import { LoadingBlock, SectionHeader, SurfaceCard } from "@/components/v2/ui";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 import { ADMIN_CLIENTS_QUERY_KEY, useAdminClients, type EnrichedClient } from "@/lib/hooks/useAdminClients";
 import {
+  approveClient,
   archiveClient,
+  deactivateClient,
+  deleteClient,
+  rejectClient,
   restoreClient,
+  suspendClient,
   updateClientStatus,
   type ClientOperationalStatus,
 } from "@/lib/services/clientService";
@@ -23,11 +28,19 @@ import { toErrorMessage } from "@/lib/fetcher";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
 
-type StatusFilter = "all" | "active" | "inactive" | "suspended" | "archived";
+type StatusFilter =
+  | "all"
+  | "pending"
+  | "approved"
+  | "active"
+  | "inactive"
+  | "suspended"
+  | "archived"
+  | "rejected";
 
 type ConfirmAction = {
   client: EnrichedClient;
-  type: "status" | "archive" | "restore";
+  type: "status" | "archive" | "restore" | "approve" | "reject" | "delete";
   nextStatus?: ClientOperationalStatus;
   title: string;
   description: string;
@@ -196,13 +209,28 @@ export default function ClientsPage() {
       setActionLoadingId(action.client.id);
       setActionError(null);
       if (action.type === "status" && action.nextStatus) {
-        await updateClientStatus(action.client.id, action.nextStatus);
+        if (action.nextStatus === "inactive") {
+          await deactivateClient(action.client.id);
+        } else if (action.nextStatus === "suspended") {
+          await suspendClient(action.client.id);
+        } else {
+          await updateClientStatus(action.client.id, action.nextStatus);
+        }
       }
       if (action.type === "archive") {
         await archiveClient(action.client.id);
       }
       if (action.type === "restore") {
         await restoreClient(action.client.id);
+      }
+      if (action.type === "approve") {
+        await approveClient(action.client.id);
+      }
+      if (action.type === "reject") {
+        await rejectClient(action.client.id);
+      }
+      if (action.type === "delete") {
+        await deleteClient(action.client.id);
       }
       await queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY });
       setPendingAction(null);
@@ -374,7 +402,7 @@ export default function ClientsPage() {
               className="w-full max-w-md rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none transition focus:border-sky-300/40 focus:bg-sky-500/[0.08]"
             />
             <div className="flex flex-wrap items-center gap-2">
-              {(["all", "active", "inactive", "suspended", "archived"] as const).map((filter) => (
+              {(["all", "pending", "approved", "active", "inactive", "suspended", "archived", "rejected"] as const).map((filter) => (
                 <button
                   key={filter}
                   type="button"
@@ -490,19 +518,23 @@ export default function ClientsPage() {
                       <div className="flex justify-end">
                         <ActionMenu
                           items={[
-                            { label: "View Intelligence", onSelect: () => setSelectedClientId(client.id) },
-                            { label: "Edit Client", href: `/admin/clients/${client.id}/edit` },
-                            { label: "WhatsApp", href: getWhatsappHref(client.phone), disabled: !getWhatsappHref(client.phone) },
-                            { label: "Call", href: getPhoneHref(client.phone), disabled: !getPhoneHref(client.phone) },
-                            { label: "Email", href: client.email ? `mailto:${client.email}` : undefined, disabled: !client.email },
-                            { label: "Activate", onSelect: () => openStatusAction(client, "active"), disabled: client.status === "active" },
-                            { label: "Deactivate", onSelect: () => openStatusAction(client, "inactive"), disabled: client.status === "inactive" },
-                            { label: "Suspend", onSelect: () => openStatusAction(client, "suspended"), disabled: client.status === "suspended" },
-                            { label: "Restore", onSelect: () => setPendingAction({ client, type: "restore", title: "Restore Client", description: "This client will return to the active operational roster.", confirmLabel: "Restore", tone: "primary" }), disabled: client.status !== "archived" },
-                            { label: "Archive", onSelect: () => setPendingAction({ client, type: "archive", title: "Archive Client", description: "This client will be removed from active operations but can be restored later.", confirmLabel: "Archive Client" }), disabled: client.status === "archived" },
-                            { label: "Delete (soft)", onSelect: () => setPendingAction({ client, type: "archive", title: "Archive Client", description: "This client will be removed from active operations but can be restored later.", confirmLabel: "Archive Client" }), disabled: client.status === "archived", tone: "danger" },
-                          ]}
-                        />
+                             { label: "View Intelligence", onSelect: () => setSelectedClientId(client.id) },
+                             { label: "Edit Client", href: `/admin/clients/${client.id}/edit` },
+                             { label: "WhatsApp", href: getWhatsappHref(client.whatsapp ?? client.phone), disabled: !getWhatsappHref(client.whatsapp ?? client.phone) },
+                             { label: "Call", href: getPhoneHref(client.phone), disabled: !getPhoneHref(client.phone) },
+                             { label: "Email", href: client.email ? `mailto:${client.email}` : undefined, disabled: !client.email },
+                             { label: "Schedule Meeting", href: client.email ? `mailto:${client.email}?subject=${encodeURIComponent(`Meeting schedule - ${client.name}`)}` : undefined, disabled: !client.email },
+                             { label: "Send Report", href: client.email ? `mailto:${client.email}?subject=${encodeURIComponent(`Portfolio report - ${client.name}`)}` : undefined, disabled: !client.email },
+                             { label: "Approve", onSelect: () => setPendingAction({ client, type: "approve", title: "Approve Client", description: "Approve this client for live onboarding and advisory operations.", confirmLabel: "Approve", tone: "primary" }), disabled: client.approvalStatus === "approved" },
+                             { label: "Reject", onSelect: () => setPendingAction({ client, type: "reject", title: "Reject Client", description: "Reject this client and stop onboarding progression.", confirmLabel: "Reject", tone: "danger" }), disabled: client.approvalStatus === "rejected", tone: "danger" },
+                             { label: "Activate", onSelect: () => openStatusAction(client, "active"), disabled: client.status === "active" },
+                             { label: "Deactivate", onSelect: () => openStatusAction(client, "inactive"), disabled: client.status === "inactive" },
+                             { label: "Suspend", onSelect: () => openStatusAction(client, "suspended"), disabled: client.status === "suspended" },
+                             { label: "Restore", onSelect: () => setPendingAction({ client, type: "restore", title: "Restore Client", description: "This client will return to the active operational roster.", confirmLabel: "Restore", tone: "primary" }), disabled: client.status !== "archived" },
+                             { label: "Archive", onSelect: () => setPendingAction({ client, type: "archive", title: "Archive Client", description: "This client will be removed from active operations but can be restored later.", confirmLabel: "Archive Client" }), disabled: client.status === "archived" },
+                             { label: "Delete", onSelect: () => setPendingAction({ client, type: "delete", title: "Delete Client", description: "This permanently deletes the client workspace and cannot be undone.", confirmLabel: "Delete Client", tone: "danger" }), tone: "danger" },
+                           ]}
+                         />
                       </div>
                     </td>
                   </tr>
