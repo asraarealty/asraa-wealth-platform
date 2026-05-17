@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetcher } from "@/lib/fetcher";
 import type { Asset, DashboardResponse, InsightsResponse } from "@/lib/types/assets";
+import { DASHBOARD_FULL_KEY } from "@/context/DashboardContext";
 
 export const ASSETS_KEY = ["assets", "me"] as const;
 export const INSIGHTS_KEY = ["insights", "me"] as const;
@@ -54,8 +55,7 @@ export function useCreateAsset() {
     mutationFn: (payload: Record<string, unknown>) =>
       fetcher("/assets", { method: "POST", body: payload, raw: true }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ASSETS_KEY });
-      qc.invalidateQueries({ queryKey: INSIGHTS_KEY });
+      qc.invalidateQueries({ queryKey: DASHBOARD_FULL_KEY });
     },
   });
 }
@@ -66,8 +66,7 @@ export function useUpdateAsset() {
     mutationFn: ({ id, payload }: { id: number; payload: Record<string, unknown> }) =>
       fetcher(`/assets/${id}`, { method: "PUT", body: payload, raw: true }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ASSETS_KEY });
-      qc.invalidateQueries({ queryKey: INSIGHTS_KEY });
+      qc.invalidateQueries({ queryKey: DASHBOARD_FULL_KEY });
     },
   });
 }
@@ -78,8 +77,7 @@ export function useDeleteAsset() {
     mutationFn: (id: number) =>
       fetcher(`/assets/${id}`, { method: "DELETE", raw: true }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ASSETS_KEY });
-      qc.invalidateQueries({ queryKey: INSIGHTS_KEY });
+      qc.invalidateQueries({ queryKey: DASHBOARD_FULL_KEY });
     },
   });
 }

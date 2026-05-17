@@ -344,9 +344,11 @@ async function fetchDashboardFull(): Promise<DashboardOperatingData> {
   };
 }
 
+export const DASHBOARD_FULL_KEY = ["dashboard-full"] as const;
+
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const query = useQuery({
-    queryKey: ["dashboard", "full", "v2"],
+    queryKey: DASHBOARD_FULL_KEY,
     queryFn: fetchDashboardFull,
     staleTime: 60_000,
     refetchOnWindowFocus: false,

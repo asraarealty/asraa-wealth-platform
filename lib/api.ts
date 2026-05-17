@@ -119,8 +119,21 @@ export function fetchStockQuote(
   symbol: string,
   signal?: AbortSignal
 ): Promise<StockQuote> {
-  return fetcher<StockQuote>(`/stocks/${encodeURIComponent(symbol)}`, {
+  return fetcher<StockQuote>(`/stocks/v2/${encodeURIComponent(symbol)}`, {
     signal,
+    noRedirectOn401: true,
+  });
+}
+
+export function fetchBulkStockQuotes(
+  symbols: string[],
+  signal?: AbortSignal
+): Promise<StockQuote[]> {
+  return fetcher<StockQuote[]>("/stocks/v2/bulk", {
+    method: "POST",
+    body: { symbols },
+    signal,
+    noRedirectOn401: true,
   });
 }
 

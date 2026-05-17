@@ -35,6 +35,10 @@ const RealEstateActivitySection = dynamic(
   () => import("./lazy-sections").then((mod) => mod.RealEstateActivitySection),
   { loading: () => <DashboardSectionSkeleton /> }
 );
+const MarketDiscoverySection = dynamic(
+  () => import("./lazy-sections").then((mod) => mod.MarketDiscoverySection),
+  { loading: () => <DashboardSectionSkeleton /> }
+);
 
 function DashboardSectionSkeleton() {
   return (
@@ -280,6 +284,7 @@ export default function DashboardPage() {
       <IntelligenceSection intelCards={intelCards} />
       <ActionsRecommendationsSection data={data} />
       <RealEstateActivitySection data={data} />
+      <MarketDiscoverySection data={data} />
     </div>
   );
 }
