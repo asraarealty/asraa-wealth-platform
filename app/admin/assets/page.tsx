@@ -1,14 +1,16 @@
-import { AdminModulePage } from "@/components/admin-os/AdminModulePage";
+"use client";
+
+import { LiveAdminModulePage } from "@/components/admin-os/LiveAdminModulePage";
 
 export default function AdminAssetsPage() {
   return (
-    <AdminModulePage
+    <LiveAdminModulePage
       title="Assets"
       description="Monitor allocation strategy, concentration risk, and portfolio drift across all managed accounts."
-      metrics={[
-        { label: "Tracked Assets", value: "624", tone: "info" },
-        { label: "Allocation Drift", value: "7.3%", tone: "warn" },
-        { label: "Rebalance Tasks", value: "18", tone: "success" },
+      buildMetrics={(clients, kpis) => [
+        { label: "Tracked Assets", value: String(clients.reduce((sum, c) => sum + c.assets.length, 0)), tone: "info" },
+        { label: "Avg Equity Exposure", value: `${(clients.length ? clients.reduce((sum, c) => sum + c.equityExposurePct, 0) / clients.length : 0).toFixed(1)}%`, tone: "warn" },
+        { label: "Managed AUM", value: new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", notation: "compact", maximumFractionDigits: 1 }).format(kpis.totalAUM), tone: "success" },
       ]}
       workflow={[
         "Aggregate holdings across clients and custodial sources.",

@@ -1,15 +1,22 @@
-import { AdminModulePage } from "@/components/admin-os/AdminModulePage";
+"use client";
+
+import { LiveAdminModulePage } from "@/components/admin-os/LiveAdminModulePage";
 
 export default function AdminActivityPage() {
   return (
-    <AdminModulePage
+    <LiveAdminModulePage
       title="Activity"
       description="Review cross-module operational history for governance, forensics, and continuous improvement."
-      metrics={[
-        { label: "Events / 24h", value: "4,892", tone: "info" },
-        { label: "Anomalies", value: "17", tone: "warn" },
-        { label: "Audit Coverage", value: "100%", tone: "success" },
-      ]}
+      buildMetrics={(clients) => {
+        const activeSignals = clients.filter((c) => c.lastActivity).length;
+        const anomalies = clients.filter((c) => c.activitySignal.toLowerCase().includes("inactive")).length;
+        const coverage = clients.length ? (activeSignals * 100) / clients.length : 0;
+        return [
+          { label: "Tracked Activity Signals", value: String(activeSignals), tone: "info" },
+          { label: "Anomalies", value: String(anomalies), tone: anomalies > 0 ? "warn" : "success" },
+          { label: "Audit Coverage", value: `${coverage.toFixed(1)}%`, tone: "success" },
+        ];
+      }}
       workflow={[
         "Capture immutable activity logs from every admin module.",
         "Classify events by risk, ownership, and operational domain.",

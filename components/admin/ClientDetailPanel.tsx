@@ -13,6 +13,7 @@ import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 import { ADMIN_CLIENTS_QUERY_KEY, type EnrichedClient } from "@/lib/hooks/useAdminClients";
 import { useClientDetail } from "@/lib/hooks/useClientDetail";
 import { createCanonicalAssetUniverse } from "@/lib/services/assets";
+import { approveClient, archiveClient, deleteClient, restoreClient, suspendClient } from "@/lib/services/clientService";
 import { resolveLivePrices } from "@/lib/services/market";
 import { computePortfolioValuation } from "@/lib/services/portfolio";
 import { toErrorMessage } from "@/lib/fetcher";
@@ -52,6 +53,14 @@ export function ClientDetailPanel({
   const panelRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
+  const [pendingClientAction, setPendingClientAction] = useState<{
+    title: string;
+    description: string;
+    confirmLabel: string;
+    tone?: "danger" | "primary";
+    action: "approve" | "suspend" | "archive" | "restore" | "delete";
+  } | null>(null);
+  const [clientActionPending, setClientActionPending] = useState(false);
   const [assetError, setAssetError] = useState<string | null>(null);
   const { transactions, insights, loading: detailLoading } = useClientDetail(client ? client.id : null);
 
@@ -100,6 +109,20 @@ export function ClientDetailPanel({
   const topMarketHoldings = [...marketAssets].sort((a, b) => (valuationMap[b.id]?.liveValue ?? b.value ?? 0) - (valuationMap[a.id]?.liveValue ?? a.value ?? 0)).slice(0, 4);
   const topCommodityHolding = [...commodityAssets].sort((a, b) => (valuationMap[b.id]?.liveValue ?? b.value ?? 0) - (valuationMap[a.id]?.liveValue ?? a.value ?? 0))[0];
   const latestEvents = [
+    {
+      id: `client-created-${client.id}`,
+      title: "Account created",
+      detail: client.createdAt ? `Client workspace opened · ${client.createdAt}` : "Client workspace opened",
+      timestamp: String(client.createdAt ?? ""),
+    },
+    client.kycStatus === "approved"
+      ? {
+          id: `client-kyc-${client.id}`,
+          title: "KYC approved",
+          detail: "Compliance verification completed",
+          timestamp: String(client.lastActivity ?? client.createdAt ?? ""),
+        }
+      : null,
     ...transactions.map((transaction) => ({
       id: `txn-${transaction.id}`,
       title: `${transaction.type.toUpperCase()} ${transaction.symbol}`,
@@ -113,9 +136,30 @@ export function ClientDetailPanel({
       timestamp: String(asset.createdAt ?? asset.created_at ?? client.createdAt ?? ""),
     })),
   ]
-    .filter((event) => event.timestamp)
+    .filter((event): event is { id: string; title: string; detail: string; timestamp: string } => Boolean(event && event.timestamp))
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .slice(0, 8);
+
+  async function runClientAction() {
+    if (!pendingClientAction || !client) return;
+    try {
+      setClientActionPending(true);
+      setAssetError(null);
+      if (pendingClientAction.action === "approve") await approveClient(client.id);
+      if (pendingClientAction.action === "suspend") await suspendClient(client.id);
+      if (pendingClientAction.action === "archive") await archiveClient(client.id);
+      if (pendingClientAction.action === "restore") await restoreClient(client.id);
+      if (pendingClientAction.action === "delete") await deleteClient(client.id);
+      await queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY });
+      setPendingClientAction(null);
+      onRefresh?.();
+      if (pendingClientAction.action === "delete") onClose();
+    } catch (value) {
+      setAssetError(toErrorMessage(value));
+    } finally {
+      setClientActionPending(false);
+    }
+  }
 
   return (
     <>
@@ -132,17 +176,36 @@ export function ClientDetailPanel({
           <div>
             <p className="text-[11px] uppercase tracking-[0.18em] text-sky-300/70">Institutional intelligence workspace</p>
             <h2 className="mt-1 text-2xl font-semibold text-white">{client.name}</h2>
-            <p className="mt-1 text-sm text-slate-400">{client.email} · {client.phone || "Phone pending"}</p>
+            <p className="mt-1 text-sm text-slate-400">{client.email} · {client.phone || client.whatsapp || "Phone pending"}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <StatusBadge label={client.status} />
               <StatusBadge label={client.approvalStatus} />
               <StatusBadge label={client.onboardingStatus ?? "pipeline"} />
+              <StatusBadge label={client.kycStatus ?? "kyc pending"} />
             </div>
+            <p className="mt-3 text-xs text-slate-300">
+              Advisor {client.advisorAssigned || client.relationshipManager || "Unassigned"} · Risk {client.riskProfile || "Unclassified"} · Planning {client.financialPlanningStatus || "Not started"}
+            </p>
           </div>
           <button type="button" onClick={onClose} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white">✕</button>
         </div>
 
         <div className="space-y-4 pb-6">
+          <IntelligenceWidget eyebrow="Operational actions" title="Communication and lifecycle controls" detail="Run client operations directly from this workspace.">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+              <a href={client.whatsapp || client.phone ? `https://wa.me/${String(client.whatsapp ?? client.phone).replace(/\D/g, "")}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">WhatsApp</a>
+              <a href={client.phone ? `tel:${String(client.phone).replace(/\D/g, "")}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Call</a>
+              <a href={client.email ? `mailto:${client.email}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Email</a>
+              <a href={client.email ? `mailto:${client.email}?subject=${encodeURIComponent(`Meeting schedule - ${client.name}`)}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Schedule Meeting</a>
+              <a href={client.email ? `mailto:${client.email}?subject=${encodeURIComponent(`Client report - ${client.name}`)}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Send Report</a>
+              <button type="button" onClick={() => setPendingClientAction({ action: "approve", title: "Approve client", description: "Approve this client and move onboarding to live operations.", confirmLabel: "Approve", tone: "primary" })} className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200">Approve</button>
+              <button type="button" onClick={() => setPendingClientAction({ action: "suspend", title: "Suspend client", description: "Suspend this client from active operations.", confirmLabel: "Suspend", tone: "danger" })} className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-200">Suspend</button>
+              <button type="button" onClick={() => setPendingClientAction({ action: "archive", title: "Archive client", description: "Archive this client workspace from active books.", confirmLabel: "Archive", tone: "danger" })} className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200">Archive</button>
+              <button type="button" onClick={() => setPendingClientAction({ action: "restore", title: "Restore client", description: "Restore this client back to active operating coverage.", confirmLabel: "Restore", tone: "primary" })} className="rounded-xl border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200">Restore</button>
+              <button type="button" onClick={() => setPendingClientAction({ action: "delete", title: "Delete client", description: "Permanently delete this client and all operational links.", confirmLabel: "Delete", tone: "danger" })} className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200">Delete</button>
+            </div>
+          </IntelligenceWidget>
+
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_0.85fr]">
             <IntelligenceWidget eyebrow="Portfolio intelligence" title="Live valuation and exposure" detail="Canonical valuation engine with live price overlays for market-linked holdings.">
               <div className="grid grid-cols-2 gap-3">
@@ -268,10 +331,41 @@ export function ClientDetailPanel({
               <Metric label="Campaign engagement" value={client.campaignSegmentation || "Segmentation pending"} />
               <Metric label="Onboarding" value={client.onboardingStatus || "Pipeline"} />
               <Metric label="Coverage owner" value={client.relationshipManager || "Unassigned"} />
+              <Metric label="Advisor assigned" value={client.advisorAssigned || "Unassigned"} />
+              <Metric label="KYC status" value={client.kycStatus || "Pending"} />
+              <Metric label="Risk profile" value={client.riskProfile || "Pending"} />
+              <Metric label="Investment objective" value={client.investmentObjective || "Pending"} />
+              <Metric label="Financial planning" value={client.financialPlanningStatus || "Not started"} />
             </div>
             <div className="mt-4 rounded-xl border border-white/8 bg-white/[0.03] p-4 text-sm text-slate-300">
               {client.notes || "No relationship notes have been written back from the backend yet."}
             </div>
+          </IntelligenceWidget>
+
+          <IntelligenceWidget eyebrow="Communication center" title="WhatsApp, call, email, reminders" detail="Live communication channels and reminder readiness from client profile signals.">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <Metric label="WhatsApp" value={client.whatsapp || client.phone || "Not mapped"} />
+              <Metric label="Email channel" value={client.email || "Not mapped"} />
+              <Metric label="Call channel" value={client.phone || "Not mapped"} />
+              <Metric label="Reminder status" value={client.notificationPreferences.push ? "Enabled" : "Manual"} />
+            </div>
+          </IntelligenceWidget>
+
+          <IntelligenceWidget eyebrow="Advisory system" title="Recommendation feed" detail="Advisor-led recommendations and follow-up signals from live intelligence payloads.">
+            {aiAlerts.length === 0 ? (
+              <OperationalEmptyState title="No advisory recommendations" description="No recommendation records have been returned by backend intelligence yet." hint="Advisory sync" />
+            ) : (
+              <div className="space-y-3">
+                {aiAlerts.slice(0, 6).map((alert, index) => (
+                  <div key={index} className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                    <p className="text-sm font-semibold text-white">{typeof alert === "string" ? alert : alert.title}</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Advisor {client.advisorAssigned || client.relationshipManager || "Unassigned"} · {fmtDate(client.lastActivity ?? client.createdAt)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </IntelligenceWidget>
 
           <IntelligenceWidget eyebrow="Client activity feed" title="Recent portfolio and transaction events" detail="Chronological operating timeline from holdings and transaction data.">
@@ -332,6 +426,18 @@ export function ClientDetailPanel({
           onClose={() => setAssetToDelete(null)}
           onConfirm={() => void deleteMutation.mutateAsync(assetToDelete.id)}
           pending={deleteMutation.isPending}
+        />
+      ) : null}
+
+      {pendingClientAction ? (
+        <PlatformConfirmModal
+          title={pendingClientAction.title}
+          description={pendingClientAction.description}
+          confirmLabel={pendingClientAction.confirmLabel}
+          onClose={() => setPendingClientAction(null)}
+          onConfirm={() => void runClientAction()}
+          pending={clientActionPending}
+          tone={pendingClientAction.tone}
         />
       ) : null}
 

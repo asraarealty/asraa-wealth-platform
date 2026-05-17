@@ -1,15 +1,22 @@
-import { AdminModulePage } from "@/components/admin-os/AdminModulePage";
+"use client";
+
+import { LiveAdminModulePage } from "@/components/admin-os/LiveAdminModulePage";
 
 export default function AdminSystemSettingsPage() {
   return (
-    <AdminModulePage
+    <LiveAdminModulePage
       title="System Settings"
       description="Configure platform policy, permissions, and runtime controls for the admin operating environment."
-      metrics={[
-        { label: "Policy Sets", value: "14", tone: "info" },
-        { label: "Pending Changes", value: "3", tone: "warn" },
-        { label: "Runtime Health", value: "Stable", tone: "success" },
-      ]}
+      buildMetrics={(clients) => {
+        const pending = clients.filter((c) => c.approvalStatus === "pending").length;
+        const active = clients.filter((c) => c.status === "active").length;
+        const health = clients.length ? (active * 100) / clients.length : 100;
+        return [
+          { label: "Managed policy entities", value: String(clients.length), tone: "info" },
+          { label: "Pending changes", value: String(pending), tone: pending > 0 ? "warn" : "success" },
+          { label: "Runtime health", value: `${health.toFixed(1)}%`, tone: "success" },
+        ];
+      }}
       workflow={[
         "Define access controls, compliance defaults, and module guardrails.",
         "Validate staged policy updates before production rollout.",
