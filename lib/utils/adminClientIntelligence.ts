@@ -31,7 +31,7 @@ export interface EnrichedClient extends ClientProfile {
 export interface AdminClientsKPIs {
   totalClients: number;
   activeClients: number;
-  inactiveClients: number;
+  onboardingClients: number;
   suspendedClients: number;
   archivedClients: number;
   totalAUM: number;
@@ -42,7 +42,7 @@ export interface AdminClientsKPIs {
 export const EMPTY_KPIS: AdminClientsKPIs = {
   totalClients: 0,
   activeClients: 0,
-  inactiveClients: 0,
+  onboardingClients: 0,
   suspendedClients: 0,
   archivedClients: 0,
   totalAUM: 0,
@@ -143,6 +143,7 @@ export function enrichClients(
   });
 
   const byStatus = (status: ClientOperationalStatus) => enriched.filter((client) => client.status === status).length;
+  const onboardingClients = enriched.filter((client) => ["lead", "onboarding", "pending_kyc", "approved"].includes(client.status)).length;
   const totalAUM = enriched.reduce((sum, client) => sum + client.totalNetWorth, 0);
   const totalProperties = enriched.reduce((sum, client) => sum + client.propertiesCount, 0);
 
@@ -151,7 +152,7 @@ export function enrichClients(
     kpis: {
       totalClients: enriched.length,
       activeClients: byStatus("active"),
-      inactiveClients: byStatus("inactive"),
+      onboardingClients,
       suspendedClients: byStatus("suspended"),
       archivedClients: byStatus("archived"),
       totalAUM,

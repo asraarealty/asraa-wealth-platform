@@ -14,11 +14,10 @@ import { LoadingBlock, SectionHeader, SurfaceCard } from "@/components/v2/ui";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 import { ADMIN_CLIENTS_QUERY_KEY, useAdminClients, type EnrichedClient } from "@/lib/hooks/useAdminClients";
 import {
+  ALLOWED_TRANSITIONS,
   approveClient,
   archiveClient,
-  deactivateClient,
   deleteClient,
-  rejectClient,
   restoreClient,
   suspendClient,
   updateClientStatus,
@@ -30,17 +29,17 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
 
 type StatusFilter =
   | "all"
-  | "pending"
+  | "lead"
+  | "onboarding"
+  | "pending_kyc"
   | "approved"
   | "active"
-  | "inactive"
   | "suspended"
-  | "archived"
-  | "rejected";
+  | "archived";
 
 type ConfirmAction = {
   client: EnrichedClient;
-  type: "status" | "archive" | "restore" | "approve" | "reject" | "delete";
+  type: "status" | "archive" | "restore" | "approve" | "delete";
   nextStatus?: ClientOperationalStatus;
   title: string;
   description: string;
@@ -287,7 +286,7 @@ export default function ClientsPage() {
     .sort((a, b) => new Date(String(b.lastActivity)).getTime() - new Date(String(a.lastActivity)).getTime())
     .slice(0, 5);
   const widgetApprovalQueue = clients.filter(
-    (client) => client.approvalStatus !== "approved" || client.onboardingStatus !== "live"
+    (client) => ["lead", "onboarding", "pending_kyc", "approved"].includes(client.canonicalStatus)
   );
 
   async function runAction(action: ConfirmAction) {
@@ -295,12 +294,10 @@ export default function ClientsPage() {
       setActionLoadingId(action.client.id);
       setActionError(null);
       if (action.type === "status" && action.nextStatus) {
-        if (action.nextStatus === "inactive") {
-          await deactivateClient(action.client.id);
-        } else if (action.nextStatus === "suspended") {
+        if (action.nextStatus === "suspended") {
           await suspendClient(action.client.id);
         } else {
-          await updateClientStatus(action.client.id, action.nextStatus);
+          await updateClientStatus(action.client.id, action.nextStatus, undefined, action.client.canonicalStatus);
         }
       }
       if (action.type === "archive") {
@@ -310,10 +307,7 @@ export default function ClientsPage() {
         await restoreClient(action.client.id);
       }
       if (action.type === "approve") {
-        await approveClient(action.client.id);
-      }
-      if (action.type === "reject") {
-        await rejectClient(action.client.id);
+        await approveClient(action.client.id, undefined, action.client.canonicalStatus);
       }
       if (action.type === "delete") {
         await deleteClient(action.client.id);
@@ -329,12 +323,10 @@ export default function ClientsPage() {
   }
 
   function openStatusAction(client: EnrichedClient, nextStatus: ClientOperationalStatus) {
-    const title = nextStatus === "active" ? "Activate Client" : nextStatus === "inactive" ? "Deactivate Client" : "Suspend Client";
+    const title = nextStatus === "active" ? "Activate Client" : "Suspend Client";
     const description =
       nextStatus === "active"
         ? "This will restore the client to live operational coverage."
-        : nextStatus === "inactive"
-        ? "This will disable client operational access."
         : "This will pause all operational access until the client is restored.";
 
     setPendingAction({
@@ -343,7 +335,7 @@ export default function ClientsPage() {
       nextStatus,
       title,
       description,
-      confirmLabel: nextStatus === "active" ? "Activate" : nextStatus === "inactive" ? "Deactivate" : "Suspend",
+      confirmLabel: nextStatus === "active" ? "Activate" : "Suspend",
       tone: nextStatus === "active" ? "primary" : "danger",
     });
   }
@@ -351,7 +343,7 @@ export default function ClientsPage() {
   const kpiTiles = [
     { label: "Total clients", value: String(kpis.totalClients), tone: "neutral" as const },
     { label: "Active", value: String(kpis.activeClients), tone: "success" as const },
-    { label: "Inactive", value: String(kpis.inactiveClients), tone: "warn" as const },
+    { label: "Onboarding", value: String(kpis.onboardingClients), tone: "warn" as const },
     { label: "Suspended", value: String(kpis.suspendedClients), tone: "danger" as const },
     { label: "Archived", value: String(kpis.archivedClients), tone: "danger" as const },
     { label: "Managed AUM", value: fmtCompact(kpis.totalAUM), tone: "info" as const },
@@ -467,7 +459,7 @@ export default function ClientsPage() {
                   <p className="text-sm font-semibold text-white">{client.name}</p>
                   <p className="text-xs text-slate-400">{client.onboardingStatus ?? "Awaiting onboarding progression"}</p>
                 </div>
-                <StatusBadge label={client.approvalStatus} />
+                <StatusBadge label={client.canonicalStatus} />
               </button>
             ))}
             {widgetApprovalQueue.length === 0 ? <p className="text-sm text-slate-400">Approval queue clear.</p> : null}
@@ -488,7 +480,7 @@ export default function ClientsPage() {
               className="w-full max-w-md rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none transition focus:border-sky-300/40 focus:bg-sky-500/[0.08]"
             />
             <div className="flex flex-wrap items-center gap-2">
-              {(["all", "pending", "approved", "active", "inactive", "suspended", "archived", "rejected"] as const).map((filter) => (
+              {(["all", "lead", "onboarding", "pending_kyc", "approved", "active", "suspended", "archived"] as const).map((filter) => (
                 <button
                   key={filter}
                   type="button"
@@ -596,8 +588,7 @@ export default function ClientsPage() {
                     </td>
                     <td className="px-4 py-4 align-top">
                       <div className="space-y-2">
-                        <StatusBadge label={client.status} />
-                        <StatusBadge label={client.approvalStatus} />
+                        <StatusBadge label={client.canonicalStatus} />
                       </div>
                     </td>
                     <td className="px-4 py-4 align-top text-right">
@@ -617,13 +608,11 @@ export default function ClientsPage() {
                              { label: "Email", href: client.email ? `mailto:${client.email}` : undefined, disabled: !client.email },
                              { label: "Schedule Meeting", href: client.email ? `mailto:${client.email}?subject=${encodeURIComponent(`Meeting schedule - ${client.name}`)}` : undefined, disabled: !client.email },
                              { label: "Send Report", href: client.email ? `mailto:${client.email}?subject=${encodeURIComponent(`Portfolio report - ${client.name}`)}` : undefined, disabled: !client.email },
-                             { label: "Approve", onSelect: () => setPendingAction({ client, type: "approve", title: "Approve Client", description: "Approve this client for live onboarding and advisory operations.", confirmLabel: "Approve", tone: "primary" }), disabled: client.approvalStatus === "approved" },
-                             { label: "Reject", onSelect: () => setPendingAction({ client, type: "reject", title: "Reject Client", description: "Reject this client and stop onboarding progression.", confirmLabel: "Reject", tone: "danger" }), disabled: client.approvalStatus === "rejected", tone: "danger" },
-                             { label: "Activate", onSelect: () => openStatusAction(client, "active"), disabled: client.status === "active" },
-                             { label: "Deactivate", onSelect: () => openStatusAction(client, "inactive"), disabled: client.status === "inactive" },
-                             { label: "Suspend", onSelect: () => openStatusAction(client, "suspended"), disabled: client.status === "suspended" },
-                             { label: "Restore", onSelect: () => setPendingAction({ client, type: "restore", title: "Restore Client", description: "This client will return to the active operational roster.", confirmLabel: "Restore", tone: "primary" }), disabled: client.status !== "archived" },
-                             { label: "Archive", onSelect: () => setPendingAction({ client, type: "archive", title: "Archive Client", description: "This client will be removed from active operations but can be restored later.", confirmLabel: "Archive Client" }), disabled: client.status === "archived" },
+                              { label: "Approve", onSelect: () => setPendingAction({ client, type: "approve", title: "Approve Client", description: "Approve this client for live onboarding and advisory operations.", confirmLabel: "Approve", tone: "primary" }), disabled: !ALLOWED_TRANSITIONS[client.canonicalStatus].includes("approved") },
+                              { label: "Activate", onSelect: () => openStatusAction(client, "active"), disabled: !ALLOWED_TRANSITIONS[client.canonicalStatus].includes("active") },
+                              { label: "Suspend", onSelect: () => openStatusAction(client, "suspended"), disabled: !ALLOWED_TRANSITIONS[client.canonicalStatus].includes("suspended") },
+                              { label: "Restore", onSelect: () => setPendingAction({ client, type: "restore", title: "Restore Client", description: "This client will return to the active operational roster.", confirmLabel: "Restore", tone: "primary" }), disabled: client.canonicalStatus !== "archived" },
+                              { label: "Archive", onSelect: () => setPendingAction({ client, type: "archive", title: "Archive Client", description: "This client will be removed from active operations but can be restored later.", confirmLabel: "Archive Client" }), disabled: !ALLOWED_TRANSITIONS[client.canonicalStatus].includes("archived") },
                              { label: "Delete", onSelect: () => setPendingAction({ client, type: "delete", title: "Delete Client", description: "This permanently deletes the client workspace and cannot be undone.", confirmLabel: "Delete Client", tone: "danger" }), tone: "danger" },
                            ]}
                          />

@@ -27,6 +27,10 @@ const QUOTE_STALE_MS = 5 * 60_000;
 const stockQuoteCache = new Map<string, CachedQuote>();
 const singleQuoteInFlight = new Map<string, Promise<number | null>>();
 const bulkQuoteInFlight = new Map<string, Promise<Record<string, number>>>();
+const mfQuoteCache = new Map<string, CachedQuote>();
+const mfInFlight = new Map<string, Promise<number>>();
+const commodityQuoteCache = new Map<string, CachedQuote>();
+const commodityInFlight = new Map<string, Promise<number>>();
 
 function n(value: unknown, fallback = 0): number {
   const parsed = Number(value);
@@ -132,6 +136,26 @@ function readCachedStockQuote(symbol: string): { price: number; stale: boolean }
 function cacheStockQuote(symbol: string, price: number) {
   if (!(price > 0)) return;
   stockQuoteCache.set(symbol, {
+    price,
+    asOf: new Date().toISOString(),
+    updatedAt: Date.now(),
+  });
+}
+
+function readCachedQuote(cache: Map<string, CachedQuote>, key: string): number | null {
+  const cached = cache.get(key);
+  if (!cached) return null;
+  const age = Date.now() - cached.updatedAt;
+  if (age > QUOTE_STALE_MS) {
+    cache.delete(key);
+    return null;
+  }
+  return cached.price > 0 ? cached.price : null;
+}
+
+function cacheQuote(cache: Map<string, CachedQuote>, key: string, price: number) {
+  if (!(price > 0)) return;
+  cache.set(key, {
     price,
     asOf: new Date().toISOString(),
     updatedAt: Date.now(),
@@ -244,6 +268,58 @@ function commodityPriceFromPayload(payload: any): number {
   return 0;
 }
 
+async function fetchMutualFundQuote(query: string): Promise<number> {
+  const key = normalizeMarketSymbol(query);
+  const cached = readCachedQuote(mfQuoteCache, key);
+  if (cached) return cached;
+
+  const existing = mfInFlight.get(key);
+  if (existing) return existing;
+
+  const job = searchMutualFunds(query)
+    .then((results) => {
+      const first = Array.isArray(results) ? results[0] : undefined;
+      const price = n(first?.nav, 0);
+      cacheQuote(mfQuoteCache, key, price);
+      return price;
+    })
+    .catch(() => 0);
+
+  mfInFlight.set(key, job);
+  try {
+    return await job;
+  } finally {
+    mfInFlight.delete(key);
+  }
+}
+
+async function fetchCommodityQuote(query: string): Promise<number> {
+  const key = normalizeMarketSymbol(query);
+  const cached = readCachedQuote(commodityQuoteCache, key);
+  if (cached) return cached;
+
+  const existing = commodityInFlight.get(key);
+  if (existing) return existing;
+
+  const job = fetcher<any>(`/commodities/search?q=${encodeURIComponent(query)}`, {
+    raw: true,
+    noRedirectOn401: true,
+  })
+    .then((payload) => {
+      const price = commodityPriceFromPayload(payload);
+      cacheQuote(commodityQuoteCache, key, price);
+      return price;
+    })
+    .catch(() => 0);
+
+  commodityInFlight.set(key, job);
+  try {
+    return await job;
+  } finally {
+    commodityInFlight.delete(key);
+  }
+}
+
 export async function resolveLivePrices(
   holdings: CanonicalAssetHolding[]
 ): Promise<Record<number, MarketPricePoint>> {
@@ -296,12 +372,7 @@ export async function resolveLivePrices(
   const jobs = holdings.map(async (holding) => {
     try {
       if (holding.type === "mf") {
-        const results = await searchMutualFunds(holding.symbol || holding.name);
-        const exact =
-          results.find((r) => r.code === holding.symbol) ??
-          results.find((r) => r.name === holding.name) ??
-          results[0];
-        const price = n(exact?.nav, 0);
+        const price = await fetchMutualFundQuote(holding.symbol || holding.name);
         if (price > 0) {
           byId[holding.id] = { price, source: "mf-nav-daily", asOf };
           return;
@@ -309,11 +380,7 @@ export async function resolveLivePrices(
       }
 
       if (holding.type === "commodity") {
-        const payload = await fetcher<any>(
-          `/commodities/search?q=${encodeURIComponent(holding.symbol || holding.name)}`,
-          { raw: true, noRedirectOn401: true }
-        );
-        const price = commodityPriceFromPayload(payload);
+        const price = await fetchCommodityQuote(holding.symbol || holding.name);
         if (price > 0) {
           byId[holding.id] = { price, source: "commodity-live", asOf };
           return;

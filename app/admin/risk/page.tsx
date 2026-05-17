@@ -185,17 +185,17 @@ export default function AdminRiskIntelligencePage() {
               confidence={0.79}
             />
           )}
-          {clients.filter((c) => c.approvalStatus !== "approved").length > 0 && (
+          {clients.filter((c) => ["lead", "onboarding", "pending_kyc", "approved"].includes(c.canonicalStatus)).length > 0 && (
             <IntelligenceCard
               title="Pending onboarding approvals"
-              message={`${clients.filter((c) => c.approvalStatus !== "approved").length} client${clients.filter((c) => c.approvalStatus !== "approved").length > 1 ? "s" : ""} awaiting approval. Risk profiles are incomplete until onboarding is finalised.`}
+              message={`${clients.filter((c) => ["lead", "onboarding", "pending_kyc", "approved"].includes(c.canonicalStatus)).length} client${clients.filter((c) => ["lead", "onboarding", "pending_kyc", "approved"].includes(c.canonicalStatus)).length > 1 ? "s" : ""} awaiting lifecycle progression. Risk profiles are incomplete until onboarding is finalised.`}
               tone="info"
             />
           )}
           <IntelligenceCard
             title="Inactivity monitoring active"
-            message={`${kpis.inactiveClients} client${kpis.inactiveClients !== 1 ? "s" : ""} flagged as inactive. Passive portfolios may drift from target allocation without intervention.`}
-            tone={kpis.inactiveClients > 0 ? "warn" : "success"}
+            message={`${kpis.onboardingClients} client${kpis.onboardingClients !== 1 ? "s" : ""} still in onboarding lifecycle states. Passive portfolios may drift from target allocation without intervention.`}
+            tone={kpis.onboardingClients > 0 ? "warn" : "success"}
             confidence={0.72}
           />
         </div>

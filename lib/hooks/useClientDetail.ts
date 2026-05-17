@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { fetchTransactions, fetchInsights } from "@/lib/api";
 import type { Transaction, InsightsResponse } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
@@ -15,44 +16,32 @@ export interface ClientDetailData {
 export function useClientDetail(
   clientId: number | null
 ): ClientDetailData {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [insights, setInsights] = useState<InsightsResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const transactionsQuery = useQuery({
+    queryKey: ["client-detail", clientId, "transactions"],
+    queryFn: ({ signal }) => fetchTransactions(String(clientId), signal),
+    enabled: clientId !== null,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
 
-  useEffect(() => {
-    if (clientId === null) {
-      setTransactions([]);
-      setInsights(null);
-      setLoading(false);
-      setError(null);
-      return;
-    }
+  const insightsQuery = useQuery({
+    queryKey: ["client-detail", clientId, "insights"],
+    queryFn: ({ signal }) => fetchInsights(clientId ?? undefined, signal),
+    enabled: clientId !== null,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
 
-    const ac = new AbortController();
-    setLoading(true);
-    setError(null);
+  const error = useMemo(() => {
+    if (transactionsQuery.error) return toErrorMessage(transactionsQuery.error);
+    if (insightsQuery.error) return toErrorMessage(insightsQuery.error);
+    return null;
+  }, [insightsQuery.error, transactionsQuery.error]);
 
-    Promise.all([
-      fetchTransactions(String(clientId), ac.signal).catch((): Transaction[] => []),
-      fetchInsights(clientId, ac.signal).catch((): InsightsResponse => ({
-        equityPercentage: 0,
-        propertyPercentage: 0,
-        alerts: [],
-      })),
-    ])
-      .then(([txns, ins]) => {
-        setTransactions(Array.isArray(txns) ? txns : []);
-        setInsights(ins);
-      })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setError(toErrorMessage(err));
-      })
-      .finally(() => setLoading(false));
-
-    return () => ac.abort();
-  }, [clientId]);
-
-  return { transactions, insights, loading, error };
+  return {
+    transactions: Array.isArray(transactionsQuery.data) ? transactionsQuery.data : [],
+    insights: insightsQuery.data ?? null,
+    loading: transactionsQuery.isLoading || insightsQuery.isLoading,
+    error,
+  };
 }

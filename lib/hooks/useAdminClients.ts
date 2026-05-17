@@ -31,6 +31,8 @@ export function useAdminClients(): UseAdminClientsResult {
       ]);
       return enrichClients(clients, groupedAssets);
     },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   return {
