@@ -127,10 +127,10 @@ Please log in to your dashboard at https://wealth.asraa.in or contact your advis
 }
 
 function whatsappLeaseReminderMessage(name: string, propertyName?: string): string {
-  const property = propertyName ? `for ${propertyName} ` : "";
+  const subject = propertyName ? `Your lease agreement for ${propertyName}` : "Your lease agreement";
   return `Hi ${name},
 
-Your lease agreement ${property}is approaching renewal.
+${subject} is approaching renewal.
 
 Please log in to https://wealth.asraa.in to review your property details and schedule a discussion with your advisor.
 

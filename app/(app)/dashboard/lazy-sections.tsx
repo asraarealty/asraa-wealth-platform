@@ -11,7 +11,7 @@ import {
   StatusPill,
   SurfaceCard,
 } from "@/components/v2/ui";
-import { fetchBulkStockQuotes, type StockQuote } from "@/lib/api";
+import { fetchBulkQuotes, type TickerQuote } from "@/lib/services/marketDataService";
 import type { DashboardOperatingData } from "@/lib/hooks/useOperatingSystem";
 
 interface IntelCard {
@@ -231,7 +231,7 @@ function fmtPrice(n: number) {
 }
 
 export function MarketDiscoverySection({ data }: { data: DashboardOperatingData }) {
-  const [quotes, setQuotes] = useState<StockQuote[]>([]);
+  const [quotes, setQuotes] = useState<TickerQuote[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -240,10 +240,9 @@ export function MarketDiscoverySection({ data }: { data: DashboardOperatingData 
     async function load() {
       setLoading(true);
       try {
-        const result = await fetchBulkStockQuotes(MARKET_MOVERS_SYMBOLS);
+        const result = await fetchBulkQuotes(MARKET_MOVERS_SYMBOLS);
         if (!cancelled) {
-          const list = Array.isArray(result) ? result : [];
-          setQuotes(list);
+          setQuotes([...result.values()]);
         }
       } catch {
         // Silently ignore; movers section is non-critical

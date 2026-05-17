@@ -22,8 +22,7 @@ type MetricCategory =
   | "render"
   | "cache"
   | "websocket"
-  | "marketDataService"
-  | string;
+  | "marketDataService";
 
 interface MetricEntry {
   category: MetricCategory;
