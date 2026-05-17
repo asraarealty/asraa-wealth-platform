@@ -17,7 +17,7 @@ export function SystemCapabilityPanel() {
 
   const capabilities = capabilitiesQuery.data;
 
-  const rows = [
+  const rows: { label: string; value: string; tone: "success" | "warn" }[] = [
     {
       label: "Live stock pricing",
       value: capabilities?.stockQuotes ? "available" : "unavailable",
