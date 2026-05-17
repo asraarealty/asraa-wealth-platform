@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ClientEditForm } from "@/components/admin/ClientEditForm";
 import { toErrorMessage } from "@/lib/fetcher";
 import { ADMIN_CLIENTS_QUERY_KEY } from "@/lib/hooks/useAdminClients";
-import { archiveClient, createClient, updateClient, updateClientStatus, type ClientOperationalStatus, type ClientUpdatePayload } from "@/lib/services/clientService";
+import { archiveClient, createClient, updateClientStatus, type ClientOperationalStatus, type ClientUpdatePayload } from "@/lib/services/clientService";
 
 export default function NewClientPage() {
   const router = useRouter();
@@ -26,11 +26,6 @@ export default function NewClientPage() {
           const created = await createClient(payload);
           if (status === "archived") {
             await archiveClient(created.id);
-          } else if (status === "approved" || status === "rejected" || status === "pending") {
-            await updateClient(created.id, {
-              status,
-              approvalStatus: status === "approved" ? "approved" : status === "rejected" ? "rejected" : "pending",
-            });
           } else if (status !== "active") {
             await updateClientStatus(created.id, status);
           }

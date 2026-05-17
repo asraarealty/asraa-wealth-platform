@@ -355,7 +355,7 @@ export function approveClient(
 }
 
 export function rejectClient(id: number, signal?: AbortSignal) {
-  return updateClient(id, { approvalStatus: "rejected", status: "rejected" }, signal);
+  return updateClient(id, { approvalStatus: "rejected", status: "archived" }, signal);
 }
 
 export function suspendClient(id: number, signal?: AbortSignal) {

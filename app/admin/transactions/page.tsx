@@ -9,7 +9,7 @@ export default function AdminTransactionsPage() {
       description="Monitor transaction flow, reconciliations, and exception handling across all investment products."
       buildMetrics={(clients) => {
         const turnover = clients.reduce((sum, c) => sum + Math.abs(c.unrealizedPnL), 0);
-        const inactive = clients.filter((c) => c.status === "inactive" || c.status === "suspended").length;
+        const inactive = clients.filter((c) => ["lead", "onboarding", "pending_kyc", "suspended", "archived"].includes(c.status)).length;
         const stable = clients.length ? ((clients.length - inactive) * 100) / clients.length : 100;
         return [
           { label: "Monitored Turnover", value: new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", notation: "compact", maximumFractionDigits: 1 }).format(turnover), tone: "info" },
