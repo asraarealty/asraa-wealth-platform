@@ -19,6 +19,18 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     description: "Client Operations Center: lifecycle, approvals, and relationship command",
   },
   {
+    href: "/admin/market",
+    label: "Market Terminal",
+    shortLabel: "Market",
+    description: "Realtime NIFTY, SENSEX, BANKNIFTY, GOLD, and FX monitoring from the centralized ticker engine",
+  },
+  {
+    href: "/admin/analytics",
+    label: "Analytics",
+    shortLabel: "Analytics",
+    description: "Portfolio analytics, allocation oversight, and performance monitoring across all clients",
+  },
+  {
     href: "/admin/assets",
     label: "Asset Intelligence",
     shortLabel: "Assets",
