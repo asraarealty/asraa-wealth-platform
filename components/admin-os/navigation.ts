@@ -38,9 +38,15 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   },
   {
     href: "/admin/insights",
-    label: "Insights",
-    shortLabel: "Insights",
+    label: "Analytics",
+    shortLabel: "Analytics",
     description: "Growth signals and predictive analytics",
+  },
+  {
+    href: "/admin/risk",
+    label: "Risk Intelligence",
+    shortLabel: "Risk",
+    description: "AI-driven risk scoring, concentration alerts and rebalance signals",
   },
   {
     href: "/admin/notifications",
