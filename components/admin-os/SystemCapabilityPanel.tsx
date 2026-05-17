@@ -68,7 +68,7 @@ export function SystemCapabilityPanel() {
           <div key={row.label} className="v2-tile rounded-xl p-3">
             <p className="text-xs text-slate-400">{row.label}</p>
             <div className="mt-2 flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-white uppercase tracking-[0.06em]">{row.value}</p>
+              <p className="text-sm text-slate-300">Operational status</p>
               <StatusPill label={row.value} tone={row.tone} />
             </div>
           </div>

@@ -35,8 +35,10 @@ function pct(value: number, total: number): number {
 function resolveFallbackStockPrice(holding: CanonicalAssetHolding): number {
   const storedBackendPrice = n(holding.currentPrice, 0);
   const avgCost = n(holding.avgPrice, 0);
-  const investedPerUnit = holding.units > 0 ? n(holding.investedValue / holding.units, 0) : 0;
-  const investedValuePrice = investedPerUnit > 0 ? investedPerUnit : n(holding.investedValue, 0);
+  const investedPerUnit = holding.units > 0.001 ? n(holding.investedValue / holding.units, 0) : 0;
+  const investedValuePrice = investedPerUnit > 0 && investedPerUnit < 10_000_000
+    ? investedPerUnit
+    : n(holding.investedValue, 0);
 
   return storedBackendPrice || avgCost || investedValuePrice;
 }

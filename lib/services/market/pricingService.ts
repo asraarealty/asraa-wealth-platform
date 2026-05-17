@@ -165,7 +165,7 @@ async function fetchSingleStockQuote(symbol: string): Promise<number | null> {
 }
 
 async function fetchBulkStockQuotes(symbols: string[]): Promise<Record<string, number>> {
-  const key = [...new Set(symbols)].sort().join("|");
+  const key = [...new Set(symbols)].sort().join("\u0000");
   if (!key) return {};
 
   const existing = bulkQuoteInFlight.get(key);
@@ -250,7 +250,7 @@ export async function resolveLivePrices(
   const byId: Record<number, MarketPricePoint> = {};
   const asOf = new Date().toISOString();
 
-  const stockHoldings = holdings.filter((holding) => holding.type === "stock" && holding.symbol);
+  const stockHoldings = holdings.filter((holding) => holding.type === "stock" && holding.symbol?.trim());
   const staleStockSymbols = new Set<string>();
   const missingStockSymbols = new Set<string>();
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchTransactions, type Transaction } from "@/lib/api";
 import { useAssets, useInsights } from "@/lib/hooks/useAssets";
@@ -130,6 +130,12 @@ export function useOperatingSystemData() {
     queryFn: () => getMarketCapabilities({ staleWhileRevalidate: true }),
     staleTime: 5 * 60_000,
   });
+
+  useEffect(() => {
+    if (livePricesQuery.isError) {
+      console.warn("[market] Live pricing refresh failed; using stored valuation fallback.");
+    }
+  }, [livePricesQuery.isError]);
 
   const data = useMemo(() => {
     const assets = assetsQuery.data?.assets ?? [];
