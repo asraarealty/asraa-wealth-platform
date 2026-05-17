@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchTransactions, type Transaction } from "@/lib/api";
 import { useAssets, useInsights } from "@/lib/hooks/useAssets";
 import type { Asset } from "@/lib/types/assets";
 import { createCanonicalAssetUniverse } from "@/lib/services/assets";
-import { resolveLivePrices } from "@/lib/services/market";
+import { getMarketCapabilities, resolveLivePrices } from "@/lib/services/market";
 import { computePortfolioIntelligenceState } from "@/lib/services/portfolio";
 
 type EventType = "risk" | "cashflow" | "rent" | "drift" | "opportunity";
@@ -82,6 +82,24 @@ function transactionEvents(items: Transaction[]): EventItem[] {
   }));
 }
 
+function getMarketSyncNotice(params: {
+  hasStockHoldings: boolean;
+  livePricesError: boolean;
+  stockQuotesAvailable?: boolean;
+  bulkQuotesAvailable?: boolean;
+}): string | null {
+  if (!params.hasStockHoldings) return null;
+  if (params.livePricesError) {
+    return "Live market sync unavailable — using latest stored valuation.";
+  }
+
+  if (params.stockQuotesAvailable === false && params.bulkQuotesAvailable === false) {
+    return "Live market sync unavailable — using latest stored valuation.";
+  }
+
+  return null;
+}
+
 export function useOperatingSystemData() {
   const assetsQuery = useAssets();
   const insightsQuery = useInsights();
@@ -106,6 +124,18 @@ export function useOperatingSystemData() {
     staleTime: 60_000,
     refetchInterval: 60_000,
   });
+
+  const marketCapabilitiesQuery = useQuery({
+    queryKey: ["market-capabilities"],
+    queryFn: () => getMarketCapabilities({ staleWhileRevalidate: true }),
+    staleTime: 5 * 60_000,
+  });
+
+  useEffect(() => {
+    if (livePricesQuery.isError) {
+      console.warn("[market] Live pricing refresh failed; using stored valuation fallback.");
+    }
+  }, [livePricesQuery.isError]);
 
   const data = useMemo(() => {
     const assets = assetsQuery.data?.assets ?? [];
@@ -261,7 +291,17 @@ export function useOperatingSystemData() {
     transactionsQuery.data,
     canonicalHoldings,
     livePricesQuery.data,
+    marketCapabilitiesQuery.data,
+    livePricesQuery.isError,
   ]);
+
+  const hasStockHoldings = canonicalHoldings.some((holding) => holding.type === "stock");
+  const marketSyncNotice = getMarketSyncNotice({
+    hasStockHoldings,
+    livePricesError: livePricesQuery.isError,
+    stockQuotesAvailable: marketCapabilitiesQuery.data?.stockQuotes,
+    bulkQuotesAvailable: marketCapabilitiesQuery.data?.bulkQuotes,
+  });
 
   return {
     data,
@@ -273,8 +313,8 @@ export function useOperatingSystemData() {
     isError:
       assetsQuery.isError ||
       insightsQuery.isError ||
-      transactionsQuery.isError ||
-      livePricesQuery.isError,
+      transactionsQuery.isError,
+    marketSyncNotice,
     refetchAll: () => {
       assetsQuery.refetch();
       insightsQuery.refetch();

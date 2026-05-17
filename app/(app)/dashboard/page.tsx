@@ -128,7 +128,7 @@ function buildIntelCards(data: ReturnType<typeof useOperatingSystemData>["data"]
 }
 
 export default function DashboardPage() {
-  const { data, isLoading, isError, refetchAll } = useOperatingSystemData();
+  const { data, isLoading, isError, marketSyncNotice, refetchAll } = useOperatingSystemData();
   const { timeHorizon, riskProfile } = useOperatingContext();
 
   if (isLoading) return <LoadingBlock />;
@@ -167,6 +167,12 @@ export default function DashboardPage() {
             Refresh
           </button>
         </div>
+
+        {marketSyncNotice ? (
+          <div className="mb-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+            {marketSyncNotice}
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <MetricTile label="Total Portfolio Value" value={fmt(data.executive.totalValue)} />
