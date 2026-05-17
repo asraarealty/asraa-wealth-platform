@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useOperatingContext } from "@/context/OperatingContext";
+import { DashboardProvider } from "@/context/DashboardContext";
 import { useEffect } from "react";
 
 /* ─── SVG icon set ───────────────────────────────────────────────────────── */
@@ -124,7 +125,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#07080d] text-white">
+    <DashboardProvider>
+      <div className="min-h-screen bg-[#07080d] text-white">
       {/* ── Top navigation bar ─────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-[#07080d]/96 backdrop-blur-xl">
         <div className="px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
@@ -233,6 +235,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           })}
         </div>
       </nav>
-    </div>
+      </div>
+    </DashboardProvider>
   );
 }
