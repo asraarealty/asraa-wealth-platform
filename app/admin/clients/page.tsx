@@ -75,10 +75,96 @@ function getPhoneHref(phone?: string) {
   return digits ? `tel:${digits}` : undefined;
 }
 
-function getWhatsappHref(phone?: string) {
+function getWhatsappHref(phone?: string, message?: string) {
   const digits = String(phone ?? "").replace(/\D/g, "");
-  return digits ? `https://wa.me/${digits}` : undefined;
+  if (!digits) return undefined;
+  const base = `https://wa.me/${digits}`;
+  return message ? `${base}?text=${encodeURIComponent(message)}` : base;
 }
+
+function whatsappOnboardingMessage(name: string): string {
+  return `Hi ${name},
+
+Welcome to Asraa Wealth! 🎉
+
+Your account has been approved and you now have full access to your personalised wealth management platform.
+
+To get started:
+1. Log in at https://wealth.asraa.in
+2. Complete your portfolio onboarding
+3. Review your AI-generated insights
+
+Your dedicated advisor is here to guide you through the process.
+
+We look forward to helping you grow your wealth.
+
+— Asraa Wealth Team`;
+}
+
+function whatsappPortfolioReadyMessage(name: string): string {
+  return `Hi ${name},
+
+Your portfolio is now live on Asraa Wealth! 📊
+
+Your holdings have been synced and your personalised wealth intelligence dashboard is ready.
+
+Log in at https://wealth.asraa.in to view:
+- Live portfolio valuation
+- Asset allocation insights
+- AI-powered recommendations
+
+— Asraa Wealth Team`;
+}
+
+function whatsappPaymentReminderMessage(name: string): string {
+  return `Hi ${name},
+
+This is a friendly reminder from Asraa Wealth regarding an upcoming payment.
+
+Please log in to your dashboard at https://wealth.asraa.in or contact your advisor to review the details.
+
+— Asraa Wealth Team`;
+}
+
+function whatsappLeaseReminderMessage(name: string, propertyName?: string): string {
+  const subject = propertyName ? `Your lease agreement for ${propertyName}` : "Your lease agreement";
+  return `Hi ${name},
+
+${subject} is approaching renewal.
+
+Please log in to https://wealth.asraa.in to review your property details and schedule a discussion with your advisor.
+
+— Asraa Wealth Team`;
+}
+
+function whatsappWelcomeMessage(name: string): string {
+  return `Hi ${name},
+
+Welcome to Asraa Wealth — your premium wealth management platform. ✨
+
+We are delighted to have you onboard. Your advisor will reach out shortly to begin your wealth journey.
+
+Get started: https://wealth.asraa.in
+
+— Asraa Wealth Team`;
+}
+
+function whatsappRequestDocumentsMessage(name: string): string {
+  return `Hi ${name},
+
+As part of your onboarding with Asraa Wealth, we need a few documents to complete your KYC.
+
+Please share the following at your earliest convenience:
+- PAN card
+- Aadhaar card
+- Address proof
+- Latest bank statement (last 3 months)
+
+You can reply to this message or email your advisor directly.
+
+— Asraa Wealth Team`;
+}
+
 
 function AllocationMiniBar({ client }: { client: EnrichedClient }) {
   const total = client.assets.length;
@@ -521,6 +607,12 @@ export default function ClientsPage() {
                              { label: "View Intelligence", onSelect: () => setSelectedClientId(client.id) },
                              { label: "Edit Client", href: `/admin/clients/${client.id}/edit` },
                              { label: "WhatsApp", href: getWhatsappHref(client.whatsapp ?? client.phone), disabled: !getWhatsappHref(client.whatsapp ?? client.phone) },
+                             { label: "Approve & WhatsApp", href: getWhatsappHref(client.whatsapp ?? client.phone, whatsappOnboardingMessage(client.name)), disabled: !getWhatsappHref(client.whatsapp ?? client.phone) },
+                             { label: "Send Welcome", href: getWhatsappHref(client.whatsapp ?? client.phone, whatsappWelcomeMessage(client.name)), disabled: !getWhatsappHref(client.whatsapp ?? client.phone) },
+                             { label: "Request Documents", href: getWhatsappHref(client.whatsapp ?? client.phone, whatsappRequestDocumentsMessage(client.name)), disabled: !getWhatsappHref(client.whatsapp ?? client.phone) },
+                             { label: "Share Portfolio Summary", href: getWhatsappHref(client.whatsapp ?? client.phone, whatsappPortfolioReadyMessage(client.name)), disabled: !getWhatsappHref(client.whatsapp ?? client.phone) },
+                             { label: "Lease Reminder", href: getWhatsappHref(client.whatsapp ?? client.phone, whatsappLeaseReminderMessage(client.name)), disabled: !getWhatsappHref(client.whatsapp ?? client.phone) },
+                             { label: "Payment Reminder", href: getWhatsappHref(client.whatsapp ?? client.phone, whatsappPaymentReminderMessage(client.name)), disabled: !getWhatsappHref(client.whatsapp ?? client.phone) },
                              { label: "Call", href: getPhoneHref(client.phone), disabled: !getPhoneHref(client.phone) },
                              { label: "Email", href: client.email ? `mailto:${client.email}` : undefined, disabled: !client.email },
                              { label: "Schedule Meeting", href: client.email ? `mailto:${client.email}?subject=${encodeURIComponent(`Meeting schedule - ${client.name}`)}` : undefined, disabled: !client.email },
