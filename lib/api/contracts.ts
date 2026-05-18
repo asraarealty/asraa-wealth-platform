@@ -62,6 +62,16 @@ export function resolveContractRequest(
   }
 
   const path = `${buildPathFromTemplate(registry.route, pathParams)}${buildQueryString(query)}`;
+  if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+    console.info("[contract]", {
+      key,
+      method: registry.method,
+      route: registry.route,
+      path,
+      hasBody: body !== undefined,
+      querySize: query ? Object.keys(query).length : 0,
+    });
+  }
   return {
     key,
     method: registry.method,

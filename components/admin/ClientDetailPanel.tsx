@@ -182,6 +182,33 @@ export function ClientDetailPanel({
     [workspaceClient, safeAssets, insights, detailDegraded]
   );
   const operationsReady = Boolean(readiness?.lifecycleReady && readiness?.onboardingReady);
+  useEffect(() => {
+    if (!workspaceClient || typeof window === "undefined" || process.env.NODE_ENV === "production") return;
+    console.info("[selector]", {
+      clientId: workspaceClient.id,
+      assetsCount: safeAssets.length,
+      holdingsCount: holdings.length,
+      transactionsCount: transactions.length,
+      insightAlertsCount: Array.isArray(insights?.alerts) ? insights.alerts.length : 0,
+      degraded: detailDegraded,
+    });
+    console.info("[workspace]", {
+      clientId: workspaceClient.id,
+      operationsReady,
+      readiness,
+      fallbackActivationReason: detailError ?? null,
+    });
+  }, [
+    detailDegraded,
+    detailError,
+    holdings.length,
+    insights?.alerts,
+    operationsReady,
+    readiness,
+    safeAssets.length,
+    transactions.length,
+    workspaceClient,
+  ]);
   const allowedTransitions = useMemo(
     () => ALLOWED_TRANSITIONS[workspaceClient?.canonicalStatus ?? "lead"] ?? [],
     [workspaceClient?.canonicalStatus]
