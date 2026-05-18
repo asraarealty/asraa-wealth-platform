@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Asset, AssetType } from "@/lib/types/assets";
+import { LiveAssetPicker, type LiveAssetSelection } from "@/components/assets/LiveAssetPicker";
 
 interface AssetHoldingFormProps {
   mode: "create" | "edit";
@@ -55,6 +56,28 @@ export function AssetHoldingForm({
 
   function set(key: string, value: string | boolean) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function applyLiveSelection(selection: LiveAssetSelection) {
+    setForm((prev) => {
+      const next: Record<string, string | boolean> = {
+        ...prev,
+        symbol: selection.symbol,
+        name: selection.name,
+      };
+      if (selection.kind === "mutual-fund") {
+        next.nav = selection.price ? String(selection.price) : String(prev.nav ?? "");
+        next.avg_price = next.nav;
+        next.current_price = next.nav;
+      } else if (selection.kind === "commodity" || selection.kind === "metal") {
+        next.avg_price = selection.price ? String(selection.price) : String(prev.avg_price ?? "");
+        next.current_price = next.avg_price;
+      } else {
+        next.avg_price = selection.price ? String(selection.price) : String(prev.avg_price ?? "");
+        next.current_price = next.avg_price;
+      }
+      return next;
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -133,6 +156,24 @@ export function AssetHoldingForm({
           <input required style={inputStyle} className={inputClass} value={String(form.name)} onChange={(e) => set("name", e.target.value)} />
         </div>
 
+        {(type === "stock" || type === "mf" || type === "commodity") && (
+          <div>
+            <label className={labelClass + " block mb-1.5"}>Search Assets</label>
+            <LiveAssetPicker
+              value={String(form.symbol || form.name)}
+              allowedKinds={
+                type === "stock"
+                  ? ["stock", "global-stock", "etf"]
+                  : type === "mf"
+                  ? ["mutual-fund"]
+                  : ["commodity", "metal"]
+              }
+              placeholder="Search live stocks, funds, and commodities"
+              onSelect={applyLiveSelection}
+            />
+          </div>
+        )}
+
         {(type === "stock" || type === "commodity") && (
           <div className="space-y-4">
             <div><label className={labelClass + " block mb-1.5"}>Symbol</label><input style={inputStyle} className={inputClass} value={String(form.symbol)} onChange={(e) => set("symbol", e.target.value)} /></div>
@@ -192,4 +233,3 @@ export function AssetHoldingForm({
     </div>
   );
 }
-
