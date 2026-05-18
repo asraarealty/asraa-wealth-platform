@@ -509,6 +509,7 @@ function formatMoney(value: number, currency: "INR" | "USD") {
 }
 
 export function useMarketDomainGraph() {
+  const setSearchQuery = searchMarket;
   const state = useSyncExternalStore(subscribeMarket, getMarketSnapshot, getMarketSnapshot);
 
   useEffect(() => {
@@ -532,7 +533,7 @@ export function useMarketDomainGraph() {
     ...state,
     refresh: () => ensureMarketData({ force: true }),
     searchMarket,
-    setSearchQuery: searchMarket,
+    setSearchQuery,
     toggleWatchlist,
     formatMoney,
   };

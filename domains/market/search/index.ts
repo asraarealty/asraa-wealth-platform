@@ -191,9 +191,9 @@ export async function searchMarket(
       searchCommoditiesRaw(normalized, options.signal),
     ]);
 
-    const normalizedStocks = dedupeEntities(stocksRaw.map(normalizeStockEntity)).slice(0, 10);
-    const etfs = normalizedStocks.filter((item) => item.kind === "etf");
-    const stocks = normalizedStocks.filter((item) => item.kind !== "etf");
+    const normalizedStocks = dedupeEntities(stocksRaw.map(normalizeStockEntity));
+    const etfs = normalizedStocks.filter((item) => item.kind === "etf").slice(0, 8);
+    const stocks = normalizedStocks.filter((item) => item.kind !== "etf").slice(0, 8);
     const mutualFunds = dedupeEntities(mutualFundsRaw.map(normalizeMutualFundEntity)).slice(0, 8);
     const commodities = dedupeEntities(commoditiesRaw.map(normalizeCommodityEntity)).slice(0, 8);
 

@@ -215,7 +215,7 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
             />
             {query.trim().length >= MIN_SEARCH_LENGTH ? (
               <div className="mt-3 space-y-2 max-h-56 overflow-y-auto">
-                {[...search.groups.stocks, ...(search.groups.etfs ?? []), ...search.groups.mutualFunds, ...search.groups.commodities]
+                {[...(search.groups.stocks ?? []), ...(search.groups.etfs ?? []), ...(search.groups.mutualFunds ?? []), ...(search.groups.commodities ?? [])]
                   .slice(0, 10)
                   .map((item) => (
                     <QuoteRow

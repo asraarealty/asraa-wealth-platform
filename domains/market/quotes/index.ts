@@ -272,7 +272,8 @@ async function fetchCommodityPrice(query: string): Promise<number> {
         ? [data as Record<string, unknown>]
         : [];
 
-      const value = candidates.reduce((price, item) => Math.max(price, toNum(item.price ?? item.ltp ?? item.last_price)), 0);
+      const firstValid = candidates.find((item) => toNum(item.price ?? item.ltp ?? item.last_price) > 0);
+      const value = toNum(firstValid?.price ?? firstValid?.ltp ?? firstValid?.last_price);
       if (value > 0) commodityQuoteCache.write(key, value);
       return value;
     } catch {
