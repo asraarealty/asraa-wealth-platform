@@ -23,6 +23,16 @@ export { API_BASE_URL, ApiError, NetworkError };
 const TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
 
+function getNow() {
+  return typeof performance !== "undefined" && typeof performance.now === "function"
+    ? performance.now()
+    : Date.now();
+}
+
+function toDurationMs(startedAt: number) {
+  return Number((getNow() - startedAt).toFixed(2));
+}
+
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
   try {
@@ -111,10 +121,7 @@ function isAuthEndpoint(path: string): boolean {
 }
 
 async function refreshAccessToken(): Promise<string> {
-  const startedAt =
-    typeof performance !== "undefined" && typeof performance.now === "function"
-      ? performance.now()
-      : Date.now();
+  const startedAt = getNow();
   const existingRefreshToken = getRefreshToken();
   const payload =
     existingRefreshToken && existingRefreshToken.trim()
@@ -154,13 +161,9 @@ async function refreshAccessToken(): Promise<string> {
   setToken(nextAccessToken);
   if (nextRefreshToken) setRefreshToken(nextRefreshToken);
 
-  const duration =
-    typeof performance !== "undefined" && typeof performance.now === "function"
-      ? performance.now() - startedAt
-      : Date.now() - startedAt;
   reportAuthTelemetry({
     type: "refresh",
-    durationMs: Number(duration.toFixed(2)),
+    durationMs: toDurationMs(startedAt),
   });
 
   return nextAccessToken;

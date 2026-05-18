@@ -28,6 +28,8 @@ const state: AuthLifecycleState = {
   isRefreshing: false,
   refreshPromise: null,
 };
+const UNAUTHORIZED_BURST_WINDOW_MS = 12_000;
+const UNAUTHORIZED_BURST_THRESHOLD = 3;
 
 const listeners = new Set<(value: AuthLifecycleState) => void>();
 
@@ -81,12 +83,15 @@ export function notifyAuthFailure(reason: string) {
 
 export function noteUnauthorizedRequest() {
   const now = Date.now();
-  if (unauthorizedBurstStartedAt === 0 || now - unauthorizedBurstStartedAt > 12_000) {
+  if (
+    unauthorizedBurstStartedAt === 0 ||
+    now - unauthorizedBurstStartedAt > UNAUTHORIZED_BURST_WINDOW_MS
+  ) {
     unauthorizedBurstStartedAt = now;
     unauthorizedBurst = 0;
   }
   unauthorizedBurst += 1;
-  if (unauthorizedBurst >= 3) {
+  if (unauthorizedBurst >= UNAUTHORIZED_BURST_THRESHOLD) {
     reportAuthTelemetry({
       type: "unauthorized-burst",
       count: unauthorizedBurst,

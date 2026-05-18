@@ -60,6 +60,18 @@ interface LoginResult {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const PROTECTED_QUERY_KEYS = [
+  "dashboard-full",
+  "assets",
+  "insights",
+  "admin",
+  "client-detail",
+  "market-intelligence",
+  "portfolio",
+  "intelligence",
+] as const;
+const REDIRECT_LOOP_WINDOW_MS = 10_000;
+const REDIRECT_LOOP_THRESHOLD = 4;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -74,15 +86,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isProtectedQueryKey = useCallback((queryKey: QueryKey): boolean => {
     const top = String(Array.isArray(queryKey) ? queryKey[0] ?? "" : "");
-    return (
-      top === "dashboard-full" ||
-      top === "assets" ||
-      top === "insights" ||
-      top === "admin" ||
-      top === "client-detail" ||
-      top === "market-intelligence" ||
-      top === "portfolio" ||
-      top === "intelligence"
+    return PROTECTED_QUERY_KEYS.includes(
+      top as (typeof PROTECTED_QUERY_KEYS)[number]
     );
   }, []);
 
@@ -93,9 +98,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const now = Date.now();
       redirectEventsRef.current = [...redirectEventsRef.current, now].filter(
-        (value) => now - value <= 10_000
+        (value) => now - value <= REDIRECT_LOOP_WINDOW_MS
       );
-      if (redirectEventsRef.current.length >= 4) {
+      if (redirectEventsRef.current.length >= REDIRECT_LOOP_THRESHOLD) {
         reportAuthTelemetry({
           type: "redirect-loop",
           reason,
