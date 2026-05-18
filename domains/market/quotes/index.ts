@@ -319,7 +319,7 @@ export async function resolveMarketPricePoints(holdings: CanonicalAssetHolding[]
       }
 
       if (holding.type === "property") {
-        const propertyPrice = toNum(holding.raw.current_value ?? holding.currentPrice ?? holding.fallbackValue, 0);
+        const propertyPrice = toNum(holding.raw.current_value ?? holding.currentPrice ?? holding.fallbackValue);
         byId[holding.id] = { price: propertyPrice, source: "property-static", asOf };
       }
     })
