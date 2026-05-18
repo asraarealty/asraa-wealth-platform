@@ -4,7 +4,7 @@ import { memo, useEffect, useMemo, useState } from "react";
 import { AllocationRing } from "@/components/admin/platform/AllocationRing";
 import { IntelligenceCard, MetricTile, SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
 import { fmtPercent } from "@/lib/formatters";
-import { useMarketOrchestrator, type MarketAsset } from "@/lib/services/marketOrchestrator";
+import { useMarketDomainGraph as useMarketOrchestrator, type MarketAsset } from "@/domains/market";
 import { scoreAssetConviction, useMarketIntelligenceEngine } from "@/lib/services/market/intelligenceEngine";
 
 export type WorkspaceSurface =

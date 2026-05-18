@@ -13,6 +13,7 @@ import { LoadingBlock, SectionHeader, SurfaceCard } from "@/components/v2/ui";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 import { ADMIN_CLIENTS_QUERY_KEY, useAdminClients, type EnrichedClient } from "@/lib/hooks/useAdminClients";
 import { adminQueryKeys } from "@/lib/queryKeys/admin";
+import { useAdminWorkspaceState } from "@/domains/admin";
 import {
   ALLOWED_TRANSITIONS,
   approveClient,
@@ -26,6 +27,7 @@ import {
 import { toErrorMessage } from "@/lib/fetcher";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
+const DEFAULT_WORKSPACE_PAGE_SIZE = PAGE_SIZE_OPTIONS[0];
 const VIRTUAL_ROW_STYLE = { contentVisibility: "auto", containIntrinsicSize: "96px" } as const;
 
 const ClientDetailPanel = dynamic(
@@ -237,10 +239,19 @@ function KpiStrip({
 export default function ClientsPage() {
   const { clients, kpis, loading, error, refresh } = useAdminClients();
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(10);
+  const {
+    search,
+    setSearch,
+    statusFilter,
+    setStatusFilter,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    filteredClients,
+    paginatedClients,
+    totalPages,
+  } = useAdminWorkspaceState(clients, { pageSize: DEFAULT_WORKSPACE_PAGE_SIZE });
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [pendingAction, setPendingAction] = useState<ConfirmAction | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -258,33 +269,6 @@ export default function ClientsPage() {
     }
   }, [clients, selectedClientId]);
 
-  const filteredClients = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return clients.filter((client) => {
-      const matchesSearch =
-        !query ||
-        [
-          client.name,
-          client.email,
-          client.phone,
-          client.relationshipManager,
-          client.leadSource,
-          client.campaignSegmentation,
-          client.tags.join(" "),
-        ]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(query));
-      const matchesStatus = statusFilter === "all" || client.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [clients, search, statusFilter]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredClients.length / pageSize));
-  const paginatedClients = filteredClients.slice((page - 1) * pageSize, page * pageSize);
-
-  useEffect(() => {
-    setPage((current) => Math.min(current, totalPages));
-  }, [totalPages]);
 
   const {
     propertyAssets,
