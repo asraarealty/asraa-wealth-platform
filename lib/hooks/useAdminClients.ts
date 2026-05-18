@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchAdminGroupedAssets, type Asset } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
 import { fetchAdminClients } from "@/lib/services/clientService";
+import { adminQueryKeys } from "@/lib/queryKeys/admin";
 import {
   EMPTY_KPIS,
   enrichClients,
@@ -13,7 +14,7 @@ import {
 } from "@/lib/utils/adminClientIntelligence";
 import { useAuth } from "@/context/AuthContext";
 
-export const ADMIN_CLIENTS_QUERY_KEY = ["admin", "clients", "workspace"] as const;
+export const ADMIN_CLIENTS_QUERY_KEY = adminQueryKeys.clientsWorkspace;
 
 export interface UseAdminClientsResult {
   clients: EnrichedClient[];
@@ -24,10 +25,14 @@ export interface UseAdminClientsResult {
 }
 
 export function useAdminClients(): UseAdminClientsResult {
-  const { authReady, authenticated } = useAuth();
+  const { authReady, sessionHydrated, authenticated } = useAuth();
   const query = useQuery({
     queryKey: ADMIN_CLIENTS_QUERY_KEY,
     queryFn: async ({ signal }) => {
+      const startedAt =
+        typeof performance !== "undefined" && typeof performance.now === "function"
+          ? performance.now()
+          : Date.now();
       const clients = await fetchAdminClients(signal);
       let groupedAssets: Record<number, Asset[]> = {};
 
@@ -40,7 +45,17 @@ export function useAdminClients(): UseAdminClientsResult {
         console.warn("[useAdminClients] grouped asset enrichment unavailable", error);
       }
 
-      return enrichClients(clients, groupedAssets);
+      const enriched = enrichClients(clients, groupedAssets);
+      const duration =
+        typeof performance !== "undefined" && typeof performance.now === "function"
+          ? performance.now() - startedAt
+          : Date.now() - startedAt;
+      console.info("[admin-workspace]", {
+        event: "hydration.complete",
+        clients: enriched.clients.length,
+        durationMs: Number(duration.toFixed(2)),
+      });
+      return enriched;
     },
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 15,
@@ -48,7 +63,7 @@ export function useAdminClients(): UseAdminClientsResult {
     refetchOnReconnect: false,
     refetchOnMount: false,
     retry: 1,
-    enabled: authReady && authenticated,
+    enabled: authReady && sessionHydrated && authenticated,
   });
 
   const refresh = useCallback(() => {

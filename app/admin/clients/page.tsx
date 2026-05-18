@@ -12,6 +12,7 @@ import { StatusBadge } from "@/components/admin/platform/StatusBadge";
 import { LoadingBlock, SectionHeader, SurfaceCard } from "@/components/v2/ui";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 import { ADMIN_CLIENTS_QUERY_KEY, useAdminClients, type EnrichedClient } from "@/lib/hooks/useAdminClients";
+import { adminQueryKeys } from "@/lib/queryKeys/admin";
 import {
   ALLOWED_TRANSITIONS,
   approveClient,
@@ -389,8 +390,8 @@ export default function ClientsPage() {
 
   const closeClientWorkspace = useCallback(() => {
     if (selectedClientId != null) {
-      void queryClient.cancelQueries({ queryKey: ["client-detail", selectedClientId] });
-      void queryClient.cancelQueries({ queryKey: ["admin", "clients", selectedClientId, "asset-pricing"] });
+      void queryClient.cancelQueries({ queryKey: adminQueryKeys.clientDetail(selectedClientId) });
+      void queryClient.cancelQueries({ queryKey: adminQueryKeys.clientAssetPricing(selectedClientId) });
     }
     setSelectedClientId(null);
   }, [queryClient, selectedClientId]);

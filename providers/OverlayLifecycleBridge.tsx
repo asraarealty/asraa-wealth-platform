@@ -61,7 +61,16 @@ export default function OverlayLifecycleBridge() {
   }, [authReady, authenticated]);
 
   useEffect(() => {
-    const onRuntimeError = () => {
+    const onRuntimeError = (event: ErrorEvent | PromiseRejectionEvent) => {
+      const reason =
+        event instanceof PromiseRejectionEvent
+          ? String(event.reason instanceof Error ? event.reason.message : event.reason ?? "unknown")
+          : String(event.message || "unknown");
+      console.error("[admin-workspace]", {
+        event: "runtime-render-failure",
+        path: pathname,
+        reason,
+      });
       setOverlayLifecycleContext({ lastCleanupSource: "runtime-error" });
       closeTransientOverlays("error-boundary");
     };

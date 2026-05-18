@@ -1,4 +1,5 @@
 export const API_BASE_URL = "/api/v2";
+import { logDebug, logQueryTiming, warnDuplicateFetch } from "@/lib/utils/debugMetrics";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
 
@@ -91,6 +92,33 @@ const DEDUPE_ENDPOINTS = new Set([
   "/commodities/search",
   "/stocks/search",
 ]);
+const ADMIN_READ_DEDUPE_PREFIXES = [
+  "/clients/admin",
+  "/assets/admin",
+  "/dashboard/full",
+  "/intelligence",
+  "/insights",
+  "/portfolio",
+  "/holdings",
+] as const;
+
+function isMarketSearchDedupePath(pathname: string): boolean {
+  return (
+    pathname.endsWith("/mutual-funds/search") ||
+    pathname.endsWith("/commodities/search") ||
+    pathname.endsWith("/stocks/search")
+  );
+}
+
+function isAdminReadDedupePath(pathname: string): boolean {
+  return ADMIN_READ_DEDUPE_PREFIXES.some(
+    (prefix) => pathname.endsWith(prefix) || pathname.includes(`${prefix}/`)
+  );
+}
+
+function isBulkStockPost(method: HttpMethod, pathname: string): boolean {
+  return method === "POST" && pathname.endsWith("/stocks/v2/bulk");
+}
 
 export const inflight = new Map<string, InflightEntry<unknown>>();
 const responseCache = new Map<string, CacheEntry>();
@@ -121,13 +149,17 @@ function dedupeKey(method: HttpMethod, url: string, body: unknown): string {
 
 function shouldDedupeRequest(pathname: string, method: HttpMethod): boolean {
   // Bulk quote POST is read-only/idempotent in this frontend contract.
-  if (method === "POST" && pathname.endsWith("/stocks/v2/bulk")) return true;
+  if (isBulkStockPost(method, pathname)) return true;
   if (method !== "GET") return false;
-  return (
-    pathname.endsWith("/mutual-funds/search") ||
-    pathname.endsWith("/commodities/search") ||
-    pathname.endsWith("/stocks/search")
-  );
+  if (isAdminReadDedupePath(pathname)) return true;
+  return isMarketSearchDedupePath(pathname);
+}
+
+function shouldUseShortCacheTtl(pathname: string, method: HttpMethod): boolean {
+  if (isBulkStockPost(method, pathname)) return true;
+  if (method !== "GET") return false;
+  // Keep short cache TTL limited to market-search endpoints; admin endpoints use in-flight dedupe only (no TTL cache).
+  return isMarketSearchDedupePath(pathname);
 }
 
 function isRetryableError(error: unknown): boolean {
@@ -348,6 +380,7 @@ export function createApiClient(config: ApiClientConfig = {}) {
             durationMs: Number(duration.toFixed(2)),
           });
         }
+        logQueryTiming([method, requestPath], Number(duration.toFixed(2)));
         return unwrapJsonEnvelope<T>(json, response.status, options.raw);
       } catch (error) {
         const duration =
@@ -380,6 +413,9 @@ export function createApiClient(config: ApiClientConfig = {}) {
             attempt,
           }, normalizedError);
         }
+        if (isFinalFailure) {
+          logQueryTiming([method, requestPath], Number(duration.toFixed(2)));
+        }
 
         if (isFinalFailure) {
           throw normalizedError;
@@ -399,9 +435,10 @@ export function createApiClient(config: ApiClientConfig = {}) {
     const requestPath = getPathnameFromUrl(url);
     const key = dedupeKey(method, url, options.body);
     const dedupeEligible = shouldDedupeRequest(requestPath, method);
+    const shortCacheEligible = shouldUseShortCacheTtl(requestPath, method);
     const cacheTtlMs =
       options.cacheTtlMs ??
-      (dedupeEligible ? DEFAULT_DEDUPE_CACHE_TTL_MS : 0);
+      (shortCacheEligible ? DEFAULT_DEDUPE_CACHE_TTL_MS : 0);
     const useDedupe = options.dedupe ?? dedupeEligible;
 
     if (cacheTtlMs > 0) {
@@ -416,7 +453,11 @@ export function createApiClient(config: ApiClientConfig = {}) {
 
     if (useDedupe) {
       const existing = inflight.get(key) as InflightEntry<T> | undefined;
-      if (existing) return consumeInflight(existing, options.signal);
+      if (existing) {
+        warnDuplicateFetch([method, requestPath]);
+        logDebug("query", "dedupe-hit", { method, path: requestPath });
+        return consumeInflight(existing, options.signal);
+      }
     }
 
     const controller = new AbortController();
@@ -433,6 +474,14 @@ export function createApiClient(config: ApiClientConfig = {}) {
           appendCacheTags(key, tags);
         }
         return value;
+      })
+      .catch((error) => {
+        logDebug("query", "request-failure", {
+          method,
+          path: requestPath,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
       })
       .finally(() => {
         if (useDedupe) inflight.delete(key);
