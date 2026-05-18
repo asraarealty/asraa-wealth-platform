@@ -20,7 +20,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <AdminSidebar />
         <div className="flex flex-col flex-1 min-w-0">
           <AdminHeader />
-          <main className="flex-1 overflow-y-auto pb-24 md:pb-8">
+          <main className="flex-1 overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-8">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5">{children}</div>
           </main>
         </div>
