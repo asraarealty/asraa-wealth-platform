@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAdminGroupedAssets, fetchTransactions, type Asset, type Transaction } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
-import { fetchAdminClients } from "@/lib/services/clientService";
+import { fetchAdminClients, fetchClientById, type ClientProfile } from "@/lib/services/clientService";
 import { EMPTY_KPIS, enrichClients, type AdminClientsKPIs, type EnrichedClient } from "@/lib/utils/adminClientIntelligence";
 import { useAuth } from "@/context/AuthContext";
 import { adminDomainQueryKeys } from "./queryKeys";
@@ -23,7 +23,10 @@ export interface ClientDetailData {
   transactions: Transaction[];
   insights: ClientIntelligenceData["insights"];
   loading: boolean;
+  fetching: boolean;
+  degraded: boolean;
   error: string | null;
+  refresh: () => void;
 }
 
 export function useAdminClientsWorkspace(): UseAdminClientsResult {
@@ -110,10 +113,52 @@ export function useAdminClientDetail(clientId: number | null): ClientDetailData 
     placeholderData: (previous) => previous,
   });
 
+  const refresh = useCallback(() => {
+    void query.refetch();
+  }, [query]);
+
   return {
     transactions: query.data?.transactions ?? [],
     insights: query.data?.insights ?? null,
-    loading: query.isPending,
+    loading: query.isPending && !query.data,
+    fetching: query.isFetching,
+    degraded: Boolean(query.error || query.data?.partialError),
     error: query.error ? toErrorMessage(query.error) : (query.data?.partialError ?? null),
+    refresh,
+  };
+}
+
+export interface UseAdminClientProfileResult {
+  profile: ClientProfile | null;
+  loading: boolean;
+  error: string | null;
+  refresh: () => void;
+}
+
+export function useAdminClientProfile(clientId: number | null): UseAdminClientProfileResult {
+  const { authReady, sessionHydrated, authenticated } = useAuth();
+  const resolvedClientId = clientId ?? -1;
+  const query = useQuery({
+    queryKey: adminDomainQueryKeys.clientProfile(resolvedClientId),
+    queryFn: ({ signal }) => fetchClientById(resolvedClientId, signal),
+    enabled: authReady && sessionHydrated && authenticated && clientId !== null,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 15,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
+    retry: 1,
+    placeholderData: (previous) => previous,
+  });
+
+  const refresh = useCallback(() => {
+    void query.refetch();
+  }, [query]);
+
+  return {
+    profile: query.data ?? null,
+    loading: query.isPending && !query.data,
+    error: query.error ? toErrorMessage(query.error) : null,
+    refresh,
   };
 }

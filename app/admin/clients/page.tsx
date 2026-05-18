@@ -16,15 +16,10 @@ import { adminQueryKeys } from "@/lib/queryKeys/admin";
 import { useAdminWorkspaceState } from "@/domains/admin";
 import {
   ALLOWED_TRANSITIONS,
-  approveClient,
-  archiveClient,
-  deleteClient,
-  restoreClient,
-  suspendClient,
-  updateClientStatus,
   type ClientOperationalStatus,
 } from "@/lib/services/clientService";
 import { toErrorMessage } from "@/lib/fetcher";
+import { useAdminClientLifecycleMutation } from "@/domains/admin";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
 const DEFAULT_WORKSPACE_PAGE_SIZE = PAGE_SIZE_OPTIONS[0];
@@ -256,6 +251,7 @@ export default function ClientsPage() {
   const [pendingAction, setPendingAction] = useState<ConfirmAction | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const lifecycleMutation = useAdminClientLifecycleMutation(pendingAction?.client.id ?? null);
 
   const selectedClient = useMemo(
     () => clients.find((client) => client.id === selectedClientId) ?? null,
@@ -317,23 +313,21 @@ export default function ClientsPage() {
       setActionLoadingId(action.client.id);
       setActionError(null);
       if (action.type === "status" && action.nextStatus) {
-        if (action.nextStatus === "suspended") {
-          await suspendClient(action.client.id);
-        } else {
-          await updateClientStatus(action.client.id, action.nextStatus, undefined, action.client.canonicalStatus);
-        }
+        await lifecycleMutation.mutateAsync({
+          action: action.nextStatus === "suspended" ? "suspend" : "restore",
+        });
       }
       if (action.type === "archive") {
-        await archiveClient(action.client.id);
+        await lifecycleMutation.mutateAsync({ action: "archive" });
       }
       if (action.type === "restore") {
-        await restoreClient(action.client.id);
+        await lifecycleMutation.mutateAsync({ action: "restore" });
       }
       if (action.type === "approve") {
-        await approveClient(action.client.id, undefined, action.client.canonicalStatus);
+        await lifecycleMutation.mutateAsync({ action: "approve" });
       }
       if (action.type === "delete") {
-        await deleteClient(action.client.id);
+        await lifecycleMutation.mutateAsync({ action: "delete" });
       }
       await queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY });
       setPendingAction(null);
@@ -673,7 +667,7 @@ export default function ClientsPage() {
           confirmLabel={pendingAction.confirmLabel}
           onClose={() => setPendingAction(null)}
           onConfirm={() => void runAction(pendingAction)}
-          pending={actionLoadingId === pendingAction.client.id}
+          pending={actionLoadingId === pendingAction.client.id || lifecycleMutation.isPending}
           tone={pendingAction.tone}
         />
       ) : null}

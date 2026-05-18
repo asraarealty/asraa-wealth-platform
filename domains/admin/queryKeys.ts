@@ -1,5 +1,6 @@
 export const adminDomainQueryKeys = {
   clientsWorkspace: ["admin", "clients", "workspace"] as const,
+  clientProfile: (clientId: number) => ["admin", "clients", clientId, "profile"] as const,
   clientDetail: (clientId: number) => ["client-detail", clientId] as const,
   clientEditDetail: (clientId: number) => ["admin", "clients", clientId, "detail"] as const,
   clientAssetPricing: (clientId: number, holdingsSignature?: string) => {
