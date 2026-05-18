@@ -1,5 +1,7 @@
-import { fetcher, ApiError } from "@/lib/fetcher";
+import { fetcher } from "@/lib/fetcher";
 import type { Asset, AssetType } from "@/lib/api";
+import { resolveContractRequest } from "@/lib/api/contracts";
+import { normalizeAssetType, toBackendAssetType } from "@/lib/api/normalizers";
 
 export type AdminInventoryMutationAction = "create" | "update" | "delete";
 
@@ -35,20 +37,6 @@ function toIsoDate(value: unknown): string | undefined {
   const parsed = new Date(text);
   if (!Number.isFinite(parsed.getTime())) return undefined;
   return text;
-}
-
-function normalizeAssetType(value: unknown): AssetType {
-  const normalized = String(value ?? "").toLowerCase();
-  if (normalized === "mf" || normalized === "mutual_fund" || normalized === "mutual-fund") return "mf";
-  if (normalized === "property" || normalized === "real_estate" || normalized === "real-estate") return "property";
-  if (normalized === "commodity") return "commodity";
-  return "stock";
-}
-
-function toBackendAssetType(type: AssetType): string {
-  if (type === "property") return "real_estate";
-  if (type === "mf") return "mutual_fund";
-  return type;
 }
 
 export function normalizeAdminInventoryPayload(
@@ -111,20 +99,6 @@ export function normalizeAdminInventoryPayload(
   return body;
 }
 
-async function requestWithFallback<T>(
-  preferred: () => Promise<T>,
-  fallback: () => Promise<T>
-): Promise<T> {
-  try {
-    return await preferred();
-  } catch (error) {
-    if (error instanceof ApiError && [404, 405, 422, 501].includes(error.status)) {
-      return fallback();
-    }
-    throw error;
-  }
-}
-
 export async function mutateAdminInventory({
   action,
   clientId,
@@ -137,29 +111,28 @@ export async function mutateAdminInventory({
   try {
     if (action === "delete") {
       if (!assetId) throw new Error("Asset id is required for delete.");
-      const deleteResult = await requestWithFallback(
-        () => fetcher<void>(`/assets/admin/${encodeURIComponent(assetId)}`, { method: "DELETE", signal }),
-        () => fetcher<void>(`/assets/${encodeURIComponent(assetId)}`, { method: "DELETE", signal })
-      );
+      const request = resolveContractRequest("DELETE /assets/admin/{id}", {
+        pathParams: { id: assetId },
+      });
+      const deleteResult = await fetcher<void>(request.path, { method: request.method, signal });
       telemetry("mutation.success", { mutationId, action, clientId, assetId });
       return deleteResult;
     }
 
     const normalized = normalizeAdminInventoryPayload(payload ?? {}, clientId);
     if (action === "create") {
-      const created = await requestWithFallback(
-        () => fetcher<Asset>("/assets/admin", { method: "POST", body: normalized, signal }),
-        () => fetcher<Asset>("/assets", { method: "POST", body: normalized, signal })
-      );
+      const request = resolveContractRequest("POST /assets/admin", { body: normalized });
+      const created = await fetcher<Asset>(request.path, { method: request.method, body: normalized, signal });
       telemetry("mutation.success", { mutationId, action, clientId, assetId: (created as Asset | undefined)?.id ?? null });
       return created;
     }
 
     if (!assetId) throw new Error("Asset id is required for update.");
-    const updated = await requestWithFallback(
-      () => fetcher<Asset>(`/assets/admin/${encodeURIComponent(assetId)}`, { method: "PATCH", body: normalized, signal }),
-      () => fetcher<Asset>(`/assets/${encodeURIComponent(assetId)}`, { method: "PUT", body: normalized, signal })
-    );
+    const request = resolveContractRequest("PATCH /assets/admin/{id}", {
+      pathParams: { id: assetId },
+      body: normalized,
+    });
+    const updated = await fetcher<Asset>(request.path, { method: request.method, body: normalized, signal });
     telemetry("mutation.success", { mutationId, action, clientId, assetId: assetId });
     return updated;
   } catch (error) {

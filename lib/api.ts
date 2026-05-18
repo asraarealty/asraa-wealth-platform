@@ -6,7 +6,9 @@ export {
   toErrorMessage,
 } from "./fetcher";
 
-import { fetcher, ApiError } from "./fetcher";
+import { fetcher } from "./fetcher";
+import { resolveContractRequest } from "./api/contracts";
+import { normalizeAssetType, normalizeInsights } from "./api/normalizers";
 
 /* ── Auth ───────────────────────────────────────────────────────────── */
 
@@ -71,14 +73,21 @@ export type AdminClient = {
 };
 
 export function fetchClients(signal?: AbortSignal): Promise<Client[]> {
-  return fetcher<Client[]>("/clients", { signal });
+  const request = resolveContractRequest("GET /clients");
+  return fetcher<Client[]>(request.path, { signal, method: request.method });
 }
 
 /**
  * Fetch full client list for admin with normalized mapping.
  */
 export async function fetchAdminClients(signal?: AbortSignal): Promise<AdminClient[]> {
-  const rawRes = await fetcher<any>("/clients/admin", { signal, raw: true, cache: "no-store" });
+  const request = resolveContractRequest("GET /clients/admin");
+  const rawRes = await fetcher<any>(request.path, {
+    signal,
+    raw: true,
+    cache: "no-store",
+    method: request.method,
+  });
   const res = unwrap<any>(rawRes);
   const list = Array.isArray(res) ? res : [];
   return list.map((c: any) => ({
@@ -155,18 +164,14 @@ export function fetchTransactions(
   signal?: AbortSignal
 ): Promise<Transaction[]> {
   if (!userId) {
-    return fetcher<Transaction[]>("/transactions", { signal });
+    const request = resolveContractRequest("GET /transactions");
+    return fetcher<Transaction[]>(request.path, { signal, method: request.method });
   }
 
-  const clientScopedPath = `/transactions?${new URLSearchParams({ client_id: userId }).toString()}`;
-  const userScopedPath = `/transactions?${new URLSearchParams({ user_id: userId }).toString()}`;
-
-  return fetcher<Transaction[]>(clientScopedPath, { signal }).catch((error: unknown) => {
-    if (error instanceof ApiError && [400, 404, 422].includes(error.status)) {
-      return fetcher<Transaction[]>(userScopedPath, { signal });
-    }
-    throw error;
+  const request = resolveContractRequest("GET /transactions", {
+    query: { client_id: userId },
   });
+  return fetcher<Transaction[]>(request.path, { signal, method: request.method });
 }
 
 /* ── Admin: Users ─────────────────────────────────────────────────── */
@@ -190,19 +195,11 @@ export type AssetType = "stock" | "mf" | "property" | "commodity";
 
 // Normalise asset type variants from the backend.
 // The backend may send "real_estate" but the frontend uses "property" throughout.
-const KNOWN_ASSET_TYPES = new Set<string>(["stock", "mf", "property", "commodity"]);
-
 /**
  * Centralized asset type mapping utility.
  */
-export const MAP_ASSET_TYPE = (type: string | undefined | null): AssetType => {
-  if (!type) return "stock";
-  const normalized = type.toLowerCase();
-  if (normalized === "real_estate" || normalized === "real-estate") return "property";
-  if (normalized === "mutual_fund" || normalized === "mutual-fund") return "mf";
-  if (KNOWN_ASSET_TYPES.has(normalized)) return normalized as AssetType;
-  return "stock";
-};
+export const MAP_ASSET_TYPE = (type: string | undefined | null): AssetType =>
+  normalizeAssetType(type);
 
 const normalizeType = (type: string | undefined): AssetType => {
   return MAP_ASSET_TYPE(type);
@@ -439,7 +436,13 @@ export async function fetchDashboardData(signal?: AbortSignal): Promise<Dashboar
 export async function fetchAdminGroupedAssets(
   signal?: AbortSignal
 ): Promise<Record<number, Asset[]>> {
-  const rawRes = await fetcher<any>("/assets/admin", { signal, raw: true, cache: "no-store" });
+  const request = resolveContractRequest("GET /assets/admin");
+  const rawRes = await fetcher<any>(request.path, {
+    signal,
+    raw: true,
+    cache: "no-store",
+    method: request.method,
+  });
   const res = unwrap<any>(rawRes);
 
   const grouped: Record<number, Asset[]> = {};
@@ -585,41 +588,18 @@ export async function fetchInsights(
   clientId?: number,
   signal?: AbortSignal
 ): Promise<InsightsResponse> {
-  // Admins can request insights for a specific client by passing clientId.
-  // Some backends expect client_id while older deployments still expect user_id.
-  // We use client_id first and fallback to user_id on identifier-validation failures.
-  const primaryPath = clientId !== undefined
-    ? `/insights?${new URLSearchParams({ client_id: String(clientId) }).toString()}`
-    : "/insights/me";
-  const fallbackPath = clientId !== undefined
-    ? `/insights?${new URLSearchParams({ user_id: String(clientId) }).toString()}`
-    : "/insights/me";
+  const request = clientId !== undefined
+    ? resolveContractRequest("GET /insights", { query: { client_id: clientId } })
+    : resolveContractRequest("GET /insights/me");
 
-  const rawRes = await fetcher<any>(primaryPath, { signal, raw: true, cache: "no-store" }).catch((error: unknown) => {
-    if (clientId !== undefined && error instanceof ApiError && [400, 404, 422].includes(error.status)) {
-      return fetcher<any>(fallbackPath, { signal, raw: true, cache: "no-store" });
-    }
-    throw error;
+  const rawRes = await fetcher<any>(request.path, {
+    signal,
+    raw: true,
+    cache: "no-store",
+    method: request.method,
   });
   const res = unwrap<any>(rawRes);
-
-  if (res && typeof res === "object" && !Array.isArray(res)) {
-    return {
-      equityPercentage: Number(res.equity_percentage ?? 0),
-      propertyPercentage: Number(res.property_percentage ?? res.real_estate_percentage ?? 0),
-      equity_percentage: Number(res.equity_percentage ?? 0),
-      property_percentage: Number(res.property_percentage ?? res.real_estate_percentage ?? 0),
-      real_estate_percentage: Number(res.real_estate_percentage ?? res.property_percentage ?? 0),
-      alerts: Array.isArray(res.alerts) ? res.alerts : [],
-    };
-  }
-
-  // Fallback: if backend returns an array of InsightItem objects
-  if (Array.isArray(res)) {
-    return { equityPercentage: 0, propertyPercentage: 0, alerts: [] };
-  }
-
-  return { equityPercentage: 0, propertyPercentage: 0, alerts: [] };
+  return normalizeInsights(res) ?? { equityPercentage: 0, propertyPercentage: 0, alerts: [] };
 }
 
 /* ── Mutual Funds ───────────────────────────────────────────────────── */
