@@ -23,6 +23,7 @@ import { toErrorMessage } from "@/lib/fetcher";
 import { useAuth } from "@/context/AuthContext";
 import { useAbortSafeLifecycle, useOverlayLifecycle } from "@/lib/ui/modalLifecycle";
 import { DASHBOARD_FULL_KEY } from "@/context/DashboardContext";
+import { adminQueryKeys } from "@/lib/queryKeys/admin";
 
 function fmtDate(iso?: string): string {
   if (!iso) return "Awaiting signal";
@@ -58,7 +59,7 @@ export function ClientDetailPanel({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
-  const { authReady, authenticated } = useAuth();
+  const { authReady, sessionHydrated, authenticated } = useAuth();
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
   const [inventoryEditor, setInventoryEditor] = useState<{ mode: "create" | "edit"; asset?: Asset | null } | null>(null);
   const [pendingClientAction, setPendingClientAction] = useState<{
@@ -101,15 +102,15 @@ export function ClientDetailPanel({
   useEffect(() => {
     if (!client?.id) return;
     return () => {
-      void queryClient.cancelQueries({ queryKey: ["client-detail", client.id] });
-      void queryClient.cancelQueries({ queryKey: ["admin", "clients", client.id, "asset-pricing"] });
+      void queryClient.cancelQueries({ queryKey: adminQueryKeys.clientDetail(client.id) });
+      void queryClient.cancelQueries({ queryKey: adminQueryKeys.clientAssetPricing(client.id) });
     };
   }, [client?.id, queryClient]);
 
   const livePricing = useQuery({
-    queryKey: ["admin", "clients", client?.id, "asset-pricing", holdingsSignature],
+    queryKey: [...adminQueryKeys.clientAssetPricing(client?.id ?? null), holdingsSignature],
     queryFn: () => resolveLivePrices(holdings),
-    enabled: authReady && authenticated && Boolean(client && holdings.length > 0),
+    enabled: authReady && sessionHydrated && authenticated && Boolean(client && holdings.length > 0),
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 15,
     refetchOnWindowFocus: false,
@@ -159,15 +160,19 @@ export function ClientDetailPanel({
         clientId: client?.id ?? null,
       });
 
-      await Promise.all([
+      const invalidations = [
         queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY }),
-        queryClient.invalidateQueries({ queryKey: ["client-detail", client?.id] }),
-        queryClient.invalidateQueries({ queryKey: ["admin", "clients", client?.id, "detail"] }),
-        queryClient.invalidateQueries({ queryKey: ["admin", "clients", client?.id, "asset-pricing"] }),
+        queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientDetail(client?.id ?? null) }),
+        queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientAssetPricing(client?.id ?? null) }),
         queryClient.invalidateQueries({ queryKey: DASHBOARD_FULL_KEY }),
         queryClient.invalidateQueries({ queryKey: ASSETS_KEY }),
-      ]);
-      await queryClient.refetchQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY, type: "active" });
+      ];
+      if (client?.id != null) {
+        invalidations.push(
+          queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientEditDetail(client.id) })
+        );
+      }
+      await Promise.all(invalidations);
 
       const refreshDuration =
         typeof performance !== "undefined" && typeof performance.now === "function"
@@ -265,11 +270,10 @@ export function ClientDetailPanel({
       typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
     console.info("[admin-inventory]", { event: "refresh.start", clientId });
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["admin", "clients", clientId, "asset-pricing"] }),
-      queryClient.invalidateQueries({ queryKey: ["client-detail", clientId] }),
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientAssetPricing(clientId) }),
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientDetail(clientId) }),
       queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY }),
     ]);
-    await livePricing.refetch();
     const duration =
       typeof performance !== "undefined" && typeof performance.now === "function"
         ? performance.now() - startedAt

@@ -272,7 +272,7 @@ export function buildProprietarySignals(
 }
 
 export function useMarketIntelligenceEngine(selectedAsset: MarketAsset | null, sectorMovers: SectorMover[], watchlist: MarketAsset[]) {
-  const { authReady, authenticated } = useAuth();
+  const { authReady, sessionHydrated, authenticated } = useAuth();
   const query = useQuery({
     queryKey: ["market-intelligence-engine"],
     queryFn: fetchIntelligence,
@@ -282,7 +282,7 @@ export function useMarketIntelligenceEngine(selectedAsset: MarketAsset | null, s
     refetchOnReconnect: false,
     refetchOnMount: false,
     retry: 1,
-    enabled: authReady && authenticated,
+    enabled: authReady && sessionHydrated && authenticated,
   });
 
   const data: IntelligencePayload = query.data ?? {

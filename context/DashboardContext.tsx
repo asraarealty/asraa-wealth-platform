@@ -361,7 +361,7 @@ async function fetchDashboardFull(): Promise<DashboardOperatingData> {
 export const DASHBOARD_FULL_KEY = ["dashboard-full"] as const;
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
-  const { authReady, authenticated } = useAuth();
+  const { authReady, sessionHydrated, authenticated } = useAuth();
   const query = useQuery({
     queryKey: DASHBOARD_FULL_KEY,
     queryFn: fetchDashboardFull,
@@ -371,7 +371,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     refetchOnReconnect: false,
     refetchOnMount: false,
     retry: 1,
-    enabled: authReady && authenticated,
+    enabled: authReady && sessionHydrated && authenticated,
   });
 
   const refetchAll = useCallback(() => {

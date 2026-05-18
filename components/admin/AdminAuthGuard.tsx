@@ -10,11 +10,11 @@ interface Props {
 }
 
 export default function AdminAuthGuard({ children }: Props) {
-  const { user, authReady, authenticated, isRefreshing } = useAuth();
+  const { user, authReady, sessionHydrated, authenticated, isRefreshing } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!authReady || isRefreshing) return;
+    if (!authReady || !sessionHydrated || isRefreshing) return;
 
     if (!authenticated || user === null) {
       router.replace("/login");
@@ -25,10 +25,10 @@ export default function AdminAuthGuard({ children }: Props) {
     if ((user.role ?? "").toLowerCase() !== "admin") {
       router.replace("/dashboard");
     }
-  }, [authReady, authenticated, isRefreshing, router, user]);
+  }, [authReady, sessionHydrated, authenticated, isRefreshing, router, user]);
 
   // ⏳ While checking auth
-  if (!authReady || isRefreshing) return <Loader />;
+  if (!authReady || !sessionHydrated || isRefreshing) return <Loader />;
 
   // ⛔ Prevent rendering until role is confirmed
   if (!user || (user.role ?? "").toLowerCase() !== "admin") return null;

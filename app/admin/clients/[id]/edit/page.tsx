@@ -7,6 +7,7 @@ import { ClientEditForm } from "@/components/admin/ClientEditForm";
 import { LoadingBlock, SurfaceCard } from "@/components/v2/ui";
 import { toErrorMessage } from "@/lib/fetcher";
 import { ADMIN_CLIENTS_QUERY_KEY } from "@/lib/hooks/useAdminClients";
+import { adminQueryKeys } from "@/lib/queryKeys/admin";
 import {
   archiveClient,
   fetchClientById,
@@ -24,12 +25,12 @@ export default function EditClientPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const clientId = useMemo(() => Number(params.id), [params.id]);
-  const { authReady, authenticated } = useAuth();
+  const { authReady, sessionHydrated, authenticated } = useAuth();
 
   const query = useQuery({
-    queryKey: ["admin", "clients", clientId, "detail"],
+    queryKey: adminQueryKeys.clientEditDetail(clientId),
     queryFn: () => fetchClientById(clientId),
-    enabled: authReady && authenticated && Number.isFinite(clientId),
+    enabled: authReady && sessionHydrated && authenticated && Number.isFinite(clientId),
   });
 
   if (query.isLoading) return <LoadingBlock label="Loading client workspace…" />;
@@ -60,7 +61,7 @@ export default function EditClientPage() {
             await updateClientStatus(clientId, status, undefined, query.data.canonicalStatus);
           }
           await queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY });
-          await queryClient.invalidateQueries({ queryKey: ["admin", "clients", clientId, "detail"] });
+          await queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientEditDetail(clientId) });
           router.push("/admin/clients");
         } catch (value) {
           setSaveError(toErrorMessage(value));
