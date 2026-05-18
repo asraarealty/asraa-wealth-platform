@@ -116,6 +116,10 @@ function isAdminReadDedupePath(pathname: string): boolean {
   );
 }
 
+function isBulkStockPost(method: HttpMethod, pathname: string): boolean {
+  return method === "POST" && pathname.endsWith("/stocks/v2/bulk");
+}
+
 export const inflight = new Map<string, InflightEntry<unknown>>();
 const responseCache = new Map<string, CacheEntry>();
 const cacheTagIndex = new Map<string, Set<string>>();
@@ -145,14 +149,14 @@ function dedupeKey(method: HttpMethod, url: string, body: unknown): string {
 
 function shouldDedupeRequest(pathname: string, method: HttpMethod): boolean {
   // Bulk quote POST is read-only/idempotent in this frontend contract.
-  if (method === "POST" && pathname.endsWith("/stocks/v2/bulk")) return true;
+  if (isBulkStockPost(method, pathname)) return true;
   if (method !== "GET") return false;
   if (isAdminReadDedupePath(pathname)) return true;
   return isMarketSearchDedupePath(pathname);
 }
 
 function shouldUseShortCacheTtl(pathname: string, method: HttpMethod): boolean {
-  if (method === "POST" && pathname.endsWith("/stocks/v2/bulk")) return true;
+  if (isBulkStockPost(method, pathname)) return true;
   if (method !== "GET") return false;
   // Keep short cache TTL limited to market-search style endpoints to avoid stale admin workspace payloads.
   return isMarketSearchDedupePath(pathname);

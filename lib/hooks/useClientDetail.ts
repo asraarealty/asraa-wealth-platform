@@ -18,7 +18,7 @@ function sanitizeToken(value: unknown): string {
 function normalizeTransaction(value: unknown): Transaction | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as Record<string, unknown>;
-  const id = String(raw.id ?? raw.transaction_id ?? "").trim();
+  const id = sanitizeToken(raw.id ?? raw.transaction_id);
   const rawType = String(raw.type ?? "").toLowerCase();
   const type: Transaction["type"] = rawType === "sell" || rawType === "buy" ? rawType : "buy";
   const quantity = Number(raw.quantity ?? raw.units ?? 0);
@@ -26,13 +26,18 @@ function normalizeTransaction(value: unknown): Transaction | null {
   const total = Number(raw.total ?? quantity * price);
   const dateValue = String(raw.date ?? raw.created_at ?? raw.createdAt ?? "").trim();
   const timestamp = new Date(dateValue).getTime();
+  const fallbackId = [
+    sanitizeToken(raw.symbol ?? raw.name ?? "asset"),
+    sanitizeToken(raw.date ?? raw.created_at ?? raw.createdAt ?? "na"),
+    sanitizeToken(raw.quantity ?? raw.units ?? "0"),
+    sanitizeToken(raw.price ?? raw.avg_price ?? "0"),
+    sanitizeToken(raw.total ?? "0"),
+  ]
+    .filter(Boolean)
+    .join("-");
 
   return {
-    id:
-      id ||
-      `txn-${sanitizeToken(raw.symbol ?? raw.name ?? "asset")}-${sanitizeToken(
-        raw.date ?? raw.created_at ?? raw.createdAt ?? "na"
-      )}`,
+    id: id || `txn-${fallbackId}`,
     clientId: String(raw.clientId ?? raw.client_id ?? raw.user_id ?? ""),
     symbol: String(raw.symbol ?? raw.name ?? "N/A"),
     type,
