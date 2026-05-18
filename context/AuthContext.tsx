@@ -8,6 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import { useRouter } from "next/navigation";
 import { fetcher, setToken, clearToken, getToken } from "@/lib/fetcher";
 
 interface User {
@@ -34,6 +35,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const token = getToken();
@@ -80,8 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {}
     clearToken();
     setUser(null);
-    window.location.href = "/login";
-  }, []);
+    router.replace("/login");
+  }, [router]);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout }}>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Loader from "@/components/ui/Loader";
 
@@ -10,20 +11,21 @@ interface Props {
 
 export default function AdminAuthGuard({ children }: Props) {
   const { user, loading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     if (loading) return;
 
     if (user === null) {
-      window.location.href = "/login";
+      router.replace("/login");
       return;
     }
 
     // Redirect non-admin authenticated users to the client dashboard
     if ((user.role ?? "").toLowerCase() !== "admin") {
-      window.location.href = "/dashboard";
+      router.replace("/dashboard");
     }
-  }, [loading, user]);
+  }, [loading, router, user]);
 
   // ⏳ While checking auth
   if (loading) return <Loader />;
