@@ -274,6 +274,7 @@ export function ClientDetailPanel({
       queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientDetail(clientId) }),
       queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY }),
     ]);
+    // invalidateQueries triggers active-query refetch; avoid explicit refetch to prevent duplicate request bursts.
     const duration =
       typeof performance !== "undefined" && typeof performance.now === "function"
         ? performance.now() - startedAt

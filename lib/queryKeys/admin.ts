@@ -5,4 +5,3 @@ export const adminQueryKeys = {
   clientAssetPricing: (clientId: number | null) =>
     ["admin", "clients", clientId, "asset-pricing"] as const,
 };
-

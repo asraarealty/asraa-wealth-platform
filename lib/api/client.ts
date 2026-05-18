@@ -102,6 +102,20 @@ const ADMIN_READ_DEDUPE_PREFIXES = [
   "/holdings",
 ] as const;
 
+function isMarketSearchDedupePath(pathname: string): boolean {
+  return (
+    pathname.endsWith("/mutual-funds/search") ||
+    pathname.endsWith("/commodities/search") ||
+    pathname.endsWith("/stocks/search")
+  );
+}
+
+function isAdminReadDedupePath(pathname: string): boolean {
+  return ADMIN_READ_DEDUPE_PREFIXES.some(
+    (prefix) => pathname.endsWith(prefix) || pathname.includes(`${prefix}/`)
+  );
+}
+
 export const inflight = new Map<string, InflightEntry<unknown>>();
 const responseCache = new Map<string, CacheEntry>();
 const cacheTagIndex = new Map<string, Set<string>>();
@@ -133,24 +147,14 @@ function shouldDedupeRequest(pathname: string, method: HttpMethod): boolean {
   // Bulk quote POST is read-only/idempotent in this frontend contract.
   if (method === "POST" && pathname.endsWith("/stocks/v2/bulk")) return true;
   if (method !== "GET") return false;
-  if (ADMIN_READ_DEDUPE_PREFIXES.some((prefix) => pathname.endsWith(prefix) || pathname.includes(`${prefix}/`))) {
-    return true;
-  }
-  return (
-    pathname.endsWith("/mutual-funds/search") ||
-    pathname.endsWith("/commodities/search") ||
-    pathname.endsWith("/stocks/search")
-  );
+  if (isAdminReadDedupePath(pathname)) return true;
+  return isMarketSearchDedupePath(pathname);
 }
 
 function shouldUseDedupeShortCache(pathname: string, method: HttpMethod): boolean {
   if (method === "POST" && pathname.endsWith("/stocks/v2/bulk")) return true;
   if (method !== "GET") return false;
-  return (
-    pathname.endsWith("/mutual-funds/search") ||
-    pathname.endsWith("/commodities/search") ||
-    pathname.endsWith("/stocks/search")
-  );
+  return isMarketSearchDedupePath(pathname);
 }
 
 function isRetryableError(error: unknown): boolean {
