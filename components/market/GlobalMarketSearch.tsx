@@ -38,10 +38,10 @@ export function GlobalMarketSearch() {
   useEffect(() => {
     const normalized = query.trim().toLowerCase();
     if (normalized === lastQueryRef.current) return;
+    lastQueryRef.current = normalized;
 
     const timer = setTimeout(() => {
       void searchMarket(query);
-      lastQueryRef.current = normalized;
     }, 300);
     return () => clearTimeout(timer);
   }, [query, searchMarket]);

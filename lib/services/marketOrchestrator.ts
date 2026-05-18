@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { fetcher, toErrorMessage } from "@/lib/fetcher";
 import { searchMutualFunds, searchStocks, type MutualFundResult, type StockQuote } from "@/lib/api";
 
@@ -176,7 +176,6 @@ let refreshJob: Promise<MarketAsset[]> | null = null;
 let pollHandle: ReturnType<typeof setInterval> | null = null;
 let lastRefreshAt = 0;
 let searchAbortController: AbortController | null = null;
-let hasBootstrappedMarket = false;
 let lastRefreshMessage: string | null = null;
 
 function emit() {
@@ -820,29 +819,22 @@ export function getMarketSnapshot() {
 
 export function useMarketOrchestrator() {
   const state = useSyncExternalStore(subscribeMarket, getMarketSnapshot, getMarketSnapshot);
-  const mountedRef = useRef(false);
 
   useEffect(() => {
-    if (mountedRef.current) return;
-    mountedRef.current = true;
-
     if (typeof performance !== "undefined" && typeof performance.mark === "function") {
       performance.mark("market:mount:start");
     }
 
-    if (!hasBootstrappedMarket || snapshot.assets.length === 0) {
-      hasBootstrappedMarket = true;
-      void ensureMarketData({ silent: snapshot.assets.length > 0 }).finally(() => {
-        if (typeof performance !== "undefined" && typeof performance.mark === "function") {
-          performance.mark("market:mount:end");
-          try {
-            performance.measure("market:mount", "market:mount:start", "market:mount:end");
-          } catch {
-            // Ignore duplicate-mark measurement errors in strict/dev remount cycles.
-          }
+    void ensureMarketData({ silent: snapshot.assets.length > 0 }).finally(() => {
+      if (typeof performance !== "undefined" && typeof performance.mark === "function") {
+        performance.mark("market:mount:end");
+        try {
+          performance.measure("market:mount", "market:mount:start", "market:mount:end");
+        } catch {
+          // Ignore duplicate-mark measurement errors in strict/dev remount cycles.
         }
-      });
-    }
+      }
+    });
   }, []);
 
   return {

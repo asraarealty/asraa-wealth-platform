@@ -198,6 +198,9 @@ export async function fetcher<T>(
       json = await response.json();
     } catch {
       // Non-JSON responses are allowed for 204-like backend behavior.
+      if (typeof window !== "undefined") {
+        console.debug("[fetcher] non-json response", { path: requestPath, method: requestMethod });
+      }
     }
 
     if (json === undefined) return undefined as T;
