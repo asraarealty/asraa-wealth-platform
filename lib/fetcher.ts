@@ -23,6 +23,7 @@ export { API_BASE_URL, ApiError, NetworkError };
 
 const TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
+let refreshFailureCleanupPromise: Promise<void> | null = null;
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -160,6 +161,26 @@ async function refreshAccessToken(): Promise<string> {
   return nextAccessToken;
 }
 
+async function runRefreshFailureCleanup() {
+  if (refreshFailureCleanupPromise) {
+    await refreshFailureCleanupPromise;
+    return;
+  }
+
+  refreshFailureCleanupPromise = (async () => {
+    clearAuthTokens();
+    clearApiClientCaches();
+    abortAllRequests();
+    notifyAuthFailure("refresh-failed");
+  })();
+
+  try {
+    await refreshFailureCleanupPromise;
+  } finally {
+    refreshFailureCleanupPromise = null;
+  }
+}
+
 // ── FETCH WRAPPER ──────────────────────────────────────
 
 export interface FetcherOptions extends ApiClientRequestOptions {
@@ -192,10 +213,7 @@ export async function fetcher<T>(
       await runWithGlobalRefresh(async () => refreshAccessToken());
       return await fetcher<T>(path, { ...requestOptions, _authRetry: true });
     } catch (refreshError) {
-      clearAuthTokens();
-      clearApiClientCaches();
-      abortAllRequests();
-      notifyAuthFailure("refresh-failed");
+      await runRefreshFailureCleanup();
       reportAuthTelemetry({
         type: "refresh-failed",
         reason: refreshError instanceof Error ? refreshError.message : "Refresh failed",

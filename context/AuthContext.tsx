@@ -100,14 +100,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (window.location.pathname === "/login") return;
 
       const now = Date.now();
-      redirectEventsRef.current = [...redirectEventsRef.current, now].filter(
-        (value) => now - value <= REDIRECT_LOOP_WINDOW_MS
-      );
-      if (redirectEventsRef.current.length >= REDIRECT_LOOP_THRESHOLD) {
+      const redirectEvents = redirectEventsRef.current;
+      redirectEvents.push(now);
+      while (
+        redirectEvents.length > 0 &&
+        now - redirectEvents[0] > REDIRECT_LOOP_WINDOW_MS
+      ) {
+        redirectEvents.shift();
+      }
+      if (redirectEvents.length >= REDIRECT_LOOP_THRESHOLD) {
         reportAuthTelemetry({
           type: "redirect-loop",
           reason,
-          count: redirectEventsRef.current.length,
+          count: redirectEvents.length,
         });
         return;
       }
