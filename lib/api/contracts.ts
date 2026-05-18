@@ -7,6 +7,7 @@ export interface ContractRequestDescriptor {
   method: ContractHttpMethod;
   path: string;
   registry: ContractRegistryEntry;
+  body?: unknown;
 }
 
 interface ResolveContractRequestInput {
@@ -66,5 +67,6 @@ export function resolveContractRequest(
     method: registry.method,
     path,
     registry,
+    body,
   };
 }

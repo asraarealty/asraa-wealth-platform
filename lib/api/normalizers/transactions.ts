@@ -32,7 +32,7 @@ export function normalizeTransaction(value: unknown, index: number): Transaction
 
   return {
     id: id || `txn-${fallbackId}`,
-    clientId: String(raw.clientId ?? raw.client_id ?? ""),
+    clientId: String(raw.clientId ?? raw.client_id ?? raw.user_id ?? ""),
     symbol: String(raw.symbol ?? raw.name ?? "N/A"),
     type,
     quantity: Number.isFinite(quantity) ? quantity : 0,

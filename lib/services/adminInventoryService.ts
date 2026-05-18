@@ -122,7 +122,11 @@ export async function mutateAdminInventory({
     const normalized = normalizeAdminInventoryPayload(payload ?? {}, clientId);
     if (action === "create") {
       const request = resolveContractRequest("POST /assets/admin", { body: normalized });
-      const created = await fetcher<Asset>(request.path, { method: request.method, body: normalized, signal });
+      const created = await fetcher<Asset>(request.path, {
+        method: request.method,
+        body: request.body,
+        signal,
+      });
       telemetry("mutation.success", { mutationId, action, clientId, assetId: (created as Asset | undefined)?.id ?? null });
       return created;
     }
@@ -132,7 +136,11 @@ export async function mutateAdminInventory({
       pathParams: { id: assetId },
       body: normalized,
     });
-    const updated = await fetcher<Asset>(request.path, { method: request.method, body: normalized, signal });
+    const updated = await fetcher<Asset>(request.path, {
+      method: request.method,
+      body: request.body,
+      signal,
+    });
     telemetry("mutation.success", { mutationId, action, clientId, assetId: assetId });
     return updated;
   } catch (error) {

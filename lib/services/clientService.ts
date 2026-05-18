@@ -291,7 +291,7 @@ async function fetchClientCollection(path: string, signal?: AbortSignal): Promis
   return list.map(normalizeClientRecord);
 }
 
-async function fetchClientResource(path: string, options?: { signal?: AbortSignal; method?: "GET" | "POST" | "PATCH"; body?: Record<string, unknown> }) {
+async function fetchClientResource(path: string, options?: { signal?: AbortSignal; method?: "GET" | "POST" | "PATCH"; body?: unknown }) {
   const rawResponse = await fetcher<any>(path, {
     raw: true,
     cache: "no-store",
@@ -303,10 +303,11 @@ async function fetchClientResource(path: string, options?: { signal?: AbortSigna
 }
 
 export function createClient(payload: ClientUpdatePayload, signal?: AbortSignal) {
-  const request = resolveContractRequest("POST /clients", { body: buildClientPayload(payload) });
+  const body = buildClientPayload(payload);
+  const request = resolveContractRequest("POST /clients", { body });
   return fetchClientResource(request.path, {
     method: "POST",
-    body: buildClientPayload(payload),
+    body: request.body,
     signal,
   });
 }
@@ -322,13 +323,14 @@ export function fetchClientById(id: number, signal?: AbortSignal) {
 }
 
 export function updateClient(id: number, payload: ClientUpdatePayload, signal?: AbortSignal) {
+  const body = buildClientPayload(payload);
   const request = resolveContractRequest("PATCH /clients/{id}", {
     pathParams: { id },
-    body: buildClientPayload(payload),
+    body,
   });
   return fetchClientResource(request.path, {
     method: "PATCH",
-    body: buildClientPayload(payload),
+    body: request.body,
     signal,
   });
 }
@@ -343,13 +345,14 @@ export function updateClientStatus(
     throw new Error(`Invalid lifecycle transition: ${currentStatus} -> ${status}`);
   }
   logClientAuditAction("status.update.requested", { id, status, currentStatus: currentStatus ?? null });
+  const body = { status, canonical_status: status, is_active: status === "active" };
   const request = resolveContractRequest("PATCH /clients/{id}/status", {
     pathParams: { id },
-    body: { status, canonical_status: status, is_active: status === "active" },
+    body,
   });
   return fetchClientResource(request.path, {
     method: "PATCH",
-    body: { status, canonical_status: status, is_active: status === "active" },
+    body: request.body,
     signal,
   });
 }
