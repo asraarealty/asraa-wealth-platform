@@ -15,6 +15,7 @@ import {
   type ClientOperationalStatus,
   type ClientUpdatePayload,
 } from "@/lib/services/clientService";
+import { useAuth } from "@/context/AuthContext";
 
 export default function EditClientPage() {
   const params = useParams<{ id: string }>();
@@ -23,11 +24,12 @@ export default function EditClientPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const clientId = useMemo(() => Number(params.id), [params.id]);
+  const { authReady, authenticated } = useAuth();
 
   const query = useQuery({
     queryKey: ["admin", "clients", clientId, "detail"],
     queryFn: () => fetchClientById(clientId),
-    enabled: Number.isFinite(clientId),
+    enabled: authReady && authenticated && Number.isFinite(clientId),
   });
 
   if (query.isLoading) return <LoadingBlock label="Loading client workspace…" />;

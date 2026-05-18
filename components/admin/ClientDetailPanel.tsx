@@ -19,6 +19,7 @@ import { resolveLivePrices } from "@/lib/services/market";
 import { computePortfolioValuation } from "@/lib/services/portfolio";
 import { toErrorMessage } from "@/lib/fetcher";
 import { useBodyScrollLock } from "@/lib/ui/modalLifecycle";
+import { useAuth } from "@/context/AuthContext";
 
 function fmtDate(iso?: string): string {
   if (!iso) return "Awaiting signal";
@@ -54,6 +55,7 @@ export function ClientDetailPanel({
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
   const queryClient = useQueryClient();
+  const { authReady, authenticated } = useAuth();
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
   const [pendingClientAction, setPendingClientAction] = useState<{
     title: string;
@@ -104,7 +106,7 @@ export function ClientDetailPanel({
   const livePricing = useQuery({
     queryKey: ["admin", "clients", client?.id, "asset-pricing", holdingsSignature],
     queryFn: () => resolveLivePrices(holdings),
-    enabled: Boolean(client && holdings.length > 0),
+    enabled: authReady && authenticated && Boolean(client && holdings.length > 0),
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 15,
     refetchOnWindowFocus: false,

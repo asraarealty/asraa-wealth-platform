@@ -3,7 +3,7 @@
  * This file is aligned with the token-based fetcher.
  */
 
-import { getToken, setToken, clearToken } from "./fetcher";
+import { getToken, setToken, clearAuthTokens } from "./fetcher";
 
 /** Get current token */
 export function getStoredToken(): string | null {
@@ -17,5 +17,5 @@ export function storeToken(token: string): void {
 
 /** Clear token */
 export function clearAuth(): void {
-  clearToken();
+  clearAuthTokens();
 }
