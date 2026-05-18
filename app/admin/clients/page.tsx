@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ActionMenu } from "@/components/admin/platform/ActionMenu";
-import { AllocationRing } from "@/components/admin/platform/AllocationRing";
 import { OperationalEmptyState } from "@/components/admin/platform/EmptyState";
 import { IntelligenceWidget } from "@/components/admin/platform/IntelligenceWidget";
 import { PlatformConfirmModal } from "@/components/admin/platform/PlatformModal";
@@ -30,7 +29,18 @@ const VIRTUAL_ROW_STYLE = { contentVisibility: "auto", containIntrinsicSize: "96
 
 const ClientDetailPanel = dynamic(
   () => import("@/components/admin/ClientDetailPanel").then((mod) => mod.ClientDetailPanel),
-  { ssr: false }
+  {
+    ssr: false,
+    loading: () => <LoadingBlock label="Loading client details..." />,
+  }
+);
+
+const AllocationRing = dynamic(
+  () => import("@/components/admin/platform/AllocationRing").then((mod) => mod.AllocationRing),
+  {
+    ssr: false,
+    loading: () => <LoadingBlock label="Loading allocation chart..." />,
+  }
 );
 
 type StatusFilter =

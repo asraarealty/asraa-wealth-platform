@@ -1,6 +1,15 @@
 "use client";
 
-import { LiveAdminModulePage } from "@/components/admin-os/LiveAdminModulePage";
+import dynamic from "next/dynamic";
+import { LoadingBlock } from "@/components/v2/ui";
+
+const LiveAdminModulePage = dynamic(
+  () => import("@/components/admin-os/LiveAdminModulePage").then((mod) => mod.LiveAdminModulePage),
+  {
+    ssr: false,
+    loading: () => <LoadingBlock label="Loading Insights module..." />,
+  }
+);
 
 export default function AdminInsightsPage() {
   return (

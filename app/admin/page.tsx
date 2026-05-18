@@ -1,11 +1,26 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { AllocationRing } from "@/components/admin/platform/AllocationRing";
-import { AdminMarketPanel } from "@/components/admin-os/AdminMarketPanel";
 import { IntelligenceCard, LoadingBlock, MetricTile, SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
 import { useAdminClients } from "@/lib/hooks/useAdminClients";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
+
+const AllocationRing = dynamic(
+  () => import("@/components/admin/platform/AllocationRing").then((mod) => mod.AllocationRing),
+  {
+    ssr: false,
+    loading: () => <LoadingBlock label="Loading allocation chart..." />,
+  }
+);
+
+const AdminMarketPanel = dynamic(
+  () => import("@/components/admin-os/AdminMarketPanel").then((mod) => mod.AdminMarketPanel),
+  {
+    ssr: false,
+    loading: () => <LoadingBlock label="Loading market overlay..." />,
+  }
+);
 
 function toneForStatus(value: string): "success" | "warn" | "danger" | "info" {
   const normalized = value.toLowerCase();

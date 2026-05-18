@@ -1,7 +1,23 @@
 "use client";
 
-import { LiveAdminModulePage } from "@/components/admin-os/LiveAdminModulePage";
-import { SystemCapabilityPanel } from "@/components/admin-os/SystemCapabilityPanel";
+import dynamic from "next/dynamic";
+import { LoadingBlock } from "@/components/v2/ui";
+
+const LiveAdminModulePage = dynamic(
+  () => import("@/components/admin-os/LiveAdminModulePage").then((mod) => mod.LiveAdminModulePage),
+  {
+    ssr: false,
+    loading: () => <LoadingBlock label="Loading System Settings module..." />,
+  }
+);
+
+const SystemCapabilityPanel = dynamic(
+  () => import("@/components/admin-os/SystemCapabilityPanel").then((mod) => mod.SystemCapabilityPanel),
+  {
+    ssr: false,
+    loading: () => <LoadingBlock label="Loading capability overlays..." />,
+  }
+);
 
 export default function AdminSystemSettingsPage() {
   return (
