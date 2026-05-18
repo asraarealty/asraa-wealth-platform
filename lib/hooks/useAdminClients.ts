@@ -39,7 +39,6 @@ export function useAdminClients(): UseAdminClientsResult {
 
       return enrichClients(clients, groupedAssets);
     },
-    placeholderData: (previous) => previous,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 15,
     refetchOnWindowFocus: false,
