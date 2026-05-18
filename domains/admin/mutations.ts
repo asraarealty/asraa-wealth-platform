@@ -51,6 +51,9 @@ export function useAdminClientLifecycleMutation(clientId: number | null) {
     mutationKey: ["admin", "clients", resolvedClientId, "lifecycle"],
     mutationFn: async ({ action, signal }) => {
       if (resolvedClientId <= 0) throw new Error("Invalid client ID: must be a positive integer.");
+      if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+        console.info("[mutation]", { stage: "lifecycle.start", action, clientId: resolvedClientId });
+      }
       if (action === "approve") return approveClient(resolvedClientId, signal);
       if (action === "suspend") return suspendClient(resolvedClientId, signal);
       if (action === "archive") return archiveClient(resolvedClientId, signal);
@@ -108,6 +111,9 @@ export function useAdminClientLifecycleMutation(clientId: number | null) {
       return { previousWorkspace, previousProfile };
     },
     onError: (_error, _variables, context) => {
+      if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+        console.info("[cache-reconcile]", { stage: "lifecycle.rollback", clientId: resolvedClientId });
+      }
       if (context?.previousWorkspace) {
         queryClient.setQueryData(adminDomainQueryKeys.clientsWorkspace, context.previousWorkspace);
       }
@@ -116,12 +122,18 @@ export function useAdminClientLifecycleMutation(clientId: number | null) {
       }
     },
     onSuccess: (data, { action }) => {
+      if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+        console.info("[mutation]", { stage: "lifecycle.success", action, clientId: resolvedClientId });
+      }
       if (action !== "delete" && data) {
         queryClient.setQueryData(adminDomainQueryKeys.clientProfile(resolvedClientId), data);
       }
     },
     onSettled: async (_data, _error, { action }) => {
       if (resolvedClientId <= 0) return;
+      if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+        console.info("[cache-reconcile]", { stage: "lifecycle.invalidate.start", action, clientId: resolvedClientId });
+      }
       const invalidations = [
         queryClient.invalidateQueries({ queryKey: adminDomainQueryKeys.clientsWorkspace }),
       ];
@@ -143,6 +155,9 @@ export function useAdminClientLifecycleMutation(clientId: number | null) {
         });
       }
       await Promise.all(invalidations);
+      if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+        console.info("[cache-reconcile]", { stage: "lifecycle.invalidate.success", action, clientId: resolvedClientId });
+      }
     },
   });
 }

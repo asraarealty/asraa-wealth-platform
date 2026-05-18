@@ -89,7 +89,15 @@ export async function fetchAdminClients(signal?: AbortSignal): Promise<AdminClie
     method: request.method,
   });
   const res = unwrap<any>(rawRes);
-  const list = Array.isArray(res) ? res : [];
+  const list = extractArrayFromPayload(res);
+  if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+    console.info("[normalizer]", {
+      stage: "admin-clients",
+      rawPayloadSize: typeof rawRes === "object" && rawRes ? Object.keys(rawRes).length : 0,
+      normalizedEntityCount: list.length,
+      rejectedEntities: 0,
+    });
+  }
   return list.map((c: any) => ({
     id: c.id,
     name: c.name ?? "",
@@ -163,15 +171,23 @@ export function fetchTransactions(
   userId?: string,
   signal?: AbortSignal
 ): Promise<Transaction[]> {
-  if (!userId) {
-    const request = resolveContractRequest("GET /transactions");
-    return fetcher<Transaction[]>(request.path, { signal, method: request.method });
-  }
-
-  const request = resolveContractRequest("GET /transactions", {
-    query: { client_id: userId },
+  const request = userId
+    ? resolveContractRequest("GET /transactions", {
+        query: { client_id: userId },
+      })
+    : resolveContractRequest("GET /transactions");
+  return fetcher<unknown>(request.path, { signal, method: request.method, raw: true }).then((raw) => {
+    const list = extractArrayFromPayload(unwrap<unknown>(raw));
+    if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+      console.info("[normalizer]", {
+        stage: "transactions",
+        rawPayloadSize: typeof raw === "object" && raw ? Object.keys(raw as Record<string, unknown>).length : 0,
+        normalizedEntityCount: list.length,
+        rejectedEntities: 0,
+      });
+    }
+    return list as Transaction[];
   });
-  return fetcher<Transaction[]>(request.path, { signal, method: request.method });
 }
 
 /* ── Admin: Users ─────────────────────────────────────────────────── */
@@ -272,11 +288,41 @@ export interface PortfolioFull {
  */
 function unwrap<T>(res: any): T {
   if (!res) return res;
-  // Check for response.data.data per requirements
-  if (res.data && typeof res.data === 'object' && 'data' in res.data) {
-    return res.data.data as T;
+  const visited = new Set<unknown>();
+  let current: unknown = res;
+  while (current && typeof current === "object" && !Array.isArray(current) && !visited.has(current)) {
+    visited.add(current);
+    const record = current as Record<string, unknown>;
+    if (!("data" in record)) return current as T;
+    current = record.data;
   }
-  return (res.data ?? res) as T;
+  return current as T;
+}
+
+function extractArrayFromPayload(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== "object") return [];
+  const record = value as Record<string, unknown>;
+  const directCandidates = [
+    record.items,
+    record.results,
+    record.rows,
+    record.records,
+    record.clients,
+    record.assets,
+    record.transactions,
+    record.holdings,
+    record.entries,
+    record.list,
+  ];
+  for (const candidate of directCandidates) {
+    if (Array.isArray(candidate)) return candidate;
+  }
+  if (record.data && typeof record.data === "object") {
+    const nested = extractArrayFromPayload(record.data);
+    if (nested.length > 0) return nested;
+  }
+  return [];
 }
 
 function toFiniteNumber(value: unknown, fallback = 0): number {
@@ -299,15 +345,18 @@ function normalizeAssetRecord(a: any, userId?: number): Asset {
   const purchasePrice = toFiniteNumber(a?.purchase_price ?? a?.purchasePrice ?? 0, 0);
   const currentValue = toFiniteNumber(a?.current_value ?? a?.currentValue ?? 0, 0);
   const rentAmount = toFiniteNumber(a?.rent_amount ?? a?.rentAmount ?? 0, 0);
-  const normalizedUserId = userId ?? (toFiniteNumber(a?.user_id ?? a?.userId, 0) || undefined);
+  const normalizedUserId =
+    userId ??
+    (toFiniteNumber(a?.user_id ?? a?.userId ?? a?.client_id ?? a?.clientId, 0) || undefined);
   const quantity = toFiniteNumber(a?.quantity ?? 0, 0);
   const value = toFiniteNumber(a?.value ?? 0, 0);
   const invested = quantity * avgPrice;
   const returnPercent = invested > 0 ? ((value - invested) / invested) * 100 : 0;
+  const normalizedId = toFiniteNumber(a?.id ?? a?.asset_id ?? a?.assetId, 0);
 
   return {
     ...a,
-    id: toFiniteNumber(a?.id, 0),
+    id: normalizedId,
     type,
     asset_type: type,
     name: String(a?.name ?? a?.symbol ?? "Unnamed asset").trim() || "Unnamed asset",
@@ -472,12 +521,12 @@ export async function fetchAdminGroupedAssets(
     }
   };
 
-  if (Array.isArray(res)) {
-    for (const rawAsset of res) appendAsset(rawAsset);
-    return grouped;
+  const rootAssets = extractArrayFromPayload(res);
+  if (rootAssets.length > 0) {
+    for (const rawAsset of rootAssets) appendAsset(rawAsset);
   }
 
-  if (res && typeof res === "object") {
+  if (res && typeof res === "object" && !Array.isArray(res)) {
     for (const [key, value] of Object.entries(res as Record<string, unknown>)) {
       const userId = Number(key);
       if (Array.isArray(value) && Number.isFinite(userId)) {
@@ -487,11 +536,23 @@ export async function fetchAdminGroupedAssets(
 
       if (value && typeof value === "object" && !Array.isArray(value)) {
         const nested = value as Record<string, unknown>;
-        if (Array.isArray(nested.assets)) {
-          for (const rawAsset of nested.assets) appendAsset(rawAsset, userId);
+        const nestedAssets = extractArrayFromPayload(nested);
+        if (nestedAssets.length > 0) {
+          for (const rawAsset of nestedAssets) appendAsset(rawAsset, userId);
         }
       }
     }
+  }
+
+  if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+    const normalizedEntityCount = Object.values(grouped).reduce((sum, assets) => sum + assets.length, 0);
+    console.info("[normalizer]", {
+      stage: "admin-grouped-assets",
+      rawPayloadSize: typeof rawRes === "object" && rawRes ? Object.keys(rawRes).length : 0,
+      normalizedEntityCount,
+      rejectedEntities: 0,
+      clientBuckets: Object.keys(grouped).length,
+    });
   }
 
   return grouped;
@@ -599,7 +660,17 @@ export async function fetchInsights(
     method: request.method,
   });
   const res = unwrap<any>(rawRes);
-  return normalizeInsights(res) ?? { equityPercentage: 0, propertyPercentage: 0, alerts: [] };
+  const normalized = normalizeInsights(res) ?? { equityPercentage: 0, propertyPercentage: 0, alerts: [] };
+  if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+    console.info("[normalizer]", {
+      stage: "insights-fetch",
+      clientId: clientId ?? null,
+      rawPayloadSize: typeof rawRes === "object" && rawRes ? Object.keys(rawRes).length : 0,
+      normalizedEntityCount: normalized.alerts.length,
+      rejectedEntities: 0,
+    });
+  }
+  return normalized;
 }
 
 /* ── Mutual Funds ───────────────────────────────────────────────────── */

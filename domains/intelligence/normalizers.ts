@@ -1,6 +1,5 @@
 import { fetcher, toErrorMessage } from "@/lib/fetcher";
 import { fetchInsights } from "@/lib/api";
-import { normalizeInsights } from "@/lib/api/normalizers";
 import type { InsightsResponse } from "@/lib/api";
 
 export interface IntelligencePipelineData {
@@ -93,9 +92,26 @@ export async function fetchIntelligencePipeline(signal?: AbortSignal): Promise<I
 
 export async function fetchClientIntelligence(clientId: number, signal?: AbortSignal): Promise<ClientIntelligenceData> {
   try {
-    const insights = normalizeInsights(await fetchInsights(clientId, signal));
+    const insights = await fetchInsights(clientId, signal);
+    if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+      console.info("[domain-query]", {
+        stage: "client-intelligence",
+        clientId,
+        normalizedEntityCount: Array.isArray(insights?.alerts) ? insights.alerts.length : 0,
+        degraded: false,
+      });
+    }
     return { insights: insights ?? null, degradedState: null };
   } catch (error) {
+    if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+      console.info("[domain-query]", {
+        stage: "client-intelligence",
+        clientId,
+        normalizedEntityCount: 0,
+        degraded: true,
+        reason: toErrorMessage(error),
+      });
+    }
     return {
       insights: null,
       degradedState: `Client intelligence unavailable: ${toErrorMessage(error)}`,
