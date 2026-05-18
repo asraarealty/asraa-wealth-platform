@@ -154,6 +154,7 @@ function shouldDedupeRequest(pathname: string, method: HttpMethod): boolean {
 function shouldUseShortCacheTtl(pathname: string, method: HttpMethod): boolean {
   if (method === "POST" && pathname.endsWith("/stocks/v2/bulk")) return true;
   if (method !== "GET") return false;
+  // Keep short cache TTL limited to market-search style endpoints to avoid stale admin workspace payloads.
   return isMarketSearchDedupePath(pathname);
 }
 

@@ -7,6 +7,14 @@ import { toErrorMessage } from "@/lib/fetcher";
 import { useAuth } from "@/context/AuthContext";
 import { adminQueryKeys } from "@/lib/queryKeys/admin";
 
+function sanitizeToken(value: unknown): string {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 function normalizeTransaction(value: unknown): Transaction | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as Record<string, unknown>;
@@ -22,7 +30,7 @@ function normalizeTransaction(value: unknown): Transaction | null {
   return {
     id:
       id ||
-      `txn-${String(raw.symbol ?? raw.name ?? "asset")}-${String(
+      `txn-${sanitizeToken(raw.symbol ?? raw.name ?? "asset")}-${sanitizeToken(
         raw.date ?? raw.created_at ?? raw.createdAt ?? "na"
       )}`,
     clientId: String(raw.clientId ?? raw.client_id ?? raw.user_id ?? ""),
@@ -64,10 +72,10 @@ export function useClientDetail(
   clientId: number | null
 ): ClientDetailData {
   const { authReady, sessionHydrated, authenticated } = useAuth();
+  const resolvedClientId = clientId ?? -1;
   const query = useQuery({
-    queryKey: adminQueryKeys.clientDetail(clientId),
+    queryKey: adminQueryKeys.clientDetail(resolvedClientId),
     queryFn: async ({ signal }) => {
-      const resolvedClientId = clientId as number;
       const [transactionsResult, insightsResult] = await Promise.allSettled([
         fetchTransactions(String(resolvedClientId), signal),
         fetchInsights(resolvedClientId, signal),

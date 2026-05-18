@@ -108,7 +108,7 @@ export function ClientDetailPanel({
   }, [client?.id, queryClient]);
 
   const livePricing = useQuery({
-    queryKey: [...adminQueryKeys.clientAssetPricing(client?.id ?? null), holdingsSignature],
+    queryKey: adminQueryKeys.clientAssetPricing(client?.id ?? 0, holdingsSignature),
     queryFn: () => resolveLivePrices(holdings),
     enabled: authReady && sessionHydrated && authenticated && Boolean(client && holdings.length > 0),
     staleTime: 1000 * 60 * 5,
@@ -162,13 +162,13 @@ export function ClientDetailPanel({
 
       const invalidations = [
         queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY }),
-        queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientDetail(client?.id ?? null) }),
-        queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientAssetPricing(client?.id ?? null) }),
         queryClient.invalidateQueries({ queryKey: DASHBOARD_FULL_KEY }),
         queryClient.invalidateQueries({ queryKey: ASSETS_KEY }),
       ];
       if (client?.id != null) {
         invalidations.push(
+          queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientDetail(client.id) }),
+          queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientAssetPricing(client.id) }),
           queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientEditDetail(client.id) })
         );
       }
