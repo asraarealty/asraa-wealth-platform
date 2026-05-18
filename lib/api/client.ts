@@ -81,8 +81,9 @@ interface CacheEntry {
   tags: string[];
 }
 
-const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
 const RETRY_BASE_DELAY_MS = 250;
+const RETRY_MAX_DELAY_MS = 5_000;
 const DEFAULT_DEDUPE_CACHE_TTL_MS = 20_000;
 const DEDUPE_ENDPOINTS = new Set([
   "/stocks/v2/bulk",
@@ -160,7 +161,13 @@ function consumeInflight<T>(entry: InflightEntry<T>, signal?: AbortSignal): Prom
   const release = () => {
     if (released) return;
     released = true;
-    entry.consumers = Math.max(0, entry.consumers - 1);
+    entry.consumers -= 1;
+    if (entry.consumers < 0) {
+      entry.consumers = 0;
+      if (typeof console !== "undefined" && typeof console.warn === "function") {
+        console.warn("[api-client] inflight consumer tracking underflow");
+      }
+    }
     if (entry.consumers === 0) {
       entry.controller.abort();
     }
@@ -239,15 +246,15 @@ function defaultTagsForRequest(pathname: string, method: HttpMethod): string[] {
   return tags;
 }
 
-function toRequestBody(rawBody: unknown): BodyInit | null | undefined {
-  if (rawBody === undefined || rawBody === null) return undefined;
-  if (typeof rawBody === "string") return rawBody;
-  if (typeof FormData !== "undefined" && rawBody instanceof FormData) return rawBody;
-  if (typeof URLSearchParams !== "undefined" && rawBody instanceof URLSearchParams) return rawBody;
-  if (typeof Blob !== "undefined" && rawBody instanceof Blob) return rawBody;
-  if (typeof ArrayBuffer !== "undefined" && rawBody instanceof ArrayBuffer) return rawBody;
-  if (typeof ReadableStream !== "undefined" && rawBody instanceof ReadableStream) return rawBody;
-  return JSON.stringify(rawBody);
+function toRequestBody(rawBody: unknown): { body: BodyInit | null | undefined; isJson: boolean } {
+  if (rawBody === undefined || rawBody === null) return { body: undefined, isJson: false };
+  if (typeof rawBody === "string") return { body: rawBody, isJson: false };
+  if (typeof FormData !== "undefined" && rawBody instanceof FormData) return { body: rawBody, isJson: false };
+  if (typeof URLSearchParams !== "undefined" && rawBody instanceof URLSearchParams) return { body: rawBody, isJson: false };
+  if (typeof Blob !== "undefined" && rawBody instanceof Blob) return { body: rawBody, isJson: false };
+  if (typeof ArrayBuffer !== "undefined" && rawBody instanceof ArrayBuffer) return { body: rawBody, isJson: false };
+  if (typeof ReadableStream !== "undefined" && rawBody instanceof ReadableStream) return { body: rawBody, isJson: false };
+  return { body: JSON.stringify(rawBody), isJson: true };
 }
 
 export function createApiClient(config: ApiClientConfig = {}) {
@@ -266,11 +273,12 @@ export function createApiClient(config: ApiClientConfig = {}) {
         ? performance.now()
         : Date.now();
     const maxRetries = options.retry ?? defaultRetry;
-    const body = toRequestBody(options.body);
+    const bodyData = toRequestBody(options.body);
+    const body = bodyData.body;
 
     const baseHeaders = new Headers(options.headers ?? {});
     if (!baseHeaders.has("Accept")) baseHeaders.set("Accept", "application/json");
-    if (!baseHeaders.has("Content-Type") && body !== undefined) baseHeaders.set("Content-Type", "application/json");
+    if (!baseHeaders.has("Content-Type") && bodyData.isJson) baseHeaders.set("Content-Type", "application/json");
 
     const token = config.getAuthToken?.();
     if (token && !baseHeaders.has("Authorization")) {
@@ -368,7 +376,7 @@ export function createApiClient(config: ApiClientConfig = {}) {
         if (attempt >= maxRetries || !isRetryableError(normalizedError)) {
           throw normalizedError;
         }
-        await sleep(RETRY_BASE_DELAY_MS * 2 ** attempt);
+        await sleep(Math.min(RETRY_BASE_DELAY_MS * 2 ** attempt, RETRY_MAX_DELAY_MS));
         attempt += 1;
       }
     }
@@ -419,8 +427,9 @@ export function createApiClient(config: ApiClientConfig = {}) {
       });
 
     if (useDedupe) {
-      inflight.set(key, { controller, promise: job as Promise<unknown>, consumers: 0 });
-      return consumeInflight(inflight.get(key)! as InflightEntry<T>, options.signal);
+      const entry: InflightEntry<T> = { controller, promise: job, consumers: 0 };
+      inflight.set(key, entry as InflightEntry<unknown>);
+      return consumeInflight(entry, options.signal);
     }
 
     if (options.signal) {
