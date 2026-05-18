@@ -154,15 +154,19 @@ export function fetchTransactions(
   userId?: string,
   signal?: AbortSignal
 ): Promise<Transaction[]> {
-  const qs = (() => {
-    if (!userId) return "";
-    const params = new URLSearchParams();
-    params.set("client_id", userId);
-    params.set("user_id", userId);
-    return `?${params.toString()}`;
-  })();
+  if (!userId) {
+    return fetcher<Transaction[]>("/transactions", { signal });
+  }
 
-  return fetcher<Transaction[]>(`/transactions${qs}`, { signal });
+  const clientScopedPath = `/transactions?${new URLSearchParams({ client_id: userId }).toString()}`;
+  const userScopedPath = `/transactions?${new URLSearchParams({ user_id: userId }).toString()}`;
+
+  return fetcher<Transaction[]>(clientScopedPath, { signal }).catch((error: unknown) => {
+    if (error instanceof ApiError && [400, 404, 422].includes(error.status)) {
+      return fetcher<Transaction[]>(userScopedPath, { signal });
+    }
+    throw error;
+  });
 }
 
 /* ── Admin: Users ─────────────────────────────────────────────────── */
@@ -461,7 +465,7 @@ export async function fetchAdminGroupedAssets(
     const normalized = normalizeAssetRecord(entry, candidateIds[0]);
     for (const candidateId of candidateIds) {
       if (!grouped[candidateId]) grouped[candidateId] = [];
-      grouped[candidateId].push(normalized);
+      grouped[candidateId].push({ ...normalized });
     }
   };
 
@@ -582,16 +586,21 @@ export async function fetchInsights(
   signal?: AbortSignal
 ): Promise<InsightsResponse> {
   // Admins can request insights for a specific client by passing clientId.
-  // All other callers (or admins viewing their own data) use the /insights/me route.
-  const path = (() => {
-    if (clientId === undefined) return "/insights/me";
-    const params = new URLSearchParams();
-    params.set("user_id", String(clientId));
-    params.set("client_id", String(clientId));
-    return `/insights?${params.toString()}`;
-  })();
+  // Some backends expect client_id while older deployments still expect user_id.
+  // We use client_id first and fallback to user_id on identifier-validation failures.
+  const primaryPath = clientId !== undefined
+    ? `/insights?${new URLSearchParams({ client_id: String(clientId) }).toString()}`
+    : "/insights/me";
+  const fallbackPath = clientId !== undefined
+    ? `/insights?${new URLSearchParams({ user_id: String(clientId) }).toString()}`
+    : "/insights/me";
 
-  const rawRes = await fetcher<any>(path, { signal, raw: true, cache: "no-store" });
+  const rawRes = await fetcher<any>(primaryPath, { signal, raw: true, cache: "no-store" }).catch((error: unknown) => {
+    if (clientId !== undefined && error instanceof ApiError && [400, 404, 422].includes(error.status)) {
+      return fetcher<any>(fallbackPath, { signal, raw: true, cache: "no-store" });
+    }
+    throw error;
+  });
   const res = unwrap<any>(rawRes);
 
   if (res && typeof res === "object" && !Array.isArray(res)) {
