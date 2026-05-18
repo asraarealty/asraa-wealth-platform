@@ -120,7 +120,7 @@ export function RealEstateActivitySection({ data }: { data: DashboardOperatingDa
           subtitle="Rent pipeline, occupancy and cashflow"
           action={<Link href="/real-estate" className="v2-link">Full ops →</Link>}
         />
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <MetricTile label="RE Asset Value" value={fmtCompact(data.realEstate.totalValue)} />
           <MetricTile label="Monthly Rent" value={fmtCompact(data.realEstate.monthlyRent)} />
           <MetricTile label="Occupied" value={String(data.realEstate.occupied)} sub="units" />
@@ -266,7 +266,7 @@ export function MarketDiscoverySection({ data }: { data: DashboardOperatingData 
                 {topGainers.slice(0, 5).map((item) => {
                   const isPositive = item.changePercent >= 0;
                   return (
-                    <div key={item.id} className="flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3">
+                    <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3">
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-white truncate">{item.name || item.symbol}</p>
                         <p className="text-[11px] text-slate-500">{item.symbol} · {item.market}</p>
@@ -292,7 +292,7 @@ export function MarketDiscoverySection({ data }: { data: DashboardOperatingData 
               watchlistQuotes.slice(0, 4).map((item) => {
                 const isPositive = item.changePercent >= 0;
                 return (
-                  <div key={item.id} className="flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5">
+                  <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5">
                     <p className="text-sm font-medium text-white truncate">{item.symbol}</p>
                     <p className={`text-xs font-semibold shrink-0 ml-3 ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
                       {isPositive ? "+" : ""}{item.changePercent.toFixed(2)}%

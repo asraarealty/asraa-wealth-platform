@@ -174,7 +174,7 @@ export default function DashboardPage() {
 
       {/* ── Executive summary ──────────────────────────────────────────── */}
       <SurfaceCard className="p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
           <SectionHeader
             eyebrow="Portfolio Intelligence"
             title="Wealth overview"
@@ -191,7 +191,7 @@ export default function DashboardPage() {
           </div>
         ) : null}
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <MetricTile label="Total Portfolio Value" value={fmt(data.executive.totalValue)} />
           <MetricTile label="Total Invested" value={fmt(data.executive.totalInvested)} />
           <MetricTile
@@ -205,7 +205,7 @@ export default function DashboardPage() {
             value={fmt(data.executive.netWorth ?? data.executive.totalValue)}
           />
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-3">
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <MetricTile
             label="Monthly Income"
             value={fmt(data.executive.monthlyIncome ?? 0)}

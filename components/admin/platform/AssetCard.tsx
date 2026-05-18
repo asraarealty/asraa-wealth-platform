@@ -123,21 +123,21 @@ export function AssetCard({
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2.5 text-xs">
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
         <Metric label={getUnitsLabel(asset)} value={asset.type === "property" ? "1 property" : `${units || 0}`} />
         <Metric label="Avg cost" value={avgCost > 0 ? fmtCurrency(avgCost) : "Awaiting cost basis"} />
         <Metric label="Live price" value={effectiveLivePrice > 0 ? fmtCurrency(effectiveLivePrice) : "Awaiting price sync"} />
         <Metric label="Allocation" value={allocationPct != null && allocationPct > 0 ? fmtPercent(allocationPct) : "Portfolio pending"} />
       </div>
 
-      <div className="mt-2 grid grid-cols-2 gap-2.5 text-xs">
+      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
         <Metric label="Asset class" value={getTypeLabel(asset)} />
         <Metric label="Income" value={income > 0 ? `${fmtCurrency(income)}/mo` : "No active income"} />
         <Metric label="Risk" value={risk} />
         <Metric label="Last updated" value={formatDate((pricePoint?.asOf as string | undefined) ?? (read(asset, "created_at", "createdAt") as string | undefined))} />
       </div>
 
-      <div className="mt-4 flex items-center gap-2 pt-3">
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-2 pt-3">
         {onView ? (
           <button type="button" onClick={onView} className="flex-1 rounded-xl border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:bg-sky-500/20">
             View

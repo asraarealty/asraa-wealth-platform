@@ -102,7 +102,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
           <MFSearch onSelect={handleMFSelect} initialValue={form.name} />
         </FormField>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label="Fund Code">
             <FieldInput
               placeholder="HDFC001"
@@ -119,7 +119,7 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
           </FormField>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label="Units" required>
             <FieldInput
               type="number"

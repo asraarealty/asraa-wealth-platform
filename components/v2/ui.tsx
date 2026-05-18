@@ -26,15 +26,15 @@ export function SectionHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3">
-      <div>
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0">
         {eyebrow ? (
           <p className="text-[10px] uppercase tracking-[0.16em] text-blue-400/70 mb-1">{eyebrow}</p>
         ) : null}
-        <h2 className="text-base sm:text-lg font-semibold text-white leading-tight">{title}</h2>
+        <h2 className="text-sm sm:text-lg font-semibold text-white leading-tight">{title}</h2>
         {subtitle ? <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p> : null}
       </div>
-      {action}
+      {action ? <div className="self-start shrink-0">{action}</div> : null}
     </div>
   );
 }

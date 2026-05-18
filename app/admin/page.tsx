@@ -125,7 +125,7 @@ export default function AdminOverviewPage() {
           <div className="mt-4 space-y-3">
             {recentActivity.map((client) => (
               <div key={client.id} className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm font-medium text-white">{client.name}</p>
                   <p className="text-[11px] text-slate-500">{new Date(String(client.lastActivity)).toLocaleDateString("en-IN")}</p>
                 </div>
@@ -145,7 +145,7 @@ export default function AdminOverviewPage() {
             ) : (
               pendingApprovals.slice(0, 6).map((client) => (
                 <div key={client.id} className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-3">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm font-medium text-white">{client.name}</p>
                     <StatusPill label={client.approvalStatus} tone={toneForStatus(client.approvalStatus)} />
                   </div>
@@ -161,7 +161,7 @@ export default function AdminOverviewPage() {
           <div className="mt-4 space-y-3">
             {[...clients].sort((a, b) => b.unrealizedPnLPct - a.unrealizedPnLPct).slice(0, 6).map((client) => (
               <div key={client.id} className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm font-medium text-white">{client.name}</p>
                   <p className={client.unrealizedPnLPct >= 0 ? "text-xs text-emerald-400" : "text-xs text-rose-400"}>
                     {fmtPercent(client.unrealizedPnLPct, true)}

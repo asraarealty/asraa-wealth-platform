@@ -85,7 +85,7 @@ export default function AddAssetModal({ onClose, onSave }: AddAssetModalProps) {
           Select the type of asset you want to add to this portfolio.
         </p>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {TYPES.map((t) => (
             <button
               key={t.id}

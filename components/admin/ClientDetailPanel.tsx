@@ -189,7 +189,7 @@ export function ClientDetailPanel({
         role="dialog"
         aria-modal="true"
         aria-label={`Client detail workspace for ${client.name}`}
-        className="fixed inset-y-0 right-0 z-50 w-full max-w-[1080px] overflow-y-auto border-l border-sky-400/15 bg-[linear-gradient(160deg,rgba(10,22,51,0.98),rgba(4,9,21,0.99))] p-5 outline-none"
+        className="fixed inset-y-0 right-0 z-50 w-full max-w-[1080px] overflow-y-auto overflow-x-hidden border-l border-sky-400/15 bg-[linear-gradient(160deg,rgba(10,22,51,0.98),rgba(4,9,21,0.99))] p-3 sm:p-5 outline-none"
       >
         <div className="sticky top-0 z-10 mb-5 flex flex-col gap-4 rounded-[1.5rem] border border-white/8 bg-[#040915]/95 p-5 backdrop-blur sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -213,7 +213,7 @@ export function ClientDetailPanel({
             {!operationsReady ? (
               <OperationalEmptyState title="Operational controls locked" description="Complete onboarding and intelligence sync before executing lifecycle controls." hint="Await readiness" />
             ) : (
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
                 <a href={client.whatsapp || client.phone ? `https://wa.me/${String(client.whatsapp ?? client.phone).replace(/\D/g, "")}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">WhatsApp</a>
                 <a href={client.phone ? `tel:${String(client.phone).replace(/\D/g, "")}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Call</a>
                 <a href={client.email ? `mailto:${client.email}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Email</a>
@@ -230,7 +230,7 @@ export function ClientDetailPanel({
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_0.85fr]">
             <IntelligenceWidget eyebrow="Portfolio intelligence" title="Live valuation and exposure" detail="Canonical valuation engine with live price overlays for market-linked holdings.">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Metric label="Total value" value={valuation.liveValue > 0 ? fmtCurrency(valuation.liveValue) : client.operationalFallback} />
                 <Metric label="Unrealized PnL" value={valuation.liveValue > 0 ? fmtCurrency(valuation.unrealizedPnL) : "Awaiting holdings sync"} accent={valuation.unrealizedPnL >= 0 ? "text-emerald-200" : "text-rose-200"} />
                 <Metric label="Live valuation" value={valuation.liveValue > 0 ? fmtPercent(100) : "0%"} />
@@ -249,7 +249,7 @@ export function ClientDetailPanel({
             </IntelligenceWidget>
 
             <IntelligenceWidget eyebrow="AI intelligence" title="Diversification and alerts" detail="Derived concentration scoring, rebalance pressure, and inactivity watch signals.">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Metric label="Diversification" value={`${client.diversificationScore}/100`} />
                 <Metric label="Risk concentration" value={client.concentrationRisk} />
                 <Metric label="Inactivity" value={client.activitySignal} />
@@ -273,7 +273,7 @@ export function ClientDetailPanel({
                 <OperationalEmptyState title="Property pipeline pending" description="No property assets are linked to this client workspace yet." hint="Real estate onboarding" />
               ) : (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Metric label="Occupancy" value={`${occupiedProperties}/${propertyAssets.length}`} />
                     <Metric label="Yield" value={propertyYield > 0 ? fmtPercent(propertyYield) : "Awaiting yield data"} />
                     <Metric label="Rent due" value={propertyAssets.map((asset) => dueState(String(asset.rentDueDate ?? asset.rent_due_date)).label).filter((label) => label.startsWith("Due")).length.toString()} />
@@ -283,7 +283,7 @@ export function ClientDetailPanel({
                     const state = dueState(String(asset.rentDueDate ?? asset.rent_due_date));
                     return (
                       <div key={asset.id} className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-semibold text-white">{asset.name}</p>
                             <p className="text-xs text-slate-400">{asset.location || "Location pending"}</p>
@@ -307,7 +307,7 @@ export function ClientDetailPanel({
                     const holding = valuationMap[asset.id];
                     return (
                       <div key={asset.id} className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-semibold text-white">{asset.symbol || asset.name}</p>
                             <p className="text-xs text-slate-400">{asset.name}</p>
@@ -330,7 +330,7 @@ export function ClientDetailPanel({
                 <OperationalEmptyState title="Commodity coverage pending" description="This client has no commodity exposure in the live book." hint="Hedge onboarding" />
               ) : (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Metric label="Commodity exposure" value={fmtPercent(valuation.exposurePct.commodity)} />
                     <Metric label="Hedge share" value={fmtPercent(valuation.exposurePct.commodity)} />
                     <Metric label="Live pricing" value={livePricing.data ? "Connected" : "Awaiting sync"} />
@@ -365,7 +365,7 @@ export function ClientDetailPanel({
           </IntelligenceWidget>
 
           <IntelligenceWidget eyebrow="Communication center" title="WhatsApp, call, email, reminders" detail="Live communication channels and reminder readiness from client profile signals.">
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               <Metric label="WhatsApp" value={client.whatsapp || client.phone || "Not mapped"} />
               <Metric label="Email channel" value={client.email || "Not mapped"} />
               <Metric label="Call channel" value={client.phone || "Not mapped"} />
@@ -399,7 +399,7 @@ export function ClientDetailPanel({
               <div className="space-y-3">
                 {latestEvents.map((event) => (
                   <div key={event.id} className="rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3">
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-white">{event.title}</p>
                         <p className="text-xs text-slate-400">{event.detail}</p>
