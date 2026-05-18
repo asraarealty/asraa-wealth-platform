@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchTransactions, fetchInsights } from "@/lib/api";
 import type { Transaction, InsightsResponse } from "@/lib/api";
@@ -16,36 +15,44 @@ export interface ClientDetailData {
 export function useClientDetail(
   clientId: number | null
 ): ClientDetailData {
-  const transactionsQuery = useQuery({
-    queryKey: ["client-detail", clientId, "transactions"],
-    queryFn: ({ signal }) => fetchTransactions(String(clientId), signal),
+  const query = useQuery({
+    queryKey: ["client-detail", clientId],
+    queryFn: async ({ signal }) => {
+      const [transactionsResult, insightsResult] = await Promise.allSettled([
+        fetchTransactions(String(clientId), signal),
+        fetchInsights(clientId ?? undefined, signal),
+      ]);
+
+      const transactions =
+        transactionsResult.status === "fulfilled" && Array.isArray(transactionsResult.value)
+          ? transactionsResult.value
+          : [];
+      const insights = insightsResult.status === "fulfilled" ? insightsResult.value ?? null : null;
+
+      const transactionError =
+        transactionsResult.status === "rejected"
+          ? toErrorMessage(transactionsResult.reason)
+          : null;
+      const insightsError =
+        insightsResult.status === "rejected" ? toErrorMessage(insightsResult.reason) : null;
+
+      return {
+        transactions,
+        insights,
+        partialError: transactionError ?? insightsError,
+      };
+    },
     enabled: clientId !== null,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 15,
     refetchOnWindowFocus: false,
     retry: 1,
   });
-
-  const insightsQuery = useQuery({
-    queryKey: ["client-detail", clientId, "insights"],
-    queryFn: ({ signal }) => fetchInsights(clientId ?? undefined, signal),
-    enabled: clientId !== null,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 15,
-    refetchOnWindowFocus: false,
-    retry: 1,
-  });
-
-  const error = useMemo(() => {
-    if (transactionsQuery.error) return toErrorMessage(transactionsQuery.error);
-    if (insightsQuery.error) return toErrorMessage(insightsQuery.error);
-    return null;
-  }, [insightsQuery.error, transactionsQuery.error]);
 
   return {
-    transactions: Array.isArray(transactionsQuery.data) ? transactionsQuery.data : [],
-    insights: insightsQuery.data ?? null,
-    loading: transactionsQuery.isLoading || insightsQuery.isLoading,
-    error,
+    transactions: query.data?.transactions ?? [],
+    insights: query.data?.insights ?? null,
+    loading: query.isPending,
+    error: query.error ? toErrorMessage(query.error) : (query.data?.partialError ?? null),
   };
 }

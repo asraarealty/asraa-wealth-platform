@@ -176,6 +176,7 @@ let refreshJob: Promise<MarketAsset[]> | null = null;
 let pollHandle: ReturnType<typeof setInterval> | null = null;
 let lastRefreshAt = 0;
 let searchAbortController: AbortController | null = null;
+let hasBootstrapped = false;
 
 function emit() {
   listeners.forEach((listener) => listener());
@@ -566,7 +567,7 @@ function stopPolling() {
 
 export async function ensureMarketData(options: { force?: boolean; silent?: boolean } = {}) {
   const { force = false, silent = false } = options;
-  if (!silent) {
+  if (!silent && !snapshot.isLoading && !snapshot.isRefreshing) {
     setSnapshot({
       isLoading: snapshot.assets.length === 0,
       isRefreshing: snapshot.assets.length > 0,
@@ -789,7 +790,9 @@ export function useMarketOrchestrator() {
   const state = useSyncExternalStore(subscribeMarket, getMarketSnapshot, getMarketSnapshot);
 
   useEffect(() => {
-    void ensureMarketData();
+    if (hasBootstrapped && snapshot.assets.length > 0) return;
+    hasBootstrapped = true;
+    void ensureMarketData({ silent: snapshot.assets.length > 0 });
   }, []);
 
   return {

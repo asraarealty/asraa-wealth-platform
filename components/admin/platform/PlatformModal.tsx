@@ -36,6 +36,15 @@ export function PlatformModal({
     containerRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   const sizeClass = size === "lg" ? "max-w-3xl" : size === "sm" ? "max-w-md" : "max-w-xl";
 
   return (

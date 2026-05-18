@@ -1,7 +1,8 @@
 "use client";
 
+import { useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchAdminGroupedAssets } from "@/lib/api";
+import { fetchAdminGroupedAssets, type Asset } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
 import { fetchAdminClients } from "@/lib/services/clientService";
 import {
@@ -24,27 +25,37 @@ export interface UseAdminClientsResult {
 export function useAdminClients(): UseAdminClientsResult {
   const query = useQuery({
     queryKey: ADMIN_CLIENTS_QUERY_KEY,
-    queryFn: async () => {
-      const [clients, groupedAssets] = await Promise.all([
-        fetchAdminClients(),
-        fetchAdminGroupedAssets(),
-      ]);
+    queryFn: async ({ signal }) => {
+      const clients = await fetchAdminClients(signal);
+      let groupedAssets: Record<number, Asset[]> = {};
+
+      try {
+        groupedAssets = await fetchAdminGroupedAssets(signal);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          throw error;
+        }
+      }
+
       return enrichClients(clients, groupedAssets);
     },
+    placeholderData: (previous) => previous,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 15,
     refetchOnWindowFocus: false,
     retry: 1,
   });
 
+  const refresh = useCallback(() => {
+    void query.refetch();
+  }, [query]);
+
   return {
     clients: query.data?.clients ?? [],
     kpis: query.data?.kpis ?? EMPTY_KPIS,
-    loading: query.isLoading,
+    loading: query.isPending && !query.data,
     error: query.error ? toErrorMessage(query.error) : null,
-    refresh: () => {
-      void query.refetch();
-    },
+    refresh,
   };
 }
 

@@ -44,11 +44,9 @@ function dueState(value?: string) {
 export function ClientDetailPanel({
   client,
   onClose,
-  onRefresh,
 }: {
   client: EnrichedClient | null;
   onClose: () => void;
-  onRefresh?: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -74,6 +72,15 @@ export function ClientDetailPanel({
 
   useEffect(() => {
     if (client) panelRef.current?.focus();
+  }, [client]);
+
+  useEffect(() => {
+    if (!client || typeof document === "undefined") return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
   }, [client]);
 
   const holdings = useMemo(() => createCanonicalAssetUniverse(client?.assets ?? []), [client?.assets]);
@@ -109,6 +116,7 @@ export function ClientDetailPanel({
   const lifecycleReady = ["pending_kyc", "approved", "active", "suspended", "archived"].includes(client?.canonicalStatus ?? "");
   const intelligenceReady = Boolean((client?.assets.length ?? 0) > 0 || aiAlerts.length > 0);
   const operationsReady = lifecycleReady && intelligenceReady;
+  const allowedTransitions = ALLOWED_TRANSITIONS[client?.canonicalStatus ?? "lead"] ?? [];
 
   const deleteMutation = useMutation({
     mutationFn: (assetId: number) => deleteAsset(assetId),
@@ -116,7 +124,6 @@ export function ClientDetailPanel({
       setAssetToDelete(null);
       setAssetError(null);
       await queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY });
-      onRefresh?.();
     },
     onError: (value) => setAssetError(toErrorMessage(value)),
   });
@@ -171,7 +178,6 @@ export function ClientDetailPanel({
       if (pendingClientAction.action === "delete") await deleteClient(client.id);
       await queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY });
       setPendingClientAction(null);
-      onRefresh?.();
       if (pendingClientAction.action === "delete") onClose();
     } catch (value) {
       setAssetError(toErrorMessage(value));
@@ -219,9 +225,9 @@ export function ClientDetailPanel({
                 <a href={client.email ? `mailto:${client.email}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Email</a>
                 <a href={client.email ? `mailto:${client.email}?subject=${encodeURIComponent(`Meeting schedule - ${client.name}`)}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Schedule Meeting</a>
                 <a href={client.email ? `mailto:${client.email}?subject=${encodeURIComponent(`Client report - ${client.name}`)}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Send Report</a>
-                <button type="button" disabled={!ALLOWED_TRANSITIONS[client.canonicalStatus].includes("approved")} onClick={() => setPendingClientAction({ action: "approve", title: "Approve client", description: "Approve this client and move onboarding to live operations.", confirmLabel: "Approve", tone: "primary" })} className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200 disabled:opacity-40">Approve</button>
-                <button type="button" disabled={!ALLOWED_TRANSITIONS[client.canonicalStatus].includes("suspended")} onClick={() => setPendingClientAction({ action: "suspend", title: "Suspend client", description: "Suspend this client from active operations.", confirmLabel: "Suspend", tone: "danger" })} className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-200 disabled:opacity-40">Suspend</button>
-                <button type="button" disabled={!ALLOWED_TRANSITIONS[client.canonicalStatus].includes("archived")} onClick={() => setPendingClientAction({ action: "archive", title: "Archive client", description: "Archive this client workspace from active books.", confirmLabel: "Archive", tone: "danger" })} className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 disabled:opacity-40">Archive</button>
+                <button type="button" disabled={!allowedTransitions.includes("approved")} onClick={() => setPendingClientAction({ action: "approve", title: "Approve client", description: "Approve this client and move onboarding to live operations.", confirmLabel: "Approve", tone: "primary" })} className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200 disabled:opacity-40">Approve</button>
+                <button type="button" disabled={!allowedTransitions.includes("suspended")} onClick={() => setPendingClientAction({ action: "suspend", title: "Suspend client", description: "Suspend this client from active operations.", confirmLabel: "Suspend", tone: "danger" })} className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-200 disabled:opacity-40">Suspend</button>
+                <button type="button" disabled={!allowedTransitions.includes("archived")} onClick={() => setPendingClientAction({ action: "archive", title: "Archive client", description: "Archive this client workspace from active books.", confirmLabel: "Archive", tone: "danger" })} className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 disabled:opacity-40">Archive</button>
                 <button type="button" disabled={client.canonicalStatus !== "archived"} onClick={() => setPendingClientAction({ action: "restore", title: "Restore client", description: "Restore this client back to active operating coverage.", confirmLabel: "Restore", tone: "primary" })} className="rounded-xl border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200 disabled:opacity-40">Restore</button>
                 <button type="button" onClick={() => setPendingClientAction({ action: "delete", title: "Delete client", description: "Permanently delete this client and all operational links.", confirmLabel: "Delete", tone: "danger" })} className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200">Delete</button>
               </div>

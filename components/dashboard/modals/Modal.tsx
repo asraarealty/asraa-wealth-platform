@@ -23,6 +23,15 @@ export default function Modal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4"

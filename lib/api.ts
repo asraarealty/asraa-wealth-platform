@@ -433,14 +433,42 @@ export async function fetchAdminGroupedAssets(
 ): Promise<Record<number, Asset[]>> {
   const rawRes = await fetcher<any>("/assets/admin", { signal, raw: true, cache: "no-store" });
   const res = unwrap<any>(rawRes);
-  
+
   const grouped: Record<number, Asset[]> = {};
-  for (const [userId, rawAssets] of Object.entries(res ?? {})) {
-    if (!Array.isArray(rawAssets)) continue;
-      grouped[Number(userId)] = rawAssets.map((a: any) =>
-        normalizeAssetRecord(a, Number(userId))
-      );
+
+  const appendAsset = (rawAsset: unknown, fallbackUserId?: number) => {
+    if (!rawAsset || typeof rawAsset !== "object") return;
+    const entry = rawAsset as Record<string, unknown>;
+    const derivedUserId = Number(
+      entry.user_id ?? entry.userId ?? entry.client_id ?? entry.clientId ?? fallbackUserId ?? NaN
+    );
+    if (!Number.isFinite(derivedUserId)) return;
+    if (!grouped[derivedUserId]) grouped[derivedUserId] = [];
+    grouped[derivedUserId].push(normalizeAssetRecord(entry, derivedUserId));
+  };
+
+  if (Array.isArray(res)) {
+    for (const rawAsset of res) appendAsset(rawAsset);
+    return grouped;
   }
+
+  if (res && typeof res === "object") {
+    for (const [key, value] of Object.entries(res as Record<string, unknown>)) {
+      const userId = Number(key);
+      if (Array.isArray(value) && Number.isFinite(userId)) {
+        for (const rawAsset of value) appendAsset(rawAsset, userId);
+        continue;
+      }
+
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        const nested = value as Record<string, unknown>;
+        if (Array.isArray(nested.assets)) {
+          for (const rawAsset of nested.assets) appendAsset(rawAsset, userId);
+        }
+      }
+    }
+  }
+
   return grouped;
 }
 
