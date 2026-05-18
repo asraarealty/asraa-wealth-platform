@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, type KeyboardEvent } from "react";
-import { searchStocks, type StockQuote } from "@/lib/api";
+import { type StockQuote } from "@/lib/api";
+import { searchMarketDebounced } from "@/domains/market/search";
 
 const USD_TO_INR = 83;
 
@@ -42,87 +43,64 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
   const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [open, setOpen] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let active = true;
     if (query.trim().length < 1) {
       setResults([]);
       setOpen(false);
       return;
     }
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setLoading(true);
+    setError(null);
 
-    debounceRef.current = setTimeout(() => {
-      const controller = new AbortController();
-      abortRef.current = controller;
+    void searchMarketDebounced(query.trim(), { delayMs: 300 })
+      .then((groups) => {
+        if (!active) return;
+        const raw = [...groups.stocks, ...(groups.etfs ?? [])].map((item) => ({
+          symbol: item.symbol,
+          name: item.name,
+          price: item.price,
+          change: item.change,
+          changePercent: item.changePercent,
+          marketCap: item.marketCap,
+          volume: item.volume,
+        }));
 
-      setLoading(true);
-      setError(null);
+        const q = query.trim().toLowerCase();
+        const indian = raw.filter((item) => item.symbol?.endsWith(".NS") || item.symbol?.endsWith(".BO"));
+        const nameMatches = (indian.length > 0 ? indian : raw).filter((item) => item.name?.toLowerCase().includes(q));
+        const clean = nameMatches.filter((item) => item.name && !item.symbol?.startsWith("0P"));
 
-      searchStocks(query.trim(), controller.signal)
-        .then((data) => {
-          const raw = (Array.isArray(data) ? data : []).map((item) => ({
-            ...item,
-            price: item.price ?? null,
-            change: item.change ?? 0,
-            changePercent: item.changePercent ?? 0,
-            marketCap: item.marketCap ?? null,
-          }));
-          const q = query.trim().toLowerCase();
-
-          // 1. Filter to Indian stocks (.NS or .BO)
-          const indian = raw.filter(
-            (item) =>
-              item.symbol?.endsWith(".NS") || item.symbol?.endsWith(".BO")
-          );
-
-          // 2. Filter to results whose name contains the query
-          const nameMatches = (indian.length > 0 ? indian : raw).filter(
-            (item) => item.name?.toLowerCase().includes(q)
-          );
-
-          // 3. Remove junk: no name, or "0P…" mutual-fund tickers
-          const clean = nameMatches.filter(
-            (item) => item.name && !item.symbol?.startsWith("0P")
-          );
-
-          // 4. Sort: exact prefix matches first, then partial; break ties alphabetically
-          clean.sort((a, b) => {
-            const aExact = a.name?.toLowerCase().startsWith(q) ? 1 : 0;
-            const bExact = b.name?.toLowerCase().startsWith(q) ? 1 : 0;
-            return bExact - aExact || a.name.localeCompare(b.name);
-          });
-
-          // 5. Limit to top 10
-          setResults(clean.slice(0, 10));
-          setOpen(true);
-          setActiveIndex(-1);
-        })
-        .catch((err) => {
-          if (err instanceof DOMException && err.name === "AbortError") return;
-          setError(err instanceof Error ? err.message : "Search failed");
-        })
-        .finally(() => {
-          setLoading(false);
+        clean.sort((a, b) => {
+          const aExact = a.name?.toLowerCase().startsWith(q) ? 1 : 0;
+          const bExact = b.name?.toLowerCase().startsWith(q) ? 1 : 0;
+          return bExact - aExact || a.name.localeCompare(b.name);
         });
-    }, 300);
 
+        setResults(clean.slice(0, 10));
+        setOpen(true);
+        setActiveIndex(-1);
+      })
+      .catch((err) => {
+        if (!active) return;
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(err instanceof Error ? err.message : "Search failed");
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoading(false);
+      });
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      abortRef.current?.abort();
+      active = false;
     };
   }, [query]);
 
-  // Close on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     }
@@ -219,9 +197,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
         )}
       </div>
 
-      {error && (
-        <p className="mt-1.5 text-xs text-red-400">{error}</p>
-      )}
+      {error && <p className="mt-1.5 text-xs text-red-400">{error}</p>}
 
       {open && (
         <ul
@@ -248,14 +224,8 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
               onMouseEnter={() => setActiveIndex(i)}
               className="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer transition text-sm"
               style={{
-                background:
-                  i === activeIndex
-                    ? "rgba(56,189,248,0.1)"
-                    : "transparent",
-                borderBottom:
-                  i < results.length - 1
-                    ? "1px solid rgba(255,255,255,0.04)"
-                    : "none",
+                background: i === activeIndex ? "rgba(56,189,248,0.1)" : "transparent",
+                borderBottom: i < results.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
               }}
             >
               <div className="min-w-0">
@@ -265,14 +235,10 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
                 </span>
               </div>
               <div className="text-right shrink-0">
-                <div className="text-white font-medium">
-                  {formatPrice(stock.price, getCurrency(stock.symbol))}
-                </div>
+                <div className="text-white font-medium">{formatPrice(stock.price, getCurrency(stock.symbol))}</div>
                 <div
                   className={`text-xs font-medium ${
-                    isPositive(stock.changePercent)
-                      ? "text-emerald-400"
-                      : "text-red-400"
+                    isPositive(stock.changePercent) ? "text-emerald-400" : "text-red-400"
                   }`}
                 >
                   {isPositive(stock.changePercent) ? "+" : ""}

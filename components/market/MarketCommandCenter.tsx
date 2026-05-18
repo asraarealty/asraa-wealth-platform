@@ -5,7 +5,8 @@ import { AllocationRing } from "@/components/admin/platform/AllocationRing";
 import { IntelligenceCard, MetricTile, SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
 import { fmtPercent } from "@/lib/formatters";
 import { useMarketDomainGraph as useMarketOrchestrator, type MarketAsset } from "@/domains/market";
-import { scoreAssetConviction, useMarketIntelligenceEngine } from "@/lib/services/market/intelligenceEngine";
+import { MARKET_SEARCH_MIN_QUERY_LENGTH } from "@/domains/market/search";
+import { scoreAssetConviction, useMarketIntelligenceEngine } from "@/domains/market";
 
 export type WorkspaceSurface =
   | "market-overview"
@@ -35,7 +36,7 @@ const SURFACES: Array<{ key: WorkspaceSurface; label: string }> = [
 ];
 
 const QUICK_FILTERS = ["All", "India", "Global", "Fund", "Commodity", "Macro"] as const;
-const MIN_SEARCH_LENGTH = 3;
+const MIN_SEARCH_LENGTH = MARKET_SEARCH_MIN_QUERY_LENGTH;
 const PORTFOLIO_EXPOSURE_SIGNALS = ["concentrationRisk", "portfolioFit", "liquidityProfile"] as const;
 
 type QuickFilter = (typeof QUICK_FILTERS)[number];
@@ -123,6 +124,7 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
     trendingAssets,
     watchlist,
     sectorMovers,
+    breadth,
     search,
     searchMarket,
     toggleWatchlist,
@@ -142,11 +144,8 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
   const filteredAssets = useFilteredAssets(assets, quickFilter);
 
   useEffect(() => {
-    const handle = setTimeout(() => {
-      if (query.trim().length > 0 && query.trim().length < MIN_SEARCH_LENGTH) return;
-      void searchMarket(query);
-    }, 250);
-    return () => clearTimeout(handle);
+    if (query.trim().length > 0 && query.trim().length < MIN_SEARCH_LENGTH) return;
+    void searchMarket(query);
   }, [query, searchMarket]);
 
   useEffect(() => {
@@ -166,14 +165,6 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
         .filter(Boolean) as MarketAsset[],
     [assets, recentSymbols]
   );
-
-  const breadth = useMemo(() => {
-    const liquid = filteredAssets.filter((item) => ["stock", "global-stock", "etf", "index"].includes(item.kind));
-    const advances = liquid.filter((item) => item.changePercent > 0).length;
-    const declines = liquid.filter((item) => item.changePercent < 0).length;
-    const unchanged = Math.max(liquid.length - advances - declines, 0);
-    return { total: liquid.length, advances, declines, unchanged };
-  }, [filteredAssets]);
 
   const topPicks = useMemo(() => {
     return trendingAssets.slice(0, 4).map((asset) => {
@@ -224,7 +215,7 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
             />
             {query.trim().length >= MIN_SEARCH_LENGTH ? (
               <div className="mt-3 space-y-2 max-h-56 overflow-y-auto">
-                {[...search.groups.stocks, ...search.groups.mutualFunds, ...search.groups.commodities]
+                {[...(search.groups.stocks ?? []), ...(search.groups.etfs ?? []), ...(search.groups.mutualFunds ?? []), ...(search.groups.commodities ?? [])]
                   .slice(0, 10)
                   .map((item) => (
                     <QuoteRow
