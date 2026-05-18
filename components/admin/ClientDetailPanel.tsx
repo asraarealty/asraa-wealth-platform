@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { usePathname } from "next/navigation";
 import { AssetCard } from "@/components/admin/platform/AssetCard";
 import { AllocationRing } from "@/components/admin/platform/AllocationRing";
 import { OperationalEmptyState } from "@/components/admin/platform/EmptyState";
@@ -18,8 +17,8 @@ import { ALLOWED_TRANSITIONS, approveClient, archiveClient, deleteClient, restor
 import { resolveLivePrices } from "@/lib/services/market";
 import { computePortfolioValuation } from "@/lib/services/portfolio";
 import { toErrorMessage } from "@/lib/fetcher";
-import { useBodyScrollLock } from "@/lib/ui/modalLifecycle";
 import { useAuth } from "@/context/AuthContext";
+import { useAbortSafeLifecycle, useOverlayLifecycle } from "@/lib/ui/modalLifecycle";
 
 function fmtDate(iso?: string): string {
   if (!iso) return "Awaiting signal";
@@ -52,8 +51,6 @@ export function ClientDetailPanel({
   onClose: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
-  const pathnameRef = useRef(pathname);
   const queryClient = useQueryClient();
   const { authReady, authenticated } = useAuth();
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
@@ -67,27 +64,17 @@ export function ClientDetailPanel({
   const [clientActionPending, setClientActionPending] = useState(false);
   const [assetError, setAssetError] = useState<string | null>(null);
   const { transactions, insights, loading: detailLoading } = useClientDetail(client ? client.id : null);
-
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  const { requestClose, isTopMost, stackIndex } = useOverlayLifecycle({
+    open: Boolean(client),
+    onClose,
+    type: "drawer",
+    lockBodyScroll: Boolean(client),
+  });
+  const lifecycle = useAbortSafeLifecycle(Boolean(client));
 
   useEffect(() => {
     if (client) panelRef.current?.focus();
   }, [client]);
-
-  useBodyScrollLock(Boolean(client));
-
-  useEffect(() => {
-    if (pathnameRef.current !== pathname) {
-      onClose();
-    }
-    pathnameRef.current = pathname;
-  }, [pathname, onClose]);
 
   const holdings = useMemo(() => createCanonicalAssetUniverse(client?.assets ?? []), [client?.assets]);
   const holdingsSignature = useMemo(
@@ -133,11 +120,15 @@ export function ClientDetailPanel({
   const deleteMutation = useMutation({
     mutationFn: (assetId: number) => deleteAsset(assetId),
     onSuccess: async () => {
+      if (!lifecycle.isActive()) return;
       setAssetToDelete(null);
       setAssetError(null);
       await queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY });
     },
-    onError: (value) => setAssetError(toErrorMessage(value)),
+    onError: (value) => {
+      if (!lifecycle.isActive()) return;
+      setAssetError(toErrorMessage(value));
+    },
   });
 
   if (!client) return null;
@@ -179,7 +170,7 @@ export function ClientDetailPanel({
     .slice(0, 8);
 
   async function runClientAction() {
-    if (!pendingClientAction || !client) return;
+    if (!pendingClientAction || !client || lifecycle.signal.aborted) return;
     try {
       setClientActionPending(true);
       setAssetError(null);
@@ -189,25 +180,38 @@ export function ClientDetailPanel({
       if (pendingClientAction.action === "restore") await restoreClient(client.id);
       if (pendingClientAction.action === "delete") await deleteClient(client.id);
       await queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY });
+      if (!lifecycle.isActive()) return;
       setPendingClientAction(null);
-      if (pendingClientAction.action === "delete") onClose();
+      if (pendingClientAction.action === "delete") requestClose("programmatic");
     } catch (value) {
+      if (!lifecycle.isActive()) return;
       setAssetError(toErrorMessage(value));
     } finally {
+      if (!lifecycle.isActive()) return;
       setClientActionPending(false);
     }
   }
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm" aria-hidden="true" onClick={onClose} />
+      <div
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+        style={{
+          zIndex: 1000 + Math.max(stackIndex, 0) * 10,
+          opacity: isTopMost ? 1 : 0,
+          pointerEvents: isTopMost ? "auto" : "none",
+        }}
+        aria-hidden="true"
+        onClick={() => requestClose("backdrop")}
+      />
       <aside
         ref={panelRef}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={`Client detail workspace for ${client.name}`}
-        className="fixed inset-y-0 right-0 z-50 w-full max-w-[1080px] overflow-y-auto overflow-x-hidden border-l border-sky-400/15 bg-[linear-gradient(160deg,rgba(10,22,51,0.98),rgba(4,9,21,0.99))] p-3 sm:p-5 outline-none"
+        className="fixed inset-y-0 right-0 w-full max-w-[1080px] overflow-y-auto overflow-x-hidden border-l border-sky-400/15 bg-[linear-gradient(160deg,rgba(10,22,51,0.98),rgba(4,9,21,0.99))] p-3 sm:p-5 outline-none"
+        style={{ zIndex: 1001 + Math.max(stackIndex, 0) * 10 }}
       >
         <div className="sticky top-0 z-10 mb-5 flex flex-col gap-4 rounded-[1.5rem] border border-white/8 bg-[#040915]/95 p-5 backdrop-blur sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -223,7 +227,7 @@ export function ClientDetailPanel({
               Advisor {client.advisorAssigned || client.relationshipManager || "Unassigned"} · Risk {client.riskProfile || "Unclassified"} · Planning {client.financialPlanningStatus || "Not started"}
             </p>
           </div>
-          <button type="button" onClick={onClose} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white">✕</button>
+          <button type="button" onClick={() => requestClose("cancel")} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white">✕</button>
         </div>
 
         <div className="space-y-4 pb-6">

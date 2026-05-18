@@ -1,9 +1,7 @@
 "use client";
 
-import { type ReactNode, useEffect } from "react";
-import { usePathname } from "next/navigation";
-import { useRef } from "react";
-import { useBodyScrollLock } from "@/lib/ui/modalLifecycle";
+import { type ReactNode } from "react";
+import { useOverlayLifecycle } from "@/lib/ui/modalLifecycle";
 
 interface ModalProps {
   title: string;
@@ -18,31 +16,22 @@ export default function Modal({
   children,
   width = "w-full max-w-md",
 }: ModalProps) {
-  const pathname = usePathname();
-  const pathnameRef = useRef(pathname);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  useBodyScrollLock(true);
-
-  useEffect(() => {
-    if (pathnameRef.current !== pathname) {
-      onClose();
-    }
-    pathnameRef.current = pathname;
-  }, [pathname, onClose]);
+  const { requestClose, isTopMost, stackIndex } = useOverlayLifecycle({
+    open: true,
+    onClose,
+    type: "modal",
+    lockBodyScroll: true,
+  });
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4"
-      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      className="fixed inset-0 flex items-end sm:items-center justify-center p-3 sm:p-4"
+      style={{
+        zIndex: 1000 + Math.max(stackIndex, 0) * 10,
+        background: isTopMost ? "rgba(0,0,0,0.75)" : "transparent",
+        backdropFilter: isTopMost ? "blur(6px)" : "none",
+      }}
+      onClick={(e) => e.target === e.currentTarget && requestClose("backdrop")}
     >
       <div
         className={`${width} rounded-2xl shadow-2xl flex flex-col max-h-[calc(100vh-1.5rem)] sm:max-h-[90vh] overflow-hidden`}
@@ -60,7 +49,7 @@ export default function Modal({
         >
           <h2 className="text-base font-semibold text-white">{title}</h2>
           <button
-            onClick={onClose}
+            onClick={() => requestClose("cancel")}
             className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors text-gray-400 hover:text-white"
             style={{ background: "rgba(255,255,255,0.06)" }}
             aria-label="Close modal"

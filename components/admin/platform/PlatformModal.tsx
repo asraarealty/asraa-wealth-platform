@@ -2,19 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
-import { useBodyScrollLock } from "@/lib/ui/modalLifecycle";
-
-function useEscape(onClose: () => void) {
-  useEffect(() => {
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose]);
-}
+import { useOverlayLifecycle } from "@/lib/ui/modalLifecycle";
 
 export function PlatformModal({
   title,
@@ -31,28 +19,30 @@ export function PlatformModal({
   footer?: ReactNode;
   size?: "sm" | "md" | "lg";
 }) {
-  useEscape(onClose);
   const containerRef = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
-  const pathnameRef = useRef(pathname);
+  const { requestClose, isTopMost, stackIndex } = useOverlayLifecycle({
+    open: true,
+    onClose,
+    type: "modal",
+    lockBodyScroll: true,
+  });
 
   useEffect(() => {
     containerRef.current?.focus();
   }, []);
 
-  useBodyScrollLock(true);
-
-  useEffect(() => {
-    if (pathnameRef.current !== pathname) {
-      onClose();
-    }
-    pathnameRef.current = pathname;
-  }, [pathname, onClose]);
-
   const sizeClass = size === "lg" ? "max-w-3xl" : size === "sm" ? "max-w-md" : "max-w-xl";
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center bg-black/70 p-3 sm:p-4 backdrop-blur-sm" onClick={onClose}>
+    <div
+      className="fixed inset-0 flex items-end sm:items-center justify-center p-3 sm:p-4"
+      style={{
+        zIndex: 1000 + Math.max(stackIndex, 0) * 10,
+        background: isTopMost ? "rgba(0,0,0,0.7)" : "transparent",
+        backdropFilter: isTopMost ? "blur(4px)" : "none",
+      }}
+      onClick={() => requestClose("backdrop")}
+    >
       <div
         ref={containerRef}
         tabIndex={-1}
@@ -70,7 +60,7 @@ export function PlatformModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => requestClose("cancel")}
             className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white"
             aria-label="Close modal"
           >

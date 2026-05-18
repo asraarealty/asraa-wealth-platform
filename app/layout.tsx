@@ -4,6 +4,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import QueryProvider from "@/providers/QueryProvider";
 import { OperatingProvider } from "@/context/OperatingContext";
 import PerformanceInstrumentation from "@/providers/PerformanceInstrumentation";
+import OverlayLifecycleBridge from "@/providers/OverlayLifecycleBridge";
 
 export const metadata: Metadata = {
   title: "Asraa Wealth Platform",
@@ -20,6 +21,7 @@ export default function RootLayout({
       <body className="min-h-full bg-[#07080d] text-white">
         <QueryProvider>
           <AuthProvider>
+            <OverlayLifecycleBridge />
             <OperatingProvider>
               <PerformanceInstrumentation />
               {children}
