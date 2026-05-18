@@ -189,7 +189,9 @@ export async function fetcher<T>(
   try {
     return await apiClient.request<T>(path, requestOptions);
   } catch (error) {
-    if (!(error instanceof ApiError) || error.status !== 401 || _authRetry || isAuthEndpoint(path)) {
+    const isUnauthorizedApiError = error instanceof ApiError && error.status === 401;
+    const shouldSkipRefresh = _authRetry || isAuthEndpoint(path);
+    if (!isUnauthorizedApiError || shouldSkipRefresh) {
       throw error;
     }
 
