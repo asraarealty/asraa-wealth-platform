@@ -10,6 +10,6 @@ export {
   getOptimisticQuote,
 } from "@/domains/market/quotes";
 
-export function cacheQuote() {
+export function cacheQuote(_quote?: unknown) {
   // Legacy shim retained for compatibility; quote cache ownership moved to domains/market/quotes.
 }

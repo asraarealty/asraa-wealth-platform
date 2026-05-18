@@ -57,7 +57,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
 
     void searchMarketDebounced(query.trim(), { delayMs: 300 })
       .then((groups) => {
-        const raw = [...groups.stocks, ...groups.etfs].map((item) => ({
+        const raw = [...groups.stocks, ...(groups.etfs ?? [])].map((item) => ({
           symbol: item.symbol,
           name: item.name,
           price: item.price,

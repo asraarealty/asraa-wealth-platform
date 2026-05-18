@@ -42,10 +42,10 @@ export interface SectorMover {
 
 export interface UnifiedSearchGroups {
   stocks: MarketAsset[];
-  etfs: MarketAsset[];
+  etfs?: MarketAsset[];
   mutualFunds: MarketAsset[];
   commodities: MarketAsset[];
-  watchlist: MarketAsset[];
+  watchlist?: MarketAsset[];
 }
 
 export interface BreadthMetrics {

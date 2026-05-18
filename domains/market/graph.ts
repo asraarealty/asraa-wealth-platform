@@ -5,7 +5,11 @@ import { fetcher, toErrorMessage } from "@/lib/fetcher";
 import { boundRefreshInterval } from "@/domains/market/cache";
 import { fetchBulkQuotes } from "@/domains/market/quotes";
 import { deriveMarketCollections } from "@/domains/market/breadth";
-import { cancelDebouncedMarketSearch, searchMarketDebounced } from "@/domains/market/search";
+import {
+  cancelDebouncedMarketSearch,
+  searchMarketDebounced,
+  MARKET_SEARCH_MIN_QUERY_LENGTH,
+} from "@/domains/market/search";
 import { getWatchlistSymbols, toggleWatchlistSymbol } from "@/domains/market/watchlist";
 import {
   EMPTY_BREADTH,
@@ -44,7 +48,6 @@ type MutualFundSeed = {
 
 const MARKET_REFRESH_INTERVAL_MS = boundRefreshInterval(45_000, 30_000, 60_000);
 const MARKET_STALE_MS = 40_000;
-const SEARCH_MIN_QUERY_LENGTH = 2;
 
 const STOCK_UNIVERSE: StockSeed[] = [
   { symbol: "RELIANCE", name: "Reliance Industries", kind: "stock", market: "India", sector: "Energy", category: "Large Cap", currency: "INR" },
@@ -425,7 +428,7 @@ export async function ensureMarketData(options: { force?: boolean; silent?: bool
 
 export async function searchMarket(query: string) {
   const normalized = query.trim();
-  if (!normalized || normalized.length < SEARCH_MIN_QUERY_LENGTH) {
+  if (!normalized || normalized.length < MARKET_SEARCH_MIN_QUERY_LENGTH) {
     cancelDebouncedMarketSearch();
     setSnapshot({
       search: {

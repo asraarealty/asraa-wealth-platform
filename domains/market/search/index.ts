@@ -4,7 +4,7 @@ import { fetcher } from "@/lib/fetcher";
 import { createRequestCache } from "@/domains/market/cache";
 import { EMPTY_SEARCH_GROUPS, type MarketAsset, type MarketAssetKind, type UnifiedSearchGroups } from "@/domains/market/types";
 
-const SEARCH_MIN_QUERY_LENGTH = 2;
+export const MARKET_SEARCH_MIN_QUERY_LENGTH = 3;
 const SEARCH_FRESH_MS = 30_000;
 
 const searchCache = createRequestCache<UnifiedSearchGroups>({ ttlMs: SEARCH_FRESH_MS, staleMs: 2 * SEARCH_FRESH_MS });
@@ -178,7 +178,7 @@ export async function searchMarket(
   options: { signal?: AbortSignal; watchlistSymbols?: string[]; watchlistAssets?: MarketAsset[] } = {}
 ): Promise<UnifiedSearchGroups> {
   const normalized = query.trim();
-  if (!normalized || normalized.length < SEARCH_MIN_QUERY_LENGTH) return EMPTY_SEARCH_GROUPS;
+  if (!normalized || normalized.length < MARKET_SEARCH_MIN_QUERY_LENGTH) return EMPTY_SEARCH_GROUPS;
   const key = normalized.toLowerCase();
 
   const cached = searchCache.read(key);
