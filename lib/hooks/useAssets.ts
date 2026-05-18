@@ -43,7 +43,9 @@ export function useInsights() {
       return {
         equity_percentage: Number(portfolio.data?.allocation.stock ?? 0),
         real_estate_percentage: Number(portfolio.data?.allocation.property ?? 0),
-        alerts: portfolio.data?.insights ?? [],
+        alerts: (portfolio.data?.insights ?? []).map((item) =>
+          typeof item === "string" ? item : String(item?.title ?? item?.message ?? "Insight")
+        ),
       };
     }
     return { equity_percentage: 0, real_estate_percentage: 0, alerts: [] };
@@ -56,7 +58,6 @@ export function useInsights() {
       const isEnvelope = res && typeof res === "object" && "data" in res && res.data != null;
       return isEnvelope ? (res.data as InsightsResponse) : ((res as unknown as InsightsResponse) ?? fallback);
     },
-    placeholderData: (previous) => previous ?? fallback,
     enabled: authReady && sessionHydrated && authenticated,
   });
 }
