@@ -35,6 +35,7 @@ export function useAdminClients(): UseAdminClientsResult {
         if (error instanceof DOMException && error.name === "AbortError") {
           throw error;
         }
+        console.warn("[useAdminClients] grouped asset enrichment unavailable", error);
       }
 
       return enrichClients(clients, groupedAssets);

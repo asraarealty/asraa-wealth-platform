@@ -116,7 +116,10 @@ export function ClientDetailPanel({
   const lifecycleReady = ["pending_kyc", "approved", "active", "suspended", "archived"].includes(client?.canonicalStatus ?? "");
   const intelligenceReady = Boolean((client?.assets.length ?? 0) > 0 || aiAlerts.length > 0);
   const operationsReady = lifecycleReady && intelligenceReady;
-  const allowedTransitions = ALLOWED_TRANSITIONS[client?.canonicalStatus ?? "lead"] ?? [];
+  const allowedTransitions = useMemo(
+    () => ALLOWED_TRANSITIONS[client?.canonicalStatus ?? "lead"] ?? [],
+    [client?.canonicalStatus]
+  );
 
   const deleteMutation = useMutation({
     mutationFn: (assetId: number) => deleteAsset(assetId),
