@@ -40,7 +40,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                   active ? "text-blue-300" : "text-slate-500"
                 }`}
               >
-                <span className="text-[10px] font-medium">{item.shortLabel}</span>
+                <span className="text-[10px] font-medium">{item.shortLabel ?? item.label}</span>
               </Link>
             );
           })}
