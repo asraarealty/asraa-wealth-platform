@@ -18,7 +18,7 @@ export function AllocationBreakdownPanel({ segments }: AllocationBreakdownPanelP
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
       <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Allocation breakdown</p>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/5">
+      <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-white/5">
         {segments.filter((segment) => segment.value > 0).map((segment) => (
           <div key={segment.key} className="h-full" style={{ width: `${segment.pct}%`, background: segment.color }} />
         ))}
