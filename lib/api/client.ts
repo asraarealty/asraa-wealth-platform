@@ -82,6 +82,8 @@ interface CacheEntry {
 }
 
 const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+const RETRY_BASE_DELAY_MS = 250;
+const DEFAULT_DEDUPE_CACHE_TTL_MS = 20_000;
 const DEDUPE_ENDPOINTS = new Set([
   "/stocks/v2/bulk",
   "/mutual-funds/search",
@@ -237,6 +239,17 @@ function defaultTagsForRequest(pathname: string, method: HttpMethod): string[] {
   return tags;
 }
 
+function toRequestBody(rawBody: unknown): BodyInit | null | undefined {
+  if (rawBody === undefined || rawBody === null) return undefined;
+  if (typeof rawBody === "string") return rawBody;
+  if (typeof FormData !== "undefined" && rawBody instanceof FormData) return rawBody;
+  if (typeof URLSearchParams !== "undefined" && rawBody instanceof URLSearchParams) return rawBody;
+  if (typeof Blob !== "undefined" && rawBody instanceof Blob) return rawBody;
+  if (typeof ArrayBuffer !== "undefined" && rawBody instanceof ArrayBuffer) return rawBody;
+  if (typeof ReadableStream !== "undefined" && rawBody instanceof ReadableStream) return rawBody;
+  return JSON.stringify(rawBody);
+}
+
 export function createApiClient(config: ApiClientConfig = {}) {
   const baseUrl = config.baseUrl ?? API_BASE_URL;
   const defaultRetry = config.defaultRetry ?? 2;
@@ -253,11 +266,7 @@ export function createApiClient(config: ApiClientConfig = {}) {
         ? performance.now()
         : Date.now();
     const maxRetries = options.retry ?? defaultRetry;
-    const rawBody = options.body;
-
-    const body = rawBody !== undefined && rawBody !== null && typeof rawBody !== "string"
-      ? JSON.stringify(rawBody)
-      : (rawBody as BodyInit | null | undefined);
+    const body = toRequestBody(options.body);
 
     const baseHeaders = new Headers(options.headers ?? {});
     if (!baseHeaders.has("Accept")) baseHeaders.set("Accept", "application/json");
@@ -359,7 +368,7 @@ export function createApiClient(config: ApiClientConfig = {}) {
         if (attempt >= maxRetries || !isRetryableError(normalizedError)) {
           throw normalizedError;
         }
-        await sleep(250 * 2 ** attempt);
+        await sleep(RETRY_BASE_DELAY_MS * 2 ** attempt);
         attempt += 1;
       }
     }
@@ -370,7 +379,9 @@ export function createApiClient(config: ApiClientConfig = {}) {
     const url = normalizeUrl(path, baseUrl);
     const requestPath = getPathnameFromUrl(url);
     const key = dedupeKey(method, url, options.body);
-    const cacheTtlMs = options.cacheTtlMs ?? (shouldDedupeRequest(requestPath, method) ? 20_000 : 0);
+    const cacheTtlMs =
+      options.cacheTtlMs ??
+      (shouldDedupeRequest(requestPath, method) ? DEFAULT_DEDUPE_CACHE_TTL_MS : 0);
     const useDedupe = options.dedupe ?? shouldDedupeRequest(requestPath, method);
 
     if (cacheTtlMs > 0) {
