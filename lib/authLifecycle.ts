@@ -28,6 +28,7 @@ const state: AuthLifecycleState = {
   isRefreshing: false,
   refreshPromise: null,
 };
+// Treat >=3 unauthorized responses in 12 seconds as a burst worth telemetry reporting.
 const UNAUTHORIZED_BURST_WINDOW_MS = 12_000;
 const UNAUTHORIZED_BURST_THRESHOLD = 3;
 

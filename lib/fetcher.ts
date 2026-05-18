@@ -15,6 +15,7 @@ import {
   resetUnauthorizedBurstCounter,
   runWithGlobalRefresh,
 } from "./authLifecycle";
+import { getNow, toDurationMs } from "./utils/time";
 
 export { API_BASE_URL, ApiError, NetworkError };
 
@@ -22,16 +23,6 @@ export { API_BASE_URL, ApiError, NetworkError };
 
 const TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
-
-function getNow() {
-  return typeof performance !== "undefined" && typeof performance.now === "function"
-    ? performance.now()
-    : Date.now();
-}
-
-function toDurationMs(startedAt: number) {
-  return Number((getNow() - startedAt).toFixed(2));
-}
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;

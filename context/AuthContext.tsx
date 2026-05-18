@@ -32,6 +32,7 @@ import {
   subscribeAuthLifecycle,
   type AuthLifecycleState,
 } from "@/lib/authLifecycle";
+import { getNow, toDurationMs } from "@/lib/utils/time";
 
 interface User {
   id: number;
@@ -70,18 +71,10 @@ const PROTECTED_QUERY_KEYS = [
   "portfolio",
   "intelligence",
 ] as const;
+// Consider 10 seconds a loop window: repeated redirects in this window indicate unstable session state.
 const REDIRECT_LOOP_WINDOW_MS = 10_000;
+// Cap at 4 redirects within the window to prevent user lock-in from redirect storms.
 const REDIRECT_LOOP_THRESHOLD = 4;
-
-function getNow() {
-  return typeof performance !== "undefined" && typeof performance.now === "function"
-    ? performance.now()
-    : Date.now();
-}
-
-function toDurationMs(startedAt: number) {
-  return Number((getNow() - startedAt).toFixed(2));
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
