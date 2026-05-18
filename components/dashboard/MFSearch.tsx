@@ -23,6 +23,7 @@ export default function MFSearch({ onSelect, initialValue = "" }: MFSearchProps)
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let active = true;
     if (query.trim().length < 2) {
       setResults([]);
       setOpen(false);
@@ -34,6 +35,7 @@ export default function MFSearch({ onSelect, initialValue = "" }: MFSearchProps)
 
     void searchMarketDebounced(query.trim(), { delayMs: SEARCH_DEBOUNCE_MS })
       .then((groups) => {
+        if (!active) return;
         setResults(
           groups.mutualFunds.slice(0, 10).map((item) => ({
             code: item.symbol,
@@ -48,10 +50,17 @@ export default function MFSearch({ onSelect, initialValue = "" }: MFSearchProps)
         setActiveIndex(-1);
       })
       .catch((err) => {
+        if (!active) return;
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(toErrorMessage(err));
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!active) return;
+        setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [query]);
 
   useEffect(() => {

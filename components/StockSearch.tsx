@@ -46,6 +46,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let active = true;
     if (query.trim().length < 1) {
       setResults([]);
       setOpen(false);
@@ -57,6 +58,7 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
 
     void searchMarketDebounced(query.trim(), { delayMs: 300 })
       .then((groups) => {
+        if (!active) return;
         const raw = [...groups.stocks, ...(groups.etfs ?? [])].map((item) => ({
           symbol: item.symbol,
           name: item.name,
@@ -83,12 +85,17 @@ export default function StockSearch({ onSelect }: StockSearchProps) {
         setActiveIndex(-1);
       })
       .catch((err) => {
+        if (!active) return;
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(err instanceof Error ? err.message : "Search failed");
       })
       .finally(() => {
+        if (!active) return;
         setLoading(false);
       });
+    return () => {
+      active = false;
+    };
   }, [query]);
 
   useEffect(() => {

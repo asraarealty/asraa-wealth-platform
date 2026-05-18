@@ -79,6 +79,7 @@ export function deriveBreadthMetrics(items: MarketAsset[]): BreadthMetrics {
 
   const marketPulse = average(liquid.map((item) => item.changePercent));
   const liquidAssets = liquid.filter((item) => item.volume > 0);
+  // Liquidity rotation approximates directional participation weighted by log-scaled traded volume.
   const liquidityRotation =
     liquidAssets.length > 0
       ? average(liquidAssets.map((item) => Math.sign(item.changePercent || 0) * Math.log10(Math.max(item.volume, 1))))
