@@ -206,7 +206,7 @@ export function ClientInventoryModal({
 
           {(type === "stock" || type === "mf" || type === "commodity") ? (
             <div>
-              <label className={labelClass}>Live asset picker</label>
+              <label className={labelClass}>Search assets</label>
               <LiveAssetPicker
                 value={toStringValue(form.symbol || form.name)}
                 allowedKinds={

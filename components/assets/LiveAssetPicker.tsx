@@ -271,7 +271,11 @@ export function LiveAssetPicker({
                   onClick={() => onSelect(item)}
                   className="flex w-full items-center justify-between rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-left text-xs text-slate-200 transition hover:bg-white/[0.08]"
                 >
-                  <span>{item.symbol} - {item.name}</span>
+                  <span>
+                    <span>{item.symbol}</span>
+                    <span aria-hidden="true"> - </span>
+                    <span>{item.name}</span>
+                  </span>
                   <span className="text-slate-400">{asBadge(item.kind)}</span>
                 </button>
               ))}

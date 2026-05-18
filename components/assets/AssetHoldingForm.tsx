@@ -158,7 +158,7 @@ export function AssetHoldingForm({
 
         {(type === "stock" || type === "mf" || type === "commodity") && (
           <div>
-            <label className={labelClass + " block mb-1.5"}>Live Asset Picker</label>
+            <label className={labelClass + " block mb-1.5"}>Search Assets</label>
             <LiveAssetPicker
               value={String(form.symbol || form.name)}
               allowedKinds={
