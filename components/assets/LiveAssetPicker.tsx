@@ -59,6 +59,11 @@ function isQuoteKind(kind: MarketAssetKind) {
   return kind === "stock" || kind === "global-stock" || kind === "etf" || kind === "index" || kind === "forex";
 }
 
+function toIsoTimestamp(value: unknown, fallback: string) {
+  const parsed = typeof value === "number" ? new Date(value) : new Date(String(value ?? ""));
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : fallback;
+}
+
 function readRecentSelections() {
   if (typeof window === "undefined") return [] as LiveAssetSelection[];
   try {
@@ -151,7 +156,7 @@ export function LiveAssetPicker({
               changePercent: quote.changePercent,
               volume: quote.volume,
               marketCap: quote.marketCap,
-              lastUpdated: new Date(quote.lastUpdated).toISOString(),
+              lastUpdated: toIsoTimestamp(quote.lastUpdated, item.lastUpdated),
             };
           });
           if (!active) return;
@@ -230,7 +235,7 @@ export function LiveAssetPicker({
 
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      setActiveIndex((value) => Math.max(value - 1, 0));
+      setActiveIndex((value) => (value <= 0 ? -1 : value - 1));
       return;
     }
 

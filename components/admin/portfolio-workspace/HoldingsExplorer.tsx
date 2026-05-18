@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 import type { ClientHoldingRow } from "./types";
 
@@ -25,7 +26,14 @@ export function HoldingsExplorer({ holdings, onOpenClient }: HoldingsExplorerPro
     );
   }
 
-  let currentClientId: number | null = null;
+  const rows = useMemo(
+    () =>
+      holdings.map((entry, index) => ({
+        entry,
+        showClientHeader: index === 0 || holdings[index - 1]?.row.client.id !== entry.row.client.id,
+      })),
+    [holdings]
+  );
 
   return (
     <div className="overflow-x-auto rounded-xl border border-white/10">
@@ -43,9 +51,7 @@ export function HoldingsExplorer({ holdings, onOpenClient }: HoldingsExplorerPro
           </tr>
         </thead>
         <tbody>
-          {holdings.map((entry) => {
-            const showClientHeader = currentClientId !== entry.row.client.id;
-            currentClientId = entry.row.client.id;
+          {rows.map(({ entry, showClientHeader }) => {
             return (
               <tr key={entry.row.key} className="border-t border-white/8 bg-white/[0.01]">
                 <td className="px-3 py-3 align-top">

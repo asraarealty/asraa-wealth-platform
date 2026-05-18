@@ -139,6 +139,7 @@ export function ClientPortfolioWorkspace({ clients, onOpenClient }: ClientPortfo
     [valuation.exposurePct, valuation.holdings]
   );
 
+  // Realized P&L is not currently exposed by the admin contracts, so we preserve a stable zero fallback.
   const realizedPnL = 0;
 
   return (
