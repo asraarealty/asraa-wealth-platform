@@ -60,6 +60,11 @@ body {
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color: var(--asraa-text-main);
   background: var(--asraa-bg-0);
+  overflow-x: clip;
+}
+
+html {
+  overflow-x: clip;
 }
 
 /* ─── Animation utilities ────────────────────────────────────────────────── */
@@ -225,7 +230,7 @@ body[data-density="compact"] {
 
 /* ─── Metric number — large, readable ───────────────────────────────────── */
 .metric-value {
-  font-size: 1.5rem;
+  font-size: clamp(1.2rem, 1rem + 1.2vw, 1.5rem);
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.1;
@@ -233,7 +238,7 @@ body[data-density="compact"] {
 }
 
 .metric-value-lg {
-  font-size: 2rem;
+  font-size: clamp(1.45rem, 1.1rem + 2vw, 2rem);
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1;

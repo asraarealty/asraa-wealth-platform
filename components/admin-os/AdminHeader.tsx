@@ -12,7 +12,7 @@ export function AdminHeader() {
 
   return (
     <header className="border-b border-white/[0.07] bg-[#07080d]/96 backdrop-blur-xl">
-      <div className="px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+      <div className="px-4 sm:px-6 py-3 sm:h-14 sm:py-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         {/* Page context */}
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -24,7 +24,7 @@ export function AdminHeader() {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2 text-xs shrink-0">
+        <div className="flex w-full sm:w-auto flex-wrap items-center gap-2 text-xs shrink-0">
           <Link href="/admin/clients/new" className="v2-action">
             + Add client
           </Link>

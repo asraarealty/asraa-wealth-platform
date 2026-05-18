@@ -57,7 +57,7 @@ export default function AdminRiskIntelligencePage() {
           title="Platform risk dashboard"
           subtitle="Cross-client concentration, exposure and rebalancing alerts"
         />
-        <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <MetricTile
             label="High-risk clients"
             value={String(highRisk.length)}
@@ -93,7 +93,7 @@ export default function AdminRiskIntelligencePage() {
               label={`${highRisk.length} client${highRisk.length !== 1 ? "s" : ""} with elevated concentration or equity exposure above 70%`}
             />
             <div className="v2-tile rounded-xl p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-medium">Medium risk</p>
                   <p className="mt-1 text-xl font-bold text-amber-400">{mediumRisk.length}</p>
@@ -102,7 +102,7 @@ export default function AdminRiskIntelligencePage() {
               </div>
             </div>
             <div className="v2-tile rounded-xl p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-medium">Low risk</p>
                   <p className="mt-1 text-xl font-bold text-emerald-400">{lowRisk.length}</p>
@@ -211,7 +211,7 @@ export default function AdminRiskIntelligencePage() {
           />
           <div className="mt-4 space-y-2">
             {highRisk.map((client) => (
-              <div key={client.id} className="v2-tile rounded-xl p-3 flex items-center gap-3">
+              <div key={client.id} className="v2-tile rounded-xl p-3 flex flex-wrap items-center gap-3">
                 <div className="w-7 h-7 rounded-lg bg-rose-500/15 flex items-center justify-center shrink-0">
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                     <path d="M6 1L11 10H1L6 1Z" stroke="#f87171" strokeWidth="1.2" strokeLinejoin="round" />

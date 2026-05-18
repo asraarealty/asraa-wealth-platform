@@ -25,12 +25,12 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4"
       style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className={`${width} rounded-2xl shadow-2xl flex flex-col max-h-[90vh]`}
+        className={`${width} rounded-2xl shadow-2xl flex flex-col max-h-[calc(100vh-1.5rem)] sm:max-h-[90vh] overflow-hidden`}
         style={{
           background: "#0A1A14",
           border: "1px solid rgba(56,189,248,0.2)",
@@ -40,7 +40,7 @@ export default function Modal({
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-6 py-4 shrink-0"
+          className="flex items-center justify-between px-4 sm:px-6 py-4 shrink-0"
           style={{ borderBottom: "1px solid rgba(56,189,248,0.12)" }}
         >
           <h2 className="text-base font-semibold text-white">{title}</h2>
@@ -67,7 +67,7 @@ export default function Modal({
         </div>
 
         {/* Body */}
-        <div className="px-6 py-5 overflow-y-auto flex-1">{children}</div>
+        <div className="px-4 sm:px-6 py-4 sm:py-5 overflow-y-auto flex-1">{children}</div>
       </div>
     </div>
   );
@@ -148,13 +148,13 @@ export function ModalFooter({
 }) {
   return (
     <div
-      className="flex items-center justify-end gap-3 px-6 py-4 shrink-0"
+      className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3 px-4 sm:px-6 py-4 shrink-0"
       style={{ borderTop: "1px solid rgba(56,189,248,0.12)" }}
     >
       <button
         type="button"
         onClick={onCancel}
-        className="px-4 py-2 text-sm rounded-xl transition-colors text-gray-300 hover:text-white"
+        className="w-full sm:w-auto px-4 py-2 text-sm rounded-xl transition-colors text-gray-300 hover:text-white"
         style={{
           background: "rgba(255,255,255,0.06)",
           border: "1px solid rgba(255,255,255,0.1)",
@@ -166,7 +166,7 @@ export function ModalFooter({
         type="button"
         onClick={onSave}
         disabled={saving}
-        className="px-5 py-2 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
+        className="w-full sm:w-auto px-5 py-2 text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
         style={{
           background: saving ? "rgba(56,189,248,0.5)" : "#38bdf8",
           color: "#04102a",

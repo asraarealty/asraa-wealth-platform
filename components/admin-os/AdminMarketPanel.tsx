@@ -28,7 +28,7 @@ export function AdminMarketPanel() {
           {error}
         </div>
       ) : null}
-      <div className="mt-4 grid gap-3 md:grid-cols-5">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {adminTickers.map((item) => (
           <div key={item.id} className="v2-tile rounded-xl p-3">
             <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">{item.name}</p>

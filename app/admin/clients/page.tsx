@@ -212,7 +212,7 @@ function KpiStrip({
   };
 
   return (
-    <div className="grid grid-cols-2 gap-3 xl:grid-cols-7">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 xl:grid-cols-7">
       {data.map((tile) => (
         <div key={tile.label} className={`rounded-[1.25rem] border p-4 ${tones[tile.tone]}`}>
           <p className="text-[10px] uppercase tracking-[0.16em] text-slate-300/70">{tile.label}</p>
@@ -426,7 +426,7 @@ export default function ClientsPage() {
         <IntelligenceWidget eyebrow="Risk exposure" title="Equity and concentration watch" detail="Accounts breaching operating concentration thresholds.">
           <div className="space-y-3">
             {widgetRisk.map((client) => (
-              <button key={client.id} type="button" onClick={() => setSelectedClientId(client.id)} className="flex w-full items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition hover:border-amber-300/30 hover:bg-amber-500/[0.08]">
+                <button key={client.id} type="button" onClick={() => setSelectedClientId(client.id)} className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition hover:border-amber-300/30 hover:bg-amber-500/[0.08]">
                 <div>
                   <p className="text-sm font-semibold text-white">{client.name}</p>
                   <p className="text-xs text-slate-400">{client.concentrationRisk}</p>
@@ -442,7 +442,7 @@ export default function ClientsPage() {
         </IntelligenceWidget>
 
         <IntelligenceWidget eyebrow="Rental pipeline" title="Real estate operations" detail="Occupancy, due-soon rent events, and portfolio rental pressure.">
-          <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Occupied</p><p className="mt-1 text-lg font-semibold text-white">{occupiedProperties}</p></div>
             <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Vacant / pipeline</p><p className="mt-1 text-lg font-semibold text-white">{Math.max(propertyAssets.length - occupiedProperties, 0)}</p></div>
             <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Rent due soon</p><p className="mt-1 text-lg font-semibold text-amber-100">{dueSoonProperties}</p></div>
@@ -452,7 +452,7 @@ export default function ClientsPage() {
 
         <IntelligenceWidget eyebrow="Live market movement" title="Portfolio health" detail="Derived live valuation and unrealized movement using the canonical valuation engine.">
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
               <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Unrealized PnL</p><p className={`mt-1 text-lg font-semibold ${clients.reduce((sum, client) => sum + client.unrealizedPnL, 0) >= 0 ? "text-emerald-100" : "text-rose-100"}`}>{fmtCurrency(clients.reduce((sum, client) => sum + client.unrealizedPnL, 0))}</p></div>
               <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Avg portfolio</p><p className="mt-1 text-lg font-semibold text-white">{fmtCompact(kpis.avgPortfolioValue)}</p></div>
             </div>
@@ -471,7 +471,7 @@ export default function ClientsPage() {
         <IntelligenceWidget eyebrow="Client activity feed" title="Latest relationship signals" detail="Operational touch points and engagement recency.">
           <div className="space-y-3">
             {widgetActivity.map((client) => (
-              <button key={client.id} type="button" onClick={() => setSelectedClientId(client.id)} className="flex w-full items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition hover:border-sky-300/30 hover:bg-white/[0.06]">
+              <button key={client.id} type="button" onClick={() => setSelectedClientId(client.id)} className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition hover:border-sky-300/30 hover:bg-white/[0.06]">
                 <div>
                   <p className="text-sm font-semibold text-white">{client.name}</p>
                   <p className="text-xs text-slate-400">{client.activitySignal}</p>
@@ -486,7 +486,7 @@ export default function ClientsPage() {
         <IntelligenceWidget eyebrow="Approval queue" title="Onboarding and approval state" detail="Accounts requiring relationship or compliance progression.">
           <div className="space-y-3">
             {widgetApprovalQueue.slice(0, 5).map((client) => (
-              <button key={client.id} type="button" onClick={() => setSelectedClientId(client.id)} className="flex w-full items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition hover:border-sky-300/30 hover:bg-white/[0.06]">
+              <button key={client.id} type="button" onClick={() => setSelectedClientId(client.id)} className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition hover:border-sky-300/30 hover:bg-white/[0.06]">
                 <div>
                   <p className="text-sm font-semibold text-white">{client.name}</p>
                   <p className="text-xs text-slate-400">{client.onboardingStatus ?? "Awaiting onboarding progression"}</p>
@@ -528,7 +528,7 @@ export default function ClientsPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex w-full sm:w-auto items-center gap-2">
             <select
               value={pageSize}
               onChange={(event) => {
@@ -547,7 +547,7 @@ export default function ClientsPage() {
           </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs text-slate-400">
           <p>{loading ? "Loading client command table…" : `${filteredClients.length} client command rows`}</p>
           <p>{actionError ? <span className="text-rose-300">{actionError}</span> : "Operational actions route through /api/v2 client endpoints"}</p>
         </div>
@@ -657,7 +657,7 @@ export default function ClientsPage() {
           </div>
         )}
 
-        <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs text-slate-400">
           <p>Page {page} / {totalPages}</p>
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={page === 1} className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 disabled:opacity-40">Previous</button>

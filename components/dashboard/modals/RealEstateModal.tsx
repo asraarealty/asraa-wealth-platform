@@ -130,7 +130,7 @@ export default function RealEstateModal({
     >
       <div className="space-y-4">
         {/* Property Info */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label="Property Name" required>
             <FieldInput
               placeholder="Sunrise Villa"
@@ -148,7 +148,7 @@ export default function RealEstateModal({
         </div>
 
         {/* Financials */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label="Purchase Price (₹)" required>
             <FieldInput
               type="number"
@@ -172,7 +172,7 @@ export default function RealEstateModal({
         </div>
 
         {/* Rent */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label="Monthly Rent (₹)">
             <FieldInput
               type="number"
@@ -201,7 +201,7 @@ export default function RealEstateModal({
         </div>
 
         {/* Tenant */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField label="Tenant Name">
             <FieldInput
               placeholder="John Doe"
