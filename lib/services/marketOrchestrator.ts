@@ -698,7 +698,7 @@ async function searchUnifiedGroups(query: string, signal?: AbortSignal): Promise
 
 export async function searchMarket(query: string) {
   const normalized = query.trim();
-  if (normalized.length < SEARCH_MIN_QUERY_LENGTH) {
+  if (!normalized || normalized.length < SEARCH_MIN_QUERY_LENGTH) {
     searchAbortController?.abort();
     searchAbortController = null;
     setSnapshot({

@@ -26,6 +26,8 @@ import {
 import { toErrorMessage } from "@/lib/fetcher";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
+const VIRTUAL_ROW_STYLE = { contentVisibility: "auto", containIntrinsicSize: "96px" } as const;
+
 const ClientDetailPanel = dynamic(
   () => import("@/components/admin/ClientDetailPanel").then((mod) => mod.ClientDetailPanel),
   { ssr: false }
@@ -581,7 +583,7 @@ export default function ClientsPage() {
               </thead>
               <tbody>
                 {paginatedClients.map((client) => (
-                  <tr key={client.id} className="cursor-pointer border-t border-white/8 transition hover:bg-white/[0.04]" onClick={() => setSelectedClientId(client.id)} style={{ contentVisibility: "auto", containIntrinsicSize: "96px" }}>
+                  <tr key={client.id} className="cursor-pointer border-t border-white/8 transition hover:bg-white/[0.04]" onClick={() => setSelectedClientId(client.id)} style={VIRTUAL_ROW_STYLE}>
                     <td className="px-4 py-4 align-top">
                       <div className="flex items-start gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-500/10 text-sm font-semibold text-sky-100">
