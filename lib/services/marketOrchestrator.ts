@@ -101,6 +101,7 @@ type MutualFundSeed = {
 const MARKET_REFRESH_INTERVAL_MS = 45_000;
 const MARKET_STALE_MS = 40_000;
 const SEARCH_FRESH_MS = 30_000;
+const SEARCH_MIN_QUERY_LENGTH = 3;
 const WATCHLIST_STORAGE_KEY = "asraa.market.watchlist";
 
 const STOCK_UNIVERSE: StockSeed[] = [
@@ -174,6 +175,7 @@ const fundJobs = new Map<string, Promise<MarketAsset | null>>();
 let refreshJob: Promise<MarketAsset[]> | null = null;
 let pollHandle: ReturnType<typeof setInterval> | null = null;
 let lastRefreshAt = 0;
+let searchAbortController: AbortController | null = null;
 
 function emit() {
   listeners.forEach((listener) => listener());
@@ -593,11 +595,12 @@ export async function ensureMarketData(options: { force?: boolean; silent?: bool
   }
 }
 
-async function searchCommodities(query: string): Promise<MarketAsset[]> {
+async function searchCommodities(query: string, signal?: AbortSignal): Promise<MarketAsset[]> {
   const payload = await fetcher<unknown>(`/commodities/search?q=${encodeURIComponent(query)}`, {
     raw: true,
     noRedirectOn401: true,
     cache: "no-store",
+    signal,
   });
 
   return asArray<Record<string, unknown>>(unwrapPayload(payload)).slice(0, 6).map((item, index) => {
@@ -627,7 +630,7 @@ async function searchCommodities(query: string): Promise<MarketAsset[]> {
   });
 }
 
-async function searchUnifiedGroups(query: string): Promise<UnifiedSearchGroups> {
+async function searchUnifiedGroups(query: string, signal?: AbortSignal): Promise<UnifiedSearchGroups> {
   const key = query.trim().toLowerCase();
   if (!key) return { stocks: [], mutualFunds: [], commodities: [] };
 
@@ -640,9 +643,9 @@ async function searchUnifiedGroups(query: string): Promise<UnifiedSearchGroups> 
   if (existing) return existing;
 
   const job: Promise<UnifiedSearchGroups> = Promise.all([
-    searchStocks(query),
-    searchMutualFunds(query),
-    searchCommodities(query),
+    searchStocks(query, signal),
+    searchMutualFunds(query, signal),
+    searchCommodities(query, signal),
   ]).then(([stocks, mutualFunds, commodities]) => ({
     stocks: stocks.slice(0, 8).map((item: StockQuote) => ({
       id: marketId("stock", item.symbol),
@@ -695,10 +698,12 @@ async function searchUnifiedGroups(query: string): Promise<UnifiedSearchGroups> 
 
 export async function searchMarket(query: string) {
   const normalized = query.trim();
-  if (!normalized) {
+  if (!normalized || normalized.length < SEARCH_MIN_QUERY_LENGTH) {
+    searchAbortController?.abort();
+    searchAbortController = null;
     setSnapshot({
       search: {
-        query: "",
+        query: normalized,
         isSearching: false,
         error: null,
         groups: { stocks: [], mutualFunds: [], commodities: [] },
@@ -726,8 +731,13 @@ export async function searchMarket(query: string) {
     },
   });
 
+  searchAbortController?.abort();
+  const controller = new AbortController();
+  searchAbortController = controller;
+
   try {
-    const groups = await searchUnifiedGroups(normalized);
+    const groups = await searchUnifiedGroups(normalized, controller.signal);
+    if (searchAbortController !== controller) return;
     setSnapshot({
       search: {
         query: normalized,
@@ -737,6 +747,8 @@ export async function searchMarket(query: string) {
       },
     });
   } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") return;
+    if (searchAbortController !== controller) return;
     setSnapshot({
       search: {
         query: normalized,
@@ -745,6 +757,8 @@ export async function searchMarket(query: string) {
         groups: { stocks: [], mutualFunds: [], commodities: [] },
       },
     });
+  } finally {
+    if (searchAbortController === controller) searchAbortController = null;
   }
 }
 

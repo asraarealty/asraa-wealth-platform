@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetcher } from "@/lib/fetcher";
 import type { Asset } from "@/lib/types/assets";
@@ -353,19 +353,23 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const query = useQuery({
     queryKey: DASHBOARD_FULL_KEY,
     queryFn: fetchDashboardFull,
-    staleTime: 60_000,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 15,
     refetchOnWindowFocus: false,
+    retry: 1,
   });
 
-  const value: DashboardContextValue = {
+  const refetchAll = useCallback(() => {
+    void query.refetch();
+  }, [query.refetch]);
+
+  const value: DashboardContextValue = useMemo(() => ({
     data: query.data ?? EMPTY_DATA,
     isLoading: query.isLoading,
     isError: query.isError,
     marketSyncNotice: null,
-    refetchAll: () => {
-      void query.refetch();
-    },
-  };
+    refetchAll,
+  }), [query.data, query.isError, query.isLoading, refetchAll]);
 
   return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>;
 }
