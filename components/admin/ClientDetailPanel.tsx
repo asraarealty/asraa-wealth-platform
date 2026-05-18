@@ -2,23 +2,27 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ClientInventoryModal } from "@/components/admin/ClientInventoryModal";
 import { AssetCard } from "@/components/admin/platform/AssetCard";
 import { AllocationRing } from "@/components/admin/platform/AllocationRing";
 import { OperationalEmptyState } from "@/components/admin/platform/EmptyState";
 import { IntelligenceWidget } from "@/components/admin/platform/IntelligenceWidget";
 import { PlatformConfirmModal } from "@/components/admin/platform/PlatformModal";
 import { StatusBadge } from "@/components/admin/platform/StatusBadge";
-import { type Asset, deleteAsset } from "@/lib/api";
+import { type Asset } from "@/lib/api";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 import { ADMIN_CLIENTS_QUERY_KEY, type EnrichedClient } from "@/lib/hooks/useAdminClients";
+import { ASSETS_KEY } from "@/lib/hooks/useAssets";
 import { useClientDetail } from "@/lib/hooks/useClientDetail";
 import { createCanonicalAssetUniverse } from "@/lib/services/assets";
+import { mutateAdminInventory } from "@/lib/services/adminInventoryService";
 import { ALLOWED_TRANSITIONS, approveClient, archiveClient, deleteClient, restoreClient, suspendClient } from "@/lib/services/clientService";
 import { resolveLivePrices } from "@/lib/services/market";
 import { computePortfolioValuation } from "@/lib/services/portfolio";
 import { toErrorMessage } from "@/lib/fetcher";
 import { useAuth } from "@/context/AuthContext";
 import { useAbortSafeLifecycle, useOverlayLifecycle } from "@/lib/ui/modalLifecycle";
+import { DASHBOARD_FULL_KEY } from "@/context/DashboardContext";
 
 function fmtDate(iso?: string): string {
   if (!iso) return "Awaiting signal";
@@ -37,7 +41,9 @@ function fmtDate(iso?: string): string {
 
 function dueState(value?: string) {
   if (!value) return { label: "No rent milestone", tone: "neutral" as const };
-  const diff = Math.ceil((new Date(value).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  const dueAt = new Date(value).getTime();
+  if (!Number.isFinite(dueAt)) return { label: "No rent milestone", tone: "neutral" as const };
+  const diff = Math.ceil((dueAt - Date.now()) / (1000 * 60 * 60 * 24));
   if (diff < 0) return { label: `Overdue ${Math.abs(diff)}d`, tone: "danger" as const };
   if (diff <= 5) return { label: `Due in ${diff}d`, tone: "warn" as const };
   return { label: "On track", tone: "success" as const };
@@ -54,6 +60,7 @@ export function ClientDetailPanel({
   const queryClient = useQueryClient();
   const { authReady, authenticated } = useAuth();
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
+  const [inventoryEditor, setInventoryEditor] = useState<{ mode: "create" | "edit"; asset?: Asset | null } | null>(null);
   const [pendingClientAction, setPendingClientAction] = useState<{
     title: string;
     description: string;
@@ -63,6 +70,7 @@ export function ClientDetailPanel({
   } | null>(null);
   const [clientActionPending, setClientActionPending] = useState(false);
   const [assetError, setAssetError] = useState<string | null>(null);
+  const mutationSequenceRef = useRef(0);
   const { transactions, insights, loading: detailLoading } = useClientDetail(client ? client.id : null);
   const { requestClose, isTopMost, stackIndex } = useOverlayLifecycle({
     open: Boolean(client),
@@ -76,7 +84,15 @@ export function ClientDetailPanel({
     if (client) panelRef.current?.focus();
   }, [client]);
 
-  const holdings = useMemo(() => createCanonicalAssetUniverse(client?.assets ?? []), [client?.assets]);
+  const safeAssets = useMemo(
+    () =>
+      (Array.isArray(client?.assets) ? client.assets : []).filter(
+        (asset): asset is Asset => Boolean(asset) && Number.isFinite(Number(asset.id))
+      ),
+    [client?.assets]
+  );
+
+  const holdings = useMemo(() => createCanonicalAssetUniverse(safeAssets), [safeAssets]);
   const holdingsSignature = useMemo(
     () => holdings.map((holding) => `${holding.id}:${holding.symbol}:${holding.type}`).join("|"),
     [holdings]
@@ -104,12 +120,12 @@ export function ClientDetailPanel({
 
   const valuation = useMemo(() => computePortfolioValuation(holdings, livePricing.data ?? {}), [holdings, livePricing.data]);
   const valuationMap = useMemo(() => Object.fromEntries(valuation.holdings.map((holding) => [holding.id, holding])), [valuation.holdings]);
-  const propertyAssets = client?.assets.filter((asset) => asset.type === "property") ?? [];
-  const marketAssets = client?.assets.filter((asset) => asset.type === "stock" || asset.type === "mf") ?? [];
-  const commodityAssets = client?.assets.filter((asset) => asset.type === "commodity") ?? [];
+  const propertyAssets = safeAssets.filter((asset) => asset.type === "property");
+  const marketAssets = safeAssets.filter((asset) => asset.type === "stock" || asset.type === "mf");
+  const commodityAssets = safeAssets.filter((asset) => asset.type === "commodity");
   const aiAlerts = Array.isArray(insights?.alerts) ? insights.alerts : [];
   const lifecycleReady = ["pending_kyc", "approved", "active", "suspended", "archived"].includes(client?.canonicalStatus ?? "");
-  const intelligenceReady = Boolean((client?.assets.length ?? 0) > 0 || aiAlerts.length > 0);
+  const intelligenceReady = Boolean(safeAssets.length > 0 || aiAlerts.length > 0);
   // Lifecycle controls remain usable even with partial intelligence; UI shows a warning instead of hard lock.
   const operationsReady = lifecycleReady;
   const allowedTransitions = useMemo(
@@ -117,13 +133,57 @@ export function ClientDetailPanel({
     [client?.canonicalStatus]
   );
 
-  const deleteMutation = useMutation({
-    mutationFn: (assetId: number) => deleteAsset(assetId),
-    onSuccess: async () => {
+  const inventoryMutation = useMutation({
+    mutationFn: ({
+      action,
+      assetId,
+      payload,
+    }: {
+      action: "create" | "update" | "delete";
+      assetId?: number;
+      payload?: Record<string, unknown>;
+    }) =>
+      mutateAdminInventory({
+        action,
+        clientId: Number(client?.id ?? 0),
+        assetId,
+        payload,
+        signal: lifecycle.signal,
+      }),
+    onSuccess: async (_result, variables) => {
+      const refreshStartedAt =
+        typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+      console.info("[admin-inventory]", {
+        event: "cache-invalidation.start",
+        action: variables.action,
+        clientId: client?.id ?? null,
+      });
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: ["client-detail", client?.id] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "clients", client?.id, "detail"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "clients", client?.id, "asset-pricing"] }),
+        queryClient.invalidateQueries({ queryKey: DASHBOARD_FULL_KEY }),
+        queryClient.invalidateQueries({ queryKey: ASSETS_KEY }),
+      ]);
+      await queryClient.refetchQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY, type: "active" });
+
+      const refreshDuration =
+        typeof performance !== "undefined" && typeof performance.now === "function"
+          ? performance.now() - refreshStartedAt
+          : Date.now() - refreshStartedAt;
+      console.info("[admin-inventory]", {
+        event: "cache-invalidation.success",
+        action: variables.action,
+        clientId: client?.id ?? null,
+        refreshDurationMs: Number(refreshDuration.toFixed(2)),
+      });
+
       if (!lifecycle.isActive()) return;
-      setAssetToDelete(null);
       setAssetError(null);
-      await queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY });
+      setAssetToDelete(null);
+      setInventoryEditor(null);
     },
     onError: (value) => {
       if (!lifecycle.isActive()) return;
@@ -158,7 +218,7 @@ export function ClientDetailPanel({
       detail: `${transaction.quantity} units · ${fmtCurrency(transaction.total ?? 0)}`,
       timestamp: transaction.date,
     })),
-    ...client.assets.map((asset) => ({
+    ...safeAssets.map((asset) => ({
       id: `asset-${asset.id}`,
       title: `Asset recorded · ${asset.name}`,
       detail: asset.type === "property" ? asset.location ?? "Property pipeline" : asset.symbol ?? asset.type,
@@ -168,6 +228,57 @@ export function ClientDetailPanel({
     .filter((event): event is { id: string; title: string; detail: string; timestamp: string } => Boolean(event && event.timestamp))
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .slice(0, 8);
+
+  async function runInventoryMutation({
+    action,
+    assetId,
+    payload,
+  }: {
+    action: "create" | "update" | "delete";
+    assetId?: number;
+    payload?: Record<string, unknown>;
+  }) {
+    if (inventoryMutation.isPending) {
+      console.info("[admin-inventory]", {
+        event: "mutation.race-detected",
+        action,
+        clientId: client.id,
+        blocked: true,
+      });
+      return;
+    }
+    mutationSequenceRef.current += 1;
+    const sequence = mutationSequenceRef.current;
+    console.info("[admin-inventory]", {
+      event: "mutation.sequence",
+      sequence,
+      action,
+      clientId: client.id,
+    });
+    await inventoryMutation.mutateAsync({ action, assetId, payload });
+  }
+
+  async function refreshInventoryView() {
+    if (inventoryMutation.isPending || livePricing.isFetching) return;
+    const startedAt =
+      typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+    console.info("[admin-inventory]", { event: "refresh.start", clientId: client.id });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["admin", "clients", client.id, "asset-pricing"] }),
+      queryClient.invalidateQueries({ queryKey: ["client-detail", client.id] }),
+      queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY }),
+    ]);
+    await livePricing.refetch();
+    const duration =
+      typeof performance !== "undefined" && typeof performance.now === "function"
+        ? performance.now() - startedAt
+        : Date.now() - startedAt;
+    console.info("[admin-inventory]", {
+      event: "refresh.success",
+      clientId: client.id,
+      durationMs: Number(duration.toFixed(2)),
+    });
+  }
 
   async function runClientAction() {
     if (!pendingClientAction || !client || lifecycle.signal.aborted) return;
@@ -442,11 +553,43 @@ export function ClientDetailPanel({
           </IntelligenceWidget>
 
           <IntelligenceWidget eyebrow="Canonical asset cards" title="Asset operating layer" detail="Unified layout across stocks, funds, commodities, and property with consistent controls.">
-            {client.assets.length === 0 ? (
-              <OperationalEmptyState title="Portfolio not onboarded" description="Holdings have not been synced into the client intelligence workspace yet." hint="Asset sync required" />
+            <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={inventoryMutation.isPending}
+                onClick={() => setInventoryEditor({ mode: "create", asset: null })}
+                className="rounded-xl border border-sky-300/30 bg-sky-500/15 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:bg-sky-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Add inventory
+              </button>
+              <button
+                type="button"
+                disabled={inventoryMutation.isPending || livePricing.isFetching}
+                onClick={() => void refreshInventoryView()}
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {livePricing.isFetching ? "Refreshing…" : "Refresh valuation"}
+              </button>
+            </div>
+            {safeAssets.length === 0 ? (
+              <OperationalEmptyState
+                title="Portfolio not onboarded"
+                description="Holdings have not been synced into the client intelligence workspace yet."
+                hint="Asset sync required"
+                action={
+                  <button
+                    type="button"
+                    disabled={inventoryMutation.isPending}
+                    onClick={() => setInventoryEditor({ mode: "create", asset: null })}
+                    className="rounded-xl bg-sky-400 px-4 py-2 text-sm font-semibold text-[#04102a] transition hover:bg-sky-300 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Add inventory
+                  </button>
+                }
+              />
             ) : (
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                {client.assets.map((asset) => {
+                {safeAssets.map((asset) => {
                   const holding = valuationMap[asset.id];
                   const source = livePricing.data?.[asset.id];
                   const liveValue = holding?.liveValue ?? asset.value ?? 0;
@@ -459,7 +602,8 @@ export function ClientDetailPanel({
                       livePrice={holding?.livePrice}
                       liveValue={holding?.liveValue}
                       pricePoint={source}
-                      onDelete={() => setAssetToDelete(asset)}
+                      onEdit={inventoryMutation.isPending ? undefined : () => setInventoryEditor({ mode: "edit", asset })}
+                      onDelete={inventoryMutation.isPending ? undefined : () => setAssetToDelete(asset)}
                     />
                   );
                 })}
@@ -474,9 +618,30 @@ export function ClientDetailPanel({
           title="Delete asset"
           description="This asset will be removed from the client portfolio and live allocation intelligence immediately."
           confirmLabel="Delete asset"
-          onClose={() => setAssetToDelete(null)}
-          onConfirm={() => void deleteMutation.mutateAsync(assetToDelete.id)}
-          pending={deleteMutation.isPending}
+          onClose={() => (inventoryMutation.isPending ? undefined : setAssetToDelete(null))}
+          onConfirm={() => void runInventoryMutation({ action: "delete", assetId: assetToDelete.id })}
+          pending={inventoryMutation.isPending}
+        />
+      ) : null}
+
+      {inventoryEditor ? (
+        <ClientInventoryModal
+          mode={inventoryEditor.mode}
+          initialAsset={inventoryEditor.asset ?? null}
+          pending={inventoryMutation.isPending}
+          error={assetError}
+          onClose={() => {
+            if (inventoryMutation.isPending) return;
+            setInventoryEditor(null);
+          }}
+          onSubmit={async (payload) => {
+            setAssetError(null);
+            await runInventoryMutation({
+              action: inventoryEditor.mode === "create" ? "create" : "update",
+              assetId: inventoryEditor.asset?.id,
+              payload,
+            });
+          }}
         />
       ) : null}
 

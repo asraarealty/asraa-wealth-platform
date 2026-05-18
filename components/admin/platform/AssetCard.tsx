@@ -73,6 +73,7 @@ export function AssetCard({
   liveValue,
   pricePoint,
   onDelete,
+  onEdit,
   deleteLabel = "Delete",
   onView,
 }: {
@@ -82,6 +83,7 @@ export function AssetCard({
   liveValue?: number;
   pricePoint?: MarketPricePoint;
   onDelete?: () => void;
+  onEdit?: () => void;
   deleteLabel?: string;
   onView?: () => void;
 }) {
@@ -147,9 +149,15 @@ export function AssetCard({
             View
           </Link>
         )}
-        <Link href={getEditHref(asset)} className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center text-xs font-semibold text-slate-100 transition hover:bg-white/10">
-          Edit
-        </Link>
+        {onEdit ? (
+          <button type="button" onClick={onEdit} className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center text-xs font-semibold text-slate-100 transition hover:bg-white/10">
+            Edit
+          </button>
+        ) : (
+          <Link href={getEditHref(asset)} className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center text-xs font-semibold text-slate-100 transition hover:bg-white/10">
+            Edit
+          </Link>
+        )}
         <button
           type="button"
           onClick={onDelete}
