@@ -18,9 +18,10 @@ export function useClientDetail(
   const query = useQuery({
     queryKey: ["client-detail", clientId],
     queryFn: async ({ signal }) => {
+      const resolvedClientId = clientId as number;
       const [transactionsResult, insightsResult] = await Promise.allSettled([
-        fetchTransactions(String(clientId), signal),
-        fetchInsights(clientId ?? undefined, signal),
+        fetchTransactions(String(resolvedClientId), signal),
+        fetchInsights(resolvedClientId, signal),
       ]);
 
       const transactions =
