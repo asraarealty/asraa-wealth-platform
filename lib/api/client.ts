@@ -212,7 +212,7 @@ function extractApiMessage(payload: unknown, fallback: string): { message: strin
     (typeof record.message === "string" && record.message) ||
     (typeof record.error === "string" && record.error) ||
     (typeof record.detail === "string" && record.detail) ||
-    (Array.isArray(record.detail) && typeof record.detail[0] === "object"
+    (Array.isArray(record.detail) && record.detail.length > 0 && typeof record.detail[0] === "object"
       ? ((record.detail[0] as Record<string, unknown>).msg as string | undefined)
       : undefined) ||
     fallback;
@@ -367,7 +367,8 @@ export function createApiClient(config: ApiClientConfig = {}) {
                 retryable: true,
               });
 
-        if (typeof window !== "undefined") {
+        const isFinalFailure = attempt >= maxRetries || !isRetryableError(normalizedError);
+        if (typeof window !== "undefined" && isFinalFailure) {
           console.warn("[perf]", {
             type: "query-timing",
             method,
@@ -378,10 +379,10 @@ export function createApiClient(config: ApiClientConfig = {}) {
           }, normalizedError);
         }
 
-        if (attempt >= maxRetries || !isRetryableError(normalizedError)) {
+        if (isFinalFailure) {
           throw normalizedError;
         }
-        const delayMs = Math.min(RETRY_BASE_DELAY_MS * 2 ** (attempt + 1), RETRY_MAX_DELAY_MS);
+        const delayMs = Math.min(RETRY_BASE_DELAY_MS * 2 ** attempt, RETRY_MAX_DELAY_MS);
         await sleep(delayMs);
         attempt += 1;
       }
@@ -393,10 +394,11 @@ export function createApiClient(config: ApiClientConfig = {}) {
     const url = normalizeUrl(path, baseUrl);
     const requestPath = getPathnameFromUrl(url);
     const key = dedupeKey(method, url, options.body);
+    const dedupeEligible = shouldDedupeRequest(requestPath, method);
     const cacheTtlMs =
       options.cacheTtlMs ??
-      (shouldDedupeRequest(requestPath, method) ? DEFAULT_DEDUPE_CACHE_TTL_MS : 0);
-    const useDedupe = options.dedupe ?? shouldDedupeRequest(requestPath, method);
+      (dedupeEligible ? DEFAULT_DEDUPE_CACHE_TTL_MS : 0);
+    const useDedupe = options.dedupe ?? dedupeEligible;
 
     if (cacheTtlMs > 0) {
       const cached = responseCache.get(key);
