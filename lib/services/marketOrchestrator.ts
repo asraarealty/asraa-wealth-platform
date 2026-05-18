@@ -177,7 +177,7 @@ let pollHandle: ReturnType<typeof setInterval> | null = null;
 let lastRefreshAt = 0;
 let searchAbortController: AbortController | null = null;
 let hasBootstrappedMarket = false;
-let lastRefreshWarning: string | null = null;
+let lastRefreshMessage: string | null = null;
 
 function emit() {
   listeners.forEach((listener) => listener());
@@ -562,7 +562,7 @@ async function refreshMarketUniverse(force = false): Promise<MarketAsset[]> {
         mutualFundsResult.status === "rejected" ? "mutual funds" : null,
       ].filter(Boolean) as string[];
 
-      lastRefreshWarning =
+      lastRefreshMessage =
         failedAreas.length > 0
           ? `Partial market sync: ${failedAreas.join(", ")} unavailable; showing last known values.`
           : null;
@@ -612,7 +612,7 @@ export async function ensureMarketData(options: { force?: boolean; silent?: bool
     setSnapshot({
       isLoading: false,
       isRefreshing: false,
-      error: lastRefreshWarning,
+      error: lastRefreshMessage,
       lastUpdated: new Date().toISOString(),
       assets,
       ...deriveCollections(assets),

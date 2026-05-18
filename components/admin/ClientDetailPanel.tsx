@@ -121,7 +121,7 @@ export function ClientDetailPanel({
   const aiAlerts = Array.isArray(insights?.alerts) ? insights.alerts : [];
   const lifecycleReady = ["pending_kyc", "approved", "active", "suspended", "archived"].includes(client?.canonicalStatus ?? "");
   const intelligenceReady = Boolean((client?.assets.length ?? 0) > 0 || aiAlerts.length > 0);
-  // Lifecycle controls must remain usable even when market/intelligence feeds are partial.
+  // Lifecycle controls remain usable even with partial intelligence; UI shows a warning instead of hard lock.
   const operationsReady = lifecycleReady;
   const allowedTransitions = useMemo(
     () => ALLOWED_TRANSITIONS[client?.canonicalStatus ?? "lead"] ?? [],

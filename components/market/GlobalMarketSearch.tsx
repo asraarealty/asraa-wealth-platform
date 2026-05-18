@@ -36,8 +36,8 @@ export function GlobalMarketSearch() {
   const lastQueryRef = useRef("");
 
   useEffect(() => {
-    const normalized = query.trim();
-    if (normalized.toLowerCase() === lastQueryRef.current.toLowerCase()) return;
+    const normalized = query.trim().toLowerCase();
+    if (normalized === lastQueryRef.current) return;
 
     const timer = setTimeout(() => {
       void searchMarket(query);

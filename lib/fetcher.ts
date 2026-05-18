@@ -61,6 +61,7 @@ interface MemoizedEntry {
   value: unknown;
 }
 
+// 20s keeps market reads fresh while suppressing bursty duplicate calls.
 const REQUEST_MEMO_TTL_MS = 20_000;
 const requestMemoCache = new Map<string, MemoizedEntry>();
 const requestMemoInFlight = new Map<string, Promise<unknown>>();
@@ -74,6 +75,7 @@ function pathFromUrl(url: string): string {
 
 function shouldMemoizeRequest(path: string, method: string, hasSignal: boolean): boolean {
   if (hasSignal) return false;
+  // Bulk quote POST is idempotent/read-only in this app and safe for short memoization.
   if (method === "POST" && path.endsWith("/stocks/v2/bulk")) return true;
   if (method !== "GET") return false;
   return (
