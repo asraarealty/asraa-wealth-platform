@@ -184,6 +184,13 @@ const asRecord = (value: unknown): Record<string, unknown> => {
     : {};
 };
 
+const unwrapDashboardPayload = (value: unknown): Record<string, unknown> => {
+  const root = asRecord(value);
+  const levelOne = asRecord(root.data ?? root);
+  const levelTwo = asRecord(levelOne.data ?? levelOne);
+  return Object.keys(levelTwo).length > 0 ? levelTwo : levelOne;
+};
+
 const normalizeSeverity = (value: unknown): "low" | "medium" | "high" => {
   const text = String(value ?? "").toLowerCase();
   if (text === "high") return "high";
@@ -209,8 +216,7 @@ const classifyAlertType = (value: unknown): EventType => {
 
 async function fetchDashboardFull(): Promise<DashboardOperatingData> {
   const res = await fetcher<unknown>("/dashboard/full", { raw: true });
-  const root = asRecord(res);
-  const payload = asRecord(root.data ?? root);
+  const payload = unwrapDashboardPayload(res);
 
   const summaryRaw = asRecord(payload.summary);
   const portfolioRaw = asRecord(payload.portfolio);

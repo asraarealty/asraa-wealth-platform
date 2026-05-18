@@ -154,9 +154,13 @@ export function fetchTransactions(
   userId?: string,
   signal?: AbortSignal
 ): Promise<Transaction[]> {
-  const qs = userId
-    ? `?client_id=${encodeURIComponent(userId)}`
-    : "";
+  const qs = (() => {
+    if (!userId) return "";
+    const params = new URLSearchParams();
+    params.set("client_id", userId);
+    params.set("user_id", userId);
+    return `?${params.toString()}`;
+  })();
 
   return fetcher<Transaction[]>(`/transactions${qs}`, { signal });
 }
@@ -439,12 +443,26 @@ export async function fetchAdminGroupedAssets(
   const appendAsset = (rawAsset: unknown, fallbackUserId?: number) => {
     if (!rawAsset || typeof rawAsset !== "object") return;
     const entry = rawAsset as Record<string, unknown>;
-    const derivedUserId = Number(
-      entry.user_id ?? entry.userId ?? entry.client_id ?? entry.clientId ?? fallbackUserId ?? NaN
+    const candidateIds = Array.from(
+      new Set(
+        [
+          entry.client_id,
+          entry.clientId,
+          entry.user_id,
+          entry.userId,
+          fallbackUserId,
+        ]
+          .map((id) => Number(id))
+          .filter((id) => Number.isFinite(id) && id > 0)
+      )
     );
-    if (!Number.isFinite(derivedUserId)) return;
-    if (!grouped[derivedUserId]) grouped[derivedUserId] = [];
-    grouped[derivedUserId].push(normalizeAssetRecord(entry, derivedUserId));
+    if (candidateIds.length === 0) return;
+
+    const normalized = normalizeAssetRecord(entry, candidateIds[0]);
+    for (const candidateId of candidateIds) {
+      if (!grouped[candidateId]) grouped[candidateId] = [];
+      grouped[candidateId].push(normalized);
+    }
   };
 
   if (Array.isArray(res)) {
@@ -565,10 +583,13 @@ export async function fetchInsights(
 ): Promise<InsightsResponse> {
   // Admins can request insights for a specific client by passing clientId.
   // All other callers (or admins viewing their own data) use the /insights/me route.
-  const path =
-    clientId !== undefined
-      ? `/insights?user_id=${encodeURIComponent(clientId)}`
-      : "/insights/me";
+  const path = (() => {
+    if (clientId === undefined) return "/insights/me";
+    const params = new URLSearchParams();
+    params.set("user_id", String(clientId));
+    params.set("client_id", String(clientId));
+    return `/insights?${params.toString()}`;
+  })();
 
   const rawRes = await fetcher<any>(path, { signal, raw: true, cache: "no-store" });
   const res = unwrap<any>(rawRes);
