@@ -176,6 +176,7 @@ let refreshJob: Promise<MarketAsset[]> | null = null;
 let pollHandle: ReturnType<typeof setInterval> | null = null;
 let lastRefreshAt = 0;
 let searchAbortController: AbortController | null = null;
+let lastRefreshMessage: string | null = null;
 
 function emit() {
   listeners.forEach((listener) => listener());
@@ -529,19 +530,50 @@ async function refreshMarketUniverse(force = false): Promise<MarketAsset[]> {
     return snapshot.assets;
   }
 
-  const job: Promise<MarketAsset[]> = Promise.all([
+  const job: Promise<MarketAsset[]> = Promise.allSettled([
     fetchBulkStockUniverse(),
     Promise.all(COMMODITY_UNIVERSE.map((seed) => fetchCommodity(seed))),
     Promise.all(MUTUAL_FUND_UNIVERSE.map((seed) => fetchMutualFund(seed))),
   ])
-    .then(([stocks, commodities, mutualFunds]) => {
+    .then(([stocksResult, commoditiesResult, mutualFundsResult]) => {
+      const previous = snapshot.assets;
+      const previousStocks = previous.filter((asset) =>
+        ["stock", "global-stock", "etf", "index", "forex"].includes(asset.kind)
+      );
+      const previousCommodities = previous.filter((asset) =>
+        ["commodity", "metal"].includes(asset.kind)
+      );
+      const previousFunds = previous.filter((asset) => asset.kind === "mutual-fund");
+
+      const stocks = stocksResult.status === "fulfilled" ? stocksResult.value : previousStocks;
+      const commodities =
+        commoditiesResult.status === "fulfilled"
+          ? commoditiesResult.value.filter(Boolean)
+          : previousCommodities;
+      const mutualFunds =
+        mutualFundsResult.status === "fulfilled"
+          ? mutualFundsResult.value.filter(Boolean)
+          : previousFunds;
+
+      const failedAreas = [
+        stocksResult.status === "rejected" ? "stocks" : null,
+        commoditiesResult.status === "rejected" ? "commodities" : null,
+        mutualFundsResult.status === "rejected" ? "mutual funds" : null,
+      ].filter(Boolean) as string[];
+
+      lastRefreshMessage =
+        failedAreas.length > 0
+          ? `Partial market sync: ${failedAreas.join(", ")} unavailable; showing last known values.`
+          : null;
+
       const combined = dedupeAssets([
         ...stocks,
-        ...commodities.filter(Boolean),
-        ...mutualFunds.filter(Boolean),
+        ...commodities,
+        ...mutualFunds,
       ] as MarketAsset[]);
+
       lastRefreshAt = Date.now();
-      return combined;
+      return combined.length > 0 ? combined : previous;
     })
     .finally(() => {
       refreshJob = null;
@@ -579,7 +611,7 @@ export async function ensureMarketData(options: { force?: boolean; silent?: bool
     setSnapshot({
       isLoading: false,
       isRefreshing: false,
-      error: null,
+      error: lastRefreshMessage,
       lastUpdated: new Date().toISOString(),
       assets,
       ...deriveCollections(assets),
@@ -789,7 +821,20 @@ export function useMarketOrchestrator() {
   const state = useSyncExternalStore(subscribeMarket, getMarketSnapshot, getMarketSnapshot);
 
   useEffect(() => {
-    void ensureMarketData({ silent: snapshot.assets.length > 0 });
+    if (typeof performance !== "undefined" && typeof performance.mark === "function") {
+      performance.mark("market:mount:start");
+    }
+
+    void ensureMarketData({ silent: snapshot.assets.length > 0 }).finally(() => {
+      if (typeof performance !== "undefined" && typeof performance.mark === "function") {
+        performance.mark("market:mount:end");
+        try {
+          performance.measure("market:mount", "market:mount:start", "market:mount:end");
+        } catch {
+          // Ignore duplicate-mark measurement errors in strict/dev remount cycles.
+        }
+      }
+    });
   }, []);
 
   return {

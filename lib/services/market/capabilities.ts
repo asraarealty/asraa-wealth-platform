@@ -52,7 +52,7 @@ async function probe(call: () => Promise<unknown>): Promise<boolean> {
 async function detectCapabilities(): Promise<MarketCapabilities> {
   const [stockQuotes, bulkQuotes, mfNav, commodityPricing] = await Promise.all([
     probe(() =>
-      fetcher(`/stocks/${encodeURIComponent("INFY")}`, {
+      fetcher(`/stocks/v2/${encodeURIComponent("INFY")}`, {
         raw: true,
         noRedirectOn401: true,
         cache: "no-store",

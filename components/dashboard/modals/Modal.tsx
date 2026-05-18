@@ -1,6 +1,9 @@
 "use client";
 
 import { type ReactNode, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { useRef } from "react";
+import { useBodyScrollLock } from "@/lib/ui/modalLifecycle";
 
 interface ModalProps {
   title: string;
@@ -15,6 +18,9 @@ export default function Modal({
   children,
   width = "w-full max-w-md",
 }: ModalProps) {
+  const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -23,14 +29,14 @@ export default function Modal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  useBodyScrollLock(true);
+
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, []);
+    if (pathnameRef.current !== pathname) {
+      onClose();
+    }
+    pathnameRef.current = pathname;
+  }, [pathname, onClose]);
 
   return (
     <div

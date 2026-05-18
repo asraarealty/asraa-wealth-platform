@@ -15,13 +15,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen bg-[#07080d] text-white">
+    <div className="min-h-screen overflow-x-hidden bg-[#07080d] text-white">
       <div className="flex min-h-screen">
         <AdminSidebar />
         <div className="flex flex-col flex-1 min-w-0">
           <AdminHeader />
-          <main className="flex-1 overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-8">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5">{children}</div>
+          <main className="flex-1 overflow-x-hidden overflow-y-auto pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-8">
+            <div className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6">{children}</div>
           </main>
         </div>
       </div>
