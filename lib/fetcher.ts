@@ -125,7 +125,7 @@ async function refreshAccessToken(): Promise<string> {
   const existingRefreshToken = getRefreshToken();
   const payload =
     existingRefreshToken && existingRefreshToken.trim()
-      ? { refresh_token: existingRefreshToken, refreshToken: existingRefreshToken }
+      ? { refresh_token: existingRefreshToken }
       : undefined;
 
   const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
@@ -209,7 +209,7 @@ export async function fetcher<T>(
         type: "refresh-failed",
         reason: refreshError instanceof Error ? refreshError.message : "Refresh failed",
       });
-      throw error;
+      throw refreshError;
     }
   }
 }

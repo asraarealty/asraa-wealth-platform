@@ -73,6 +73,16 @@ const PROTECTED_QUERY_KEYS = [
 const REDIRECT_LOOP_WINDOW_MS = 10_000;
 const REDIRECT_LOOP_THRESHOLD = 4;
 
+function getNow() {
+  return typeof performance !== "undefined" && typeof performance.now === "function"
+    ? performance.now()
+    : Date.now();
+}
+
+function toDurationMs(startedAt: number) {
+  return Number((getNow() - startedAt).toFixed(2));
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [lifecycle, setLifecycle] = useState<AuthLifecycleState>(() =>
@@ -165,10 +175,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const runId = hydrationRunRef.current + 1;
     hydrationRunRef.current = runId;
     const controller = new AbortController();
-    const startedAt =
-      typeof performance !== "undefined" && typeof performance.now === "function"
-        ? performance.now()
-        : Date.now();
+    const startedAt = getNow();
+    const shouldAbortHydration = () =>
+      controller.signal.aborted || runId !== hydrationRunRef.current;
 
     setAuthLifecycleState({
       authReady: false,
@@ -191,12 +200,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           signal: controller.signal,
           noRedirectOn401: true,
         });
-        if (controller.signal.aborted || runId !== hydrationRunRef.current) return;
+        if (shouldAbortHydration()) return;
         setUser(me);
         resetUnauthorizedBurstCounter();
         resetAuthLifecycle(true);
       } catch (error) {
-        if (controller.signal.aborted || runId !== hydrationRunRef.current) return;
+        if (shouldAbortHydration()) return;
         setUser(null);
         await clearProtectedSessionState();
         resetUnauthorizedBurstCounter();
@@ -205,13 +214,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           reportAuthTelemetry({ type: "auth-failure", reason: error.message });
         }
       } finally {
-        const duration =
-          typeof performance !== "undefined" && typeof performance.now === "function"
-            ? performance.now() - startedAt
-            : Date.now() - startedAt;
         reportAuthTelemetry({
           type: "hydration",
-          durationMs: Number(duration.toFixed(2)),
+          durationMs: toDurationMs(startedAt),
         });
       }
     };
