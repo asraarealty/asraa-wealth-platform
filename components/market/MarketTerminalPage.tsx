@@ -35,6 +35,8 @@ const CONFIG: Record<Variant, { eyebrow: string; title: string; subtitle: string
     focus: "Opportunities",
   },
 };
+const OVERVIEW_SKELETON_COUNT = 4;
+const QUOTE_SKELETON_COUNT = 6;
 
 function formatUpdatedTime(value: string | null) {
   if (!value) return null;
@@ -159,7 +161,7 @@ export function MarketTerminalPage({ variant }: { variant: Variant }) {
               <MetricTile key={metric.label} label={metric.label} value={metric.value} change={metric.delta} positive={metric.tone === "success" ? true : metric.tone === "warn" ? false : undefined} />
             ))}
             {showSkeleton
-              ? Array.from({ length: 4 }).map((_, index) => (
+              ? Array.from({ length: OVERVIEW_SKELETON_COUNT }).map((_, index) => (
                   <LoadingBlock key={`overview-skeleton-${index}`} label="Loading market metric..." />
                 ))
               : null}
@@ -176,7 +178,7 @@ export function MarketTerminalPage({ variant }: { variant: Variant }) {
               <QuoteCard key={item.id} item={item} onToggle={toggleWatchlist} />
             ))}
             {showSkeleton
-              ? Array.from({ length: 6 }).map((_, index) => (
+              ? Array.from({ length: QUOTE_SKELETON_COUNT }).map((_, index) => (
                   <LoadingBlock key={`quote-skeleton-${index}`} label="Loading quote..." />
                 ))
               : null}

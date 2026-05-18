@@ -837,7 +837,9 @@ export function useMarketOrchestrator() {
           performance.mark("market:mount:end");
           try {
             performance.measure("market:mount", "market:mount:start", "market:mount:end");
-          } catch {}
+          } catch {
+            // Ignore duplicate-mark measurement errors in strict/dev remount cycles.
+          }
         }
       });
     }

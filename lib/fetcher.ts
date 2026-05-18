@@ -194,7 +194,9 @@ export async function fetcher<T>(
 
     try {
       json = await response.json();
-    } catch {}
+    } catch {
+      // Non-JSON responses are allowed for 204-like backend behavior.
+    }
 
     if (json === undefined) return undefined as T;
 
