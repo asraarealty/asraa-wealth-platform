@@ -12,7 +12,18 @@ export type WorkspaceStatusFilter =
   | "suspended"
   | "archived";
 
-export function useAdminWorkspaceState<T extends { status?: string; name?: string; email?: string; phone?: string; relationshipManager?: string; leadSource?: string; campaignSegmentation?: string; tags?: string[] }>(
+export interface WorkspaceFilterableClient {
+  status?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  relationshipManager?: string;
+  leadSource?: string;
+  campaignSegmentation?: string;
+  tags?: string[];
+}
+
+export function useAdminWorkspaceState<T extends WorkspaceFilterableClient>(
   clients: T[],
   defaults: { pageSize: number }
 ) {

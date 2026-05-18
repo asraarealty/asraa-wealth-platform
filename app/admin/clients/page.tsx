@@ -27,6 +27,7 @@ import {
 import { toErrorMessage } from "@/lib/fetcher";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
+const DEFAULT_WORKSPACE_PAGE_SIZE = PAGE_SIZE_OPTIONS[0];
 const VIRTUAL_ROW_STYLE = { contentVisibility: "auto", containIntrinsicSize: "96px" } as const;
 
 const ClientDetailPanel = dynamic(
@@ -250,7 +251,7 @@ export default function ClientsPage() {
     filteredClients,
     paginatedClients,
     totalPages,
-  } = useAdminWorkspaceState(clients, { pageSize: 10 });
+  } = useAdminWorkspaceState(clients, { pageSize: DEFAULT_WORKSPACE_PAGE_SIZE });
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [pendingAction, setPendingAction] = useState<ConfirmAction | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);

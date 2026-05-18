@@ -11,8 +11,8 @@ import {
   useUpdatePortfolioAsset,
 } from "@/domains/portfolio";
 
-export const ASSETS_KEY = portfolioQueryKeys.assetsMe;
-export const INSIGHTS_KEY = ["intelligence", "legacy", "me"] as const;
+export const ASSETS_KEY = portfolioQueryKeys.dashboardGraph;
+export const INSIGHTS_KEY = ["insights", "me"] as const;
 
 export function useAssets() {
   const query = usePortfolioGraphQuery();
@@ -56,7 +56,27 @@ export function useInsights() {
     queryFn: () => fetcher<RawEnvelope<InsightsResponse>>("/insights/me", { raw: true }),
     select: (res): InsightsResponse => {
       const isEnvelope = res && typeof res === "object" && "data" in res && res.data != null;
-      return isEnvelope ? (res.data as InsightsResponse) : ((res as unknown as InsightsResponse) ?? fallback);
+      if (isEnvelope) {
+        const data = res.data as Partial<InsightsResponse>;
+        return {
+          equity_percentage: Number(data.equity_percentage ?? 0),
+          real_estate_percentage: Number(data.real_estate_percentage ?? 0),
+          alerts: Array.isArray(data.alerts) ? data.alerts.map((item) => String(item)) : [],
+        };
+      }
+
+      if (!res || typeof res !== "object") {
+        return fallback;
+      }
+
+      const candidate = res as Partial<InsightsResponse>;
+      return {
+        equity_percentage: Number(candidate.equity_percentage ?? fallback.equity_percentage ?? 0),
+        real_estate_percentage: Number(candidate.real_estate_percentage ?? fallback.real_estate_percentage ?? 0),
+        alerts: Array.isArray(candidate.alerts)
+          ? candidate.alerts.map((item) => String(item))
+          : fallback.alerts,
+      };
     },
     enabled: authReady && sessionHydrated && authenticated,
   });

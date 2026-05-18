@@ -64,7 +64,7 @@ export function normalizeIntelligencePayload(payload: unknown): IntelligencePipe
     aiInsights: asArray<Record<string, unknown>>(record.ai_market_insights ?? record.aiInsights ?? record.insights).map(
       (item, index) => ({
         title: asText(item.title, `Insight ${index + 1}`),
-        message: asText(item.message ?? item.body),
+        message: asText(item.message ?? item.body, asText(item, "")),
         confidence: Number(item.confidence ?? 0),
       })
     ),

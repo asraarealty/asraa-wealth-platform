@@ -177,7 +177,16 @@ export function normalizeDashboardFullPayload(payloadValue: unknown): PortfolioO
   };
 }
 
-function mergeAssetsMePayload(base: PortfolioOperatingData, payloadValue: unknown): PortfolioOperatingData {
+/**
+ * Merge /assets/me payload into portfolio graph data.
+ * Use preferFallback=true when /dashboard/full failed so summary/allocation come from /assets/me.
+ * Use preferFallback=false when /dashboard/full succeeded to keep dashboard-calculated summary/allocation.
+ */
+function mergeAssetsMePayload(
+  base: PortfolioOperatingData,
+  payloadValue: unknown,
+  options: { preferFallback: boolean }
+): PortfolioOperatingData {
   const payload = unwrapPayload(payloadValue);
   const fallbackAssets = asArray<Asset>(payload.assets);
   const fallbackSummary = asRecord(payload.summary);
@@ -186,21 +195,25 @@ function mergeAssetsMePayload(base: PortfolioOperatingData, payloadValue: unknow
   const assets = fallbackAssets.length > 0 ? fallbackAssets : base.assets;
   const properties = base.properties.length > 0 ? base.properties : assets.filter((asset) => asset?.type === "property");
 
-  const summary = {
-    total_value: base.summary.total_value || asNum(fallbackSummary.total_value),
-    total_invested: base.summary.total_invested || asNum(fallbackSummary.total_invested),
-    total_return: base.summary.total_return || asNum(fallbackSummary.total_return),
-    return_percentage: base.summary.return_percentage || asNum(fallbackSummary.return_percentage),
-    monthly_income: base.summary.monthly_income,
-    net_worth: base.summary.net_worth || asNum(fallbackSummary.total_value),
-  };
+  const summary = options.preferFallback
+    ? {
+        total_value: asNum(fallbackSummary.total_value),
+        total_invested: asNum(fallbackSummary.total_invested),
+        total_return: asNum(fallbackSummary.total_return),
+        return_percentage: asNum(fallbackSummary.return_percentage),
+        monthly_income: base.summary.monthly_income,
+        net_worth: asNum(fallbackSummary.total_value),
+      }
+    : base.summary;
 
-  const allocation = {
-    stock: base.allocation.stock || asNum(fallbackAllocation.stock ?? fallbackAllocation.equity),
-    mf: base.allocation.mf || asNum(fallbackAllocation.mf ?? fallbackAllocation.mutual_funds),
-    property: base.allocation.property || asNum(fallbackAllocation.property ?? fallbackAllocation.real_estate),
-    commodity: base.allocation.commodity || asNum(fallbackAllocation.commodity),
-  };
+  const allocation = options.preferFallback
+    ? {
+        stock: asNum(fallbackAllocation.stock ?? fallbackAllocation.equity),
+        mf: asNum(fallbackAllocation.mf ?? fallbackAllocation.mutual_funds),
+        property: asNum(fallbackAllocation.property ?? fallbackAllocation.real_estate),
+        commodity: asNum(fallbackAllocation.commodity),
+      }
+    : base.allocation;
 
   return {
     ...base,
@@ -239,7 +252,7 @@ export async function fetchPortfolioGraph(signal?: AbortSignal): Promise<Portfol
   }
 
   if (assetsResult.status === "fulfilled") {
-    data = mergeAssetsMePayload(data, assetsResult.value);
+    data = mergeAssetsMePayload(data, assetsResult.value, { preferFallback: dashboardResult.status === "rejected" });
   } else {
     degraded.push("assets snapshot unavailable");
   }

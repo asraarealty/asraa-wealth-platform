@@ -8,7 +8,7 @@ import { fetchAdminClients } from "@/lib/services/clientService";
 import { EMPTY_KPIS, enrichClients, type AdminClientsKPIs, type EnrichedClient } from "@/lib/utils/adminClientIntelligence";
 import { useAuth } from "@/context/AuthContext";
 import { adminDomainQueryKeys } from "./queryKeys";
-import { fetchClientIntelligence } from "@/domains/intelligence";
+import { fetchClientIntelligence, type ClientIntelligenceData } from "@/domains/intelligence";
 import { normalizeTransaction } from "@/lib/api/normalizers";
 
 export interface UseAdminClientsResult {
@@ -21,7 +21,7 @@ export interface UseAdminClientsResult {
 
 export interface ClientDetailData {
   transactions: Transaction[];
-  insights: Awaited<ReturnType<typeof fetchClientIntelligence>>["insights"];
+  insights: ClientIntelligenceData["insights"];
   loading: boolean;
   error: string | null;
 }
@@ -39,6 +39,7 @@ export function useAdminClientsWorkspace(): UseAdminClientsResult {
         groupedAssets = await fetchAdminGroupedAssets(signal);
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") throw error;
+        console.warn("[admin-domain] grouped assets unavailable", error);
       }
 
       return enrichClients(clients, groupedAssets);
@@ -85,7 +86,10 @@ export function useAdminClientDetail(clientId: number | null): ClientDetailData 
               .filter((entry): entry is Transaction => Boolean(entry))
           : [];
 
-      const insights = insightsResult.status === "fulfilled" ? insightsResult.value.insights : null;
+      const insights =
+        insightsResult.status === "fulfilled"
+          ? insightsResult.value.insights
+          : null;
       const transactionError =
         transactionsResult.status === "rejected" ? toErrorMessage(transactionsResult.reason) : null;
       const insightsError = insightsResult.status === "rejected" ? toErrorMessage(insightsResult.reason) : null;
