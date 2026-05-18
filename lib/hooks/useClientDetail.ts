@@ -20,16 +20,20 @@ export function useClientDetail(
     queryKey: ["client-detail", clientId, "transactions"],
     queryFn: ({ signal }) => fetchTransactions(String(clientId), signal),
     enabled: clientId !== null,
-    staleTime: 60_000,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 15,
     refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const insightsQuery = useQuery({
     queryKey: ["client-detail", clientId, "insights"],
     queryFn: ({ signal }) => fetchInsights(clientId ?? undefined, signal),
     enabled: clientId !== null,
-    staleTime: 60_000,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 15,
     refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const error = useMemo(() => {

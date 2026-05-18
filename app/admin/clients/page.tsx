@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ClientDetailPanel } from "@/components/admin/ClientDetailPanel";
 import { ActionMenu } from "@/components/admin/platform/ActionMenu";
 import { AllocationRing } from "@/components/admin/platform/AllocationRing";
 import { OperationalEmptyState } from "@/components/admin/platform/EmptyState";
@@ -26,6 +26,10 @@ import {
 import { toErrorMessage } from "@/lib/fetcher";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
+const ClientDetailPanel = dynamic(
+  () => import("@/components/admin/ClientDetailPanel").then((mod) => mod.ClientDetailPanel),
+  { ssr: false }
+);
 
 type StatusFilter =
   | "all"
@@ -265,29 +269,47 @@ export default function ClientsPage() {
   const totalPages = Math.max(1, Math.ceil(filteredClients.length / pageSize));
   const paginatedClients = filteredClients.slice((page - 1) * pageSize, page * pageSize);
 
-  const propertyAssets = clients.flatMap((client) => client.assets.filter((asset) => asset.type === "property"));
-  const occupiedProperties = propertyAssets.filter((asset) => Boolean(asset.tenantName ?? asset.tenant_name)).length;
-  const dueSoonProperties = propertyAssets.filter((asset) => {
-    if (!asset.rentDueDate && !asset.rent_due_date) return false;
-    const due = new Date(String(asset.rentDueDate ?? asset.rent_due_date)).getTime();
-    const diff = Math.ceil((due - Date.now()) / (1000 * 60 * 60 * 24));
-    return diff >= 0 && diff <= 5;
-  }).length;
-  const overdueProperties = propertyAssets.filter((asset) => {
-    if (!asset.rentDueDate && !asset.rent_due_date) return false;
-    const due = new Date(String(asset.rentDueDate ?? asset.rent_due_date)).getTime();
-    return due < Date.now();
-  }).length;
+  const {
+    propertyAssets,
+    occupiedProperties,
+    dueSoonProperties,
+    overdueProperties,
+    widgetHeatmap,
+    widgetRisk,
+    widgetActivity,
+    widgetApprovalQueue,
+  } = useMemo(() => {
+    const nextPropertyAssets = clients.flatMap((client) => client.assets.filter((asset) => asset.type === "property"));
+    const nextOccupiedProperties = nextPropertyAssets.filter((asset) => Boolean(asset.tenantName ?? asset.tenant_name)).length;
+    const now = Date.now();
+    const nextDueSoonProperties = nextPropertyAssets.filter((asset) => {
+      if (!asset.rentDueDate && !asset.rent_due_date) return false;
+      const due = new Date(String(asset.rentDueDate ?? asset.rent_due_date)).getTime();
+      const diff = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
+      return diff >= 0 && diff <= 5;
+    }).length;
+    const nextOverdueProperties = nextPropertyAssets.filter((asset) => {
+      if (!asset.rentDueDate && !asset.rent_due_date) return false;
+      const due = new Date(String(asset.rentDueDate ?? asset.rent_due_date)).getTime();
+      return due < now;
+    }).length;
 
-  const widgetHeatmap = [...clients].sort((a, b) => b.totalNetWorth - a.totalNetWorth).slice(0, 5);
-  const widgetRisk = [...clients].sort((a, b) => b.equityExposurePct - a.equityExposurePct).slice(0, 5);
-  const widgetActivity = [...clients]
-    .filter((client) => client.lastActivity)
-    .sort((a, b) => new Date(String(b.lastActivity)).getTime() - new Date(String(a.lastActivity)).getTime())
-    .slice(0, 5);
-  const widgetApprovalQueue = clients.filter(
-    (client) => ["lead", "onboarding", "pending_kyc", "approved"].includes(client.canonicalStatus)
-  );
+    return {
+      propertyAssets: nextPropertyAssets,
+      occupiedProperties: nextOccupiedProperties,
+      dueSoonProperties: nextDueSoonProperties,
+      overdueProperties: nextOverdueProperties,
+      widgetHeatmap: [...clients].sort((a, b) => b.totalNetWorth - a.totalNetWorth).slice(0, 5),
+      widgetRisk: [...clients].sort((a, b) => b.equityExposurePct - a.equityExposurePct).slice(0, 5),
+      widgetActivity: [...clients]
+        .filter((client) => client.lastActivity)
+        .sort((a, b) => new Date(String(b.lastActivity)).getTime() - new Date(String(a.lastActivity)).getTime())
+        .slice(0, 5),
+      widgetApprovalQueue: clients.filter(
+        (client) => ["lead", "onboarding", "pending_kyc", "approved"].includes(client.canonicalStatus)
+      ),
+    };
+  }, [clients]);
 
   async function runAction(action: ConfirmAction) {
     try {
@@ -340,7 +362,7 @@ export default function ClientsPage() {
     });
   }
 
-  const kpiTiles = [
+  const kpiTiles = useMemo(() => [
     { label: "Total clients", value: String(kpis.totalClients), tone: "neutral" as const },
     { label: "Active", value: String(kpis.activeClients), tone: "success" as const },
     { label: "Onboarding", value: String(kpis.onboardingClients), tone: "warn" as const },
@@ -348,7 +370,15 @@ export default function ClientsPage() {
     { label: "Archived", value: String(kpis.archivedClients), tone: "danger" as const },
     { label: "Managed AUM", value: fmtCompact(kpis.totalAUM), tone: "info" as const },
     { label: "Property book", value: String(kpis.totalProperties), tone: "info" as const },
-  ];
+  ], [kpis]);
+
+  const closeClientWorkspace = useCallback(() => {
+    if (selectedClientId != null) {
+      void queryClient.cancelQueries({ queryKey: ["client-detail", selectedClientId] });
+      void queryClient.cancelQueries({ queryKey: ["admin", "clients", selectedClientId, "asset-pricing"] });
+    }
+    setSelectedClientId(null);
+  }, [queryClient, selectedClientId]);
 
   return (
     <div className="space-y-5 text-white">
@@ -551,7 +581,7 @@ export default function ClientsPage() {
               </thead>
               <tbody>
                 {paginatedClients.map((client) => (
-                  <tr key={client.id} className="cursor-pointer border-t border-white/8 transition hover:bg-white/[0.04]" onClick={() => setSelectedClientId(client.id)}>
+                  <tr key={client.id} className="cursor-pointer border-t border-white/8 transition hover:bg-white/[0.04]" onClick={() => setSelectedClientId(client.id)} style={{ contentVisibility: "auto", containIntrinsicSize: "96px" }}>
                     <td className="px-4 py-4 align-top">
                       <div className="flex items-start gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-500/10 text-sm font-semibold text-sky-100">
@@ -634,7 +664,7 @@ export default function ClientsPage() {
         </div>
       </SurfaceCard>
 
-      <ClientDetailPanel client={selectedClient} onClose={() => setSelectedClientId(null)} onRefresh={refresh} />
+      <ClientDetailPanel client={selectedClient} onClose={closeClientWorkspace} onRefresh={refresh} />
 
       {pendingAction ? (
         <PlatformConfirmModal

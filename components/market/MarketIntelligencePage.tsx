@@ -69,7 +69,14 @@ async function fetchIntelligence(): Promise<IntelligencePayload> {
 
 export function MarketIntelligencePage() {
   const { trendingAssets, topGainers, sectorMovers } = useMarketOrchestrator();
-  const query = useQuery({ queryKey: ["market-intelligence"], queryFn: fetchIntelligence, staleTime: 60_000 });
+  const query = useQuery({
+    queryKey: ["market-intelligence"],
+    queryFn: fetchIntelligence,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 15,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
 
   if (query.isLoading) {
     return <LoadingBlock label="Loading market intelligence..." />;

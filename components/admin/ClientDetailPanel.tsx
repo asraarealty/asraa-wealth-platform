@@ -77,11 +77,27 @@ export function ClientDetailPanel({
   }, [client]);
 
   const holdings = useMemo(() => createCanonicalAssetUniverse(client?.assets ?? []), [client?.assets]);
+  const holdingsSignature = useMemo(
+    () => holdings.map((holding) => `${holding.id}:${holding.symbol}:${holding.type}`).join("|"),
+    [holdings]
+  );
+
+  useEffect(() => {
+    if (!client?.id) return;
+    return () => {
+      void queryClient.cancelQueries({ queryKey: ["client-detail", client.id] });
+      void queryClient.cancelQueries({ queryKey: ["admin", "clients", client.id, "asset-pricing"] });
+    };
+  }, [client?.id, queryClient]);
+
   const livePricing = useQuery({
-    queryKey: ["admin", "clients", client?.id, "asset-pricing", holdings.map((holding) => `${holding.id}:${holding.symbol}:${holding.type}`).join("|")],
+    queryKey: ["admin", "clients", client?.id, "asset-pricing", holdingsSignature],
     queryFn: () => resolveLivePrices(holdings),
     enabled: Boolean(client && holdings.length > 0),
-    staleTime: 60_000,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 15,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const valuation = useMemo(() => computePortfolioValuation(holdings, livePricing.data ?? {}), [holdings, livePricing.data]);
