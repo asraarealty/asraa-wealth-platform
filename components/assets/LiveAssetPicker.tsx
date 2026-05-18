@@ -66,7 +66,8 @@ function readRecentSelections() {
     const parsed = raw ? (JSON.parse(raw) as LiveAssetSelection[]) : [];
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((item) => item && typeof item.symbol === "string").slice(0, 8);
-  } catch {
+  } catch (error) {
+    console.warn("[market-picker] recent selection cache parse failed", error);
     return [];
   }
 }

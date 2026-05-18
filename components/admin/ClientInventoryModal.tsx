@@ -204,7 +204,7 @@ export function ClientInventoryModal({
             <input required className={inputClass} value={toStringValue(form.name)} onChange={(event) => setValue("name", event.target.value)} />
           </div>
 
-          {(type === "stock" || type === "mf" || type === "commodity") ? (
+          {(type === "stock" || type === "mf" || type === "commodity") && (
             <div>
               <label className={labelClass}>Search assets</label>
               <LiveAssetPicker
@@ -220,7 +220,7 @@ export function ClientInventoryModal({
                 onSelect={applyLiveSelection}
               />
             </div>
-          ) : null}
+          )}
 
           {(type === "stock" || type === "commodity") ? (
             <div className="space-y-3">
