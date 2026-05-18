@@ -192,6 +192,7 @@ export function ClientDetailPanel({
   });
 
   if (!client) return null;
+  const clientId = client.id;
 
   const occupiedProperties = propertyAssets.filter((asset) => Boolean(asset.tenantName ?? asset.tenant_name)).length;
   const propertyYield = valuation.liveValue > 0 && client.monthlyRentIncome > 0 ? (client.monthlyRentIncome * 12 * 100) / Math.max(client.propertyValue, 1) : 0;
@@ -242,7 +243,7 @@ export function ClientDetailPanel({
       console.info("[admin-inventory]", {
         event: "mutation.race-detected",
         action,
-        clientId: client.id,
+        clientId,
         blocked: true,
       });
       return;
@@ -253,7 +254,7 @@ export function ClientDetailPanel({
       event: "mutation.sequence",
       sequence,
       action,
-      clientId: client.id,
+      clientId,
     });
     await inventoryMutation.mutateAsync({ action, assetId, payload });
   }
@@ -262,10 +263,10 @@ export function ClientDetailPanel({
     if (inventoryMutation.isPending || livePricing.isFetching) return;
     const startedAt =
       typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
-    console.info("[admin-inventory]", { event: "refresh.start", clientId: client.id });
+    console.info("[admin-inventory]", { event: "refresh.start", clientId });
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["admin", "clients", client.id, "asset-pricing"] }),
-      queryClient.invalidateQueries({ queryKey: ["client-detail", client.id] }),
+      queryClient.invalidateQueries({ queryKey: ["admin", "clients", clientId, "asset-pricing"] }),
+      queryClient.invalidateQueries({ queryKey: ["client-detail", clientId] }),
       queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY }),
     ]);
     await livePricing.refetch();
@@ -275,7 +276,7 @@ export function ClientDetailPanel({
         : Date.now() - startedAt;
     console.info("[admin-inventory]", {
       event: "refresh.success",
-      clientId: client.id,
+      clientId,
       durationMs: Number(duration.toFixed(2)),
     });
   }
