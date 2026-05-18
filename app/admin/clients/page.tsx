@@ -313,6 +313,9 @@ export default function ClientsPage() {
       setActionLoadingId(action.client.id);
       setActionError(null);
       if (action.type === "status" && action.nextStatus) {
+        if (action.nextStatus !== "active" && action.nextStatus !== "suspended") {
+          throw new Error(`Unsupported status action transition target: ${action.nextStatus}`);
+        }
         await lifecycleMutation.mutateAsync({
           action: action.nextStatus === "suspended" ? "suspend" : "restore",
         });

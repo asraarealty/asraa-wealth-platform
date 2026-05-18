@@ -82,9 +82,9 @@ export function ClientDetailPanel({
     degraded: detailDegraded,
     error: detailError,
     refresh: refreshDetail,
-  } = useClientDetail(client ? client.id : null);
-  const { profile: canonicalProfile, refresh: refreshCanonicalProfile } = useAdminClientProfile(client ? client.id : null);
-  const lifecycleMutation = useAdminClientLifecycleMutation(client ? client.id : null);
+  } = useClientDetail(client?.id ?? null);
+  const { profile: canonicalProfile, refresh: refreshCanonicalProfile } = useAdminClientProfile(client?.id ?? null);
+  const lifecycleMutation = useAdminClientLifecycleMutation(client?.id ?? null);
   const clearTransientState = useCallback(() => {
     setAssetError(null);
     setAssetToDelete(null);
@@ -117,6 +117,10 @@ export function ClientDetailPanel({
     },
     [clearTransientState, requestClose]
   );
+  const refreshWorkspaceData = useCallback(() => {
+    void refreshDetail();
+    void refreshCanonicalProfile();
+  }, [refreshCanonicalProfile, refreshDetail]);
 
   const workspaceClient = useMemo(() => {
     if (!client) return null;
@@ -236,8 +240,7 @@ export function ClientDetailPanel({
       });
 
       if (!lifecycle.isActive()) return;
-      void refreshDetail();
-      void refreshCanonicalProfile();
+      refreshWorkspaceData();
       setAssetError(null);
       setAssetToDelete(null);
       setInventoryEditor(null);
@@ -337,8 +340,7 @@ export function ClientDetailPanel({
       clientId,
       durationMs: Number(duration.toFixed(2)),
     });
-    void refreshDetail();
-    void refreshCanonicalProfile();
+    refreshWorkspaceData();
   }
 
   const openInventoryEditor = useCallback((mode: "create" | "edit", asset: Asset | null = null) => {
@@ -361,8 +363,7 @@ export function ClientDetailPanel({
         requestPanelClose("programmatic");
         return;
       }
-      void refreshDetail();
-      void refreshCanonicalProfile();
+      refreshWorkspaceData();
     } catch (value) {
       if (!lifecycle.isActive()) return;
       setAssetError(toErrorMessage(value));
@@ -414,8 +415,7 @@ export function ClientDetailPanel({
               <button
                 type="button"
                 onClick={() => {
-                  void refreshDetail();
-                  void refreshCanonicalProfile();
+                  refreshWorkspaceData();
                 }}
                 className="ml-2 underline"
               >

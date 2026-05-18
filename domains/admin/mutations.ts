@@ -50,7 +50,7 @@ export function useAdminClientLifecycleMutation(clientId: number | null) {
   return useMutation<void | ClientProfile, Error, { action: AdminLifecycleAction; signal?: AbortSignal }, MutationContext>({
     mutationKey: ["admin", "clients", resolvedClientId, "lifecycle"],
     mutationFn: async ({ action, signal }) => {
-      if (resolvedClientId <= 0) throw new Error("Client id is required.");
+      if (resolvedClientId <= 0) throw new Error("Invalid client ID: must be a positive integer.");
       if (action === "approve") return approveClient(resolvedClientId, signal);
       if (action === "suspend") return suspendClient(resolvedClientId, signal);
       if (action === "archive") return archiveClient(resolvedClientId, signal);
