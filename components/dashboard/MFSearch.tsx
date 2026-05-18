@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, type KeyboardEvent } from "react";
-import { searchMutualFunds, type MutualFundResult } from "@/lib/api";
+import { type MutualFundResult } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
+import { searchMarketDebounced } from "@/domains/market/search";
 
 /** Debounce delay in ms — prevents excessive API calls while user is typing */
 const SEARCH_DEBOUNCE_MS = 350;
@@ -19,8 +20,6 @@ export default function MFSearch({ onSelect, initialValue = "" }: MFSearchProps)
   const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [open, setOpen] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -30,32 +29,29 @@ export default function MFSearch({ onSelect, initialValue = "" }: MFSearchProps)
       return;
     }
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setLoading(true);
+    setError(null);
 
-    debounceRef.current = setTimeout(() => {
-      const controller = new AbortController();
-      abortRef.current = controller;
-
-      setLoading(true);
-      setError(null);
-
-      searchMutualFunds(query.trim(), controller.signal)
-        .then((data) => {
-          setResults(Array.isArray(data) ? data : []);
-          setOpen(true);
-          setActiveIndex(-1);
-        })
-        .catch((err) => {
-          if (err instanceof DOMException && err.name === "AbortError") return;
-          setError(toErrorMessage(err));
-        })
-        .finally(() => setLoading(false));
-    }, SEARCH_DEBOUNCE_MS);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      abortRef.current?.abort();
-    };
+    void searchMarketDebounced(query.trim(), { delayMs: SEARCH_DEBOUNCE_MS })
+      .then((groups) => {
+        setResults(
+          groups.mutualFunds.slice(0, 10).map((item) => ({
+            code: item.symbol,
+            name: item.name,
+            nav: item.price,
+            category: item.category,
+            fundHouse: item.searchLabel,
+            fund_house: item.searchLabel,
+          }))
+        );
+        setOpen(true);
+        setActiveIndex(-1);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(toErrorMessage(err));
+      })
+      .finally(() => setLoading(false));
   }, [query]);
 
   useEffect(() => {

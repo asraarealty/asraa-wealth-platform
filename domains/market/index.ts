@@ -1,17 +1,29 @@
-"use client";
-
-import { useMarketOrchestrator } from "@/lib/services/marketOrchestrator";
-
-export type {
-  MarketAsset,
-  MarketOverviewMetric,
-  SectorMover,
-  UnifiedSearchGroups,
-  MarketSnapshot,
-} from "@/lib/services/marketOrchestrator";
-
 export { marketQueryKeys } from "./queryKeys";
-
-export function useMarketDomainGraph() {
-  return useMarketOrchestrator();
-}
+export * from "./types";
+export {
+  useMarketDomainGraph,
+  ensureMarketData,
+  searchMarket,
+  toggleWatchlist,
+  subscribeMarket,
+  getMarketSnapshot,
+} from "./graph";
+export {
+  normalizeTicker,
+  fetchBulkQuotes,
+  subscribeTicker,
+  unsubscribeTicker,
+  getOptimisticQuote,
+  resolveMarketPricePoints,
+  type TickerQuote,
+  type MarketPricePoint,
+} from "./quotes";
+export {
+  searchMarket as searchMarketPipeline,
+  searchMarketDebounced,
+  cancelDebouncedMarketSearch,
+} from "./search";
+export * from "./watchlist";
+export * from "./breadth";
+export * from "./intelligence";
+export * from "./allocation";
