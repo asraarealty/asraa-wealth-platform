@@ -151,7 +151,7 @@ function shouldDedupeRequest(pathname: string, method: HttpMethod): boolean {
   return isMarketSearchDedupePath(pathname);
 }
 
-function shouldUseDedupeShortCache(pathname: string, method: HttpMethod): boolean {
+function shouldUseShortCacheTtl(pathname: string, method: HttpMethod): boolean {
   if (method === "POST" && pathname.endsWith("/stocks/v2/bulk")) return true;
   if (method !== "GET") return false;
   return isMarketSearchDedupePath(pathname);
@@ -430,7 +430,7 @@ export function createApiClient(config: ApiClientConfig = {}) {
     const requestPath = getPathnameFromUrl(url);
     const key = dedupeKey(method, url, options.body);
     const dedupeEligible = shouldDedupeRequest(requestPath, method);
-    const shortCacheEligible = shouldUseDedupeShortCache(requestPath, method);
+    const shortCacheEligible = shouldUseShortCacheTtl(requestPath, method);
     const cacheTtlMs =
       options.cacheTtlMs ??
       (shortCacheEligible ? DEFAULT_DEDUPE_CACHE_TTL_MS : 0);

@@ -11,7 +11,8 @@ function normalizeTransaction(value: unknown): Transaction | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as Record<string, unknown>;
   const id = String(raw.id ?? raw.transaction_id ?? "").trim();
-  const type = String(raw.type ?? "").toLowerCase() === "sell" ? "sell" : "buy";
+  const rawType = String(raw.type ?? "").toLowerCase();
+  const type: Transaction["type"] = rawType === "sell" || rawType === "buy" ? rawType : "buy";
   const quantity = Number(raw.quantity ?? raw.units ?? 0);
   const price = Number(raw.price ?? raw.avg_price ?? 0);
   const total = Number(raw.total ?? quantity * price);
@@ -48,9 +49,6 @@ function normalizeInsights(value: unknown): InsightsResponse | null {
   return {
     equityPercentage: Number.isFinite(equity) ? equity : 0,
     propertyPercentage: Number.isFinite(property) ? property : 0,
-    equity_percentage: Number.isFinite(equity) ? equity : 0,
-    property_percentage: Number.isFinite(property) ? property : 0,
-    real_estate_percentage: Number.isFinite(property) ? property : 0,
     alerts,
   };
 }
