@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { closeTransientOverlays, setOverlayLifecycleContext } from "@/lib/ui/modalLifecycle";
 
-let activeBridgeMounts = 0;
+const bridgeInstances = new Set<number>();
+let bridgeSequence = 0;
 
 export default function OverlayLifecycleBridge() {
   const pathname = usePathname();
@@ -13,21 +14,27 @@ export default function OverlayLifecycleBridge() {
   const { authReady, authenticated } = useAuth();
   const prevAuthenticatedRef = useRef(authenticated);
   const isMountedRef = useRef(false);
+  const instanceIdRef = useRef(0);
+
+  if (instanceIdRef.current === 0) {
+    bridgeSequence += 1;
+    instanceIdRef.current = bridgeSequence;
+  }
 
   useEffect(() => {
     if (isMountedRef.current) return;
     isMountedRef.current = true;
-    activeBridgeMounts += 1;
+    bridgeInstances.add(instanceIdRef.current);
     setOverlayLifecycleContext({
-      providerMountCount: activeBridgeMounts,
+      providerMountCount: bridgeInstances.size,
       lastCleanupSource: "overlay-provider-mount",
     });
     return () => {
       if (!isMountedRef.current) return;
       isMountedRef.current = false;
-      activeBridgeMounts = Math.max(0, activeBridgeMounts - 1);
+      bridgeInstances.delete(instanceIdRef.current);
       setOverlayLifecycleContext({
-        providerMountCount: activeBridgeMounts,
+        providerMountCount: bridgeInstances.size,
         lastCleanupSource: "overlay-provider-unmount",
       });
     };

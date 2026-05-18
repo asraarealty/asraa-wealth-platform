@@ -59,7 +59,7 @@ let overlaySequence = 0;
 let overlays: OverlayEntry[] = [];
 const snapshotListeners = new Set<() => void>();
 let overlaySnapshot: OverlaySnapshot = { count: 0, ids: [] };
-const transientCloseInProgress = new Set<"route-transition" | "auth-reset" | "error-boundary">();
+let transientCloseInProgress = false;
 const overlayLifecycleContext: OverlayLifecycleContext = {
   providerMountCount: 0,
   lastLifecycleEvent: null,
@@ -298,7 +298,7 @@ function registerOverlay({
 }
 
 export function closeTransientOverlays(reason: "route-transition" | "auth-reset" | "error-boundary") {
-  if (transientCloseInProgress.has(reason)) {
+  if (transientCloseInProgress) {
     telemetry("batch-close-reentrant-ignored", { reason });
     return;
   }
@@ -311,7 +311,7 @@ export function closeTransientOverlays(reason: "route-transition" | "auth-reset"
 
   const queue = [...overlays].reverse().filter(shouldClose);
   if (queue.length === 0) return;
-  transientCloseInProgress.add(reason);
+  transientCloseInProgress = true;
   overlayLifecycleContext.lastCleanupSource = reason;
   telemetry("batch-close-start", { reason, count: queue.length, cleanupSource: reason });
   try {
@@ -319,7 +319,7 @@ export function closeTransientOverlays(reason: "route-transition" | "auth-reset"
       requestOverlayClose(entry, reason);
     });
   } finally {
-    transientCloseInProgress.delete(reason);
+    transientCloseInProgress = false;
     telemetry("batch-close-end", { reason, count: queue.length, cleanupSource: reason });
   }
 }
@@ -337,6 +337,7 @@ export function useOverlayLifecycle({
   const onCloseRef = useRef(onClose);
   const registrationRef = useRef<OverlayRegistration | null>(null);
   const overlayIdRef = useRef<number | null>(null);
+  const fallbackCloseQueuedRef = useRef(false);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -347,7 +348,16 @@ export function useOverlayLifecycle({
       const activeRegistration = registrationRef.current;
       registrationRef.current = null;
       overlayIdRef.current = null;
-      activeRegistration?.unregister();
+      if (!activeRegistration) return;
+      try {
+        activeRegistration.unregister();
+      } catch (error) {
+        telemetry("cleanup-failure", {
+          reason: "programmatic",
+          message: error instanceof Error ? error.message : String(error),
+          cleanupSource: "open-false-unregister",
+        });
+      }
       return;
     }
 
@@ -368,7 +378,16 @@ export function useOverlayLifecycle({
         registrationRef.current = null;
         overlayIdRef.current = null;
       }
-      registration.unregister();
+      try {
+        registration.unregister();
+      } catch (error) {
+        telemetry("cleanup-failure", {
+          id: registration.id,
+          reason: "programmatic",
+          message: error instanceof Error ? error.message : String(error),
+          cleanupSource: "effect-cleanup-unregister",
+        });
+      }
     };
   }, [
     open,
@@ -393,7 +412,13 @@ export function useOverlayLifecycle({
     const registration = registrationRef.current;
     if (!registration) {
       telemetry("close-ignored-no-registration", { reason });
-      return false;
+      if (fallbackCloseQueuedRef.current) return false;
+      fallbackCloseQueuedRef.current = true;
+      queueMicrotask(() => {
+        fallbackCloseQueuedRef.current = false;
+        onCloseRef.current();
+      });
+      return true;
     }
     return registration.requestClose(reason);
   }, []);
