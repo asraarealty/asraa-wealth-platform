@@ -10,7 +10,7 @@ import {
   StatusPill,
   SurfaceCard,
 } from "@/components/v2/ui";
-import { useMarketOrchestrator } from "@/lib/services/marketOrchestrator";
+import { MarketCommandCenter } from "@/components/market/MarketCommandCenter";
 import type { DashboardOperatingData } from "@/lib/hooks/useOperatingSystem";
 
 interface IntelCard {
@@ -206,109 +206,8 @@ export function RealEstateActivitySection({ data }: { data: DashboardOperatingDa
   );
 }
 
-// ── Market Discovery Section ──────────────────────────────────────────────────
-
-function fmtPrice(n: number) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 2,
-  }).format(n);
-}
-
-export function MarketDiscoverySection({ data }: { data: DashboardOperatingData }) {
-  const { topGainers, watchlist, isLoading, error } = useMarketOrchestrator();
-
-  const stockSymbols = data.assets
-    .filter((asset) => asset.type === "stock" && asset.symbol)
-    .map((asset) => String(asset.symbol).toUpperCase());
-
-  const watchlistQuotes = watchlist.filter((item) =>
-    stockSymbols.includes(item.symbol.toUpperCase())
-  );
-
-  const insights = [
-    {
-      title: "Market Pulse",
-      message: "Live market terminal now powers dashboard discovery, watchlists, and admin market widgets from one shared orchestrator.",
-      tone: "info" as const,
-    },
-    {
-      title: "Discovery Engine",
-      message: "Use the new stocks, discover, and intelligence routes to act on sector rotation and cross-asset opportunity signals.",
-      tone: "success" as const,
-    },
-  ];
-
+export function MarketDiscoverySection() {
   return (
-    <div className="space-y-4">
-      <SurfaceCard className="p-4 sm:p-5">
-        <SectionHeader
-          eyebrow="Market Discovery"
-          title="Live market intelligence"
-          subtitle="Centralized market orchestrator powering movers, watchlists, and opportunity signals"
-          action={<Link href="/stocks" className="v2-link">Explore markets →</Link>}
-        />
-        {error ? <p className="mt-4 text-xs text-rose-300">{error}</p> : null}
-        <div className="mt-4 grid grid-cols-1 xl:grid-cols-3 gap-4">
-          <div className="xl:col-span-2">
-            <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500 mb-3">Top movers</p>
-            {isLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="h-12 rounded-xl bg-white/[0.03] animate-pulse border border-white/[0.06]" />
-                ))}
-              </div>
-            ) : topGainers.length === 0 ? (
-              <p className="text-xs text-slate-500">Market data loading…</p>
-            ) : (
-              <div className="space-y-2">
-                {topGainers.slice(0, 5).map((item) => {
-                  const isPositive = item.changePercent >= 0;
-                  return (
-                    <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">{item.name || item.symbol}</p>
-                        <p className="text-[11px] text-slate-500">{item.symbol} · {item.market}</p>
-                      </div>
-                      <div className="text-right shrink-0 ml-4">
-                        <p className="text-sm font-semibold text-white">{item.price > 0 ? fmtPrice(item.price) : "—"}</p>
-                        <p className={`text-xs font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
-                          {isPositive ? "+" : ""}{item.changePercent.toFixed(2)}%
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-3">
-            <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Portfolio watchlist</p>
-            {watchlistQuotes.length === 0 ? (
-              <p className="text-xs text-slate-500">No matching watchlist symbols in live market data.</p>
-            ) : (
-              watchlistQuotes.slice(0, 4).map((item) => {
-                const isPositive = item.changePercent >= 0;
-                return (
-                  <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5">
-                    <p className="text-sm font-medium text-white truncate">{item.symbol}</p>
-                    <p className={`text-xs font-semibold shrink-0 ml-3 ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
-                      {isPositive ? "+" : ""}{item.changePercent.toFixed(2)}%
-                    </p>
-                  </div>
-                );
-              })
-            )}
-            <div className="mt-3 space-y-2">
-              {insights.map((insight) => (
-                <IntelligenceCard key={insight.title} title={insight.title} message={insight.message} tone={insight.tone} />
-              ))}
-            </div>
-          </div>
-        </div>
-      </SurfaceCard>
-    </div>
+    <MarketCommandCenter mode="client" initialSurface="market-overview" compact />
   );
 }
