@@ -126,7 +126,7 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
     sectorMovers,
     breadth,
     search,
-    setSearchQuery,
+    searchMarket,
     toggleWatchlist,
     isLoading,
     error,
@@ -145,8 +145,8 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
 
   useEffect(() => {
     if (query.trim().length > 0 && query.trim().length < MIN_SEARCH_LENGTH) return;
-    void setSearchQuery(query);
-  }, [query, setSearchQuery]);
+    void searchMarket(query);
+  }, [query, searchMarket]);
 
   useEffect(() => {
     const selectedStillPresent =
