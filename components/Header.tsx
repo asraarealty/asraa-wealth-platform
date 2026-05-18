@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useOverlayLifecycle } from "@/lib/ui/modalLifecycle";
 
 // ✅ Controlled routes (only existing pages)
 const NAV_LINKS = [
@@ -14,6 +16,17 @@ const NAV_LINKS = [
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const { requestClose } = useOverlayLifecycle({
+    open: menuOpen,
+    onClose: () => setMenuOpen(false),
+    type: "drawer",
+    lockBodyScroll: true,
+  });
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.06] bg-[#040915]/90 backdrop-blur-md">
@@ -63,12 +76,12 @@ export default function Header() {
             </Link>
 
             {/* Mobile menu button */}
-            <button
-              type="button"
-              onClick={() => setMenuOpen((v) => !v)}
-              aria-label="Toggle menu"
-              className="md:hidden p-2 text-gray-400 hover:text-white transition-colors"
-            >
+              <button
+                type="button"
+                onClick={() => (menuOpen ? requestClose("cancel") : setMenuOpen(true))}
+                aria-label="Toggle menu"
+                className="md:hidden p-2 text-gray-400 hover:text-white transition-colors"
+              >
               <svg
                 className="w-5 h-5"
                 fill="none"
@@ -96,31 +109,39 @@ export default function Header() {
 
         {/* Mobile menu */}
         {menuOpen && (
-          <div className="md:hidden border-t border-white/[0.06] py-4 space-y-1 animate-fade-in">
-            {NAV_LINKS.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                onClick={() => setMenuOpen(false)}
-                className="block px-2 py-2.5 text-sm text-gray-400 hover:text-white transition-colors rounded-md hover:bg-white/5"
-              >
-                {item.label}
-              </Link>
-            ))}
+          <>
+            <button
+              type="button"
+              aria-label="Close menu backdrop"
+              onClick={() => requestClose("backdrop")}
+              className="fixed inset-0 top-16 md:hidden z-40 bg-black/70 backdrop-blur-sm"
+            />
+            <div className="relative z-50 md:hidden border-t border-white/[0.06] py-4 space-y-1 animate-fade-in bg-[#040915]/95">
+              {NAV_LINKS.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onClick={() => requestClose("programmatic")}
+                  className="block px-2 py-2.5 text-sm text-gray-400 hover:text-white transition-colors rounded-md hover:bg-white/5"
+                >
+                  {item.label}
+                </Link>
+              ))}
 
-            <div className="pt-2">
-              <Link
-                href="/signup"
-                onClick={() => setMenuOpen(false)}
-                className="block px-4 py-2.5 text-sm font-semibold text-center rounded-lg text-black"
-                style={{
-                  background: "linear-gradient(90deg, #38bdf8, #3b82f6)",
-                }}
-              >
-                Get Free Plan
-              </Link>
+              <div className="pt-2">
+                <Link
+                  href="/signup"
+                  onClick={() => requestClose("programmatic")}
+                  className="block px-4 py-2.5 text-sm font-semibold text-center rounded-lg text-black"
+                  style={{
+                    background: "linear-gradient(90deg, #38bdf8, #3b82f6)",
+                  }}
+                >
+                  Get Free Plan
+                </Link>
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </header>
