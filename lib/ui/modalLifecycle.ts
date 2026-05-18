@@ -44,6 +44,7 @@ interface OverlayLifecycleOptions {
 }
 
 type OverlaySnapshot = { count: number; ids: number[] };
+type OverlayDebugWindow = Window & { __ASRAA_OVERLAY_DEBUG?: boolean };
 
 let overlaySequence = 0;
 let overlays: OverlayEntry[] = [];
@@ -62,7 +63,7 @@ function telemetry(event: string, payload: Record<string, unknown> = {}) {
   if (typeof window === "undefined") return;
   const debugEnabled =
     process.env.NODE_ENV !== "production" ||
-    (window as typeof window & { __ASRAA_OVERLAY_DEBUG?: boolean }).__ASRAA_OVERLAY_DEBUG === true;
+    (window as OverlayDebugWindow).__ASRAA_OVERLAY_DEBUG === true;
   if (!debugEnabled) return;
   console.info("[overlay-lifecycle]", { event, ...payload });
 }
@@ -160,6 +161,8 @@ function requestOverlayClose(entry: OverlayEntry, reason: OverlayCloseReason) {
       reason,
       attempts: entry.repeatedCloseAttempts,
     });
+    // If a close was requested repeatedly but never unmounted, recover by clearing
+    // stale closing state and retrying one close to avoid modal deadlock.
     entry.closing = false;
     entry.repeatedCloseAttempts = 0;
     return requestOverlayClose(entry, reason);
@@ -345,7 +348,7 @@ export function useOverlayLifecycle({
   const snapshot = useSyncExternalStore(subscribeSnapshot, getSnapshot, getSnapshot);
 
   const stackIndex = useMemo(() => {
-    if (overlayIdRef.current == null) return -1;
+    if (overlayIdRef.current === null) return -1;
     return snapshot.ids.indexOf(overlayIdRef.current);
   }, [snapshot]);
 
