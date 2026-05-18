@@ -7,12 +7,12 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function RootRoutePage() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, authReady, authenticated } = useAuth();
 
   useEffect(() => {
-    if (loading) return;
+    if (!authReady) return;
 
-    if (!user) {
+    if (!authenticated || !user) {
       router.replace("/login");
       return;
     }
@@ -23,7 +23,7 @@ export default function RootRoutePage() {
     }
 
     router.replace("/dashboard");
-  }, [loading, router, user]);
+  }, [authReady, authenticated, router, user]);
 
   return <Loader />;
 }

@@ -128,7 +128,7 @@ const MOBILE_DOCK = NAV.filter((n) =>
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, loading } = useAuth();
+  const { user, authReady, authenticated, isRefreshing } = useAuth();
   const router = useRouter();
   const {
     selectedAccount,
@@ -142,21 +142,21 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   } = useOperatingContext();
 
   useEffect(() => {
-    if (loading) return;
-    if (!user) {
+    if (!authReady || isRefreshing) return;
+    if (!authenticated || !user) {
       router.replace("/login");
       return;
     }
     if ((user.role ?? "").toLowerCase() === "admin") {
       router.replace("/admin");
     }
-  }, [user, loading, router]);
+  }, [authReady, authenticated, isRefreshing, router, user]);
 
   useEffect(() => {
     if (typeof document !== "undefined") document.body.dataset.density = density;
   }, [density]);
 
-  if (loading) {
+  if (!authReady || isRefreshing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#07080d]">
         <div className="w-7 h-7 rounded-full border-2 border-blue-500/60 border-t-transparent animate-spin" />

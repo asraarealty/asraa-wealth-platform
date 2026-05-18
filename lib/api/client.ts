@@ -95,6 +95,7 @@ const DEDUPE_ENDPOINTS = new Set([
 export const inflight = new Map<string, InflightEntry<unknown>>();
 const responseCache = new Map<string, CacheEntry>();
 const cacheTagIndex = new Map<string, Set<string>>();
+const activeControllers = new Set<AbortController>();
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -292,6 +293,7 @@ export function createApiClient(config: ApiClientConfig = {}) {
 
     let attempt = 0;
     while (true) {
+      activeControllers.add(controller);
       try {
         const response = await fetch(url, {
           ...options,
@@ -385,6 +387,8 @@ export function createApiClient(config: ApiClientConfig = {}) {
         const delayMs = Math.min(RETRY_BASE_DELAY_MS * 2 ** attempt, RETRY_MAX_DELAY_MS);
         await sleep(delayMs);
         attempt += 1;
+      } finally {
+        activeControllers.delete(controller);
       }
     }
   }
@@ -462,4 +466,21 @@ export function createApiClient(config: ApiClientConfig = {}) {
     request,
     invalidateCacheTags,
   };
+}
+
+export function abortAllRequests() {
+  for (const entry of inflight.values()) {
+    entry.controller.abort();
+  }
+  inflight.clear();
+  for (const controller of activeControllers) {
+    controller.abort();
+  }
+  activeControllers.clear();
+}
+
+export function clearApiClientCaches() {
+  inflight.clear();
+  responseCache.clear();
+  cacheTagIndex.clear();
 }

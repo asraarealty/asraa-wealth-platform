@@ -11,6 +11,7 @@ import {
   type AdminClientsKPIs,
   type EnrichedClient,
 } from "@/lib/utils/adminClientIntelligence";
+import { useAuth } from "@/context/AuthContext";
 
 export const ADMIN_CLIENTS_QUERY_KEY = ["admin", "clients", "workspace"] as const;
 
@@ -23,6 +24,7 @@ export interface UseAdminClientsResult {
 }
 
 export function useAdminClients(): UseAdminClientsResult {
+  const { authReady, authenticated } = useAuth();
   const query = useQuery({
     queryKey: ADMIN_CLIENTS_QUERY_KEY,
     queryFn: async ({ signal }) => {
@@ -46,6 +48,7 @@ export function useAdminClients(): UseAdminClientsResult {
     refetchOnReconnect: false,
     refetchOnMount: false,
     retry: 1,
+    enabled: authReady && authenticated,
   });
 
   const refresh = useCallback(() => {

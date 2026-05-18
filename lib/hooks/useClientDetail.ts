@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchTransactions, fetchInsights } from "@/lib/api";
 import type { Transaction, InsightsResponse } from "@/lib/api";
 import { toErrorMessage } from "@/lib/fetcher";
+import { useAuth } from "@/context/AuthContext";
 
 export interface ClientDetailData {
   transactions: Transaction[];
@@ -15,6 +16,7 @@ export interface ClientDetailData {
 export function useClientDetail(
   clientId: number | null
 ): ClientDetailData {
+  const { authReady, authenticated } = useAuth();
   const query = useQuery({
     queryKey: ["client-detail", clientId],
     queryFn: async ({ signal }) => {
@@ -43,7 +45,7 @@ export function useClientDetail(
         partialError: transactionError ?? insightsError,
       };
     },
-    enabled: clientId !== null,
+    enabled: authReady && authenticated && clientId !== null,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 15,
     refetchOnWindowFocus: false,

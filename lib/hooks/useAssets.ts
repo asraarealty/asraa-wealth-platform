@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetcher } from "@/lib/fetcher";
+import { useAuth } from "@/context/AuthContext";
 import type { Asset, DashboardResponse, InsightsResponse } from "@/lib/types/assets";
 import { DASHBOARD_FULL_KEY } from "@/context/DashboardContext";
 
@@ -19,6 +20,7 @@ interface RawEnvelope<T> {
 }
 
 export function useAssets() {
+  const { authReady, authenticated } = useAuth();
   return useQuery<RawEnvelope<AssetsData>, Error, AssetsData>({
     queryKey: ASSETS_KEY,
     queryFn: () => fetcher<RawEnvelope<AssetsData>>("/assets/me", { raw: true }),
@@ -33,10 +35,12 @@ export function useAssets() {
         assets: Array.isArray(data?.assets) ? data.assets : [],
       };
     },
+    enabled: authReady && authenticated,
   });
 }
 
 export function useInsights() {
+  const { authReady, authenticated } = useAuth();
   return useQuery<RawEnvelope<InsightsResponse>, Error, InsightsResponse>({
     queryKey: INSIGHTS_KEY,
     queryFn: () => fetcher<RawEnvelope<InsightsResponse>>("/insights/me", { raw: true }),
@@ -46,6 +50,7 @@ export function useInsights() {
         ? (res.data as InsightsResponse)
         : (res as unknown as InsightsResponse) ?? { equity_percentage: 0, real_estate_percentage: 0, alerts: [] };
     },
+    enabled: authReady && authenticated,
   });
 }
 

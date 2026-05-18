@@ -4,12 +4,33 @@ import {
   createContext,
   useContext,
   useEffect,
+  useMemo,
+  useRef,
   useState,
   useCallback,
   type ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
-import { fetcher, setToken, clearToken, getToken } from "@/lib/fetcher";
+import { usePathname, useRouter } from "next/navigation";
+import { useQueryClient, type QueryKey } from "@tanstack/react-query";
+import {
+  fetcher,
+  setToken,
+  getToken,
+  setRefreshToken,
+  clearAuthTokens,
+  clearApiClientCaches,
+  abortAllRequests,
+  resetUnauthorizedBurstCounter,
+} from "@/lib/fetcher";
+import {
+  getAuthLifecycleSnapshot,
+  reportAuthTelemetry,
+  setAuthFailureHandler,
+  setAuthLifecycleState,
+  setAuthTelemetryReporter,
+  subscribeAuthLifecycle,
+  type AuthLifecycleState,
+} from "@/lib/authLifecycle";
 
 interface User {
   id: number;
@@ -21,6 +42,11 @@ interface User {
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
+  authReady: boolean;
+  sessionHydrated: boolean;
+  authenticated: boolean;
+  isRefreshing: boolean;
+  refreshPromise: Promise<string> | null;
   login: (email: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
 }
@@ -28,65 +54,234 @@ interface AuthContextValue {
 interface LoginResult {
   access_token?: string;
   accessToken?: string;
+  refresh_token?: string;
+  refreshToken?: string;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [lifecycle, setLifecycle] = useState<AuthLifecycleState>(() =>
+    getAuthLifecycleSnapshot()
+  );
   const router = useRouter();
+  const pathname = usePathname();
+  const queryClient = useQueryClient();
+  const hydrationRunRef = useRef(0);
+  const redirectEventsRef = useRef<number[]>([]);
+
+  const isProtectedQueryKey = useCallback((queryKey: QueryKey): boolean => {
+    const top = String(Array.isArray(queryKey) ? queryKey[0] ?? "" : "");
+    return (
+      top === "dashboard-full" ||
+      top === "assets" ||
+      top === "insights" ||
+      top === "admin" ||
+      top === "client-detail" ||
+      top === "market-intelligence" ||
+      top === "portfolio" ||
+      top === "intelligence"
+    );
+  }, []);
+
+  const safeRedirectToLogin = useCallback(
+    (reason: string) => {
+      if (typeof window === "undefined") return;
+      if (window.location.pathname === "/login") return;
+
+      const now = Date.now();
+      redirectEventsRef.current = [...redirectEventsRef.current, now].filter(
+        (value) => now - value <= 10_000
+      );
+      if (redirectEventsRef.current.length >= 4) {
+        reportAuthTelemetry({
+          type: "redirect-loop",
+          reason,
+          count: redirectEventsRef.current.length,
+        });
+        return;
+      }
+      router.replace("/login");
+    },
+    [router]
+  );
+
+  const clearProtectedSessionState = useCallback(async () => {
+    clearAuthTokens();
+    abortAllRequests();
+    clearApiClientCaches();
+    await queryClient.cancelQueries({
+      predicate: (query) => isProtectedQueryKey(query.queryKey),
+    });
+    queryClient.invalidateQueries({
+      predicate: (query) => isProtectedQueryKey(query.queryKey),
+    });
+    queryClient.removeQueries({
+      predicate: (query) => isProtectedQueryKey(query.queryKey),
+    });
+  }, [isProtectedQueryKey, queryClient]);
+
+  const resetAuthLifecycle = useCallback((authenticated: boolean) => {
+    setAuthLifecycleState({
+      authReady: true,
+      sessionHydrated: true,
+      authenticated,
+      isRefreshing: false,
+      refreshPromise: null,
+    });
+  }, []);
 
   useEffect(() => {
-    const token = getToken();
-
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
-    fetcher<User>("/auth/me")
-      .then(setUser)
-      .catch(() => {
-        setUser(null);
-        clearToken();
-      })
-      .finally(() => setLoading(false));
+    return subscribeAuthLifecycle(setLifecycle);
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await fetcher<LoginResult>("/auth/login", {
-      method: "POST",
-      body: { email, password },
-      raw: true,
+  useEffect(() => {
+    setAuthTelemetryReporter((event) => {
+      if (typeof window === "undefined") return;
+      console.info("[auth-telemetry]", event);
+    });
+    return () => setAuthTelemetryReporter(null);
+  }, []);
+
+  useEffect(() => {
+    setAuthFailureHandler(async (reason) => {
+      setUser(null);
+      await clearProtectedSessionState();
+      resetUnauthorizedBurstCounter();
+      resetAuthLifecycle(false);
+      safeRedirectToLogin(reason);
+    });
+    return () => setAuthFailureHandler(null);
+  }, [clearProtectedSessionState, resetAuthLifecycle, safeRedirectToLogin]);
+
+  useEffect(() => {
+    const runId = hydrationRunRef.current + 1;
+    hydrationRunRef.current = runId;
+    const controller = new AbortController();
+    const startedAt =
+      typeof performance !== "undefined" && typeof performance.now === "function"
+        ? performance.now()
+        : Date.now();
+
+    setAuthLifecycleState({
+      authReady: false,
+      sessionHydrated: false,
+      authenticated: false,
     });
 
-    const token = res.access_token ?? res.accessToken;
-    if (!token) {
-      throw new Error(
-        "Login response missing access token (expected access_token or accessToken)"
-      );
-    }
+    const hydrateSession = async () => {
+      const token = getToken();
+      if (!token) {
+        clearAuthTokens();
+        setUser(null);
+        resetUnauthorizedBurstCounter();
+        resetAuthLifecycle(false);
+        return;
+      }
 
-    setToken(token);
+      try {
+        const me = await fetcher<User>("/auth/me", {
+          signal: controller.signal,
+          noRedirectOn401: true,
+        });
+        if (controller.signal.aborted || runId !== hydrationRunRef.current) return;
+        setUser(me);
+        resetUnauthorizedBurstCounter();
+        resetAuthLifecycle(true);
+      } catch (error) {
+        if (controller.signal.aborted || runId !== hydrationRunRef.current) return;
+        setUser(null);
+        await clearProtectedSessionState();
+        resetUnauthorizedBurstCounter();
+        resetAuthLifecycle(false);
+        if (error instanceof Error) {
+          reportAuthTelemetry({ type: "auth-failure", reason: error.message });
+        }
+      } finally {
+        const duration =
+          typeof performance !== "undefined" && typeof performance.now === "function"
+            ? performance.now() - startedAt
+            : Date.now() - startedAt;
+        reportAuthTelemetry({
+          type: "hydration",
+          durationMs: Number(duration.toFixed(2)),
+        });
+      }
+    };
 
-    const me = await fetcher<User>("/auth/me");
-    setUser(me);
+    void hydrateSession();
 
-    return me;
-  }, []);
+    return () => controller.abort();
+  }, [clearProtectedSessionState, resetAuthLifecycle]);
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const res = await fetcher<LoginResult>("/auth/login", {
+        method: "POST",
+        body: { email, password },
+        raw: true,
+        noRedirectOn401: true,
+      });
+
+      const token = res.access_token ?? res.accessToken;
+      if (!token) {
+        throw new Error(
+          "Login response missing access token (expected access_token or accessToken)"
+        );
+      }
+
+      setToken(token);
+      const nextRefreshToken = res.refresh_token ?? res.refreshToken;
+      if (nextRefreshToken) {
+        setRefreshToken(nextRefreshToken);
+      } else {
+        clearAuthTokens();
+        setToken(token);
+      }
+
+      const me = await fetcher<User>("/auth/me", { noRedirectOn401: true });
+      setUser(me);
+      resetUnauthorizedBurstCounter();
+      resetAuthLifecycle(true);
+      return me;
+    },
+    [resetAuthLifecycle]
+  );
 
   const logout = useCallback(async () => {
     try {
-      await fetcher("/auth/logout", { method: "POST" });
+      await fetcher("/auth/logout", { method: "POST", noRedirectOn401: true });
     } catch {}
-    clearToken();
+
     setUser(null);
-    router.replace("/login");
-  }, [router]);
+    await clearProtectedSessionState();
+    resetUnauthorizedBurstCounter();
+    resetAuthLifecycle(false);
+    if (pathname !== "/login") {
+      router.replace("/login");
+    }
+  }, [
+    clearProtectedSessionState,
+    pathname,
+    resetAuthLifecycle,
+    router,
+  ]);
+
+  const value = useMemo<AuthContextValue>(() => ({
+    user,
+    loading: !lifecycle.authReady,
+    authReady: lifecycle.authReady,
+    sessionHydrated: lifecycle.sessionHydrated,
+    authenticated: lifecycle.authenticated,
+    isRefreshing: lifecycle.isRefreshing,
+    refreshPromise: lifecycle.refreshPromise,
+    login,
+    logout,
+  }), [lifecycle, login, logout, user]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

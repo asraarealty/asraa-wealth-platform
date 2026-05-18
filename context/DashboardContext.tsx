@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetcher } from "@/lib/fetcher";
+import { useAuth } from "@/context/AuthContext";
 import type { Asset } from "@/lib/types/assets";
 import type { Transaction } from "@/lib/api";
 
@@ -350,6 +351,7 @@ async function fetchDashboardFull(): Promise<DashboardOperatingData> {
 export const DASHBOARD_FULL_KEY = ["dashboard-full"] as const;
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
+  const { authReady, authenticated } = useAuth();
   const query = useQuery({
     queryKey: DASHBOARD_FULL_KEY,
     queryFn: fetchDashboardFull,
@@ -359,6 +361,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     refetchOnReconnect: false,
     refetchOnMount: false,
     retry: 1,
+    enabled: authReady && authenticated,
   });
 
   const refetchAll = useCallback(() => {

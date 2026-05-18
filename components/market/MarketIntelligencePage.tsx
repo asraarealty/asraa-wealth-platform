@@ -5,6 +5,7 @@ import { AllocationRing } from "@/components/admin/platform/AllocationRing";
 import { IntelligenceCard, LoadingBlock, MetricTile, SectionHeader, SurfaceCard } from "@/components/v2/ui";
 import { fetcher, toErrorMessage } from "@/lib/fetcher";
 import { useMarketOrchestrator } from "@/lib/services/marketOrchestrator";
+import { useAuth } from "@/context/AuthContext";
 
 interface IntelligencePayload {
   aiInsights: Array<{ title: string; message: string; confidence?: number }>;
@@ -69,6 +70,7 @@ async function fetchIntelligence(): Promise<IntelligencePayload> {
 
 export function MarketIntelligencePage() {
   const { trendingAssets, topGainers, sectorMovers } = useMarketOrchestrator();
+  const { authReady, authenticated } = useAuth();
   const query = useQuery({
     queryKey: ["market-intelligence"],
     queryFn: fetchIntelligence,
@@ -78,6 +80,7 @@ export function MarketIntelligencePage() {
     refetchOnReconnect: false,
     refetchOnMount: false,
     retry: 1,
+    enabled: authReady && authenticated,
   });
   const showSkeleton = query.isLoading && !query.data;
 
