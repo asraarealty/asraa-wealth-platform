@@ -381,7 +381,7 @@ export function useBodyScrollLock(enabled: boolean) {
 }
 
 export function useAbortSafeLifecycle(active = true) {
-  const activeRef = useRef(true);
+  const activeRef = useRef(active);
   const abortControllerRef = useRef<AbortController>(new AbortController());
 
   useEffect(() => {
