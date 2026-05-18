@@ -1,21 +1,13 @@
-// Path prefix only (not a full domain URL); rewritten by Next.js to BACKEND_URL.
-export const API_BASE_URL = "/api/v2";
+import {
+  API_BASE_URL,
+  ApiError,
+  NetworkError,
+  createApiClient,
+  inflight,
+  type ApiClientRequestOptions,
+} from "./api/client";
 
-// ── Error types ─────────────────────────────────────────
-
-export class ApiError extends Error {
-  constructor(public readonly status: number, message: string) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
-export class NetworkError extends Error {
-  constructor(message = "Network request failed") {
-    super(message);
-    this.name = "NetworkError";
-  }
-}
+export { API_BASE_URL, ApiError, NetworkError };
 
 // 🔐 TOKEN STORAGE
 
@@ -46,229 +38,28 @@ export function clearToken() {
 
 // ── FETCH WRAPPER ──────────────────────────────────────
 
-interface FetcherOptions extends Omit<RequestInit, "body"> {
-  body?: unknown;
-  raw?: boolean;
-  /** When true, a 401 response throws ApiError without clearing the token or
-   *  redirecting to /login. Use for optional / non-critical endpoints (e.g.
-   *  stock search) where an auth failure should be surfaced as a UI error
-   *  rather than a full-page redirect. */
-  noRedirectOn401?: boolean;
-}
+export interface FetcherOptions extends ApiClientRequestOptions {}
 
-interface MemoizedEntry {
-  expiresAt: number;
-  value: unknown;
-}
-
-// 20s keeps market reads fresh while suppressing bursty duplicate calls.
-const REQUEST_MEMO_TTL_MS = 20_000;
-const requestMemoCache = new Map<string, MemoizedEntry>();
-const requestMemoInFlight = new Map<string, Promise<unknown>>();
-
-function pathFromUrl(url: string): string {
-  try {
-    if (url.startsWith("http")) return new URL(url).pathname;
-  } catch {}
-  return url;
-}
-
-function shouldMemoizeRequest(path: string, method: string, hasSignal: boolean): boolean {
-  if (hasSignal) return false;
-  // Bulk quote POST is idempotent/read-only in this app and safe for short memoization.
-  if (method === "POST" && path.endsWith("/stocks/v2/bulk")) return true;
-  if (method !== "GET") return false;
-  return (
-    path.includes("/mutual-funds/search") ||
-    path.includes("/commodities/search") ||
-    path.includes("/stocks/search")
-  );
-}
-
-function createMemoKey(method: string, url: string, body: unknown) {
-  const bodyKey = body === undefined ? "" : JSON.stringify(body);
-  return `${method}::${url}::${bodyKey}`;
-}
+const apiClient = createApiClient({
+  baseUrl: API_BASE_URL,
+  defaultRetry: 2,
+  getAuthToken: () => getToken(),
+  onUnauthorized: () => {
+    clearToken();
+    if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+      window.location.assign("/login");
+    }
+  },
+});
 
 export async function fetcher<T>(
   path: string,
   options: FetcherOptions = {}
 ): Promise<T> {
-  const { body, headers: extraHeaders, signal, raw, noRedirectOn401, ...rest } = options;
-
-  const token = getToken();
-
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  let url = path;
-
-  if (!path.startsWith("http")) {
-    url = normalizedPath.startsWith(API_BASE_URL)
-      ? normalizedPath
-      : `${API_BASE_URL}${normalizedPath}`;
-  }
-
-  const requestMethod = String(rest.method ?? "GET").toUpperCase();
-  const requestPath = pathFromUrl(url);
-  const memoize = shouldMemoizeRequest(requestPath, requestMethod, Boolean(signal));
-  const memoKey = memoize ? createMemoKey(requestMethod, url, body) : null;
-
-  if (memoize && memoKey) {
-    const cached = requestMemoCache.get(memoKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.value as T;
-    }
-    const inflight = requestMemoInFlight.get(memoKey);
-    if (inflight) {
-      return inflight as Promise<T>;
-    }
-  }
-
-  const startedAt =
-    typeof performance !== "undefined" && typeof performance.now === "function"
-      ? performance.now()
-      : Date.now();
-
-  const run = async (): Promise<T> => {
-    let response: Response;
-
-    try {
-      response = await fetch(url, {
-        ...rest,
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          ...(extraHeaders || {}),
-        },
-        signal,
-        body: body !== undefined ? JSON.stringify(body) : undefined,
-      });
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") throw err;
-      const networkErr = new NetworkError("Unable to reach backend API");
-      throw networkErr;
-    }
-
-    // 🔐 401 → session expired → logout (unless caller opts out)
-    if (response.status === 401) {
-      if (!noRedirectOn401 && typeof window !== "undefined") {
-        clearToken();
-
-        // avoid redirect loop
-        if (window.location.pathname !== "/login") {
-          window.location.assign("/login");
-        }
-      }
-
-      throw new ApiError(401, "Session expired");
-    }
-
-    // 🚫 403 → forbidden → DO NOT logout
-    if (response.status === 403) {
-      throw new ApiError(403, "Forbidden");
-    }
-
-    // ❌ Other API errors
-    if (!response.ok) {
-      let message = `HTTP ${response.status}`;
-
-      try {
-        const data = await response.json();
-        // FastAPI returns validation errors as detail: [{loc, msg, type}, ...]
-        // Fall through each shape until we find a readable string.
-        message =
-          data?.detail?.[0]?.msg ||
-          (typeof data?.detail === "string" ? data.detail : undefined) ||
-          data?.message ||
-          message;
-      } catch {}
-      const apiErr = new ApiError(response.status, message);
-      throw apiErr;
-    }
-
-    // ✅ NO CONTENT
-    if (response.status === 204) {
-      return undefined as T;
-    }
-
-    let json: any;
-
-    try {
-      json = await response.json();
-    } catch {
-      // Non-JSON responses are allowed for 204-like backend behavior.
-      if (typeof window !== "undefined") {
-        console.debug("[fetcher] non-json response", { path: requestPath, method: requestMethod });
-      }
-    }
-
-    if (json === undefined) return undefined as T;
-
-    // 🔁 RAW MODE
-    if (raw) return json as T;
-
-    // 📦 CHECK { success, data, error } envelope
-    if (json && typeof json === "object" && "success" in json) {
-      if (json.success === false) {
-        throw new ApiError(response.status, json.error || "API error");
-      }
-      if ("data" in json) {
-        return json.data as T;
-      }
-    }
-
-    // 📦 UNWRAP { data }
-    if (json && typeof json === "object" && "data" in json) {
-      return json.data as T;
-    }
-
-    return json as T;
-  };
-
-  const logTiming = (status: "ok" | "error", error?: unknown) => {
-    if (typeof window === "undefined") return;
-    if (typeof performance === "undefined" || typeof performance.now !== "function") return;
-    const duration = performance.now() - startedAt;
-    const payload = {
-      type: "query-timing",
-      method: requestMethod,
-      path: requestPath,
-      status,
-      durationMs: Number(duration.toFixed(2)),
-    };
-    if (status === "error") {
-      console.warn("[perf]", payload, error);
-    } else {
-      console.info("[perf]", payload);
-    }
-  };
-
-  const job = run()
-    .then((value) => {
-      if (memoize && memoKey) {
-        requestMemoCache.set(memoKey, {
-          value,
-          expiresAt: Date.now() + REQUEST_MEMO_TTL_MS,
-        });
-      }
-      logTiming("ok");
-      return value;
-    })
-    .catch((error) => {
-      logTiming("error", error);
-      throw error;
-    })
-    .finally(() => {
-      if (memoize && memoKey) requestMemoInFlight.delete(memoKey);
-    });
-
-  if (memoize && memoKey) {
-    requestMemoInFlight.set(memoKey, job as Promise<unknown>);
-  }
-
-  return job;
+  return apiClient.request<T>(path, options);
 }
+
+export { inflight };
 
 // ── Error formatter ───────────────────────────────────
 
