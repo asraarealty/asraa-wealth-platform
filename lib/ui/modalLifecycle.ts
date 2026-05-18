@@ -389,8 +389,14 @@ export function useAbortSafeLifecycle(active = true) {
 
   useEffect(() => {
     activeRef.current = active;
-    if (!active && !abortControllerRef.current.signal.aborted) {
-      abortControllerRef.current.abort();
+    if (!active) {
+      if (!abortControllerRef.current.signal.aborted) {
+        abortControllerRef.current.abort();
+      }
+      return;
+    }
+    if (abortControllerRef.current.signal.aborted) {
+      abortControllerRef.current = new AbortController();
     }
   }, [active]);
 
