@@ -4,8 +4,16 @@ import { LoadingBlock, SectionHeader, SurfaceCard } from "@/components/v2/ui";
 import { useMarketOrchestrator } from "@/lib/services/marketOrchestrator";
 import { fmtPercent } from "@/lib/formatters";
 
+function formatUpdatedTime(value: string | null) {
+  if (!value) return null;
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return null;
+  return `${new Date(timestamp).toISOString().slice(11, 16)} UTC`;
+}
+
 export function AdminMarketPanel() {
   const { adminTickers, isLoading, error, refresh, lastUpdated } = useMarketOrchestrator();
+  const updatedLabel = formatUpdatedTime(lastUpdated);
 
   if (isLoading && adminTickers.length === 0) {
     return <LoadingBlock label="Loading admin market pulse..." />;
@@ -16,7 +24,7 @@ export function AdminMarketPanel() {
       <SectionHeader
         eyebrow="Live market pulse"
         title="Admin market overview"
-        subtitle={`Refresh cadence 45s · ${lastUpdated ? `Updated ${new Date(lastUpdated).toLocaleTimeString("en-IN")}` : "Awaiting live market feed"}`}
+        subtitle={`Refresh cadence 45s · ${updatedLabel ? `Updated ${updatedLabel}` : "Awaiting live market feed"}`}
         action={
           <button type="button" className="v2-action" onClick={() => void refresh()}>
             Refresh

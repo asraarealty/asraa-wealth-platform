@@ -35,6 +35,13 @@ const CONFIG: Record<Variant, { eyebrow: string; title: string; subtitle: string
   },
 };
 
+function formatUpdatedTime(value: string | null) {
+  if (!value) return null;
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return null;
+  return `${new Date(timestamp).toISOString().slice(11, 16)} UTC`;
+}
+
 function formatPrice(item: MarketAsset) {
   return new Intl.NumberFormat(item.currency === "INR" ? "en-IN" : "en-US", {
     style: "currency",
@@ -105,6 +112,7 @@ function MarketList({ title, items, onToggle }: { title: string; items: MarketAs
 export function MarketTerminalPage({ variant }: { variant: Variant }) {
   const config = CONFIG[variant];
   const { assets, marketOverview, topGainers, topLosers, trendingAssets, watchlist, sectorMovers, isLoading, error, refresh, toggleWatchlist, lastUpdated } = useMarketOrchestrator();
+  const updatedLabel = formatUpdatedTime(lastUpdated);
 
   if (isLoading && assets.length === 0) {
     return <LoadingBlock label="Loading live market terminal..." />;
@@ -131,7 +139,7 @@ export function MarketTerminalPage({ variant }: { variant: Variant }) {
           <SectionHeader
             eyebrow={config.eyebrow}
             title={config.title}
-            subtitle={`${config.subtitle} ${lastUpdated ? `· Updated ${new Date(lastUpdated).toLocaleTimeString("en-IN")}` : ""}`}
+            subtitle={`${config.subtitle}${updatedLabel ? ` · Updated ${updatedLabel}` : ""}`}
           />
           <div className="flex items-center gap-2">
             <span className="rounded-full border border-blue-400/20 bg-blue-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-blue-200">

@@ -281,6 +281,10 @@ export default function ClientsPage() {
   const totalPages = Math.max(1, Math.ceil(filteredClients.length / pageSize));
   const paginatedClients = filteredClients.slice((page - 1) * pageSize, page * pageSize);
 
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
+
   const {
     propertyAssets,
     occupiedProperties,
@@ -348,7 +352,6 @@ export default function ClientsPage() {
       }
       await queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY });
       setPendingAction(null);
-      refresh();
     } catch (value) {
       setActionError(toErrorMessage(value));
     } finally {
@@ -676,7 +679,7 @@ export default function ClientsPage() {
         </div>
       </SurfaceCard>
 
-      <ClientDetailPanel client={selectedClient} onClose={closeClientWorkspace} onRefresh={refresh} />
+      {selectedClient ? <ClientDetailPanel client={selectedClient} onClose={closeClientWorkspace} /> : null}
 
       {pendingAction ? (
         <PlatformConfirmModal

@@ -566,7 +566,7 @@ function stopPolling() {
 
 export async function ensureMarketData(options: { force?: boolean; silent?: boolean } = {}) {
   const { force = false, silent = false } = options;
-  if (!silent) {
+  if (!silent && !snapshot.isLoading && !snapshot.isRefreshing) {
     setSnapshot({
       isLoading: snapshot.assets.length === 0,
       isRefreshing: snapshot.assets.length > 0,
@@ -789,7 +789,7 @@ export function useMarketOrchestrator() {
   const state = useSyncExternalStore(subscribeMarket, getMarketSnapshot, getMarketSnapshot);
 
   useEffect(() => {
-    void ensureMarketData();
+    void ensureMarketData({ silent: snapshot.assets.length > 0 });
   }, []);
 
   return {
