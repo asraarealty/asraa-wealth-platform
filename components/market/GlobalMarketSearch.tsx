@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 import { SurfaceCard } from "@/components/v2/ui";
-import { useMarketOrchestrator, type MarketAsset } from "@/lib/services/marketOrchestrator";
+import { useMarketDomainGraph as useMarketOrchestrator, type MarketAsset } from "@/domains/market";
 import { fmtPercent } from "@/lib/formatters";
 
 const SearchRow = memo(function SearchRow({ item, onToggle }: { item: MarketAsset; onToggle: (symbol: string) => void }) {

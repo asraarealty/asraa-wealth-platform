@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { fetcher, toErrorMessage } from "@/lib/fetcher";
+import { toErrorMessage } from "@/lib/fetcher";
 import type { MarketAsset, SectorMover } from "@/lib/services/marketOrchestrator";
-import { useAuth } from "@/context/AuthContext";
+import { useIntelligencePipelineQuery } from "@/domains/intelligence";
 
 interface IntelligencePayload {
   aiInsights: Array<{ title: string; message: string; confidence?: number }>;
@@ -51,59 +50,6 @@ const PORTFOLIO_FIT_OPPORTUNITY_BONUS = 10;
 const PORTFOLIO_FIT_BALANCED_CONCENTRATION_BONUS = 8;
 const PORTFOLIO_FIT_MODERATE_CONCENTRATION_BONUS = 3;
 const PORTFOLIO_FIT_ELEVATED_CONCENTRATION_PENALTY = -4;
-
-function unwrap(value: unknown): unknown {
-  const seen = new Set<unknown>();
-  let current: unknown = value;
-  while (current && typeof current === "object" && !Array.isArray(current)) {
-    if (seen.has(current)) break;
-    seen.add(current);
-    const record = current as Record<string, unknown>;
-    if (!("data" in record)) return current;
-    current = record.data;
-  }
-  return current;
-}
-
-function asArray(value: unknown) {
-  return Array.isArray(value) ? value : [];
-}
-
-function asText(value: unknown, fallback = "") {
-  return typeof value === "string" ? value : fallback;
-}
-
-async function fetchIntelligence(): Promise<IntelligencePayload> {
-  const payload = unwrap(await fetcher<unknown>("/intelligence", { raw: true, noRedirectOn401: true }));
-  const record = payload && typeof payload === "object" && !Array.isArray(payload) ? (payload as Record<string, unknown>) : {};
-
-  const allocation = asArray(record.allocation_recommendations ?? record.allocationRecommendations).map((item, index) => {
-    const entry = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
-    return {
-      label: asText(entry.label ?? entry.asset_class, `Recommendation ${index + 1}`),
-      value: Number(entry.value ?? entry.weight ?? entry.percentage ?? 0),
-      rationale: asText(entry.rationale ?? entry.message),
-    };
-  });
-
-  return {
-    aiInsights: asArray(record.ai_market_insights ?? record.aiInsights ?? record.insights).map((item, index) => {
-      const entry = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
-      return {
-        title: asText(entry.title, `Insight ${index + 1}`),
-        message: asText(entry.message ?? entry.body, asText(item, "")),
-        confidence: Number(entry.confidence ?? 0),
-      };
-    }),
-    trendAnalysis: asArray(record.trend_analysis ?? record.trends).map((item) => asText(item)).filter(Boolean),
-    riskAlerts: asArray(record.risk_alerts ?? record.alerts).map((item) => asText(item)).filter(Boolean),
-    opportunities: asArray(record.asset_opportunities ?? record.opportunities).map((item) => asText(item)).filter(Boolean),
-    macroSummary: asText(record.macroeconomic_summary ?? record.macro_summary ?? record.summary),
-    portfolioIntelligence: asArray(record.portfolio_intelligence ?? record.portfolioSignals).map((item) => asText(item)).filter(Boolean),
-    allocationRecommendations: allocation,
-    marketSentiment: asText(record.market_sentiment ?? record.sentiment, "Neutral to constructive"),
-  };
-}
 
 function liquidityTone(volume: number): ProprietarySignal["tone"] {
   if (volume > 4_000_000) return "success";
@@ -272,28 +218,17 @@ export function buildProprietarySignals(
 }
 
 export function useMarketIntelligenceEngine(selectedAsset: MarketAsset | null, sectorMovers: SectorMover[], watchlist: MarketAsset[]) {
-  const { authReady, sessionHydrated, authenticated } = useAuth();
-  const query = useQuery({
-    queryKey: ["market-intelligence-engine"],
-    queryFn: fetchIntelligence,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 15,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    refetchOnMount: false,
-    retry: 1,
-    enabled: authReady && sessionHydrated && authenticated,
-  });
+  const query = useIntelligencePipelineQuery();
 
-  const data: IntelligencePayload = query.data ?? {
-    aiInsights: [],
-    trendAnalysis: [],
-    riskAlerts: [],
-    opportunities: [],
-    macroSummary: "Macroeconomic intelligence stream initializing.",
-    portfolioIntelligence: [],
-    allocationRecommendations: [],
-    marketSentiment: "Neutral",
+  const data: IntelligencePayload = {
+    aiInsights: query.data?.aiInsights ?? [],
+    trendAnalysis: query.data?.trendAnalysis ?? [],
+    riskAlerts: query.data?.riskAlerts ?? [],
+    opportunities: query.data?.opportunities ?? [],
+    macroSummary: query.data?.macroSummary ?? "Macroeconomic intelligence stream initializing.",
+    portfolioIntelligence: query.data?.portfolioIntelligence ?? [],
+    allocationRecommendations: query.data?.allocationRecommendations ?? [],
+    marketSentiment: query.data?.marketSentiment ?? "Neutral",
   };
 
   const proprietarySignals = useMemo(
@@ -306,6 +241,8 @@ export function useMarketIntelligenceEngine(selectedAsset: MarketAsset | null, s
     proprietarySignals,
     isLoading: query.isLoading && !query.data,
     isFetching: query.isFetching,
-    errorMessage: query.error ? toErrorMessage(query.error) : null,
+    errorMessage: query.error
+      ? toErrorMessage(query.error)
+      : (query.data?.degradedState ?? null),
   };
 }
