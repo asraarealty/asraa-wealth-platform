@@ -1,9 +1,17 @@
 "use client";
 
-import { AllocationRing } from "@/components/admin/platform/AllocationRing";
+import dynamic from "next/dynamic";
 import { LoadingBlock, MetricTile, SectionHeader, SurfaceCard } from "@/components/v2/ui";
 import { useAdminClients } from "@/lib/hooks/useAdminClients";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
+
+const AllocationRing = dynamic(
+  () => import("@/components/admin/platform/AllocationRing").then((mod) => mod.AllocationRing),
+  {
+    ssr: false,
+    loading: () => <LoadingBlock label="Loading allocation chart..." />,
+  }
+);
 
 export default function AdminAnalyticsPage() {
   const { clients, kpis, loading, error } = useAdminClients();
