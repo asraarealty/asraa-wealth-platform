@@ -17,6 +17,7 @@ import {
   setToken,
   getToken,
   setRefreshToken,
+  clearRefreshToken,
   clearAuthTokens,
   clearApiClientCaches,
   abortAllRequests,
@@ -236,8 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (nextRefreshToken) {
         setRefreshToken(nextRefreshToken);
       } else {
-        clearAuthTokens();
-        setToken(token);
+        clearRefreshToken();
       }
 
       const me = await fetcher<User>("/auth/me", { noRedirectOn401: true });

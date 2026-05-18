@@ -99,11 +99,11 @@ export function resetUnauthorizedBurstCounter() {
   unauthorizedBurstStartedAt = 0;
 }
 
-export async function runWithGlobalRefresh<T>(
-  task: () => Promise<T>
-): Promise<T> {
+export async function runWithGlobalRefresh(
+  task: () => Promise<string>
+): Promise<string> {
   if (state.refreshPromise) {
-    return state.refreshPromise as unknown as Promise<T>;
+    return state.refreshPromise;
   }
 
   const refreshPromise = task().finally(() => {
@@ -115,7 +115,7 @@ export async function runWithGlobalRefresh<T>(
 
   setAuthLifecycleState({
     isRefreshing: true,
-    refreshPromise: refreshPromise as unknown as Promise<string>,
+    refreshPromise,
   });
 
   return refreshPromise;
