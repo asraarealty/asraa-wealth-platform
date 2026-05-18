@@ -15,7 +15,7 @@ function sanitizeToken(value: unknown): string {
     .replace(/^-|-$/g, "");
 }
 
-function normalizeTransaction(value: unknown): Transaction | null {
+function normalizeTransaction(value: unknown, index: number): Transaction | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as Record<string, unknown>;
   const id = sanitizeToken(raw.id ?? raw.transaction_id);
@@ -27,6 +27,7 @@ function normalizeTransaction(value: unknown): Transaction | null {
   const dateValue = String(raw.date ?? raw.created_at ?? raw.createdAt ?? "").trim();
   const timestamp = new Date(dateValue).getTime();
   const fallbackId = [
+    String(index),
     sanitizeToken(raw.symbol ?? raw.name ?? "asset"),
     sanitizeToken(raw.date ?? raw.created_at ?? raw.createdAt ?? "na"),
     sanitizeToken(raw.quantity ?? raw.units ?? "0"),
@@ -89,7 +90,7 @@ export function useClientDetail(
       const transactions =
         transactionsResult.status === "fulfilled" && Array.isArray(transactionsResult.value)
           ? transactionsResult.value
-              .map((entry) => normalizeTransaction(entry))
+              .map((entry, index) => normalizeTransaction(entry, index))
               .filter((entry): entry is Transaction => Boolean(entry))
           : [];
       const insights = insightsResult.status === "fulfilled" ? normalizeInsights(insightsResult.value) : null;
