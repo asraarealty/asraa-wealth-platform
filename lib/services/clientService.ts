@@ -1,4 +1,5 @@
 import { fetcher, type Client } from "@/lib/api";
+import { resolveContractRequest } from "@/lib/api/contracts";
 
 export type ClientOperationalStatus =
   | "lead"
@@ -290,7 +291,7 @@ async function fetchClientCollection(path: string, signal?: AbortSignal): Promis
   return list.map(normalizeClientRecord);
 }
 
-async function fetchClientResource(path: string, options?: { signal?: AbortSignal; method?: "GET" | "POST" | "PATCH"; body?: Record<string, unknown> }) {
+async function fetchClientResource(path: string, options?: { signal?: AbortSignal; method?: "GET" | "POST" | "PATCH"; body?: unknown }) {
   const rawResponse = await fetcher<any>(path, {
     raw: true,
     cache: "no-store",
@@ -302,25 +303,34 @@ async function fetchClientResource(path: string, options?: { signal?: AbortSigna
 }
 
 export function createClient(payload: ClientUpdatePayload, signal?: AbortSignal) {
-  return fetchClientResource("/clients", {
+  const body = buildClientPayload(payload);
+  const request = resolveContractRequest("POST /clients", { body });
+  return fetchClientResource(request.path, {
     method: "POST",
-    body: buildClientPayload(payload),
+    body: request.body,
     signal,
   });
 }
 
 export function fetchAdminClients(signal?: AbortSignal) {
-  return fetchClientCollection("/clients/admin", signal);
+  const request = resolveContractRequest("GET /clients/admin");
+  return fetchClientCollection(request.path, signal);
 }
 
 export function fetchClientById(id: number, signal?: AbortSignal) {
-  return fetchClientResource(`/clients/${encodeURIComponent(id)}`, { signal });
+  const request = resolveContractRequest("GET /clients/{id}", { pathParams: { id } });
+  return fetchClientResource(request.path, { signal });
 }
 
 export function updateClient(id: number, payload: ClientUpdatePayload, signal?: AbortSignal) {
-  return fetchClientResource(`/clients/${encodeURIComponent(id)}`, {
+  const body = buildClientPayload(payload);
+  const request = resolveContractRequest("PATCH /clients/{id}", {
+    pathParams: { id },
+    body,
+  });
+  return fetchClientResource(request.path, {
     method: "PATCH",
-    body: buildClientPayload(payload),
+    body: request.body,
     signal,
   });
 }
@@ -335,9 +345,14 @@ export function updateClientStatus(
     throw new Error(`Invalid lifecycle transition: ${currentStatus} -> ${status}`);
   }
   logClientAuditAction("status.update.requested", { id, status, currentStatus: currentStatus ?? null });
-  return fetchClientResource(`/clients/${encodeURIComponent(id)}/status`, {
+  const body = { status, canonical_status: status, is_active: status === "active" };
+  const request = resolveContractRequest("PATCH /clients/{id}/status", {
+    pathParams: { id },
+    body,
+  });
+  return fetchClientResource(request.path, {
     method: "PATCH",
-    body: { status, canonical_status: status, is_active: status === "active" },
+    body: request.body,
     signal,
   });
 }
@@ -370,7 +385,8 @@ export function deactivateClient(id: number, signal?: AbortSignal) {
 
 export function archiveClient(id: number, signal?: AbortSignal) {
   logClientAuditAction("client.archive.requested", { id });
-  return fetchClientResource(`/clients/${encodeURIComponent(id)}/archive`, {
+  const request = resolveContractRequest("POST /clients/{id}/archive", { pathParams: { id } });
+  return fetchClientResource(request.path, {
     method: "POST",
     signal,
   });
@@ -378,7 +394,8 @@ export function archiveClient(id: number, signal?: AbortSignal) {
 
 export function restoreClient(id: number, signal?: AbortSignal) {
   logClientAuditAction("client.restore.requested", { id });
-  return fetchClientResource(`/clients/${encodeURIComponent(id)}/restore`, {
+  const request = resolveContractRequest("PATCH /clients/{id}/restore", { pathParams: { id } });
+  return fetchClientResource(request.path, {
     method: "PATCH",
     signal,
   });
@@ -386,14 +403,16 @@ export function restoreClient(id: number, signal?: AbortSignal) {
 
 export function deleteClient(id: number, signal?: AbortSignal) {
   logClientAuditAction("client.delete.requested", { id });
-  return fetcher<void>(`/clients/${encodeURIComponent(id)}`, {
-    method: "DELETE",
+  const request = resolveContractRequest("DELETE /clients/{id}", { pathParams: { id } });
+  return fetcher<void>(request.path, {
+    method: request.method,
     signal,
   });
 }
 
 export async function getClients(signal?: AbortSignal): Promise<Client[]> {
-  const data = await fetcher<Client[]>("/clients", { signal });
+  const request = resolveContractRequest("GET /clients");
+  const data = await fetcher<Client[]>(request.path, { signal, method: request.method });
   return Array.isArray(data) ? data : [];
 }
 
