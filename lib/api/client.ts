@@ -119,12 +119,13 @@ function dedupeKey(method: HttpMethod, url: string, body: unknown): string {
 }
 
 function shouldDedupeRequest(pathname: string, method: HttpMethod): boolean {
+  // Bulk quote POST is read-only/idempotent in this frontend contract.
   if (method === "POST" && pathname.endsWith("/stocks/v2/bulk")) return true;
   if (method !== "GET") return false;
   return (
-    pathname.includes("/mutual-funds/search") ||
-    pathname.includes("/commodities/search") ||
-    pathname.includes("/stocks/search")
+    pathname.endsWith("/mutual-funds/search") ||
+    pathname.endsWith("/commodities/search") ||
+    pathname.endsWith("/stocks/search")
   );
 }
 
@@ -163,9 +164,13 @@ function consumeInflight<T>(entry: InflightEntry<T>, signal?: AbortSignal): Prom
     released = true;
     entry.consumers -= 1;
     if (entry.consumers < 0) {
+      const error = new Error("[api-client] inflight consumer tracking underflow");
+      if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
+        throw error;
+      }
       entry.consumers = 0;
-      if (typeof console !== "undefined" && typeof console.warn === "function") {
-        console.warn("[api-client] inflight consumer tracking underflow");
+      if (typeof console !== "undefined" && typeof console.error === "function") {
+        console.error(error);
       }
     }
     if (entry.consumers === 0) {
@@ -217,14 +222,14 @@ function extractApiMessage(payload: unknown, fallback: string): { message: strin
   return { message, code, details };
 }
 
-function unwrapJsonEnvelope<T>(json: unknown, raw?: boolean): T {
+function unwrapJsonEnvelope<T>(json: unknown, status: number, raw?: boolean): T {
   if (json === undefined || json === null) return undefined as T;
   if (raw) return json as T;
 
   if (typeof json === "object" && json && "success" in json) {
     const envelope = json as Record<string, unknown>;
     if (envelope.success === false) {
-      throw new ApiError(400, typeof envelope.error === "string" ? envelope.error : "API error");
+      throw new ApiError(status, typeof envelope.error === "string" ? envelope.error : "API error");
     }
     if ("data" in envelope) return envelope.data as T;
   }
@@ -239,7 +244,7 @@ function unwrapJsonEnvelope<T>(json: unknown, raw?: boolean): T {
 function defaultTagsForRequest(pathname: string, method: HttpMethod): string[] {
   const tags = [`endpoint:${pathname}`, `method:${method}`];
   for (const endpoint of DEDUPE_ENDPOINTS) {
-    if (pathname.includes(endpoint)) {
+    if (pathname.endsWith(endpoint)) {
       tags.push(`dedupe:${endpoint}`);
     }
   }
@@ -341,7 +346,7 @@ export function createApiClient(config: ApiClientConfig = {}) {
             durationMs: Number(duration.toFixed(2)),
           });
         }
-        return unwrapJsonEnvelope<T>(json, options.raw);
+        return unwrapJsonEnvelope<T>(json, response.status, options.raw);
       } catch (error) {
         const duration =
           typeof performance !== "undefined" && typeof performance.now === "function"
@@ -376,7 +381,8 @@ export function createApiClient(config: ApiClientConfig = {}) {
         if (attempt >= maxRetries || !isRetryableError(normalizedError)) {
           throw normalizedError;
         }
-        await sleep(Math.min(RETRY_BASE_DELAY_MS * 2 ** attempt, RETRY_MAX_DELAY_MS));
+        const delayMs = Math.min(RETRY_BASE_DELAY_MS * 2 ** (attempt + 1), RETRY_MAX_DELAY_MS);
+        await sleep(delayMs);
         attempt += 1;
       }
     }
