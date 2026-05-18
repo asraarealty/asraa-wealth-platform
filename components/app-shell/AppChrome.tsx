@@ -165,7 +165,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#07080d] text-white">
+    <div className="min-h-screen overflow-x-hidden bg-[#07080d] text-white">
       <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-[#07080d]/96 backdrop-blur-xl">
         <div className="px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
@@ -244,8 +244,8 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           </nav>
         </aside>
 
-        <main className="flex-1 min-h-[calc(100vh-56px)] pb-24 md:pb-8">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5">{children}</div>
+        <main className="flex-1 min-h-[calc(100vh-56px)] overflow-x-hidden pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-8">
+          <div className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6">{children}</div>
         </main>
       </div>
 

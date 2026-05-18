@@ -167,7 +167,7 @@ async function fetchSingleStockQuote(symbol: string): Promise<number | null> {
   if (existing) return existing;
 
   const job = withRetry(async () => {
-    const quote = await fetcher<any>(`/stocks/${encodeURIComponent(symbol)}`, {
+    const quote = await fetcher<any>(`/stocks/v2/${encodeURIComponent(symbol)}`, {
       raw: true,
       noRedirectOn401: true,
       cache: "no-store",

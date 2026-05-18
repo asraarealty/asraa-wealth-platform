@@ -32,21 +32,20 @@ function toneForStatus(value: string): "success" | "warn" | "danger" | "info" {
 
 export default function AdminOverviewPage() {
   const { clients, kpis, loading, error } = useAdminClients();
+  const safeClients = loading ? [] : clients;
 
-  if (loading) return <LoadingBlock label="Loading admin overview..." />;
-
-  const totalAssets = clients.reduce((sum, client) => sum + client.assets.length, 0);
-  const pendingApprovals = clients.filter((client) => client.approvalStatus !== "approved");
-  const recentActivity = [...clients]
+  const totalAssets = safeClients.reduce((sum, client) => sum + client.assets.length, 0);
+  const pendingApprovals = safeClients.filter((client) => client.approvalStatus !== "approved");
+  const recentActivity = [...safeClients]
     .filter((client) => client.lastActivity)
     .sort((a, b) => new Date(String(b.lastActivity)).getTime() - new Date(String(a.lastActivity)).getTime())
     .slice(0, 6);
-  const topClients = [...clients].sort((a, b) => b.totalNetWorth - a.totalNetWorth).slice(0, 6);
-  const avgEquity = clients.length ? clients.reduce((sum, client) => sum + client.allocationMix.stock, 0) / clients.length : 0;
-  const avgFunds = clients.length ? clients.reduce((sum, client) => sum + client.allocationMix.mf, 0) / clients.length : 0;
-  const avgProperty = clients.length ? clients.reduce((sum, client) => sum + client.allocationMix.property, 0) / clients.length : 0;
-  const avgCommodity = clients.length ? clients.reduce((sum, client) => sum + client.allocationMix.commodity, 0) / clients.length : 0;
-  const avgPerformance = clients.length ? clients.reduce((sum, client) => sum + client.unrealizedPnLPct, 0) / clients.length : 0;
+  const topClients = [...safeClients].sort((a, b) => b.totalNetWorth - a.totalNetWorth).slice(0, 6);
+  const avgEquity = safeClients.length ? safeClients.reduce((sum, client) => sum + client.allocationMix.stock, 0) / safeClients.length : 0;
+  const avgFunds = safeClients.length ? safeClients.reduce((sum, client) => sum + client.allocationMix.mf, 0) / safeClients.length : 0;
+  const avgProperty = safeClients.length ? safeClients.reduce((sum, client) => sum + client.allocationMix.property, 0) / safeClients.length : 0;
+  const avgCommodity = safeClients.length ? safeClients.reduce((sum, client) => sum + client.allocationMix.commodity, 0) / safeClients.length : 0;
+  const avgPerformance = safeClients.length ? safeClients.reduce((sum, client) => sum + client.unrealizedPnLPct, 0) / safeClients.length : 0;
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -67,6 +66,7 @@ export default function AdminOverviewPage() {
           <MetricTile label="Total AUM" value={fmtCurrency(kpis.totalAUM)} />
           <MetricTile label="Tracked assets" value={String(totalAssets)} sub="Across all client books" />
           <MetricTile label="Avg performance" value={fmtPercent(avgPerformance, true)} positive={avgPerformance >= 0} sub="Unrealized return" />
+          {loading ? <LoadingBlock label="Loading admin metrics..." /> : null}
         </div>
       </SurfaceCard>
 
@@ -174,7 +174,7 @@ export default function AdminOverviewPage() {
         <SurfaceCard className="p-4 sm:p-5 xl:col-span-1">
           <SectionHeader eyebrow="Portfolio performance" title="Performance leaders" subtitle="Highest unrealized return clients" />
           <div className="mt-4 space-y-3">
-            {[...clients].sort((a, b) => b.unrealizedPnLPct - a.unrealizedPnLPct).slice(0, 6).map((client) => (
+            {[...safeClients].sort((a, b) => b.unrealizedPnLPct - a.unrealizedPnLPct).slice(0, 6).map((client) => (
               <div key={client.id} className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm font-medium text-white">{client.name}</p>

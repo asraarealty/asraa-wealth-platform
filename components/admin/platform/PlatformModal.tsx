@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
+import { useBodyScrollLock } from "@/lib/ui/modalLifecycle";
 
 function useEscape(onClose: () => void) {
   useEffect(() => {
@@ -31,19 +33,21 @@ export function PlatformModal({
 }) {
   useEscape(onClose);
   const containerRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
 
   useEffect(() => {
     containerRef.current?.focus();
   }, []);
 
+  useBodyScrollLock(true);
+
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, []);
+    if (pathnameRef.current !== pathname) {
+      onClose();
+    }
+    pathnameRef.current = pathname;
+  }, [pathname, onClose]);
 
   const sizeClass = size === "lg" ? "max-w-3xl" : size === "sm" ? "max-w-md" : "max-w-xl";
 

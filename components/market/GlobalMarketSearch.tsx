@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { SurfaceCard } from "@/components/v2/ui";
 import { useMarketOrchestrator, type MarketAsset } from "@/lib/services/marketOrchestrator";
 import { fmtPercent } from "@/lib/formatters";
 
-function SearchRow({ item, onToggle }: { item: MarketAsset; onToggle: (symbol: string) => void }) {
+const SearchRow = memo(function SearchRow({ item, onToggle }: { item: MarketAsset; onToggle: (symbol: string) => void }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5">
       <div className="min-w-0">
@@ -28,15 +28,20 @@ function SearchRow({ item, onToggle }: { item: MarketAsset; onToggle: (symbol: s
       </div>
     </div>
   );
-}
+});
 
 export function GlobalMarketSearch() {
   const { search, searchMarket, toggleWatchlist } = useMarketOrchestrator();
   const [query, setQuery] = useState("");
+  const lastQueryRef = useRef("");
 
   useEffect(() => {
+    const normalized = query.trim();
+    if (normalized.toLowerCase() === lastQueryRef.current.toLowerCase()) return;
+
     const timer = setTimeout(() => {
       void searchMarket(query);
+      lastQueryRef.current = normalized;
     }, 300);
     return () => clearTimeout(timer);
   }, [query, searchMarket]);

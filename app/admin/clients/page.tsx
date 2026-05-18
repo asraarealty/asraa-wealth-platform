@@ -653,14 +653,14 @@ export default function ClientsPage() {
                              { label: "Email", href: client.email ? `mailto:${client.email}` : undefined, disabled: !client.email },
                              { label: "Schedule Meeting", href: client.email ? `mailto:${client.email}?subject=${encodeURIComponent(`Meeting schedule - ${client.name}`)}` : undefined, disabled: !client.email },
                              { label: "Send Report", href: client.email ? `mailto:${client.email}?subject=${encodeURIComponent(`Portfolio report - ${client.name}`)}` : undefined, disabled: !client.email },
-                              { label: "Approve", onSelect: () => setPendingAction({ client, type: "approve", title: "Approve Client", description: "Approve this client for live onboarding and advisory operations.", confirmLabel: "Approve", tone: "primary" }), disabled: !ALLOWED_TRANSITIONS[client.canonicalStatus].includes("approved") },
-                              { label: "Activate", onSelect: () => openStatusAction(client, "active"), disabled: !ALLOWED_TRANSITIONS[client.canonicalStatus].includes("active") },
-                              { label: "Suspend", onSelect: () => openStatusAction(client, "suspended"), disabled: !ALLOWED_TRANSITIONS[client.canonicalStatus].includes("suspended") },
-                              { label: "Restore", onSelect: () => setPendingAction({ client, type: "restore", title: "Restore Client", description: "This client will return to the active operational roster.", confirmLabel: "Restore", tone: "primary" }), disabled: client.canonicalStatus !== "archived" },
-                              { label: "Archive", onSelect: () => setPendingAction({ client, type: "archive", title: "Archive Client", description: "This client will be removed from active operations but can be restored later.", confirmLabel: "Archive Client" }), disabled: !ALLOWED_TRANSITIONS[client.canonicalStatus].includes("archived") },
-                             { label: "Delete", onSelect: () => setPendingAction({ client, type: "delete", title: "Delete Client", description: "This permanently deletes the client workspace and cannot be undone.", confirmLabel: "Delete Client", tone: "danger" }), tone: "danger" },
-                           ]}
-                         />
+                               { label: "Approve", onSelect: () => setPendingAction({ client, type: "approve", title: "Approve Client", description: "Approve this client for live onboarding and advisory operations.", confirmLabel: "Approve", tone: "primary" }), disabled: !(ALLOWED_TRANSITIONS[client.canonicalStatus] ?? []).includes("approved") },
+                               { label: "Activate", onSelect: () => openStatusAction(client, "active"), disabled: !(ALLOWED_TRANSITIONS[client.canonicalStatus] ?? []).includes("active") },
+                               { label: "Suspend", onSelect: () => openStatusAction(client, "suspended"), disabled: !(ALLOWED_TRANSITIONS[client.canonicalStatus] ?? []).includes("suspended") },
+                               { label: "Restore", onSelect: () => setPendingAction({ client, type: "restore", title: "Restore Client", description: "This client will return to the active operational roster.", confirmLabel: "Restore", tone: "primary" }), disabled: client.canonicalStatus !== "archived" },
+                               { label: "Archive", onSelect: () => setPendingAction({ client, type: "archive", title: "Archive Client", description: "This client will be removed from active operations but can be restored later.", confirmLabel: "Archive Client" }), disabled: !(ALLOWED_TRANSITIONS[client.canonicalStatus] ?? []).includes("archived") },
+                              { label: "Delete", onSelect: () => setPendingAction({ client, type: "delete", title: "Delete Client", description: "This permanently deletes the client workspace and cannot be undone.", confirmLabel: "Delete Client", tone: "danger" }), tone: "danger" },
+                            ]}
+                          />
                       </div>
                     </td>
                   </tr>

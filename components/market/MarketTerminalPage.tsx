@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { GlobalMarketSearch } from "@/components/market/GlobalMarketSearch";
 import { AllocationRing } from "@/components/admin/platform/AllocationRing";
 import { IntelligenceCard, LoadingBlock, MetricTile, SectionHeader, SurfaceCard } from "@/components/v2/ui";
@@ -68,7 +69,7 @@ function Sparkline({ values, positive }: { values: number[]; positive: boolean }
   );
 }
 
-function QuoteCard({ item, onToggle }: { item: MarketAsset; onToggle: (symbol: string) => void }) {
+const QuoteCard = memo(function QuoteCard({ item, onToggle }: { item: MarketAsset; onToggle: (symbol: string) => void }) {
   return (
     <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
       <div className="flex items-start justify-between gap-3">
@@ -94,7 +95,7 @@ function QuoteCard({ item, onToggle }: { item: MarketAsset; onToggle: (symbol: s
       </div>
     </div>
   );
-}
+});
 
 function MarketList({ title, items, onToggle }: { title: string; items: MarketAsset[]; onToggle: (symbol: string) => void }) {
   return (
@@ -114,9 +115,7 @@ export function MarketTerminalPage({ variant }: { variant: Variant }) {
   const { assets, marketOverview, topGainers, topLosers, trendingAssets, watchlist, sectorMovers, isLoading, error, refresh, toggleWatchlist, lastUpdated } = useMarketOrchestrator();
   const updatedLabel = formatUpdatedTime(lastUpdated);
 
-  if (isLoading && assets.length === 0) {
-    return <LoadingBlock label="Loading live market terminal..." />;
-  }
+  const showSkeleton = isLoading && assets.length === 0;
 
   const visibleAssets = (() => {
     if (variant === "watchlist") return watchlist;
@@ -156,9 +155,14 @@ export function MarketTerminalPage({ variant }: { variant: Variant }) {
           </div>
         ) : null}
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {marketOverview.map((metric) => (
-            <MetricTile key={metric.label} label={metric.label} value={metric.value} change={metric.delta} positive={metric.tone === "success" ? true : metric.tone === "warn" ? false : undefined} />
-          ))}
+            {marketOverview.map((metric) => (
+              <MetricTile key={metric.label} label={metric.label} value={metric.value} change={metric.delta} positive={metric.tone === "success" ? true : metric.tone === "warn" ? false : undefined} />
+            ))}
+            {showSkeleton
+              ? Array.from({ length: 4 }).map((_, index) => (
+                  <LoadingBlock key={`overview-skeleton-${index}`} label="Loading market metric..." />
+                ))
+              : null}
         </div>
       </SurfaceCard>
 
@@ -171,6 +175,11 @@ export function MarketTerminalPage({ variant }: { variant: Variant }) {
             {visibleAssets.slice(0, 8).map((item) => (
               <QuoteCard key={item.id} item={item} onToggle={toggleWatchlist} />
             ))}
+            {showSkeleton
+              ? Array.from({ length: 6 }).map((_, index) => (
+                  <LoadingBlock key={`quote-skeleton-${index}`} label="Loading quote..." />
+                ))
+              : null}
           </div>
         </SurfaceCard>
 

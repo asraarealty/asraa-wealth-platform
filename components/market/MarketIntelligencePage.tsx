@@ -75,12 +75,11 @@ export function MarketIntelligencePage() {
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 15,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
     retry: 1,
   });
-
-  if (query.isLoading) {
-    return <LoadingBlock label="Loading market intelligence..." />;
-  }
+  const showSkeleton = query.isLoading && !query.data;
 
   const data = query.data ?? {
     aiInsights: [],
@@ -111,6 +110,7 @@ export function MarketIntelligencePage() {
           <MetricTile label="Trend clusters" value={String(data.trendAnalysis.length)} sub="Detected regime changes" />
           <MetricTile label="Risk alerts" value={String(data.riskAlerts.length)} sub="Portfolio and market stress" />
           <MetricTile label="Asset opportunities" value={String(data.opportunities.length)} sub="Tactical and strategic ideas" />
+          {showSkeleton ? <LoadingBlock label="Loading intelligence metrics..." /> : null}
         </div>
       </SurfaceCard>
 

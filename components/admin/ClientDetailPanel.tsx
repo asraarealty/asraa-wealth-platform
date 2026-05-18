@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePathname } from "next/navigation";
 import { AssetCard } from "@/components/admin/platform/AssetCard";
 import { AllocationRing } from "@/components/admin/platform/AllocationRing";
 import { OperationalEmptyState } from "@/components/admin/platform/EmptyState";
@@ -17,6 +18,7 @@ import { ALLOWED_TRANSITIONS, approveClient, archiveClient, deleteClient, restor
 import { resolveLivePrices } from "@/lib/services/market";
 import { computePortfolioValuation } from "@/lib/services/portfolio";
 import { toErrorMessage } from "@/lib/fetcher";
+import { useBodyScrollLock } from "@/lib/ui/modalLifecycle";
 
 function fmtDate(iso?: string): string {
   if (!iso) return "Awaiting signal";
@@ -49,6 +51,8 @@ export function ClientDetailPanel({
   onClose: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
   const queryClient = useQueryClient();
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
   const [pendingClientAction, setPendingClientAction] = useState<{
@@ -74,14 +78,14 @@ export function ClientDetailPanel({
     if (client) panelRef.current?.focus();
   }, [client]);
 
+  useBodyScrollLock(Boolean(client));
+
   useEffect(() => {
-    if (!client || typeof document === "undefined") return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [client]);
+    if (pathnameRef.current !== pathname) {
+      onClose();
+    }
+    pathnameRef.current = pathname;
+  }, [pathname, onClose]);
 
   const holdings = useMemo(() => createCanonicalAssetUniverse(client?.assets ?? []), [client?.assets]);
   const holdingsSignature = useMemo(
@@ -104,6 +108,8 @@ export function ClientDetailPanel({
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 15,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
     retry: 1,
   });
 
@@ -115,7 +121,7 @@ export function ClientDetailPanel({
   const aiAlerts = Array.isArray(insights?.alerts) ? insights.alerts : [];
   const lifecycleReady = ["pending_kyc", "approved", "active", "suspended", "archived"].includes(client?.canonicalStatus ?? "");
   const intelligenceReady = Boolean((client?.assets.length ?? 0) > 0 || aiAlerts.length > 0);
-  const operationsReady = lifecycleReady && intelligenceReady;
+  const operationsReady = lifecycleReady;
   const allowedTransitions = useMemo(
     () => ALLOWED_TRANSITIONS[client?.canonicalStatus ?? "lead"] ?? [],
     [client?.canonicalStatus]
@@ -222,17 +228,24 @@ export function ClientDetailPanel({
             {!operationsReady ? (
               <OperationalEmptyState title="Operational controls locked" description="Complete onboarding and intelligence sync before executing lifecycle controls." hint="Await readiness" />
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
-                <a href={client.whatsapp || client.phone ? `https://wa.me/${String(client.whatsapp ?? client.phone).replace(/\D/g, "")}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">WhatsApp</a>
-                <a href={client.phone ? `tel:${String(client.phone).replace(/\D/g, "")}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Call</a>
-                <a href={client.email ? `mailto:${client.email}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Email</a>
-                <a href={client.email ? `mailto:${client.email}?subject=${encodeURIComponent(`Meeting schedule - ${client.name}`)}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Schedule Meeting</a>
-                <a href={client.email ? `mailto:${client.email}?subject=${encodeURIComponent(`Client report - ${client.name}`)}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Send Report</a>
-                <button type="button" disabled={!allowedTransitions.includes("approved")} onClick={() => setPendingClientAction({ action: "approve", title: "Approve client", description: "Approve this client and move onboarding to live operations.", confirmLabel: "Approve", tone: "primary" })} className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200 disabled:opacity-40">Approve</button>
-                <button type="button" disabled={!allowedTransitions.includes("suspended")} onClick={() => setPendingClientAction({ action: "suspend", title: "Suspend client", description: "Suspend this client from active operations.", confirmLabel: "Suspend", tone: "danger" })} className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-200 disabled:opacity-40">Suspend</button>
-                <button type="button" disabled={!allowedTransitions.includes("archived")} onClick={() => setPendingClientAction({ action: "archive", title: "Archive client", description: "Archive this client workspace from active books.", confirmLabel: "Archive", tone: "danger" })} className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 disabled:opacity-40">Archive</button>
-                <button type="button" disabled={client.canonicalStatus !== "archived"} onClick={() => setPendingClientAction({ action: "restore", title: "Restore client", description: "Restore this client back to active operating coverage.", confirmLabel: "Restore", tone: "primary" })} className="rounded-xl border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200 disabled:opacity-40">Restore</button>
-                <button type="button" onClick={() => setPendingClientAction({ action: "delete", title: "Delete client", description: "Permanently delete this client and all operational links.", confirmLabel: "Delete", tone: "danger" })} className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200">Delete</button>
+              <div className="space-y-3">
+                {!intelligenceReady ? (
+                  <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                    Intelligence data is partial, but lifecycle controls remain available.
+                  </div>
+                ) : null}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
+                  <a href={client.whatsapp || client.phone ? `https://wa.me/${String(client.whatsapp ?? client.phone).replace(/\D/g, "")}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">WhatsApp</a>
+                  <a href={client.phone ? `tel:${String(client.phone).replace(/\D/g, "")}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Call</a>
+                  <a href={client.email ? `mailto:${client.email}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Email</a>
+                  <a href={client.email ? `mailto:${client.email}?subject=${encodeURIComponent(`Meeting schedule - ${client.name}`)}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Schedule Meeting</a>
+                  <a href={client.email ? `mailto:${client.email}?subject=${encodeURIComponent(`Client report - ${client.name}`)}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Send Report</a>
+                  <button type="button" disabled={!allowedTransitions.includes("approved")} onClick={() => setPendingClientAction({ action: "approve", title: "Approve client", description: "Approve this client and move onboarding to live operations.", confirmLabel: "Approve", tone: "primary" })} className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200 disabled:opacity-40">Approve</button>
+                  <button type="button" disabled={!allowedTransitions.includes("suspended")} onClick={() => setPendingClientAction({ action: "suspend", title: "Suspend client", description: "Suspend this client from active operations.", confirmLabel: "Suspend", tone: "danger" })} className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-200 disabled:opacity-40">Suspend</button>
+                  <button type="button" disabled={!allowedTransitions.includes("archived")} onClick={() => setPendingClientAction({ action: "archive", title: "Archive client", description: "Archive this client workspace from active books.", confirmLabel: "Archive", tone: "danger" })} className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 disabled:opacity-40">Archive</button>
+                  <button type="button" disabled={client.canonicalStatus !== "archived"} onClick={() => setPendingClientAction({ action: "restore", title: "Restore client", description: "Restore this client back to active operating coverage.", confirmLabel: "Restore", tone: "primary" })} className="rounded-xl border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200 disabled:opacity-40">Restore</button>
+                  <button type="button" onClick={() => setPendingClientAction({ action: "delete", title: "Delete client", description: "Permanently delete this client and all operational links.", confirmLabel: "Delete", tone: "danger" })} className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200">Delete</button>
+                </div>
               </div>
             )}
           </IntelligenceWidget>
