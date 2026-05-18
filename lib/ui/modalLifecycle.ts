@@ -56,9 +56,14 @@ let previousBodyTouchAction = "";
 let previousBodyOverscrollBehavior = "";
 
 let escapeListenerAttached = false;
+const MAX_REPEATED_CLOSE_ATTEMPTS = 3;
 
 function telemetry(event: string, payload: Record<string, unknown> = {}) {
   if (typeof window === "undefined") return;
+  const debugEnabled =
+    process.env.NODE_ENV !== "production" ||
+    (window as typeof window & { __ASRAA_OVERLAY_DEBUG?: boolean }).__ASRAA_OVERLAY_DEBUG === true;
+  if (!debugEnabled) return;
   console.info("[overlay-lifecycle]", { event, ...payload });
 }
 
@@ -146,7 +151,18 @@ function requestOverlayClose(entry: OverlayEntry, reason: OverlayCloseReason) {
       reason,
       attempts: entry.repeatedCloseAttempts,
     });
-    return false;
+    if (entry.repeatedCloseAttempts < MAX_REPEATED_CLOSE_ATTEMPTS) {
+      return false;
+    }
+    telemetry("force-close-recovery", {
+      id: entry.id,
+      type: entry.type,
+      reason,
+      attempts: entry.repeatedCloseAttempts,
+    });
+    entry.closing = false;
+    entry.repeatedCloseAttempts = 0;
+    return requestOverlayClose(entry, reason);
   }
   entry.closing = true;
 
