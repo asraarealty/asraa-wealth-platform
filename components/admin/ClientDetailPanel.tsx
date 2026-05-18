@@ -182,32 +182,49 @@ export function ClientDetailPanel({
     [workspaceClient, safeAssets, insights, detailDegraded]
   );
   const operationsReady = Boolean(readiness?.lifecycleReady && readiness?.onboardingReady);
+  const readinessSignature = useMemo(
+    () =>
+      readiness
+        ? [
+            readiness.onboardingReady,
+            readiness.intelligenceReady,
+            readiness.inventoryReady,
+            readiness.advisoryReady,
+            readiness.communicationReady,
+            readiness.portfolioReady,
+            readiness.relationshipReady,
+            readiness.lifecycleReady,
+          ].join("|")
+        : "none",
+    [readiness]
+  );
   useEffect(() => {
     if (!workspaceClient || typeof window === "undefined" || process.env.NODE_ENV === "production") return;
+    const alertsCount = Array.isArray(insights?.alerts) ? insights.alerts.length : 0;
     console.info("[selector]", {
       clientId: workspaceClient.id,
       assetsCount: safeAssets.length,
       holdingsCount: holdings.length,
       transactionsCount: transactions.length,
-      insightAlertsCount: Array.isArray(insights?.alerts) ? insights.alerts.length : 0,
+      insightAlertsCount: alertsCount,
       degraded: detailDegraded,
     });
     console.info("[workspace]", {
       clientId: workspaceClient.id,
       operationsReady,
-      readiness,
+      readinessSignature,
       fallbackActivationReason: detailError ?? null,
     });
   }, [
     detailDegraded,
     detailError,
     holdings.length,
-    insights?.alerts,
+    readinessSignature,
     operationsReady,
-    readiness,
     safeAssets.length,
     transactions.length,
     workspaceClient,
+    insights?.alerts?.length,
   ]);
   const allowedTransitions = useMemo(
     () => ALLOWED_TRANSITIONS[workspaceClient?.canonicalStatus ?? "lead"] ?? [],

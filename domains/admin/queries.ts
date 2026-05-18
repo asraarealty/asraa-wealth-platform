@@ -121,25 +121,21 @@ export function useAdminClientDetail(clientId: number | null): ClientDetailData 
       const insights = normalizedInsights ?? previous?.insights ?? null;
 
       if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
-        console.info("[cache-reconcile]", {
-          stage: "client-detail",
-          clientId: resolvedClientId,
-          previousTransactions: previous?.transactions?.length ?? 0,
-          incomingTransactions: normalizedTransactions?.length ?? 0,
-          finalTransactions: transactions.length,
-          previousAlerts: Array.isArray(previous?.insights?.alerts) ? previous?.insights?.alerts.length : 0,
-          incomingAlerts: Array.isArray(normalizedInsights?.alerts) ? normalizedInsights?.alerts.length : 0,
-          finalAlerts: Array.isArray(insights?.alerts) ? insights.alerts.length : 0,
-          fallbackActivationReason: partialError,
-        });
-      }
-      if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
         console.info("[domain-query]", {
           stage: "client-detail",
           clientId: resolvedClientId,
           transactionCount: transactions.length,
           insightAlertsCount: Array.isArray(insights?.alerts) ? insights.alerts.length : 0,
           degraded: Boolean(partialError),
+          cacheReconcile: {
+            previousTransactions: previous?.transactions?.length ?? 0,
+            incomingTransactions: normalizedTransactions?.length ?? 0,
+            finalTransactions: transactions.length,
+            previousAlerts: Array.isArray(previous?.insights?.alerts) ? previous?.insights?.alerts.length : 0,
+            incomingAlerts: Array.isArray(normalizedInsights?.alerts) ? normalizedInsights?.alerts.length : 0,
+            finalAlerts: Array.isArray(insights?.alerts) ? insights.alerts.length : 0,
+            fallbackActivationReason: partialError,
+          },
         });
       }
 
