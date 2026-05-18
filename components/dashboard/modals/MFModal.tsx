@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import Modal, { FormField, FieldInput, ModalFooter } from "./Modal";
 import TagSelect from "../TagSelect";
-import MFSearch from "../MFSearch";
-import type { Asset, CreateAssetPayload, UpdateAssetPayload, MutualFundResult } from "@/lib/api";
+import { LiveAssetPicker, type LiveAssetSelection } from "@/components/assets/LiveAssetPicker";
+import type { Asset, CreateAssetPayload, UpdateAssetPayload } from "@/lib/api";
 
 interface MFModalProps {
   asset?: Asset | null;
@@ -49,12 +49,12 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
     setError(null);
   }, [asset]);
 
-  function handleMFSelect(mf: MutualFundResult) {
+  function handleMFSelect(mf: LiveAssetSelection) {
     setForm((f) => ({
       ...f,
-      symbol: mf.code,
+      symbol: mf.symbol,
       name: mf.name,
-      avg_price: mf.nav ? String(mf.nav) : f.avg_price,
+      avg_price: mf.price ? String(mf.price) : f.avg_price,
     }));
   }
 
@@ -99,7 +99,12 @@ export default function MFModal({ asset, onClose, onSave }: MFModalProps) {
     >
       <div className="space-y-4">
         <FormField label="Search Mutual Fund">
-          <MFSearch onSelect={handleMFSelect} initialValue={form.name} />
+          <LiveAssetPicker
+            value={form.name}
+            allowedKinds={["mutual-fund"]}
+            placeholder="Search live mutual fund NAV"
+            onSelect={handleMFSelect}
+          />
         </FormField>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

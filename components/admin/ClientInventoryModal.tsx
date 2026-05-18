@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Asset, AssetType } from "@/lib/api";
 import { useOverlayLifecycle } from "@/lib/ui/modalLifecycle";
+import { LiveAssetPicker, type LiveAssetSelection } from "@/components/assets/LiveAssetPicker";
 
 interface ClientInventoryModalProps {
   mode: "create" | "edit";
@@ -81,6 +82,25 @@ export function ClientInventoryModal({
 
   function setValue(key: string, value: string | boolean) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function applyLiveSelection(selection: LiveAssetSelection) {
+    setForm((prev) => {
+      const next: FormState = {
+        ...prev,
+        symbol: selection.symbol,
+        name: selection.name,
+      };
+      if (selection.kind === "mutual-fund") {
+        next.nav = selection.price ? String(selection.price) : toStringValue(prev.nav);
+        next.avg_price = next.nav;
+        next.current_price = next.nav;
+      } else {
+        next.avg_price = selection.price ? String(selection.price) : toStringValue(prev.avg_price);
+        next.current_price = next.avg_price;
+      }
+      return next;
+    });
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -183,6 +203,24 @@ export function ClientInventoryModal({
             <label className={labelClass}>Name</label>
             <input required className={inputClass} value={toStringValue(form.name)} onChange={(event) => setValue("name", event.target.value)} />
           </div>
+
+          {(type === "stock" || type === "mf" || type === "commodity") ? (
+            <div>
+              <label className={labelClass}>Live asset picker</label>
+              <LiveAssetPicker
+                value={toStringValue(form.symbol || form.name)}
+                allowedKinds={
+                  type === "stock"
+                    ? ["stock", "global-stock", "etf"]
+                    : type === "mf"
+                    ? ["mutual-fund"]
+                    : ["commodity", "metal"]
+                }
+                placeholder="Search live assets"
+                onSelect={applyLiveSelection}
+              />
+            </div>
+          ) : null}
 
           {(type === "stock" || type === "commodity") ? (
             <div className="space-y-3">

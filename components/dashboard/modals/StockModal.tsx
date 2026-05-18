@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react";
 import Modal, { FormField, FieldInput, ModalFooter } from "./Modal";
 import TagSelect from "../TagSelect";
-import StockSearch from "@/components/StockSearch";
+import { LiveAssetPicker, type LiveAssetSelection } from "@/components/assets/LiveAssetPicker";
 import type { Asset, CreateAssetPayload, UpdateAssetPayload } from "@/lib/api";
-import type { StockQuote } from "@/lib/api";
 
 interface StockModalProps {
   /** When provided, the modal is in edit mode */
@@ -51,7 +50,7 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
     setError(null);
   }, [asset]);
 
-  function handleStockSelect(stock: StockQuote) {
+  function handleStockSelect(stock: LiveAssetSelection) {
     setForm((f) => ({
       ...f,
       symbol: stock.symbol,
@@ -102,7 +101,12 @@ export default function StockModal({ asset, onClose, onSave }: StockModalProps) 
     >
       <div className="space-y-4">
         <FormField label="Search Stock">
-          <StockSearch onSelect={handleStockSelect} />
+          <LiveAssetPicker
+            value={form.symbol}
+            allowedKinds={["stock", "global-stock", "etf"]}
+            placeholder="Search live stocks and ETFs"
+            onSelect={handleStockSelect}
+          />
         </FormField>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

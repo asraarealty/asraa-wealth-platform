@@ -14,6 +14,7 @@ import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 import { ADMIN_CLIENTS_QUERY_KEY, useAdminClients, type EnrichedClient } from "@/lib/hooks/useAdminClients";
 import { adminQueryKeys } from "@/lib/queryKeys/admin";
 import { useAdminWorkspaceState } from "@/domains/admin";
+import { ClientPortfolioWorkspace } from "@/components/admin/portfolio-workspace";
 import {
   ALLOWED_TRANSITIONS,
   type ClientOperationalStatus,
@@ -393,6 +394,11 @@ export default function ClientsPage() {
       </SurfaceCard>
 
       <KpiStrip data={kpiTiles} />
+
+      <ClientPortfolioWorkspace
+        clients={clients}
+        onOpenClient={(clientId) => setSelectedClientId(clientId)}
+      />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <IntelligenceWidget eyebrow="AUM heatmap" title="Top client concentration" detail="Largest capital clusters across live operational books.">
