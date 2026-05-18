@@ -284,7 +284,7 @@ export default function DashboardPage() {
       <IntelligenceSection intelCards={intelCards} />
       <ActionsRecommendationsSection data={data} />
       <RealEstateActivitySection data={data} />
-      <MarketDiscoverySection data={data} />
+      <MarketDiscoverySection />
     </div>
   );
 }

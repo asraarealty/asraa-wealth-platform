@@ -206,8 +206,7 @@ export function RealEstateActivitySection({ data }: { data: DashboardOperatingDa
   );
 }
 
-export function MarketDiscoverySection({ data }: { data: DashboardOperatingData }) {
-  void data;
+export function MarketDiscoverySection() {
   return (
     <MarketCommandCenter mode="client" initialSurface="market-overview" compact />
   );

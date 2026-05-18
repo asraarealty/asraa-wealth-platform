@@ -33,14 +33,36 @@ export interface ProprietarySignal {
   tone: "info" | "success" | "warn" | "danger";
 }
 
+const CONVICTION_BASE_SCORE = 58;
+const CONVICTION_MIN_SCORE = 35;
+const CONVICTION_MAX_SCORE = 97;
+const CONVICTION_MOMENTUM_WEIGHT = 3;
+const CONVICTION_SECTOR_LEADERSHIP_WEIGHT = 4;
+const CONVICTION_LIQUIDITY_THRESHOLD = 1_000_000;
+const CONVICTION_LIQUIDITY_BONUS = 6;
+const CONVICTION_LIQUIDITY_BASELINE = 2;
+
+const PORTFOLIO_FIT_BASE_SCORE = 52;
+const PORTFOLIO_FIT_MIN_SCORE = 45;
+const PORTFOLIO_FIT_MAX_SCORE = 94;
+const PORTFOLIO_FIT_POSITIVE_MOMENTUM_BONUS = 10;
+const PORTFOLIO_FIT_NEUTRAL_MOMENTUM_BONUS = 3;
+const PORTFOLIO_FIT_OPPORTUNITY_BONUS = 10;
+const PORTFOLIO_FIT_BALANCED_CONCENTRATION_BONUS = 8;
+const PORTFOLIO_FIT_MODERATE_CONCENTRATION_BONUS = 3;
+const PORTFOLIO_FIT_ELEVATED_CONCENTRATION_PENALTY = -4;
+
 function unwrap(value: unknown): unknown {
-  if (!value || typeof value !== "object") return value;
-  const record = value as Record<string, unknown>;
-  if (record.data && typeof record.data === "object" && "data" in (record.data as Record<string, unknown>)) {
-    return (record.data as Record<string, unknown>).data;
+  const seen = new Set<unknown>();
+  let current: unknown = value;
+  while (current && typeof current === "object" && !Array.isArray(current)) {
+    if (seen.has(current)) break;
+    seen.add(current);
+    const record = current as Record<string, unknown>;
+    if (!("data" in record)) return current;
+    current = record.data;
   }
-  if ("data" in record) return record.data;
-  return value;
+  return current;
 }
 
 function asArray(value: unknown) {
@@ -52,7 +74,7 @@ function asText(value: unknown, fallback = "") {
 }
 
 async function fetchIntelligence(): Promise<IntelligencePayload> {
-  const payload = unwrap(await fetcher<unknown>("/intelligence", { raw: true, cache: "no-store", noRedirectOn401: true }));
+  const payload = unwrap(await fetcher<unknown>("/intelligence", { raw: true, noRedirectOn401: true }));
   const record = payload && typeof payload === "object" && !Array.isArray(payload) ? (payload as Record<string, unknown>) : {};
 
   const allocation = asArray(record.allocation_recommendations ?? record.allocationRecommendations).map((item, index) => {
@@ -95,6 +117,21 @@ function rankForSector(sectorMovers: SectorMover[], sector: string): number {
   return index < 0 ? sectorMovers.length + 1 : index + 1;
 }
 
+export function scoreAssetConviction(changePercent: number, sectorRank: number, volume: number): number {
+  return Math.max(
+    CONVICTION_MIN_SCORE,
+    Math.min(
+      CONVICTION_MAX_SCORE,
+      Math.round(
+        CONVICTION_BASE_SCORE +
+          changePercent * CONVICTION_MOMENTUM_WEIGHT +
+          Math.max(0, 6 - sectorRank) * CONVICTION_SECTOR_LEADERSHIP_WEIGHT +
+          (volume > CONVICTION_LIQUIDITY_THRESHOLD ? CONVICTION_LIQUIDITY_BONUS : CONVICTION_LIQUIDITY_BASELINE)
+      )
+    )
+  );
+}
+
 export function buildProprietarySignals(
   selectedAsset: MarketAsset | null,
   sectorMovers: SectorMover[],
@@ -127,18 +164,7 @@ export function buildProprietarySignals(
   const concentrationRisk =
     watchlistWeight >= 3 ? "Elevated" : watchlistWeight === 2 ? "Moderate" : "Balanced";
 
-  const conviction = Math.max(
-    35,
-    Math.min(
-      97,
-      Math.round(
-        58 +
-          selectedAsset.changePercent * 3 +
-          Math.max(0, 6 - sectorRank) * 4 +
-          (selectedAsset.volume > 1_000_000 ? 6 : 2)
-      )
-    )
-  );
+  const conviction = scoreAssetConviction(selectedAsset.changePercent, sectorRank, selectedAsset.volume);
 
   const accumulation =
     selectedAsset.changePercent >= 1.5
@@ -162,14 +188,22 @@ export function buildProprietarySignals(
       : "Low";
 
   const fitScore = Math.max(
-    45,
+    PORTFOLIO_FIT_MIN_SCORE,
     Math.min(
-      94,
+      PORTFOLIO_FIT_MAX_SCORE,
       Math.round(
-        52 +
-          (selectedAsset.changePercent > 0 ? 10 : 3) +
-          (opportunities.some((item) => item.toLowerCase().includes(selectedAsset.symbol.toLowerCase())) ? 10 : 0) +
-          (concentrationRisk === "Balanced" ? 8 : concentrationRisk === "Moderate" ? 3 : -4)
+        PORTFOLIO_FIT_BASE_SCORE +
+          (selectedAsset.changePercent > 0
+            ? PORTFOLIO_FIT_POSITIVE_MOMENTUM_BONUS
+            : PORTFOLIO_FIT_NEUTRAL_MOMENTUM_BONUS) +
+          (opportunities.some((item) => item.toLowerCase().includes(selectedAsset.symbol.toLowerCase()))
+            ? PORTFOLIO_FIT_OPPORTUNITY_BONUS
+            : 0) +
+          (concentrationRisk === "Balanced"
+            ? PORTFOLIO_FIT_BALANCED_CONCENTRATION_BONUS
+            : concentrationRisk === "Moderate"
+            ? PORTFOLIO_FIT_MODERATE_CONCENTRATION_BONUS
+            : PORTFOLIO_FIT_ELEVATED_CONCENTRATION_PENALTY)
       )
     )
   );
@@ -197,7 +231,12 @@ export function buildProprietarySignals(
       key: "accumulationDistribution",
       label: "Accumulation/Distribution",
       value: accumulation,
-      tone: accumulation.includes("accumulation") ? "success" : accumulation.includes("Distribution") ? "danger" : "info",
+      tone:
+        accumulation.toLowerCase().includes("accumulation")
+          ? "success"
+          : accumulation.toLowerCase().includes("distribution")
+          ? "danger"
+          : "info",
     },
     {
       key: "valuationPressure",

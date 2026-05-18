@@ -5,7 +5,7 @@ import { AllocationRing } from "@/components/admin/platform/AllocationRing";
 import { IntelligenceCard, MetricTile, SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
 import { fmtPercent } from "@/lib/formatters";
 import { useMarketOrchestrator, type MarketAsset } from "@/lib/services/marketOrchestrator";
-import { useMarketIntelligenceEngine } from "@/lib/services/market/intelligenceEngine";
+import { scoreAssetConviction, useMarketIntelligenceEngine } from "@/lib/services/market/intelligenceEngine";
 
 export type WorkspaceSurface =
   | "market-overview"
@@ -35,6 +35,8 @@ const SURFACES: Array<{ key: WorkspaceSurface; label: string }> = [
 ];
 
 const QUICK_FILTERS = ["All", "India", "Global", "Fund", "Commodity", "Macro"] as const;
+const MIN_SEARCH_LENGTH = 3;
+const PORTFOLIO_EXPOSURE_SIGNALS = ["concentrationRisk", "portfolioFit", "liquidityProfile"] as const;
 
 type QuickFilter = (typeof QUICK_FILTERS)[number];
 
@@ -107,6 +109,11 @@ function getAssetUniverseCounts(assets: MarketAsset[]) {
   ];
 }
 
+function findSectorRank(sector: string, sectorMovers: Array<{ sector: string }>) {
+  const index = sectorMovers.findIndex((item) => item.sector.toLowerCase() === sector.toLowerCase());
+  return index < 0 ? sectorMovers.length + 1 : index + 1;
+}
+
 export function MarketCommandCenter({ mode, initialSurface = "market-overview", compact = false }: MarketCommandCenterProps) {
   const {
     assets,
@@ -136,13 +143,16 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
 
   useEffect(() => {
     const handle = setTimeout(() => {
+      if (query.trim().length > 0 && query.trim().length < MIN_SEARCH_LENGTH) return;
       void searchMarket(query);
     }, 250);
     return () => clearTimeout(handle);
   }, [query, searchMarket]);
 
   useEffect(() => {
-    if (!selectedAsset && filteredAssets.length > 0) {
+    const selectedStillPresent =
+      selectedAsset ? filteredAssets.some((item) => item.id === selectedAsset.id) : false;
+    if (filteredAssets.length > 0 && (!selectedAsset || !selectedStillPresent)) {
       setSelectedAsset(filteredAssets[0]);
     }
   }, [filteredAssets, selectedAsset]);
@@ -167,10 +177,14 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
 
   const topPicks = useMemo(() => {
     return trendingAssets.slice(0, 4).map((asset) => {
-      const conviction = Math.max(45, Math.min(95, Math.round(60 + asset.changePercent * 4 + (asset.volume > 1_000_000 ? 8 : 2))));
+      const conviction = scoreAssetConviction(
+        asset.changePercent,
+        findSectorRank(asset.sector, sectorMovers),
+        asset.volume
+      );
       return { asset, conviction };
     });
-  }, [trendingAssets]);
+  }, [sectorMovers, trendingAssets]);
 
   const onSelectAsset = (asset: MarketAsset) => {
     setSelectedAsset(asset);
@@ -197,8 +211,8 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
         <div className="mt-4 rounded-xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{error}</div>
       ) : null}
 
-      <div className="mt-4 hidden lg:grid gap-4 grid-cols-[0.95fr_1.45fr_0.95fr]">
-        <div className="space-y-4">
+      <div className="mt-4 hidden md:grid gap-4 md:grid-cols-[1fr_2fr] xl:grid-cols-[1fr_2fr_1fr]">
+        <div className="space-y-4 md:col-span-2 xl:col-span-1">
           <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
             <p className="text-[10px] uppercase tracking-[0.16em] text-blue-400/70">Universal Search</p>
             <input
@@ -208,7 +222,7 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
               className="v2-input mt-2 w-full"
               aria-label="Market command search"
             />
-            {query.trim().length >= 3 ? (
+            {query.trim().length >= MIN_SEARCH_LENGTH ? (
               <div className="mt-3 space-y-2 max-h-56 overflow-y-auto">
                 {[...search.groups.stocks, ...search.groups.mutualFunds, ...search.groups.commodities]
                   .slice(0, 10)
@@ -392,7 +406,11 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
               </div>
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 {intelligence.proprietarySignals
-                  .filter((item) => ["concentrationRisk", "portfolioFit", "liquidityProfile"].includes(item.key))
+                  .filter((item) =>
+                    PORTFOLIO_EXPOSURE_SIGNALS.includes(
+                      item.key as (typeof PORTFOLIO_EXPOSURE_SIGNALS)[number]
+                    )
+                  )
                   .map((signal) => (
                     <div key={signal.key} className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5">
                       <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">{signal.label}</p>
