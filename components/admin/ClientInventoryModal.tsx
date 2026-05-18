@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Asset, AssetType } from "@/lib/api";
+import { useOverlayLifecycle } from "@/lib/ui/modalLifecycle";
 
 interface ClientInventoryModalProps {
   mode: "create" | "edit";
@@ -37,6 +38,19 @@ export function ClientInventoryModal({
 }: ClientInventoryModalProps) {
   const [type, setType] = useState<FormType>(initialAsset?.type ?? "stock");
   const [form, setForm] = useState<FormState>({});
+  const { requestClose, isTopMost, stackIndex } = useOverlayLifecycle({
+    open: true,
+    onClose,
+    type: "modal",
+    lockBodyScroll: true,
+  });
+  const requestModalClose = useCallback(
+    (reason: "cancel" | "backdrop") => {
+      if (pending) return;
+      requestClose(reason);
+    },
+    [pending, requestClose]
+  );
 
   useEffect(() => {
     const asset = initialAsset;
@@ -114,14 +128,26 @@ export function ClientInventoryModal({
   const labelClass = "mb-1 block text-[11px] uppercase tracking-[0.14em] text-slate-400";
 
   return (
-    <div className="fixed inset-0 z-[1200] flex items-end justify-center bg-black/70 p-3 sm:items-center">
-      <div className="w-full max-w-2xl overflow-hidden rounded-[1.5rem] border border-white/10 bg-[linear-gradient(160deg,rgba(10,22,51,0.98),rgba(4,9,21,0.99))] shadow-2xl">
+    <div
+      className="fixed inset-0 flex items-end justify-center p-3 sm:items-center"
+      style={{
+        zIndex: 1200 + Math.max(stackIndex, 0) * 10,
+        background: isTopMost ? "rgba(0,0,0,0.7)" : "transparent",
+        pointerEvents: isTopMost ? "auto" : "none",
+      }}
+      onClick={() => requestModalClose("backdrop")}
+      aria-hidden={!isTopMost}
+    >
+      <div
+        className="w-full max-w-2xl overflow-hidden rounded-[1.5rem] border border-white/10 bg-[linear-gradient(160deg,rgba(10,22,51,0.98),rgba(4,9,21,0.99))] shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <h3 className="text-sm font-semibold text-white">{title}</h3>
           <button
             type="button"
             disabled={pending}
-            onClick={onClose}
+            onClick={() => requestModalClose("cancel")}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
           >
             ✕
@@ -248,7 +274,7 @@ export function ClientInventoryModal({
           <div className="flex flex-col-reverse gap-2 border-t border-white/10 pt-3 sm:flex-row sm:justify-end">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => requestModalClose("cancel")}
               disabled={pending}
               className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
