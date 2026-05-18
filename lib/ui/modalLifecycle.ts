@@ -23,6 +23,7 @@ interface OverlayEntry {
   openedAt: number;
   closing: boolean;
   repeatedCloseAttempts: number;
+  closeReason: OverlayCloseReason | null;
   onClose: () => void;
 }
 
@@ -45,10 +46,28 @@ interface OverlayLifecycleOptions {
 
 type OverlaySnapshot = { count: number; ids: number[] };
 type OverlayDebugWindow = Window & { __ASRAA_OVERLAY_DEBUG?: boolean };
+type OverlayLifecycleContext = {
+  providerMountCount: number;
+  lastLifecycleEvent: string | null;
+  lastLifecycleEventAt: number | null;
+  lastCloseReason: OverlayCloseReason | null;
+  lastCleanupSource: string | null;
+  routeTransitionSource: string | null;
+};
 
 let overlaySequence = 0;
 let overlays: OverlayEntry[] = [];
 const snapshotListeners = new Set<() => void>();
+let overlaySnapshot: OverlaySnapshot = { count: 0, ids: [] };
+let transientCloseInProgress = false;
+const overlayLifecycleContext: OverlayLifecycleContext = {
+  providerMountCount: 0,
+  lastLifecycleEvent: null,
+  lastLifecycleEventAt: null,
+  lastCloseReason: null,
+  lastCleanupSource: null,
+  routeTransitionSource: null,
+};
 
 let bodyLockCount = 0;
 let previousBodyOverflow = "";
@@ -57,9 +76,19 @@ let previousBodyTouchAction = "";
 let previousBodyOverscrollBehavior = "";
 
 let escapeListenerAttached = false;
-const MAX_REPEATED_CLOSE_ATTEMPTS = 3;
 
 function telemetry(event: string, payload: Record<string, unknown> = {}) {
+  overlayLifecycleContext.lastLifecycleEvent = event;
+  overlayLifecycleContext.lastLifecycleEventAt = Date.now();
+  if (typeof payload.reason === "string") {
+    overlayLifecycleContext.lastCloseReason = payload.reason as OverlayCloseReason;
+  }
+  if (typeof payload.cleanupSource === "string") {
+    overlayLifecycleContext.lastCleanupSource = payload.cleanupSource;
+  }
+  if (typeof payload.routeTransitionSource === "string") {
+    overlayLifecycleContext.routeTransitionSource = payload.routeTransitionSource;
+  }
   if (typeof window === "undefined") return;
   const debugEnabled =
     process.env.NODE_ENV !== "production" ||
@@ -69,11 +98,12 @@ function telemetry(event: string, payload: Record<string, unknown> = {}) {
 }
 
 function notifySnapshot() {
+  overlaySnapshot = { count: overlays.length, ids: overlays.map((entry) => entry.id) };
   snapshotListeners.forEach((listener) => listener());
 }
 
 function getSnapshot(): OverlaySnapshot {
-  return { count: overlays.length, ids: overlays.map((entry) => entry.id) };
+  return overlaySnapshot;
 }
 
 function subscribeSnapshot(listener: () => void) {
@@ -146,28 +176,18 @@ function findOverlay(id: number) {
 function requestOverlayClose(entry: OverlayEntry, reason: OverlayCloseReason) {
   if (entry.closing) {
     entry.repeatedCloseAttempts += 1;
-    telemetry("repeated-close-failure", {
+    telemetry("repeated-close-ignored", {
       id: entry.id,
       type: entry.type,
       reason,
+      activeCloseReason: entry.closeReason,
       attempts: entry.repeatedCloseAttempts,
     });
-    if (entry.repeatedCloseAttempts < MAX_REPEATED_CLOSE_ATTEMPTS) {
-      return false;
-    }
-    telemetry("force-close-recovery", {
-      id: entry.id,
-      type: entry.type,
-      reason,
-      attempts: entry.repeatedCloseAttempts,
-    });
-    // If a close was requested repeatedly but never unmounted, recover by clearing
-    // stale closing state and retrying one close to avoid modal deadlock.
-    entry.closing = false;
-    entry.repeatedCloseAttempts = 0;
-    return requestOverlayClose(entry, reason);
+    return false;
   }
   entry.closing = true;
+  entry.closeReason = reason;
+  entry.repeatedCloseAttempts = 0;
 
   try {
     telemetry("close-requested", { id: entry.id, type: entry.type, reason });
@@ -175,6 +195,7 @@ function requestOverlayClose(entry: OverlayEntry, reason: OverlayCloseReason) {
     return true;
   } catch (error) {
     entry.closing = false;
+    entry.closeReason = null;
     telemetry("cleanup-failure", {
       id: entry.id,
       type: entry.type,
@@ -236,6 +257,7 @@ function registerOverlay({
     openedAt: Date.now(),
     closing: false,
     repeatedCloseAttempts: 0,
+    closeReason: null,
     onClose,
   };
 
@@ -266,6 +288,7 @@ function registerOverlay({
       telemetry("overlay-closed", {
         id,
         type: existing.type,
+        reason: existing.closeReason ?? "programmatic",
         count: overlays.length,
         openDurationMs: Date.now() - existing.openedAt,
       });
@@ -275,6 +298,10 @@ function registerOverlay({
 }
 
 export function closeTransientOverlays(reason: "route-transition" | "auth-reset" | "error-boundary") {
+  if (transientCloseInProgress) {
+    telemetry("batch-close-reentrant-ignored", { reason });
+    return;
+  }
   const shouldClose =
     reason === "route-transition"
       ? (entry: OverlayEntry) => entry.closeOnRouteTransition
@@ -284,10 +311,17 @@ export function closeTransientOverlays(reason: "route-transition" | "auth-reset"
 
   const queue = [...overlays].reverse().filter(shouldClose);
   if (queue.length === 0) return;
-  telemetry("batch-close-start", { reason, count: queue.length });
-  queue.forEach((entry) => {
-    requestOverlayClose(entry, reason);
-  });
+  transientCloseInProgress = true;
+  overlayLifecycleContext.lastCleanupSource = reason;
+  telemetry("batch-close-start", { reason, count: queue.length, cleanupSource: reason });
+  try {
+    queue.forEach((entry) => {
+      requestOverlayClose(entry, reason);
+    });
+  } finally {
+    transientCloseInProgress = false;
+    telemetry("batch-close-end", { reason, count: queue.length, cleanupSource: reason });
+  }
 }
 
 export function useOverlayLifecycle({
@@ -303,6 +337,7 @@ export function useOverlayLifecycle({
   const onCloseRef = useRef(onClose);
   const registrationRef = useRef<OverlayRegistration | null>(null);
   const overlayIdRef = useRef<number | null>(null);
+  const fallbackCloseQueuedRef = useRef(false);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -310,9 +345,19 @@ export function useOverlayLifecycle({
 
   useEffect(() => {
     if (!open) {
-      registrationRef.current?.unregister();
+      const activeRegistration = registrationRef.current;
       registrationRef.current = null;
       overlayIdRef.current = null;
+      if (!activeRegistration) return;
+      try {
+        activeRegistration.unregister();
+      } catch (error) {
+        telemetry("cleanup-failure", {
+          reason: "programmatic",
+          message: error instanceof Error ? error.message : String(error),
+          cleanupSource: "open-false-unregister",
+        });
+      }
       return;
     }
 
@@ -329,10 +374,19 @@ export function useOverlayLifecycle({
     overlayIdRef.current = registration.id;
 
     return () => {
-      registration.unregister();
       if (registrationRef.current?.id === registration.id) {
         registrationRef.current = null;
         overlayIdRef.current = null;
+      }
+      try {
+        registration.unregister();
+      } catch (error) {
+        telemetry("cleanup-failure", {
+          id: registration.id,
+          reason: "programmatic",
+          message: error instanceof Error ? error.message : String(error),
+          cleanupSource: "effect-cleanup-unregister",
+        });
       }
     };
   }, [
@@ -357,7 +411,13 @@ export function useOverlayLifecycle({
   const requestClose = useCallback((reason: OverlayCloseReason = "programmatic") => {
     const registration = registrationRef.current;
     if (!registration) {
-      onCloseRef.current();
+      telemetry("close-ignored-no-registration", { reason });
+      if (fallbackCloseQueuedRef.current) return false;
+      fallbackCloseQueuedRef.current = true;
+      queueMicrotask(() => {
+        fallbackCloseQueuedRef.current = false;
+        onCloseRef.current();
+      });
       return true;
     }
     return registration.requestClose(reason);
@@ -413,5 +473,32 @@ export function useAbortSafeLifecycle(active = true) {
   return {
     signal: abortControllerRef.current.signal,
     isActive: () => activeRef.current && !abortControllerRef.current.signal.aborted,
+  };
+}
+
+export function setOverlayLifecycleContext(
+  context: Partial<Pick<OverlayLifecycleContext, "providerMountCount" | "lastCleanupSource" | "routeTransitionSource">>
+) {
+  if (typeof context.providerMountCount === "number") {
+    overlayLifecycleContext.providerMountCount = Math.max(0, context.providerMountCount);
+  }
+  if (typeof context.lastCleanupSource === "string") {
+    overlayLifecycleContext.lastCleanupSource = context.lastCleanupSource;
+  }
+  if (typeof context.routeTransitionSource === "string") {
+    overlayLifecycleContext.routeTransitionSource = context.routeTransitionSource;
+  }
+}
+
+export function getOverlayLifecycleDiagnostics() {
+  return {
+    activeOverlayCount: overlays.length,
+    activeOverlayIds: overlays.map((entry) => entry.id),
+    providerMountCount: overlayLifecycleContext.providerMountCount,
+    lastLifecycleEvent: overlayLifecycleContext.lastLifecycleEvent,
+    lastLifecycleEventAt: overlayLifecycleContext.lastLifecycleEventAt,
+    lastCloseReason: overlayLifecycleContext.lastCloseReason,
+    lastCleanupSource: overlayLifecycleContext.lastCleanupSource,
+    routeTransitionSource: overlayLifecycleContext.routeTransitionSource,
   };
 }
