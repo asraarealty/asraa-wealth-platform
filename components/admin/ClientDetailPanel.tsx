@@ -1,14 +1,25 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClientInventoryModal } from "@/components/admin/ClientInventoryModal";
 import { AssetCard } from "@/components/admin/platform/AssetCard";
-import { AllocationRing } from "@/components/admin/platform/AllocationRing";
-import { OperationalEmptyState } from "@/components/admin/platform/EmptyState";
-import { IntelligenceWidget } from "@/components/admin/platform/IntelligenceWidget";
 import { PlatformConfirmModal } from "@/components/admin/platform/PlatformModal";
-import { StatusBadge } from "@/components/admin/platform/StatusBadge";
+import {
+  ActionBar,
+  AllocationChart,
+  AsyncBoundary,
+  EmptyState,
+  HoldingsTable,
+  IntelligencePanel,
+  KPIGrid,
+  OperationalDrawer,
+  PartialFailureBanner,
+  RiskPanel,
+  WorkspaceTabs,
+  type WorkspaceMode,
+} from "@/components/admin/workspace/primitives";
 import { type Asset } from "@/lib/api";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 import { ADMIN_CLIENTS_QUERY_KEY, type EnrichedClient } from "@/lib/hooks/useAdminClients";
@@ -27,6 +38,9 @@ import { adminQueryKeys } from "@/lib/queryKeys/admin";
 import { deriveClientReadinessContract } from "@/domains/client";
 import { useAdminClientLifecycleMutation, useAdminClientProfile } from "@/domains/admin";
 
+const INITIAL_WORKSPACE_MODE: WorkspaceMode = "portfolio";
+const DRAWER_BG_GRADIENT = "bg-[linear-gradient(160deg,rgba(10,22,51,0.98),rgba(4,9,21,0.99))]";
+
 function fmtDate(iso?: string): string {
   if (!iso) return "Awaiting signal";
   try {
@@ -42,14 +56,12 @@ function fmtDate(iso?: string): string {
   }
 }
 
-function dueState(value?: string) {
-  if (!value) return { label: "No rent milestone", tone: "neutral" as const };
-  const dueAt = new Date(value).getTime();
-  if (!Number.isFinite(dueAt)) return { label: "No rent milestone", tone: "neutral" as const };
-  const diff = Math.ceil((dueAt - Date.now()) / (1000 * 60 * 60 * 24));
-  if (diff < 0) return { label: `Overdue ${Math.abs(diff)}d`, tone: "danger" as const };
-  if (diff <= 5) return { label: `Due in ${diff}d`, tone: "warn" as const };
-  return { label: "On track", tone: "success" as const };
+function toReadinessMetric(label: string, ready: boolean | undefined, readyValue: string, blockedValue: string) {
+  return {
+    label,
+    value: ready ? readyValue : blockedValue,
+    tone: ready ? ("good" as const) : ("warn" as const),
+  };
 }
 
 export function ClientDetailPanel({
@@ -65,6 +77,7 @@ export function ClientDetailPanel({
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
   const [inventoryEditor, setInventoryEditor] = useState<{ mode: "create" | "edit"; asset?: Asset | null } | null>(null);
   const [inventoryEditorNonce, setInventoryEditorNonce] = useState(0);
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(INITIAL_WORKSPACE_MODE);
   const [pendingClientAction, setPendingClientAction] = useState<{
     title: string;
     description: string;
@@ -108,6 +121,7 @@ export function ClientDetailPanel({
   }, [client]);
   useEffect(() => {
     clearTransientState();
+    setWorkspaceMode(INITIAL_WORKSPACE_MODE);
   }, [client?.id, clearTransientState]);
 
   // Telemetry: workspace open / close
@@ -203,7 +217,6 @@ export function ClientDetailPanel({
 
   const valuation = useMemo(() => computePortfolioValuation(holdings, livePricing.data ?? {}), [holdings, livePricing.data]);
   const valuationMap = useMemo(() => Object.fromEntries(valuation.holdings.map((holding) => [holding.id, holding])), [valuation.holdings]);
-  const propertyAssets = safeAssets.filter((asset) => asset.type === "property");
   const marketAssets = safeAssets.filter((asset) => asset.type === "stock" || asset.type === "mf");
   const commodityAssets = safeAssets.filter((asset) => asset.type === "commodity");
   const aiAlerts = Array.isArray(insights?.alerts) ? insights.alerts : [];
@@ -345,8 +358,6 @@ export function ClientDetailPanel({
   if (!workspaceClient) return null;
   const clientId = workspaceClient.id;
 
-  const occupiedProperties = propertyAssets.filter((asset) => Boolean(asset.tenantName ?? asset.tenant_name)).length;
-  const propertyYield = valuation.liveValue > 0 && workspaceClient.monthlyRentIncome > 0 ? (workspaceClient.monthlyRentIncome * 12 * 100) / Math.max(workspaceClient.propertyValue, 1) : 0;
   const topMarketHoldings = [...marketAssets].sort((a, b) => (valuationMap[b.id]?.liveValue ?? b.value ?? 0) - (valuationMap[a.id]?.liveValue ?? a.value ?? 0)).slice(0, 4);
   const topCommodityHolding = [...commodityAssets].sort((a, b) => (valuationMap[b.id]?.liveValue ?? b.value ?? 0) - (valuationMap[a.id]?.liveValue ?? a.value ?? 0))[0];
   const latestEvents = [
@@ -380,6 +391,182 @@ export function ClientDetailPanel({
     .filter((event): event is { id: string; title: string; detail: string; timestamp: string } => Boolean(event && event.timestamp))
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .slice(0, 8);
+
+  const allocationSegments = useMemo(
+    () => [
+      {
+        label: "Stocks",
+        value: valuation.holdings.filter((holding) => holding.type === "stock").reduce((sum, holding) => sum + holding.liveValue, 0),
+        color: "#38bdf8",
+      },
+      {
+        label: "Mutual Funds",
+        value: valuation.holdings.filter((holding) => holding.type === "mf").reduce((sum, holding) => sum + holding.liveValue, 0),
+        color: "#818cf8",
+      },
+      {
+        label: "Property",
+        value: valuation.holdings.filter((holding) => holding.type === "property").reduce((sum, holding) => sum + holding.liveValue, 0),
+        color: "#34d399",
+      },
+      {
+        label: "Commodities",
+        value: valuation.holdings.filter((holding) => holding.type === "commodity").reduce((sum, holding) => sum + holding.liveValue, 0),
+        color: "#f59e0b",
+      },
+    ],
+    [valuation.holdings]
+  );
+
+  const holdingsRows = useMemo(
+    () =>
+      safeAssets
+        .map((asset) => {
+          const holding = valuationMap[asset.id];
+          const liveValue = holding?.liveValue ?? asset.value ?? 0;
+          const investedValue = holding?.investedValue ?? asset.value ?? 0;
+          const unrealizedPnL = holding?.unrealizedPnL ?? 0;
+          const unrealizedPnLPct = (unrealizedPnL / Math.max(investedValue, 1)) * 100;
+          return {
+            key: `${workspaceClient.id}-${asset.id}`,
+            clientId: workspaceClient.id,
+            clientName: workspaceClient.name,
+            lifecycle: workspaceClient.canonicalStatus,
+            assetName: asset.name,
+            symbol: asset.symbol ?? undefined,
+            assetType: asset.type,
+            units: Number(asset.quantity ?? 0),
+            livePrice: holding?.livePrice ?? asset.currentPrice ?? asset.current_price ?? 0,
+            liveValue,
+            investedValue,
+            allocationPct: valuation.liveValue > 0 ? (liveValue * 100) / valuation.liveValue : 0,
+            unrealizedPnL,
+            unrealizedPnLPct,
+            quoteConnected: Boolean(livePricing.data?.[asset.id]),
+            groupingLabel:
+              asset.type === "stock"
+                ? "Equity"
+                : asset.type === "mf"
+                  ? "Fund"
+                  : asset.type === "commodity"
+                    ? "Commodity"
+                    : "Property",
+            assetId: Number(asset.id),
+          };
+        })
+        .sort((a, b) => b.liveValue - a.liveValue),
+    [livePricing.data, safeAssets, valuation.liveValue, valuationMap, workspaceClient.canonicalStatus, workspaceClient.id, workspaceClient.name]
+  );
+
+  const overviewKpis = useMemo(
+    () => {
+      return [
+      { label: "Net worth", value: valuation.liveValue > 0 ? fmtCurrency(valuation.liveValue) : workspaceClient.operationalFallback },
+      { label: "Diversification", value: `${workspaceClient.diversificationScore}/100` },
+      toReadinessMetric("AI health score", readiness?.intelligenceReady, "Healthy", "Partial"),
+      toReadinessMetric("Lifecycle readiness", readiness?.lifecycleReady, "Ready", "Blocked"),
+      { label: "Exposure mix", value: `Eq ${fmtPercent(valuation.exposurePct.stock)} · MF ${fmtPercent(valuation.exposurePct.mf)}` },
+      { label: "Onboarding progress", value: workspaceClient.onboardingStatus || "Pipeline" },
+      { label: "Last activity", value: fmtDate(workspaceClient.lastActivity ?? workspaceClient.createdAt) },
+      { label: "Advisor", value: workspaceClient.advisorAssigned || workspaceClient.relationshipManager || "Unassigned" },
+    ];
+    },
+    [
+      readiness?.intelligenceReady,
+      readiness?.lifecycleReady,
+      valuation.exposurePct.mf,
+      valuation.exposurePct.stock,
+      valuation.liveValue,
+      workspaceClient.advisorAssigned,
+      workspaceClient.createdAt,
+      workspaceClient.diversificationScore,
+      workspaceClient.lastActivity,
+      workspaceClient.onboardingStatus,
+      workspaceClient.operationalFallback,
+      workspaceClient.relationshipManager,
+    ]
+  );
+
+  const keyAlerts = useMemo(
+    () => [
+      workspaceClient.equityExposurePct > 65 ? "Equity concentration above policy threshold" : null,
+      workspaceClient.concentrationRisk.toLowerCase().includes("high") ? "Concentration risk elevated" : null,
+      workspaceClient.activitySignal.toLowerCase().includes("inactive") ? "Client inactivity requires follow-up" : null,
+      !readiness?.onboardingReady ? "Onboarding workflow is incomplete" : null,
+      ...aiAlerts.slice(0, 2).map((alert) => (typeof alert === "string" ? alert : alert.title)),
+    ].filter(Boolean) as string[],
+    [
+      aiAlerts,
+      readiness?.onboardingReady,
+      workspaceClient.activitySignal,
+      workspaceClient.concentrationRisk,
+      workspaceClient.equityExposurePct,
+    ]
+  );
+
+  const topRecommendations = useMemo(
+    () => [
+      workspaceClient.equityExposurePct > 65 ? "Trigger rebalance review to reduce equity drift" : "Maintain current allocation band",
+      !readiness?.communicationReady ? "Map communication channels for service ops" : "Send periodic client report",
+      valuation.exposurePct.commodity < 5 ? "Assess hedge overlay for downside protection" : "Hedge coverage active",
+      workspaceClient.kycStatus !== "approved" ? "Complete KYC to unlock lifecycle transitions" : "KYC verified",
+    ],
+    [
+      readiness?.communicationReady,
+      valuation.exposurePct.commodity,
+      workspaceClient.equityExposurePct,
+      workspaceClient.kycStatus,
+    ]
+  );
+
+  const intelligenceSignals = useMemo(
+    () => [
+      {
+        title: "Diversification analysis",
+        signal: workspaceClient.diversificationScore >= 70 ? "Balanced structure" : "Diversification gap detected",
+        confidence: workspaceClient.diversificationScore >= 70 ? "87%" : "78%",
+        priority: workspaceClient.diversificationScore >= 70 ? "Medium" : "High",
+      },
+      {
+        title: "Concentration risk",
+        signal: workspaceClient.concentrationRisk,
+        confidence: "82%",
+        priority: workspaceClient.concentrationRisk.toLowerCase().includes("high") ? "High" : "Medium",
+      },
+      {
+        title: "Allocation imbalance",
+        signal: workspaceClient.equityExposurePct > 65 ? "Equity overweight" : "Within allocation policy",
+        confidence: "84%",
+        priority: workspaceClient.equityExposurePct > 65 ? "High" : "Low",
+      },
+      {
+        title: "Inactivity watch",
+        signal: workspaceClient.activitySignal,
+        confidence: "73%",
+        priority: workspaceClient.activitySignal.toLowerCase().includes("inactive") ? "High" : "Medium",
+      },
+      {
+        title: "Market regime",
+        signal: detailDegraded ? "Partial signal availability" : "Signal feed healthy",
+        confidence: detailDegraded ? "61%" : "79%",
+        priority: detailDegraded ? "Medium" : "Low",
+      },
+      {
+        title: "Advisory opportunity",
+        signal: aiAlerts.length > 0 ? `${aiAlerts.length} actionable recommendations` : "No immediate advisory opportunity",
+        confidence: aiAlerts.length > 0 ? "76%" : "58%",
+        priority: aiAlerts.length > 0 ? "Medium" : "Low",
+      },
+    ],
+    [
+      aiAlerts.length,
+      detailDegraded,
+      workspaceClient.activitySignal,
+      workspaceClient.concentrationRisk,
+      workspaceClient.diversificationScore,
+      workspaceClient.equityExposurePct,
+    ]
+  );
 
   async function runInventoryMutation({
     action,
@@ -463,351 +650,317 @@ export function ClientDetailPanel({
 
   return (
     <>
-      <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm"
-        style={{
-          zIndex: 1000 + Math.max(stackIndex, 0) * 10,
-          opacity: isTopMost ? 1 : 0,
-          pointerEvents: isTopMost ? "auto" : "none",
-        }}
-        aria-hidden="true"
-        onClick={() => requestPanelClose("backdrop")}
-      />
-      <aside
-        ref={panelRef}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Client detail workspace for ${workspaceClient.name}`}
-        className="fixed inset-y-0 right-0 w-full max-w-[1080px] overflow-y-auto overflow-x-hidden border-l border-sky-400/15 bg-[linear-gradient(160deg,rgba(10,22,51,0.98),rgba(4,9,21,0.99))] p-3 sm:p-5 outline-none"
-        style={{ zIndex: 1001 + Math.max(stackIndex, 0) * 10 }}
-      >
-        <div className="sticky top-0 z-10 mb-5 flex flex-col gap-4 rounded-[1.5rem] border border-white/8 bg-[#040915]/95 p-5 backdrop-blur sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.18em] text-sky-300/70">Institutional intelligence workspace</p>
-            <h2 className="mt-1 text-2xl font-semibold text-white">{workspaceClient.name}</h2>
-            <p className="mt-1 text-sm text-slate-400">{workspaceClient.email} · {workspaceClient.phone || workspaceClient.whatsapp || "Phone pending"}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <StatusBadge label={workspaceClient.canonicalStatus} />
-              <StatusBadge label={workspaceClient.onboardingStatus ?? "pipeline"} />
-              <StatusBadge label={workspaceClient.kycStatus ?? "kyc pending"} />
-            </div>
-            <p className="mt-3 text-xs text-slate-300">
-              Advisor {workspaceClient.advisorAssigned || workspaceClient.relationshipManager || "Unassigned"} · Risk {workspaceClient.riskProfile || "Unclassified"} · Planning {workspaceClient.financialPlanningStatus || "Not started"}
-            </p>
-          </div>
-          <button type="button" onClick={() => requestPanelClose("cancel")} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white">✕</button>
-        </div>
-
-        <div className="space-y-4 pb-6">
-          {detailError ? (
-            <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-              Intelligence is degraded; the workspace is using the last stable snapshot while refresh runs.
-              <button
-                type="button"
-                onClick={() => {
-                  refreshWorkspaceData();
-                }}
-                className="ml-2 underline"
-              >
-                {detailFetching ? "Refreshing…" : "Retry now"}
-              </button>
-            </div>
-          ) : null}
-          <IntelligenceWidget eyebrow="Operational actions" title="Communication and lifecycle controls" detail="Run client operations directly from this workspace.">
-            {!operationsReady ? (
-              <OperationalEmptyState title="Operational controls locked" description="Complete onboarding and intelligence sync before executing lifecycle controls." hint="Await readiness" />
-            ) : (
-              <div className="space-y-3">
-                {!readiness?.intelligenceReady ? (
-                  <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                    Intelligence data is partial, but lifecycle controls remain available.
-                  </div>
-                ) : null}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
-                  <a href={workspaceClient.whatsapp || workspaceClient.phone ? `https://wa.me/${String(workspaceClient.whatsapp ?? workspaceClient.phone).replace(/\D/g, "")}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">WhatsApp</a>
-                  <a href={workspaceClient.phone ? `tel:${String(workspaceClient.phone).replace(/\D/g, "")}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Call</a>
-                  <a href={workspaceClient.email ? `mailto:${workspaceClient.email}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Email</a>
-                  <a href={workspaceClient.email ? `mailto:${workspaceClient.email}?subject=${encodeURIComponent(`Meeting schedule - ${workspaceClient.name}`)}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Schedule Meeting</a>
-                  <a href={workspaceClient.email ? `mailto:${workspaceClient.email}?subject=${encodeURIComponent(`Client report - ${workspaceClient.name}`)}` : undefined} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 text-center">Send Report</a>
-                  <button type="button" disabled={!allowedTransitions.includes("approved")} onClick={() => setPendingClientAction({ action: "approve", title: "Approve client", description: "Approve this client and move onboarding to live operations.", confirmLabel: "Approve", tone: "primary" })} className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200 disabled:opacity-40">Approve</button>
-                  <button type="button" disabled={!allowedTransitions.includes("suspended")} onClick={() => setPendingClientAction({ action: "suspend", title: "Suspend client", description: "Suspend this client from active operations.", confirmLabel: "Suspend", tone: "danger" })} className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-200 disabled:opacity-40">Suspend</button>
-                  <button type="button" disabled={!allowedTransitions.includes("archived")} onClick={() => setPendingClientAction({ action: "archive", title: "Archive client", description: "Archive this client workspace from active books.", confirmLabel: "Archive", tone: "danger" })} className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 disabled:opacity-40">Archive</button>
-                  <button type="button" disabled={workspaceClient.canonicalStatus !== "archived"} onClick={() => setPendingClientAction({ action: "restore", title: "Restore client", description: "Restore this client back to active operating coverage.", confirmLabel: "Restore", tone: "primary" })} className="rounded-xl border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200 disabled:opacity-40">Restore</button>
-                  <button type="button" onClick={() => setPendingClientAction({ action: "delete", title: "Delete client", description: "Permanently delete this client and all operational links.", confirmLabel: "Delete", tone: "danger" })} className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200">Delete</button>
+      <OperationalDrawer
+        backdrop={
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+            style={{
+              zIndex: 1000 + Math.max(stackIndex, 0) * 10,
+              opacity: isTopMost ? 1 : 0,
+              pointerEvents: isTopMost ? "auto" : "none",
+            }}
+            aria-hidden="true"
+            onClick={() => requestPanelClose("backdrop")}
+          />
+        }
+        panel={
+          <aside
+            ref={panelRef}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Client operating system for ${workspaceClient.name}`}
+            className={`fixed inset-y-0 right-0 w-full max-w-[1180px] overflow-y-auto overflow-x-hidden border-l border-sky-400/15 ${DRAWER_BG_GRADIENT} p-3 sm:p-5 outline-none`}
+            style={{ zIndex: 1001 + Math.max(stackIndex, 0) * 10 }}
+          >
+            <div className="sticky top-0 z-20 mb-4 space-y-3 rounded-[1.25rem] border border-white/8 bg-[#040915]/95 p-4 backdrop-blur">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-sky-300/70">Client operating system</p>
+                  <h2 className="mt-1 text-xl font-semibold text-white sm:text-2xl">{workspaceClient.name}</h2>
+                  <p className="mt-1 text-xs text-slate-400">{workspaceClient.email} · {workspaceClient.phone || workspaceClient.whatsapp || "Pending"}</p>
                 </div>
+                <button type="button" onClick={() => requestPanelClose("cancel")} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white">
+                  ✕
+                </button>
               </div>
-            )}
-          </IntelligenceWidget>
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-            <IntelligenceWidget eyebrow="Portfolio intelligence" title="Live valuation and exposure" detail="Canonical valuation engine with live price overlays for market-linked holdings.">
-              {!readiness?.portfolioReady ? (
-                <OperationalEmptyState title="Portfolio intelligence inactive" description="Operational portfolio systems activate once onboarding and inventory readiness are complete." hint="Portfolio readiness" />
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Metric label="Total value" value={valuation.liveValue > 0 ? fmtCurrency(valuation.liveValue) : workspaceClient.operationalFallback} />
-                    <Metric label="Unrealized PnL" value={valuation.liveValue > 0 ? fmtCurrency(valuation.unrealizedPnL) : "Awaiting holdings sync"} accent={valuation.unrealizedPnL >= 0 ? "text-emerald-200" : "text-rose-200"} />
-                    <Metric label="Live valuation" value={valuation.liveValue > 0 ? fmtPercent(100) : "0%"} />
-                    <Metric label="Exposure mix" value={`${fmtPercent(workspaceClient.equityExposurePct)} equity`} />
+              <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4 xl:grid-cols-7">
+                <div className="rounded-lg border border-white/8 bg-white/[0.03] p-2"><p className="text-slate-400">Lifecycle</p><p className="mt-1 font-semibold text-white">{workspaceClient.canonicalStatus}</p></div>
+                <div className="rounded-lg border border-white/8 bg-white/[0.03] p-2"><p className="text-slate-400">Portfolio</p><p className="mt-1 font-semibold text-white">{valuation.liveValue > 0 ? fmtCurrency(valuation.liveValue) : workspaceClient.operationalFallback}</p></div>
+                <div className="rounded-lg border border-white/8 bg-white/[0.03] p-2"><p className="text-slate-400">Advisor</p><p className="mt-1 font-semibold text-white">{workspaceClient.advisorAssigned || workspaceClient.relationshipManager || "Unassigned"}</p></div>
+                <div className="rounded-lg border border-white/8 bg-white/[0.03] p-2"><p className="text-slate-400">Risk</p><p className="mt-1 font-semibold text-white">{workspaceClient.riskProfile || "Pending"}</p></div>
+                <div className="rounded-lg border border-white/8 bg-white/[0.03] p-2"><p className="text-slate-400">Onboarding</p><p className="mt-1 font-semibold text-white">{workspaceClient.onboardingStatus || "Pipeline"}</p></div>
+                <div className="rounded-lg border border-white/8 bg-white/[0.03] p-2"><p className="text-slate-400">Last activity</p><p className="mt-1 font-semibold text-white">{fmtDate(workspaceClient.lastActivity ?? workspaceClient.createdAt)}</p></div>
+                <div className="rounded-lg border border-white/8 bg-white/[0.03] p-2"><p className="text-slate-400">AI health</p><p className="mt-1 font-semibold text-white">{readiness?.intelligenceReady ? "Healthy" : "Partial"}</p></div>
+              </div>
+
+              <ActionBar>
+                <button type="button" onClick={() => openInventoryEditor("create", null)} className="rounded-lg border border-sky-300/30 bg-sky-500/15 px-3 py-2 text-xs font-semibold text-sky-100">
+                  Add Holding
+                </button>
+                <button type="button" onClick={() => setWorkspaceMode("portfolio")} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200">
+                  Rebalance
+                </button>
+                <a href={workspaceClient.email ? `mailto:${workspaceClient.email}?subject=${encodeURIComponent(`Portfolio report - ${workspaceClient.name}`)}` : undefined} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200">
+                  Send Report
+                </a>
+                <a href={workspaceClient.whatsapp || workspaceClient.phone ? `https://wa.me/${String(workspaceClient.whatsapp ?? workspaceClient.phone).replace(/\D/g, "")}` : undefined} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200">
+                  Contact
+                </a>
+                <Link href={`/admin/clients/${workspaceClient.id}/edit`} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200">
+                  Edit Client
+                </Link>
+              </ActionBar>
+
+              <WorkspaceTabs value={workspaceMode} onChange={setWorkspaceMode} />
+            </div>
+
+            <div className="space-y-4 pb-6">
+              {detailError ? (
+                <PartialFailureBanner
+                  message="Intelligence is partially available. Last stable data is shown."
+                  onRetry={refreshWorkspaceData}
+                  pending={detailFetching}
+                />
+              ) : null}
+
+              {workspaceMode === "overview" ? (
+                <div className="space-y-4">
+                  <KPIGrid items={overviewKpis} />
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <IntelligencePanel title="Key alerts" sub="Priority operating signals">
+                      {keyAlerts.length === 0 ? (
+                        <EmptyState title="No critical alerts" detail="No high-priority alerts were detected for this client." />
+                      ) : (
+                        <div className="space-y-2">
+                          {keyAlerts.slice(0, 6).map((alert) => (
+                            <div key={alert} className="rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2 text-sm text-slate-200">
+                              {alert}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </IntelligencePanel>
+                    <IntelligencePanel title="Top recommendations" sub="Next best actions">
+                      <div className="space-y-2">
+                        {topRecommendations.map((item) => (
+                          <div key={item} className="rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2 text-sm text-slate-200">
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </IntelligencePanel>
                   </div>
-                  <div className="mt-4">
-                    <AllocationRing
-                      segments={[
-                        { label: "Equity", value: valuation.exposurePct.stock, color: "#38bdf8" },
-                        { label: "Funds", value: valuation.exposurePct.mf, color: "#818cf8" },
-                        { label: "Property", value: valuation.exposurePct.property, color: "#34d399" },
-                        { label: "Commodity", value: valuation.exposurePct.commodity, color: "#f59e0b" },
+                </div>
+              ) : null}
+
+              {workspaceMode === "portfolio" ? (
+                <div className="space-y-4">
+                  <IntelligencePanel title="Portfolio operating center" sub="Live valuation, allocation, P&L, and asset actions">
+                    <KPIGrid
+                      items={[
+                        { label: "Live value", value: fmtCurrency(valuation.liveValue) },
+                        { label: "Invested value", value: fmtCurrency(valuation.investedValue) },
+                        { label: "Unrealized P&L", value: `${fmtCurrency(valuation.unrealizedPnL)} (${fmtPercent(valuation.unrealizedPnLPct, true)})`, tone: valuation.unrealizedPnL >= 0 ? "good" : "bad" },
+                        { label: "Live pricing", value: livePricing.isFetching ? "Refreshing" : "Connected", tone: livePricing.isFetching ? "warn" : "good" },
                       ]}
                     />
-                  </div>
-                </>
-              )}
-            </IntelligenceWidget>
+                  </IntelligencePanel>
 
-            <IntelligenceWidget eyebrow="AI intelligence" title="Diversification and alerts" detail="Derived concentration scoring, rebalance pressure, and inactivity watch signals.">
-              {!readiness?.intelligenceReady ? (
-                <OperationalEmptyState title="AI intelligence inactive" description="Intelligence systems reactivate automatically once canonical intelligence payloads recover." hint="Intelligence readiness" />
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Metric label="Diversification" value={`${workspaceClient.diversificationScore}/100`} />
-                    <Metric label="Risk concentration" value={workspaceClient.concentrationRisk} />
-                    <Metric label="Inactivity" value={workspaceClient.activitySignal} />
-                    <Metric label="Rebalance watch" value={workspaceClient.equityExposurePct > 65 ? "Action required" : "Within policy"} />
-                  </div>
-                  <div className="mt-4 space-y-2">
-                    {aiAlerts.length > 0 ? aiAlerts.slice(0, 4).map((alert, index) => (
-                      <div key={index} className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-slate-200">
-                        {typeof alert === "string" ? alert : alert.title}
-                      </div>
-                    )) : (
-                      <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-slate-400">No backend alert payload returned for this client.</div>
-                    )}
-                  </div>
-                </>
-              )}
-            </IntelligenceWidget>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-            <IntelligenceWidget eyebrow="Real estate operations" title="Tenant, occupancy, and yield" detail="Rent pipeline, tenant coverage, and real estate operating pressure.">
-              {propertyAssets.length === 0 ? (
-                <OperationalEmptyState title="Property pipeline pending" description="No property assets are linked to this client workspace yet." hint="Real estate onboarding" />
-              ) : (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Metric label="Occupancy" value={`${occupiedProperties}/${propertyAssets.length}`} />
-                    <Metric label="Yield" value={propertyYield > 0 ? fmtPercent(propertyYield) : "Awaiting yield data"} />
-                    <Metric label="Rent due" value={propertyAssets.map((asset) => dueState(String(asset.rentDueDate ?? asset.rent_due_date)).label).filter((label) => label.startsWith("Due")).length.toString()} />
-                    <Metric label="Maintenance alerts" value={propertyAssets.some((asset) => dueState(String(asset.rentDueDate ?? asset.rent_due_date)).tone === "danger") ? "Escalated" : "No backend alerts"} />
-                  </div>
-                  {propertyAssets.slice(0, 3).map((asset) => {
-                    const state = dueState(String(asset.rentDueDate ?? asset.rent_due_date));
-                    return (
-                      <div key={asset.id} className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold text-white">{asset.name}</p>
-                            <p className="text-xs text-slate-400">{asset.location || "Location pending"}</p>
-                          </div>
-                          <StatusBadge label={state.label} tone={state.tone} />
-                        </div>
-                        <div className="mt-2 text-xs text-slate-300">{asset.tenantName ?? asset.tenant_name ?? "Tenant assignment pending"} · {fmtCurrency(asset.rentAmount ?? asset.rent_amount ?? 0)}/mo</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </IntelligenceWidget>
-
-            <IntelligenceWidget eyebrow="Equity & fund intelligence" title="Top liquid holdings" detail="Live price movement, concentration, and gain/loss across liquid books.">
-              {topMarketHoldings.length === 0 ? (
-                <OperationalEmptyState title="No active investments" description="No equity or fund holdings are active in this client workspace." hint="Market onboarding" />
-              ) : (
-                <div className="space-y-3">
-                  {topMarketHoldings.map((asset) => {
-                    const holding = valuationMap[asset.id];
-                    return (
-                      <div key={asset.id} className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold text-white">{asset.symbol || asset.name}</p>
-                            <p className="text-xs text-slate-400">{asset.name}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-semibold text-white">{fmtCurrency(holding?.liveValue ?? asset.value ?? 0)}</p>
-                            <p className={`text-xs ${(holding?.unrealizedPnL ?? 0) >= 0 ? "text-emerald-200" : "text-rose-200"}`}>{fmtPercent(((holding?.unrealizedPnL ?? 0) / Math.max(holding?.investedValue ?? 1, 1)) * 100, true)}</p>
-                          </div>
-                        </div>
-                        <div className="mt-2 text-xs text-slate-300">Allocation {fmtPercent(workspaceClient.totalNetWorth > 0 ? ((holding?.liveValue ?? asset.value ?? 0) * 100) / workspaceClient.totalNetWorth : 0)} · {workspaceClient.concentrationRisk}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </IntelligenceWidget>
-
-            <IntelligenceWidget eyebrow="Commodity intelligence" title="Commodity hedging layer" detail="Exposure, hedge share, and live commodity pricing coverage.">
-              {commodityAssets.length === 0 ? (
-                <OperationalEmptyState title="Commodity coverage pending" description="This client has no commodity exposure in the live book." hint="Hedge onboarding" />
-              ) : (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Metric label="Commodity exposure" value={fmtPercent(valuation.exposurePct.commodity)} />
-                    <Metric label="Hedge share" value={fmtPercent(valuation.exposurePct.commodity)} />
-                    <Metric label="Live pricing" value={livePricing.data ? "Connected" : "Awaiting sync"} />
-                    <Metric label="Top exposure" value={topCommodityHolding?.name ?? "Awaiting holdings sync"} />
-                  </div>
-                  {commodityAssets.slice(0, 2).map((asset) => (
-                    <div key={asset.id} className="rounded-xl border border-white/8 bg-white/[0.03] p-3 text-sm text-slate-200">
-                      {asset.name} · {fmtCurrency(valuationMap[asset.id]?.livePrice ?? asset.currentPrice ?? asset.current_price ?? 0)} live
-                    </div>
-                  ))}
-                </div>
-              )}
-            </IntelligenceWidget>
-          </div>
-
-          <IntelligenceWidget eyebrow="Relationship intelligence" title="Coverage signals" detail="Engagement recency, manager ownership, campaign context, and onboarding notes.">
-            {!readiness?.relationshipReady ? (
-              <OperationalEmptyState title="Relationship intelligence inactive" description="Relationship systems activate after canonical advisor/coverage ownership is assigned." hint="Relationship readiness" />
-            ) : (
-              <>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-                  <Metric label="Last login" value={fmtDate(workspaceClient.lastLogin)} />
-                  <Metric label="Last activity" value={fmtDate(workspaceClient.lastActivity)} />
-                  <Metric label="Campaign engagement" value={workspaceClient.campaignSegmentation || "Segmentation pending"} />
-                  <Metric label="Onboarding" value={workspaceClient.onboardingStatus || "Pipeline"} />
-                  <Metric label="Coverage owner" value={workspaceClient.relationshipManager || "Unassigned"} />
-                  <Metric label="Advisor assigned" value={workspaceClient.advisorAssigned || "Unassigned"} />
-                  <Metric label="KYC status" value={workspaceClient.kycStatus || "Pending"} />
-                  <Metric label="Risk profile" value={workspaceClient.riskProfile || "Pending"} />
-                  <Metric label="Investment objective" value={workspaceClient.investmentObjective || "Pending"} />
-                  <Metric label="Financial planning" value={workspaceClient.financialPlanningStatus || "Not started"} />
-                </div>
-                <div className="mt-4 rounded-xl border border-white/8 bg-white/[0.03] p-4 text-sm text-slate-300">
-                  {workspaceClient.notes || "No relationship notes have been written back from the backend yet."}
-                </div>
-              </>
-            )}
-          </IntelligenceWidget>
-
-          <IntelligenceWidget eyebrow="Communication center" title="WhatsApp, call, email, reminders" detail="Live communication channels and reminder readiness from client profile signals.">
-            {!readiness?.communicationReady ? (
-              <OperationalEmptyState title="Communication center inactive" description="No canonical communication channels are currently configured for this workspace." hint="Communication readiness" />
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                <Metric label="WhatsApp" value={workspaceClient.whatsapp || workspaceClient.phone || "Not mapped"} />
-                <Metric label="Email channel" value={workspaceClient.email || "Not mapped"} />
-                <Metric label="Call channel" value={workspaceClient.phone || "Not mapped"} />
-                <Metric label="Reminder status" value={workspaceClient.notificationPreferences.push ? "Enabled" : "Manual"} />
-              </div>
-            )}
-          </IntelligenceWidget>
-
-          <IntelligenceWidget eyebrow="Advisory system" title="Recommendation feed" detail="Advisor-led recommendations and follow-up signals from live intelligence payloads.">
-            {!readiness?.advisoryReady ? (
-              <OperationalEmptyState title="Advisory system inactive" description="Advisory recommendations will activate once canonical intelligence alerts are available." hint="Advisory readiness" />
-            ) : aiAlerts.length === 0 ? (
-              <OperationalEmptyState title="No advisory recommendations" description="No recommendation records have been returned by backend intelligence yet." hint="Advisory sync" />
-            ) : (
-              <div className="space-y-3">
-                {aiAlerts.slice(0, 6).map((alert, index) => (
-                  <div key={index} className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-                    <p className="text-sm font-semibold text-white">{typeof alert === "string" ? alert : alert.title}</p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      Advisor {workspaceClient.advisorAssigned || workspaceClient.relationshipManager || "Unassigned"} · {fmtDate(workspaceClient.lastActivity ?? workspaceClient.createdAt)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </IntelligenceWidget>
-
-          <IntelligenceWidget eyebrow="Client activity feed" title="Recent portfolio and transaction events" detail="Chronological operating timeline from holdings and transaction data.">
-            {detailLoading ? (
-              <div className="text-sm text-slate-400">Loading recent activity…</div>
-            ) : latestEvents.length === 0 ? (
-              <OperationalEmptyState title="Awaiting first operational event" description="No transactions or asset creation events have been recorded yet." hint="Timeline sync" />
-            ) : (
-              <div className="space-y-3">
-                {latestEvents.map((event) => (
-                  <div key={event.id} className="rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-white">{event.title}</p>
-                        <p className="text-xs text-slate-400">{event.detail}</p>
-                      </div>
-                      <p className="text-xs text-slate-300">{fmtDate(event.timestamp)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </IntelligenceWidget>
-
-          <IntelligenceWidget eyebrow="Canonical asset cards" title="Asset operating layer" detail="Unified layout across stocks, funds, commodities, and property with consistent controls.">
-            <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
-              <button
-                type="button"
-                disabled={inventoryMutation.isPending}
-                onClick={() => openInventoryEditor("create", null)}
-                className="rounded-xl border border-sky-300/30 bg-sky-500/15 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:bg-sky-500/25 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Add inventory
-              </button>
-              <button
-                type="button"
-                disabled={inventoryMutation.isPending || livePricing.isFetching}
-                onClick={() => void refreshInventoryView()}
-                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {livePricing.isFetching ? "Refreshing…" : "Refresh valuation"}
-              </button>
-            </div>
-            {safeAssets.length === 0 ? (
-              <OperationalEmptyState
-                title="Portfolio not onboarded"
-                description="Holdings have not been synced into the client intelligence workspace yet."
-                hint="Asset sync required"
-                action={
-                  <button
-                    type="button"
-                    disabled={inventoryMutation.isPending}
-                    onClick={() => openInventoryEditor("create", null)}
-                    className="rounded-xl bg-sky-400 px-4 py-2 text-sm font-semibold text-[#04102a] transition hover:bg-sky-300 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Add inventory
-                  </button>
-                }
-              />
-            ) : (
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                {safeAssets.map((asset) => {
-                  const holding = valuationMap[asset.id];
-                  const source = livePricing.data?.[asset.id];
-                  const liveValue = holding?.liveValue ?? asset.value ?? 0;
-                  const allocationPct = workspaceClient.totalNetWorth > 0 ? (liveValue * 100) / workspaceClient.totalNetWorth : 0;
-                  return (
-                    <AssetCard
-                      key={asset.id}
-                      asset={asset}
-                      allocationPct={allocationPct}
-                      livePrice={holding?.livePrice}
-                      liveValue={holding?.liveValue}
-                      pricePoint={source}
-                      onEdit={inventoryMutation.isPending ? undefined : () => openInventoryEditor("edit", asset)}
-                      onDelete={inventoryMutation.isPending ? undefined : () => setAssetToDelete(asset)}
+                  <AsyncBoundary loading={detailLoading} error={null} loadingLabel="Loading holdings view…">
+                    <HoldingsTable
+                      rows={holdingsRows}
+                      onOpenClient={(id) => {
+                        if (id !== workspaceClient.id) return;
+                      }}
+                      onEditAsset={(assetId) => {
+                        const asset = safeAssets.find((item) => Number(item.id) === assetId) ?? null;
+                        if (!asset) return;
+                        openInventoryEditor("edit", asset);
+                      }}
+                      onDeleteAsset={(assetId) => {
+                        const asset = safeAssets.find((item) => Number(item.id) === assetId) ?? null;
+                        if (!asset) return;
+                        setAssetToDelete(asset);
+                      }}
+                      onOpenIntelligence={() => setWorkspaceMode("intelligence")}
                     />
-                  );
-                })}
-              </div>
-            )}
-          </IntelligenceWidget>
-        </div>
-      </aside>
+                  </AsyncBoundary>
+
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+                    <IntelligencePanel title="Asset distribution" sub="Grouped asset classes and exposure mix">
+                      <AllocationChart segments={allocationSegments} />
+                    </IntelligencePanel>
+                    <IntelligencePanel title="Risk and rebalance" sub="Exposure thresholds and action flags">
+                      <RiskPanel
+                        items={[
+                          { label: "Concentration risk", value: workspaceClient.concentrationRisk, tone: workspaceClient.concentrationRisk.toLowerCase().includes("high") ? "bad" : "warn" },
+                          { label: "Equity exposure", value: fmtPercent(valuation.exposurePct.stock), tone: valuation.exposurePct.stock > 65 ? "warn" : "good" },
+                          { label: "Diversification", value: `${workspaceClient.diversificationScore}/100`, tone: workspaceClient.diversificationScore >= 70 ? "good" : "warn" },
+                          { label: "Rebalance suggestion", value: valuation.exposurePct.stock > 65 ? "Reduce equity concentration" : "Within policy", tone: valuation.exposurePct.stock > 65 ? "warn" : "good" },
+                          { label: "Watchlist linkage", value: topMarketHoldings.length > 0 ? `${topMarketHoldings.length} tracked leaders` : "No linked watchlist", tone: topMarketHoldings.length > 0 ? "good" : "default" },
+                          { label: "Top exposure", value: topCommodityHolding?.name ?? topMarketHoldings[0]?.name ?? "Awaiting holdings sync" },
+                        ]}
+                      />
+                    </IntelligencePanel>
+                  </div>
+                </div>
+              ) : null}
+
+              {workspaceMode === "operations" ? (
+                <div className="space-y-4">
+                  <IntelligencePanel title="Lifecycle controls" sub="Onboarding, KYC, approvals, and workflow transitions">
+                    {!operationsReady ? (
+                      <EmptyState title="Operations locked" detail="Complete onboarding and intelligence prerequisites to unlock lifecycle controls." />
+                    ) : (
+                      <ActionBar>
+                        <button type="button" disabled={!allowedTransitions.includes("approved")} onClick={() => setPendingClientAction({ action: "approve", title: "Approve client", description: "Approve this client and move onboarding to live operations.", confirmLabel: "Approve", tone: "primary" })} className="rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200 disabled:opacity-40">
+                          Approve
+                        </button>
+                        <button type="button" disabled={!allowedTransitions.includes("suspended")} onClick={() => setPendingClientAction({ action: "suspend", title: "Suspend client", description: "Suspend this client from active operations.", confirmLabel: "Suspend", tone: "danger" })} className="rounded-lg border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-200 disabled:opacity-40">
+                          Suspend
+                        </button>
+                        <button type="button" disabled={!allowedTransitions.includes("archived")} onClick={() => setPendingClientAction({ action: "archive", title: "Archive client", description: "Archive this client workspace from active books.", confirmLabel: "Archive", tone: "danger" })} className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 disabled:opacity-40">
+                          Archive
+                        </button>
+                        <button type="button" disabled={workspaceClient.canonicalStatus !== "archived"} onClick={() => setPendingClientAction({ action: "restore", title: "Restore client", description: "Restore this client back to active operating coverage.", confirmLabel: "Restore", tone: "primary" })} className="rounded-lg border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200 disabled:opacity-40">
+                          Restore
+                        </button>
+                        <button type="button" onClick={() => setPendingClientAction({ action: "delete", title: "Delete client", description: "Permanently delete this client and all operational links.", confirmLabel: "Delete", tone: "danger" })} className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200">
+                          Delete
+                        </button>
+                      </ActionBar>
+                    )}
+                  </IntelligencePanel>
+
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <IntelligencePanel title="Onboarding and service operations" sub="KYC, lifecycle, reminders, advisor tasks">
+                      <KPIGrid
+                        items={[
+                          { label: "Onboarding", value: workspaceClient.onboardingStatus || "Pipeline", tone: readiness?.onboardingReady ? "good" : "warn" },
+                          { label: "KYC", value: workspaceClient.kycStatus || "Pending", tone: workspaceClient.kycStatus === "approved" ? "good" : "warn" },
+                          { label: "Communication", value: readiness?.communicationReady ? "Configured" : "Pending", tone: readiness?.communicationReady ? "good" : "warn" },
+                          { label: "Advisor tasks", value: latestEvents.length > 0 ? `${latestEvents.length} recent events` : "No open tasks" },
+                        ]}
+                      />
+                    </IntelligencePanel>
+                    <IntelligencePanel title="Communication channels" sub="Client contact and reminder routing">
+                      <RiskPanel
+                        items={[
+                          { label: "WhatsApp", value: workspaceClient.whatsapp || workspaceClient.phone || "Not mapped", tone: workspaceClient.whatsapp || workspaceClient.phone ? "good" : "warn" },
+                          { label: "Email", value: workspaceClient.email || "Not mapped", tone: workspaceClient.email ? "good" : "warn" },
+                          { label: "Phone", value: workspaceClient.phone || "Not mapped", tone: workspaceClient.phone ? "good" : "warn" },
+                          { label: "Reminder status", value: workspaceClient.notificationPreferences.push ? "Enabled" : "Manual", tone: workspaceClient.notificationPreferences.push ? "good" : "warn" },
+                        ]}
+                      />
+                    </IntelligencePanel>
+                  </div>
+
+                  <IntelligencePanel title="Notes and recent operations" sub="Timeline, notes, approvals, and reminders">
+                    <div className="space-y-2">
+                      <div className="rounded-lg border border-white/8 bg-white/[0.02] p-3 text-sm text-slate-300">
+                        {workspaceClient.notes || "No advisory notes available."}
+                      </div>
+                      {latestEvents.slice(0, 5).map((event) => (
+                        <div key={event.id} className="rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2 text-xs text-slate-300">
+                          <span className="font-semibold text-white">{event.title}</span> · {event.detail}
+                        </div>
+                      ))}
+                    </div>
+                  </IntelligencePanel>
+                </div>
+              ) : null}
+
+              {workspaceMode === "intelligence" ? (
+                <div className="space-y-4">
+                  <IntelligencePanel title="AI and market intelligence" sub="Concise, ranked signals with confidence scoring">
+                    <div className="space-y-2">
+                      {intelligenceSignals.map((signal) => (
+                        <div key={signal.title} className="rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-sm font-semibold text-white">{signal.title}</p>
+                            <p className="text-[11px] text-slate-400">Priority {signal.priority} · Confidence {signal.confidence}</p>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-300">{signal.signal}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </IntelligencePanel>
+
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <IntelligencePanel title="Advisory recommendations" sub="Opportunity engine and rebalance cues">
+                      {aiAlerts.length === 0 ? (
+                        <EmptyState title="No active recommendations" detail="No recommendation records were returned by intelligence services." />
+                      ) : (
+                        <div className="space-y-2">
+                          {aiAlerts.slice(0, 8).map((alert, index) => (
+                            <div key={`${index}-${typeof alert === "string" ? alert : alert.title}`} className="rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2 text-sm text-slate-200">
+                              {typeof alert === "string" ? alert : alert.title}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </IntelligencePanel>
+                    <IntelligencePanel title="Macro and allocation context" sub="Regime, concentration, inactivity, and exposure">
+                      <RiskPanel
+                        items={[
+                          { label: "Diversification analysis", value: `${workspaceClient.diversificationScore}/100`, tone: workspaceClient.diversificationScore >= 70 ? "good" : "warn" },
+                          { label: "Concentration risk", value: workspaceClient.concentrationRisk, tone: workspaceClient.concentrationRisk.toLowerCase().includes("high") ? "bad" : "warn" },
+                          { label: "Allocation imbalance", value: workspaceClient.equityExposurePct > 65 ? "Equity overweight" : "Balanced", tone: workspaceClient.equityExposurePct > 65 ? "warn" : "good" },
+                          { label: "Sector/asset exposure", value: `Eq ${fmtPercent(valuation.exposurePct.stock)} · MF ${fmtPercent(valuation.exposurePct.mf)} · Cmd ${fmtPercent(valuation.exposurePct.commodity)}` },
+                          { label: "Inactivity alerts", value: workspaceClient.activitySignal, tone: workspaceClient.activitySignal.toLowerCase().includes("inactive") ? "warn" : "good" },
+                          { label: "Rebalance engine", value: workspaceClient.equityExposurePct > 65 ? "Action required" : "No trigger" },
+                        ]}
+                      />
+                    </IntelligencePanel>
+                  </div>
+                </div>
+              ) : null}
+
+              <IntelligencePanel title="Asset actions" sub="Inline operating controls for holdings">
+                {safeAssets.length === 0 ? (
+                  <EmptyState
+                    title="Portfolio not onboarded"
+                    detail="Holdings have not been synced into this client workspace yet."
+                    action={
+                      <button
+                        type="button"
+                        disabled={inventoryMutation.isPending}
+                        onClick={() => openInventoryEditor("create", null)}
+                        className="rounded-lg bg-sky-400 px-4 py-2 text-sm font-semibold text-[#04102a] disabled:opacity-40"
+                      >
+                        Add Holding
+                      </button>
+                    }
+                  />
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    {safeAssets.map((asset) => {
+                      const holding = valuationMap[asset.id];
+                      const source = livePricing.data?.[asset.id];
+                      const liveValue = holding?.liveValue ?? asset.value ?? 0;
+                      const allocationPct = workspaceClient.totalNetWorth > 0 ? (liveValue * 100) / workspaceClient.totalNetWorth : 0;
+                      return (
+                        <AssetCard
+                          key={asset.id}
+                          asset={asset}
+                          allocationPct={allocationPct}
+                          livePrice={holding?.livePrice}
+                          liveValue={holding?.liveValue}
+                          pricePoint={source}
+                          onEdit={inventoryMutation.isPending ? undefined : () => openInventoryEditor("edit", asset)}
+                          onDelete={inventoryMutation.isPending ? undefined : () => setAssetToDelete(asset)}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </IntelligencePanel>
+            </div>
+          </aside>
+        }
+      />
 
       {assetToDelete ? (
         <PlatformConfirmModal
@@ -860,14 +1013,5 @@ export function ClientDetailPanel({
         </div>
       ) : null}
     </>
-  );
-}
-
-function Metric({ label, value, accent }: { label: string; value: string; accent?: string }) {
-  return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-      <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400">{label}</p>
-      <p className={`mt-2 text-sm font-semibold text-white ${accent ?? ""}`}>{value}</p>
-    </div>
   );
 }
