@@ -110,8 +110,33 @@ export function ClientDetailPanel({
     clearTransientState();
   }, [client?.id, clearTransientState]);
 
+  // Telemetry: workspace open / close
+  const prevClientIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined" || process.env.NODE_ENV === "production") return;
+    const clientId = client?.id ?? null;
+    if (clientId !== null && clientId !== prevClientIdRef.current) {
+      console.info("[workspace-open]", { event: "workspace.open", clientId });
+    }
+    if (clientId === null && prevClientIdRef.current !== null) {
+      console.info("[workspace-close]", { event: "workspace.close", clientId: prevClientIdRef.current });
+    }
+    prevClientIdRef.current = clientId;
+  }, [client?.id]);
+
+  // Telemetry: panel unmount cleanup
+  useEffect(() => {
+    return () => {
+      if (typeof window === "undefined" || process.env.NODE_ENV === "production") return;
+      console.info("[panel-unmount]", { event: "panel.unmount", clientId: prevClientIdRef.current ?? null });
+    };
+  }, []);
+
   const requestPanelClose = useCallback(
     (reason: "backdrop" | "cancel" | "programmatic") => {
+      if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+        console.info("[overlay]", { event: "panel.close-requested", reason, clientId: prevClientIdRef.current ?? null });
+      }
       clearTransientState();
       requestClose(reason);
     },
@@ -162,6 +187,19 @@ export function ClientDetailPanel({
     retry: 1,
     placeholderData: (previous) => previous,
   });
+
+  // Telemetry: workspace hydration — fires each time live holdings arrive or change
+  useEffect(() => {
+    if (!workspaceClient?.id || typeof window === "undefined" || process.env.NODE_ENV === "production") return;
+    console.info("[workspace-hydration]", {
+      event: "hydration.holdings",
+      clientId: workspaceClient.id,
+      holdingsCount: holdings.length,
+      holdingsSignature,
+      livePricingReady: !livePricing.isPending,
+      degraded: detailDegraded,
+    });
+  }, [workspaceClient?.id, holdings.length, holdingsSignature, livePricing.isPending, detailDegraded]);
 
   const valuation = useMemo(() => computePortfolioValuation(holdings, livePricing.data ?? {}), [holdings, livePricing.data]);
   const valuationMap = useMemo(() => Object.fromEntries(valuation.holdings.map((holding) => [holding.id, holding])), [valuation.holdings]);
@@ -215,10 +253,19 @@ export function ClientDetailPanel({
       readinessSignature,
       fallbackActivationReason: detailError ?? null,
     });
+    console.info("[readiness]", {
+      event: "readiness.update",
+      clientId: workspaceClient.id,
+      ...readiness,
+      readinessSignature,
+      degradedIntelligence: detailDegraded,
+      degradedActivationReason: detailDegraded ? (detailError ?? "partialError") : null,
+    });
   }, [
     detailDegraded,
     detailError,
     holdings.length,
+    readiness,
     readinessSignature,
     operationsReady,
     safeAssets.length,
