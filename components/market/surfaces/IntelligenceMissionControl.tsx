@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { IntelligenceCard, MetricTile, SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
-import { fmtPercent } from "@/lib/formatters";
+import { fmtLastUpdated } from "@/lib/formatters";
 import { useMarketDomainGraph, useMarketIntelligenceEngine } from "@/domains/market";
 
 function SignalRow({
@@ -111,7 +111,7 @@ export function IntelligenceMissionControl() {
     [intelligence.trendAnalysis]
   );
 
-  const updatedAt = lastUpdated ? new Date(lastUpdated).toISOString().slice(11, 16) + " UTC" : null;
+  const updatedAt = fmtLastUpdated(lastUpdated);
 
   return (
     <SurfaceCard className="p-0 overflow-hidden">

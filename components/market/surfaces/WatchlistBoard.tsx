@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useState } from "react";
 import { SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
-import { fmtPercent } from "@/lib/formatters";
+import { fmtPercent, fmtLastUpdated } from "@/lib/formatters";
 import { useMarketDomainGraph, useMarketIntelligenceEngine, type MarketAsset } from "@/domains/market";
 
 type AlertLevel = "critical" | "warning" | "info";
@@ -146,7 +146,7 @@ export function WatchlistBoard() {
     .sort((x, y) => Math.abs(y.changePercent) - Math.abs(x.changePercent))
     .slice(0, 6);
 
-  const updatedAt = lastUpdated ? new Date(lastUpdated).toISOString().slice(11, 16) + " UTC" : null;
+  const updatedAt = fmtLastUpdated(lastUpdated);
 
   return (
     <SurfaceCard className="p-0 overflow-hidden">

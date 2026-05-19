@@ -14,3 +14,14 @@ export function fmtPercent(n: number, showSign = false): string {
   const sign = showSign && n > 0 ? "+" : "";
   return `${sign}${n.toFixed(2)}%`;
 }
+
+/**
+ * Formats a nullable ISO timestamp string as "HH:MM UTC".
+ * Returns null when the value is absent or not a valid date.
+ */
+export function fmtLastUpdated(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const ts = Date.parse(value);
+  if (!Number.isFinite(ts)) return null;
+  return new Date(ts).toISOString().slice(11, 16) + " UTC";
+}

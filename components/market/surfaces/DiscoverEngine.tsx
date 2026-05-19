@@ -3,7 +3,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { IntelligenceCard, SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
 import { SearchCommandBar } from "@/components/v2/workspace";
-import { fmtPercent } from "@/lib/formatters";
+import { fmtPercent, fmtLastUpdated } from "@/lib/formatters";
 import { useMarketDomainGraph, scoreAssetConviction, useMarketIntelligenceEngine, type MarketAsset } from "@/domains/market";
 import { MARKET_SEARCH_MIN_QUERY_LENGTH } from "@/domains/market/search";
 
@@ -196,7 +196,7 @@ export function DiscoverEngine() {
     [query, search.groups]
   );
 
-  const updatedAt = lastUpdated ? new Date(lastUpdated).toISOString().slice(11, 16) + " UTC" : null;
+  const updatedAt = fmtLastUpdated(lastUpdated);
 
   return (
     <SurfaceCard className="p-0 overflow-hidden">
