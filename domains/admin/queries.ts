@@ -121,12 +121,13 @@ export function useAdminClientDetail(clientId: number | null): ClientDetailData 
       const insights = normalizedInsights ?? previous?.insights ?? null;
 
       if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+        const degraded = Boolean(partialError);
         console.info("[domain-query]", {
           stage: "client-detail",
           clientId: resolvedClientId,
           transactionCount: transactions.length,
           insightAlertsCount: Array.isArray(insights?.alerts) ? insights.alerts.length : 0,
-          degraded: Boolean(partialError),
+          degraded,
           cacheReconcile: {
             previousTransactions: previous?.transactions?.length ?? 0,
             incomingTransactions: normalizedTransactions?.length ?? 0,
@@ -137,6 +138,23 @@ export function useAdminClientDetail(clientId: number | null): ClientDetailData 
             fallbackActivationReason: partialError,
           },
         });
+        // [detail-query] telemetry: surface hydration outcome clearly
+        if (!degraded && normalizedInsights !== null) {
+          console.info("[detail-query]", {
+            event: "hydration.success",
+            clientId: resolvedClientId,
+            transactionCount: transactions.length,
+            insightAlertsCount: Array.isArray(insights?.alerts) ? insights.alerts.length : 0,
+          });
+        } else if (degraded) {
+          console.info("[detail-query]", {
+            event: "hydration.degraded",
+            clientId: resolvedClientId,
+            reason: partialError,
+            hasCachedInsights: normalizedInsights === null && Boolean(previous?.insights),
+            hasCachedTransactions: normalizedTransactions === null && Boolean(previous?.transactions?.length),
+          });
+        }
       }
 
       return {

@@ -260,9 +260,11 @@ export default function ClientsPage() {
   );
 
   useEffect(() => {
-    if (selectedClientId == null && clients[0]) setSelectedClientId(clients[0].id);
+    // Only clear selection if the selected client was removed from the list (e.g. deleted).
+    // Do NOT auto-select clients[0] when selectedClientId is null — that would re-open
+    // the panel immediately after the user closes it.
     if (selectedClientId != null && !clients.some((client) => client.id === selectedClientId)) {
-      setSelectedClientId(clients[0]?.id ?? null);
+      setSelectedClientId(null);
     }
   }, [clients, selectedClientId]);
 
@@ -372,9 +374,21 @@ export default function ClientsPage() {
 
   const closeClientWorkspace = useCallback(() => {
     if (selectedClientId != null) {
+      // Cancel any in-flight requests for this client.
       void queryClient.cancelQueries({ queryKey: adminQueryKeys.clientDetail(selectedClientId) });
       void queryClient.cancelQueries({ queryKey: adminQueryKeys.clientAssetPricing(selectedClientId) });
+      // Remove cached results so the next open always starts with a clean slate
+      // and never carries over stale degraded / error state.
+      void queryClient.removeQueries({ queryKey: adminQueryKeys.clientDetail(selectedClientId) });
+      void queryClient.removeQueries({ queryKey: adminQueryKeys.clientProfile(selectedClientId) });
+      void queryClient.removeQueries({
+        predicate: (query) => {
+          const [scope, entity, id, slice] = query.queryKey as Array<string | number>;
+          return scope === "admin" && entity === "clients" && id === selectedClientId && slice === "asset-pricing";
+        },
+      });
     }
+    console.info("[workspace-close]", { event: "workspace.close", clientId: selectedClientId ?? null });
     setSelectedClientId(null);
   }, [queryClient, selectedClientId]);
 
