@@ -50,6 +50,7 @@ const EDIT_STEPS: Array<{ id: EditStep; label: string }> = [
   { id: "advisory", label: "Advisory" },
   { id: "notes", label: "Notes" },
 ];
+const INITIAL_FORM_STEP: EditStep = "identity";
 
 function createInitialState(client?: ClientProfile | null): ClientFormState {
   return {
@@ -122,11 +123,11 @@ export function ClientEditForm({
   onSubmit: (payload: ClientUpdatePayload & { status: ClientOperationalStatus }) => Promise<void>;
 }) {
   const [form, setForm] = useState<ClientFormState>(() => createInitialState(client));
-  const [step, setStep] = useState<EditStep>("identity");
+  const [step, setStep] = useState<EditStep>(INITIAL_FORM_STEP);
 
   useEffect(() => {
     setForm(createInitialState(client));
-    setStep("identity");
+    setStep(INITIAL_FORM_STEP);
   }, [client]);
 
   const title = useMemo(() => (mode === "create" ? "Create client workspace" : "Edit client workspace"), [mode]);

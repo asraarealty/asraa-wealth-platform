@@ -38,6 +38,9 @@ import { adminQueryKeys } from "@/lib/queryKeys/admin";
 import { deriveClientReadinessContract } from "@/domains/client";
 import { useAdminClientLifecycleMutation, useAdminClientProfile } from "@/domains/admin";
 
+const INITIAL_WORKSPACE_MODE: WorkspaceMode = "portfolio";
+const DRAWER_BG_GRADIENT = "bg-[linear-gradient(160deg,rgba(10,22,51,0.98),rgba(4,9,21,0.99))]";
+
 function fmtDate(iso?: string): string {
   if (!iso) return "Awaiting signal";
   try {
@@ -53,6 +56,14 @@ function fmtDate(iso?: string): string {
   }
 }
 
+function toReadinessMetric(label: string, ready: boolean | undefined, readyValue: string, blockedValue: string) {
+  return {
+    label,
+    value: ready ? readyValue : blockedValue,
+    tone: ready ? ("good" as const) : ("warn" as const),
+  };
+}
+
 export function ClientDetailPanel({
   client,
   onClose,
@@ -66,7 +77,7 @@ export function ClientDetailPanel({
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
   const [inventoryEditor, setInventoryEditor] = useState<{ mode: "create" | "edit"; asset?: Asset | null } | null>(null);
   const [inventoryEditorNonce, setInventoryEditorNonce] = useState(0);
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("portfolio");
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(INITIAL_WORKSPACE_MODE);
   const [pendingClientAction, setPendingClientAction] = useState<{
     title: string;
     description: string;
@@ -110,7 +121,7 @@ export function ClientDetailPanel({
   }, [client]);
   useEffect(() => {
     clearTransientState();
-    setWorkspaceMode("portfolio");
+    setWorkspaceMode(INITIAL_WORKSPACE_MODE);
   }, [client?.id, clearTransientState]);
 
   // Telemetry: workspace open / close
@@ -448,16 +459,18 @@ export function ClientDetailPanel({
   );
 
   const overviewKpis = useMemo(
-    () => [
+    () => {
+      return [
       { label: "Net worth", value: valuation.liveValue > 0 ? fmtCurrency(valuation.liveValue) : workspaceClient.operationalFallback },
       { label: "Diversification", value: `${workspaceClient.diversificationScore}/100` },
-      { label: "AI health score", value: readiness?.intelligenceReady ? "Healthy" : "Partial", tone: readiness?.intelligenceReady ? "good" as const : "warn" as const },
-      { label: "Lifecycle readiness", value: readiness?.lifecycleReady ? "Ready" : "Blocked", tone: readiness?.lifecycleReady ? "good" as const : "warn" as const },
+      toReadinessMetric("AI health score", readiness?.intelligenceReady, "Healthy", "Partial"),
+      toReadinessMetric("Lifecycle readiness", readiness?.lifecycleReady, "Ready", "Blocked"),
       { label: "Exposure mix", value: `Eq ${fmtPercent(valuation.exposurePct.stock)} · MF ${fmtPercent(valuation.exposurePct.mf)}` },
       { label: "Onboarding progress", value: workspaceClient.onboardingStatus || "Pipeline" },
       { label: "Last activity", value: fmtDate(workspaceClient.lastActivity ?? workspaceClient.createdAt) },
       { label: "Advisor", value: workspaceClient.advisorAssigned || workspaceClient.relationshipManager || "Unassigned" },
-    ],
+    ];
+    },
     [
       readiness?.intelligenceReady,
       readiness?.lifecycleReady,
@@ -656,8 +669,8 @@ export function ClientDetailPanel({
             tabIndex={-1}
             role="dialog"
             aria-modal="true"
-            aria-label={`Client detail workspace for ${workspaceClient.name}`}
-            className="fixed inset-y-0 right-0 w-full max-w-[1180px] overflow-y-auto overflow-x-hidden border-l border-sky-400/15 bg-[linear-gradient(160deg,rgba(10,22,51,0.98),rgba(4,9,21,0.99))] p-3 sm:p-5 outline-none"
+            aria-label={`Client operating system for ${workspaceClient.name}`}
+            className={`fixed inset-y-0 right-0 w-full max-w-[1180px] overflow-y-auto overflow-x-hidden border-l border-sky-400/15 ${DRAWER_BG_GRADIENT} p-3 sm:p-5 outline-none`}
             style={{ zIndex: 1001 + Math.max(stackIndex, 0) * 10 }}
           >
             <div className="sticky top-0 z-20 mb-4 space-y-3 rounded-[1.25rem] border border-white/8 bg-[#040915]/95 p-4 backdrop-blur">
@@ -665,7 +678,7 @@ export function ClientDetailPanel({
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.16em] text-sky-300/70">Client operating system</p>
                   <h2 className="mt-1 text-xl font-semibold text-white sm:text-2xl">{workspaceClient.name}</h2>
-                  <p className="mt-1 text-xs text-slate-400">{workspaceClient.email} · {workspaceClient.phone || workspaceClient.whatsapp || "Contact pending"}</p>
+                  <p className="mt-1 text-xs text-slate-400">{workspaceClient.email} · {workspaceClient.phone || workspaceClient.whatsapp || "Pending"}</p>
                 </div>
                 <button type="button" onClick={() => requestPanelClose("cancel")} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white">
                   ✕

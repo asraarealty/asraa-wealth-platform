@@ -4,6 +4,13 @@ import type { ReactNode } from "react";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 
 export type WorkspaceMode = "overview" | "portfolio" | "operations" | "intelligence";
+const HOLDINGS_TABLE_MIN_WIDTH_PX = 1040;
+const HOLDINGS_TABLE_HEAD_BG = "#071229";
+
+export function formatUnits(value: number, assetType: string): string {
+  const precision = assetType === "commodity" ? 4 : assetType === "stock" ? 3 : 2;
+  return value.toFixed(precision);
+}
 
 export function WorkspaceTabs({
   value,
@@ -275,8 +282,11 @@ export function HoldingsTable({
 
   return (
     <div className="overflow-x-auto rounded-xl border border-white/8">
-      <table className="min-w-[1040px] w-full text-left text-xs">
-        <thead className="sticky top-0 z-10 bg-[#071229] text-[10px] uppercase tracking-[0.14em] text-slate-400">
+      <table className="w-full text-left text-xs" style={{ minWidth: `${HOLDINGS_TABLE_MIN_WIDTH_PX}px` }}>
+        <thead
+          className="sticky top-0 z-10 text-[10px] uppercase tracking-[0.14em] text-slate-400"
+          style={{ backgroundColor: HOLDINGS_TABLE_HEAD_BG }}
+        >
           <tr>
             <th className="px-3 py-2">Asset</th>
             <th className="px-3 py-2">Class</th>
@@ -294,11 +304,11 @@ export function HoldingsTable({
             <tr key={row.key} className="border-t border-white/8 bg-white/[0.01] hover:bg-white/[0.03]">
               <td className="px-3 py-3">
                 <p className="text-sm font-semibold text-white">{row.symbol || row.assetName}</p>
-                <p className="text-[11px] text-slate-400">{row.assetName}</p>
+                {row.symbol ? <p className="text-[11px] text-slate-400">{row.assetName}</p> : null}
                 <p className="mt-1 text-[11px] text-slate-500">{row.clientName}</p>
               </td>
               <td className="px-3 py-3 text-slate-300">{row.groupingLabel}</td>
-              <td className="px-3 py-3 text-slate-300">{row.units.toFixed(2)}</td>
+              <td className="px-3 py-3 text-slate-300">{formatUnits(row.units, row.assetType)}</td>
               <td className="px-3 py-3">
                 <p className="font-semibold text-white">{fmtCurrency(row.livePrice)}</p>
                 <p className={`text-[11px] ${row.quoteConnected ? "text-emerald-300" : "text-slate-500"}`}>
