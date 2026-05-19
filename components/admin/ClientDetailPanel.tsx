@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClientInventoryModal } from "@/components/admin/ClientInventoryModal";
 import { AssetCard } from "@/components/admin/platform/AssetCard";
+import { StatusBadge } from "@/components/admin/platform/StatusBadge";
 import { PlatformConfirmModal } from "@/components/admin/platform/PlatformModal";
 import {
   ActionBar,
@@ -709,7 +710,7 @@ export function ClientDetailPanel({
                   <p className="text-[10px] uppercase tracking-[0.16em] text-sky-300/70">Client operating system</p>
                   <div className="mt-1 flex items-center gap-2">
                     <h2 className="text-xl font-semibold text-white sm:text-2xl">{workspaceClient.name}</h2>
-                    {workspaceClient.canonicalStatus === "archived" ? <span className="rounded-full border border-rose-400/30 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-rose-200">Archived</span> : null}
+                    {workspaceClient.canonicalStatus === "archived" ? <StatusBadge label={workspaceClient.canonicalStatus} tone="danger" /> : null}
                   </div>
                   <p className="mt-1 text-xs text-slate-400">{workspaceClient.email} · {workspaceClient.phone || workspaceClient.whatsapp || "Pending"}</p>
                 </div>
@@ -848,18 +849,22 @@ export function ClientDetailPanel({
                       <EmptyState title="Operations locked" detail="Complete onboarding and intelligence prerequisites to unlock lifecycle controls." />
                     ) : (
                       <ActionBar>
-                        <button type="button" disabled={workspaceClient.canonicalStatus !== "lead"} onClick={() => setPendingClientAction({ action: "approve", title: "Convert lead", description: "Convert this lead into an approved client profile for operational onboarding.", confirmLabel: "Convert", tone: "primary" })} className="rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200 disabled:opacity-40">
-                          Convert
-                        </button>
-                        <button type="button" disabled={workspaceClient.canonicalStatus !== "suspended"} onClick={() => setPendingClientAction({ action: "restore", title: "Reactivate client", description: "Reactivate this suspended client into active runtime operations.", confirmLabel: "Reactivate", tone: "primary" })} className="rounded-lg border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200 disabled:opacity-40">
-                          Reactivate
+                        <button type="button" disabled={workspaceClient.canonicalStatus !== "lead" || !allowedTransitions.includes("approved")} onClick={() => setPendingClientAction({ action: "approve", title: "Convert lead", description: "Convert this lead into an approved client profile for operational onboarding.", confirmLabel: "Convert to Client", tone: "primary" })} className="rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200 disabled:opacity-40">
+                          Convert to Client
                         </button>
                         <button type="button" disabled={workspaceClient.canonicalStatus !== "active" || !allowedTransitions.includes("archived")} onClick={() => setPendingClientAction({ action: "archive", title: "Archive client", description: "Archive this client workspace from active books.", confirmLabel: "Archive", tone: "danger" })} className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 disabled:opacity-40">
                           Archive
                         </button>
-                        <button type="button" disabled={workspaceClient.canonicalStatus !== "archived"} onClick={() => setPendingClientAction({ action: "restore", title: "Restore client", description: "Restore this client back to active operating coverage.", confirmLabel: "Restore", tone: "primary" })} className="rounded-lg border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200 disabled:opacity-40">
-                          Restore
-                        </button>
+                        {workspaceClient.canonicalStatus === "suspended" ? (
+                          <button type="button" onClick={() => setPendingClientAction({ action: "restore", title: "Reactivate client", description: "Reactivate this suspended client into active runtime operations.", confirmLabel: "Reactivate", tone: "primary" })} className="rounded-lg border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200">
+                            Reactivate
+                          </button>
+                        ) : null}
+                        {workspaceClient.canonicalStatus === "archived" ? (
+                          <button type="button" onClick={() => setPendingClientAction({ action: "restore", title: "Restore client", description: "Restore this client back to active operating coverage.", confirmLabel: "Restore", tone: "primary" })} className="rounded-lg border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200">
+                            Restore
+                          </button>
+                        ) : null}
                         {workspaceClient.canonicalStatus === "archived" ? (
                           <button type="button" onClick={() => setPendingClientAction({ action: "delete", title: "Delete client permanently", description: "Permanently delete this archived client and all operational runtime links. This action cannot be undone.", confirmLabel: "Delete Permanently", tone: "danger", requireTypedConfirmation: "DELETE CLIENT" })} className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200">
                             Delete Permanently

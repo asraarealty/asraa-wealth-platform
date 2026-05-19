@@ -465,7 +465,7 @@ export default function ClientsPage() {
                         <div>
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-semibold text-white">{client.name}</p>
-                            {client.canonicalStatus === "archived" ? <StatusBadge label="Archived" tone="danger" /> : null}
+                            {client.canonicalStatus === "archived" ? <StatusBadge label={client.canonicalStatus} tone="danger" /> : null}
                           </div>
                           <p className="text-xs text-slate-400">{client.email}</p>
                           <p className="mt-2 text-[11px] text-slate-500">{client.phone || "Call channel pending"}</p>

@@ -45,6 +45,12 @@ type MutationContext = {
   previousProfile?: ClientProfile | null;
 };
 
+function matchesClientRuntimeQueryKey(key: unknown, resolvedClientId: number) {
+  if (!Array.isArray(key)) return false;
+  if (key[0] === "client-detail") return Number(key[1]) === resolvedClientId;
+  return key.length >= 3 && key[0] === "admin" && key[1] === "clients" && key[2] === resolvedClientId;
+}
+
 export function useAdminClientLifecycleMutation(clientId: number | null) {
   const queryClient = useQueryClient();
   const resolvedClientId = clientId ?? -1;
@@ -98,8 +104,7 @@ export function useAdminClientLifecycleMutation(clientId: number | null) {
         queryClient.removeQueries({ queryKey: ASSETS_KEY });
         queryClient.removeQueries({
           predicate: (query) => {
-            const key = query.queryKey;
-            return Array.isArray(key) && key.some((value) => value === resolvedClientId);
+            return matchesClientRuntimeQueryKey(query.queryKey, resolvedClientId);
           },
         });
       } else {
@@ -168,12 +173,10 @@ export function useAdminClientLifecycleMutation(clientId: number | null) {
         queryClient.removeQueries({
           predicate: (query) => {
             const key = query.queryKey;
-            if (!Array.isArray(key)) return false;
-            const [scope, entity, id, slice] = key as Array<string | number>;
-            if (scope === "admin" && entity === "clients" && id === resolvedClientId && slice === "asset-pricing") {
+            if (Array.isArray(key) && key[0] === "admin" && key[1] === "clients" && key[2] === resolvedClientId && key[3] === "asset-pricing") {
               return true;
             }
-            return key.some((value) => value === resolvedClientId);
+            return matchesClientRuntimeQueryKey(key, resolvedClientId);
           },
         });
       }

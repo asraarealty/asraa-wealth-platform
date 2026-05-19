@@ -12,7 +12,7 @@ export type ClientOperationalStatus =
 export type ClientApprovalStatus = "approved" | "rejected" | "pending";
 
 export const ALLOWED_TRANSITIONS: Record<ClientOperationalStatus, ClientOperationalStatus[]> = {
-  lead: ["onboarding"],
+  lead: ["onboarding", "approved"],
   onboarding: ["pending_kyc"],
   pending_kyc: ["approved"],
   approved: ["active"],
