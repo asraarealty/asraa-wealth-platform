@@ -12,7 +12,7 @@ export type ClientOperationalStatus =
 export type ClientApprovalStatus = "approved" | "rejected" | "pending";
 
 export const ALLOWED_TRANSITIONS: Record<ClientOperationalStatus, ClientOperationalStatus[]> = {
-  lead: ["onboarding"],
+  lead: ["onboarding", "approved"],
   onboarding: ["pending_kyc"],
   pending_kyc: ["approved"],
   approved: ["active"],
@@ -401,9 +401,12 @@ export function restoreClient(id: number, signal?: AbortSignal) {
   });
 }
 
-export function deleteClient(id: number, signal?: AbortSignal) {
-  logClientAuditAction("client.delete.requested", { id });
-  const request = resolveContractRequest("DELETE /clients/{id}", { pathParams: { id } });
+export function deleteClient(id: number, signal?: AbortSignal, currentStatus?: ClientOperationalStatus) {
+  if (currentStatus && currentStatus !== "archived") {
+    throw new Error("Permanent delete is only allowed for archived clients.");
+  }
+  logClientAuditAction("client.permanent-delete.requested", { id, currentStatus: currentStatus ?? null });
+  const request = resolveContractRequest("DELETE /clients/{id}/permanent", { pathParams: { id } });
   return fetcher<void>(request.path, {
     method: request.method,
     signal,

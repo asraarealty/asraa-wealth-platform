@@ -8,6 +8,7 @@
     { "method": "PATCH", "route": "/clients/{id}/status", "auth_scope": "admin", "capability_tags": ["client", "lifecycle"], "retry": { "maxAttempts": 1 }, "cache": { "ttlMs": 0 } },
     { "method": "POST", "route": "/clients/{id}/archive", "auth_scope": "admin", "capability_tags": ["client", "lifecycle"], "retry": { "maxAttempts": 1 }, "cache": { "ttlMs": 0 } },
     { "method": "PATCH", "route": "/clients/{id}/restore", "auth_scope": "admin", "capability_tags": ["client", "lifecycle"], "retry": { "maxAttempts": 1 }, "cache": { "ttlMs": 0 } },
+    { "method": "DELETE", "route": "/clients/{id}/permanent", "auth_scope": "admin", "capability_tags": ["client", "lifecycle"], "retry": { "maxAttempts": 1 }, "cache": { "ttlMs": 0 } },
     { "method": "GET", "route": "/assets/admin", "auth_scope": "admin", "capability_tags": ["admin", "portfolio"], "retry": { "maxAttempts": 2 }, "cache": { "ttlMs": 0 }, "pagination": { "supported": true, "param": "page", "sizeParam": "limit" } },
     { "method": "POST", "route": "/assets/admin", "auth_scope": "admin", "capability_tags": ["admin", "portfolio"], "retry": { "maxAttempts": 1 }, "cache": { "ttlMs": 0 } },
     { "method": "PATCH", "route": "/assets/admin/{id}", "auth_scope": "admin", "capability_tags": ["admin", "portfolio"], "retry": { "maxAttempts": 1 }, "cache": { "ttlMs": 0 } },

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClientInventoryModal } from "@/components/admin/ClientInventoryModal";
 import { AssetCard } from "@/components/admin/platform/AssetCard";
+import { StatusBadge } from "@/components/admin/platform/StatusBadge";
 import { PlatformConfirmModal } from "@/components/admin/platform/PlatformModal";
 import {
   ActionBar,
@@ -67,9 +68,11 @@ function toReadinessMetric(label: string, ready: boolean | undefined, readyValue
 export function ClientDetailPanel({
   client,
   onClose,
+  initialMode = INITIAL_WORKSPACE_MODE,
 }: {
   client: EnrichedClient | null;
   onClose: () => void;
+  initialMode?: WorkspaceMode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -77,15 +80,18 @@ export function ClientDetailPanel({
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
   const [inventoryEditor, setInventoryEditor] = useState<{ mode: "create" | "edit"; asset?: Asset | null } | null>(null);
   const [inventoryEditorNonce, setInventoryEditorNonce] = useState(0);
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(INITIAL_WORKSPACE_MODE);
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(initialMode);
   const [pendingClientAction, setPendingClientAction] = useState<{
     title: string;
     description: string;
     confirmLabel: string;
     tone?: "danger" | "primary";
     action: "approve" | "suspend" | "archive" | "restore" | "delete";
+    requireTypedConfirmation?: string;
   } | null>(null);
   const [assetError, setAssetError] = useState<string | null>(null);
+  const [lifecycleSuccess, setLifecycleSuccess] = useState<string | null>(null);
+  const [deleteConfirmationInput, setDeleteConfirmationInput] = useState("");
   const mutationSequenceRef = useRef(0);
   const {
     transactions,
@@ -121,8 +127,10 @@ export function ClientDetailPanel({
   }, [client]);
   useEffect(() => {
     clearTransientState();
-    setWorkspaceMode(INITIAL_WORKSPACE_MODE);
-  }, [client?.id, clearTransientState]);
+    setWorkspaceMode(initialMode);
+    setLifecycleSuccess(null);
+    setDeleteConfirmationInput("");
+  }, [client?.id, clearTransientState, initialMode]);
 
   // Telemetry: workspace open / close
   const prevClientIdRef = useRef<number | null>(null);
@@ -631,15 +639,38 @@ export function ClientDetailPanel({
     if (!pendingClientAction || !workspaceClient || lifecycle.signal.aborted || lifecycleMutation.isPending) return;
     try {
       setAssetError(null);
+      setLifecycleSuccess(null);
+      if (pendingClientAction.action === "delete" && workspaceClient.canonicalStatus !== "archived") {
+        throw new Error("Permanent delete is only available for archived clients.");
+      }
       await lifecycleMutation.mutateAsync({
         action: pendingClientAction.action,
         signal: lifecycle.signal,
+        currentStatus: workspaceClient.canonicalStatus,
       });
       if (!lifecycle.isActive()) return;
       setPendingClientAction(null);
+      setDeleteConfirmationInput("");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: DASHBOARD_FULL_KEY }),
+        queryClient.invalidateQueries({ queryKey: ASSETS_KEY }),
+        queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientDetail(workspaceClient.id) }),
+        queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientProfile(workspaceClient.id) }),
+        queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientAssetPricing(workspaceClient.id) }),
+      ]);
       if (pendingClientAction.action === "delete") {
         requestPanelClose("programmatic");
         return;
+      }
+      if (pendingClientAction.action === "restore") {
+        setLifecycleSuccess("Client restored successfully.");
+      } else if (pendingClientAction.action === "archive") {
+        setLifecycleSuccess("Client archived successfully.");
+      } else if (pendingClientAction.action === "approve") {
+        setLifecycleSuccess("Lead converted successfully.");
+      } else if (pendingClientAction.action === "suspend") {
+        setLifecycleSuccess("Client status updated successfully.");
       }
       refreshWorkspaceData();
     } catch (value) {
@@ -677,7 +708,10 @@ export function ClientDetailPanel({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.16em] text-sky-300/70">Client operating system</p>
-                  <h2 className="mt-1 text-xl font-semibold text-white sm:text-2xl">{workspaceClient.name}</h2>
+                  <div className="mt-1 flex items-center gap-2">
+                    <h2 className="text-xl font-semibold text-white sm:text-2xl">{workspaceClient.name}</h2>
+                    {workspaceClient.canonicalStatus === "archived" ? <StatusBadge label={workspaceClient.canonicalStatus} tone="danger" /> : null}
+                  </div>
                   <p className="mt-1 text-xs text-slate-400">{workspaceClient.email} · {workspaceClient.phone || workspaceClient.whatsapp || "Pending"}</p>
                 </div>
                 <button type="button" onClick={() => requestPanelClose("cancel")} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white">
@@ -815,21 +849,27 @@ export function ClientDetailPanel({
                       <EmptyState title="Operations locked" detail="Complete onboarding and intelligence prerequisites to unlock lifecycle controls." />
                     ) : (
                       <ActionBar>
-                        <button type="button" disabled={!allowedTransitions.includes("approved")} onClick={() => setPendingClientAction({ action: "approve", title: "Approve client", description: "Approve this client and move onboarding to live operations.", confirmLabel: "Approve", tone: "primary" })} className="rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200 disabled:opacity-40">
-                          Approve
+                        <button type="button" disabled={workspaceClient.canonicalStatus !== "lead" || !allowedTransitions.includes("approved")} onClick={() => setPendingClientAction({ action: "approve", title: "Convert lead", description: "Convert this lead into an approved client profile for operational onboarding.", confirmLabel: "Convert to Client", tone: "primary" })} className="rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200 disabled:opacity-40">
+                          Convert to Client
                         </button>
-                        <button type="button" disabled={!allowedTransitions.includes("suspended")} onClick={() => setPendingClientAction({ action: "suspend", title: "Suspend client", description: "Suspend this client from active operations.", confirmLabel: "Suspend", tone: "danger" })} className="rounded-lg border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-200 disabled:opacity-40">
-                          Suspend
-                        </button>
-                        <button type="button" disabled={!allowedTransitions.includes("archived")} onClick={() => setPendingClientAction({ action: "archive", title: "Archive client", description: "Archive this client workspace from active books.", confirmLabel: "Archive", tone: "danger" })} className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 disabled:opacity-40">
+                        <button type="button" disabled={workspaceClient.canonicalStatus !== "active" || !allowedTransitions.includes("archived")} onClick={() => setPendingClientAction({ action: "archive", title: "Archive client", description: "Archive this client workspace from active books.", confirmLabel: "Archive", tone: "danger" })} className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200 disabled:opacity-40">
                           Archive
                         </button>
-                        <button type="button" disabled={workspaceClient.canonicalStatus !== "archived"} onClick={() => setPendingClientAction({ action: "restore", title: "Restore client", description: "Restore this client back to active operating coverage.", confirmLabel: "Restore", tone: "primary" })} className="rounded-lg border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200 disabled:opacity-40">
-                          Restore
-                        </button>
-                        <button type="button" onClick={() => setPendingClientAction({ action: "delete", title: "Delete client", description: "Permanently delete this client and all operational links.", confirmLabel: "Delete", tone: "danger" })} className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200">
-                          Delete
-                        </button>
+                        {workspaceClient.canonicalStatus === "suspended" ? (
+                          <button type="button" onClick={() => setPendingClientAction({ action: "restore", title: "Reactivate client", description: "Reactivate this suspended client into active runtime operations.", confirmLabel: "Reactivate", tone: "primary" })} className="rounded-lg border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200">
+                            Reactivate
+                          </button>
+                        ) : null}
+                        {workspaceClient.canonicalStatus === "archived" ? (
+                          <button type="button" onClick={() => setPendingClientAction({ action: "restore", title: "Restore client", description: "Restore this client back to active operating coverage.", confirmLabel: "Restore", tone: "primary" })} className="rounded-lg border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200">
+                            Restore
+                          </button>
+                        ) : null}
+                        {workspaceClient.canonicalStatus === "archived" ? (
+                          <button type="button" onClick={() => setPendingClientAction({ action: "delete", title: "Delete client permanently", description: "Permanently delete this archived client and all operational runtime links. This action cannot be undone.", confirmLabel: "Delete Permanently", tone: "danger", requireTypedConfirmation: "DELETE CLIENT" })} className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200">
+                            Delete Permanently
+                          </button>
+                        ) : null}
                       </ActionBar>
                     )}
                   </IntelligencePanel>
@@ -1000,11 +1040,23 @@ export function ClientDetailPanel({
           title={pendingClientAction.title}
           description={pendingClientAction.description}
           confirmLabel={pendingClientAction.confirmLabel}
-          onClose={() => setPendingClientAction(null)}
+          onClose={() => {
+            setPendingClientAction(null);
+            setDeleteConfirmationInput("");
+          }}
           onConfirm={() => void runClientAction()}
           pending={lifecycleMutation.isPending}
           tone={pendingClientAction.tone}
+          requireTypedConfirmation={pendingClientAction.requireTypedConfirmation}
+          confirmationInput={deleteConfirmationInput}
+          onConfirmationInputChange={setDeleteConfirmationInput}
         />
+      ) : null}
+
+      {lifecycleSuccess ? (
+        <div className="fixed bottom-4 right-4 z-[95] rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200 shadow-2xl">
+          {lifecycleSuccess}
+        </div>
       ) : null}
 
       {assetError ? (

@@ -80,6 +80,12 @@
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }]
       }
     },
+    "/clients/{id}/permanent": {
+      "delete": {
+        "tags": ["client"],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }]
+      }
+    },
     "/assets": {
       "post": {
         "tags": ["portfolio"],

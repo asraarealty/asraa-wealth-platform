@@ -21,7 +21,7 @@
 | Workspace mode tabs and panel primitives | `components/admin/workspace/primitives.tsx`, `components/v2/ui.tsx` | `components/v2/workspace.tsx` |
 | Holdings/intelligence/lifecycle workspace widgets | `components/admin/ClientDetailPanel.tsx`, `components/admin/workspace/primitives.tsx`, `components/admin/platform/*` | `components/v2/workspace.tsx` + feature containers |
 | Client/admin operational workflows | `app/admin/clients/page.tsx`, `components/admin/ClientDetailPanel.tsx`, `domains/admin/*` | `domains/admin/*` with mode-based workspace rendering |
-| Portfolio intelligence surfaces | `app/(app)/dashboard/page.tsx`, `app/(app)/assets/page.tsx`, `components/admin/portfolio-workspace/*` | shared workspace mode components using `domains/portfolio` + `domains/intelligence` |
+| Portfolio intelligence surfaces | `app/(app)/dashboard/page.tsx`, `app/(app)/assets/page.tsx`, `app/admin/clients/page.tsx`, `components/admin/ClientDetailPanel.tsx` | shared workspace mode components using `domains/portfolio` + `domains/intelligence` |
 | Global command search | `domains/market/search/index.ts`, `components/market/GlobalMarketSearch.tsx`, `components/market/MarketCommandCenter.tsx` | single universal command layer under `domains/market/search` |
 
 ## Route model target

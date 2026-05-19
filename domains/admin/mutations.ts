@@ -5,6 +5,8 @@ import type { ClientProfile } from "@/lib/services/clientService";
 import { approveClient, archiveClient, deleteClient, restoreClient, suspendClient } from "@/lib/services/clientService";
 import type { EnrichedClient } from "@/lib/utils/adminClientIntelligence";
 import { adminDomainQueryKeys } from "./queryKeys";
+import { DASHBOARD_FULL_KEY } from "@/context/DashboardContext";
+import { ASSETS_KEY } from "@/lib/hooks/useAssets";
 
 export type AdminLifecycleAction = "approve" | "suspend" | "archive" | "restore" | "delete";
 
@@ -43,13 +45,19 @@ type MutationContext = {
   previousProfile?: ClientProfile | null;
 };
 
+function matchesClientRuntimeQueryKey(key: unknown, resolvedClientId: number) {
+  if (!Array.isArray(key)) return false;
+  if (key[0] === "client-detail") return Number(key[1]) === resolvedClientId;
+  return key.length >= 3 && key[0] === "admin" && key[1] === "clients" && key[2] === resolvedClientId;
+}
+
 export function useAdminClientLifecycleMutation(clientId: number | null) {
   const queryClient = useQueryClient();
   const resolvedClientId = clientId ?? -1;
 
-  return useMutation<void | ClientProfile, Error, { action: AdminLifecycleAction; signal?: AbortSignal }, MutationContext>({
+  return useMutation<void | ClientProfile, Error, { action: AdminLifecycleAction; signal?: AbortSignal; currentStatus?: ClientProfile["canonicalStatus"] }, MutationContext>({
     mutationKey: ["admin", "clients", resolvedClientId, "lifecycle"],
-    mutationFn: async ({ action, signal }) => {
+    mutationFn: async ({ action, signal, currentStatus }) => {
       if (resolvedClientId <= 0) throw new Error("Invalid client ID: must be a positive integer.");
       if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
         console.info("[mutation]", { stage: "lifecycle.start", action, clientId: resolvedClientId });
@@ -58,7 +66,7 @@ export function useAdminClientLifecycleMutation(clientId: number | null) {
       if (action === "suspend") return suspendClient(resolvedClientId, signal);
       if (action === "archive") return archiveClient(resolvedClientId, signal);
       if (action === "restore") return restoreClient(resolvedClientId, signal);
-      await deleteClient(resolvedClientId, signal);
+      await deleteClient(resolvedClientId, signal, currentStatus);
       return;
     },
     onMutate: async ({ action }) => {
@@ -89,6 +97,16 @@ export function useAdminClientLifecycleMutation(clientId: number | null) {
           }
         );
         queryClient.removeQueries({ queryKey: adminDomainQueryKeys.clientProfile(resolvedClientId) });
+        queryClient.removeQueries({ queryKey: adminDomainQueryKeys.clientDetail(resolvedClientId) });
+        queryClient.removeQueries({ queryKey: adminDomainQueryKeys.clientEditDetail(resolvedClientId) });
+        queryClient.removeQueries({ queryKey: adminDomainQueryKeys.clientAssetPricing(resolvedClientId) });
+        queryClient.removeQueries({ queryKey: DASHBOARD_FULL_KEY });
+        queryClient.removeQueries({ queryKey: ASSETS_KEY });
+        queryClient.removeQueries({
+          predicate: (query) => {
+            return matchesClientRuntimeQueryKey(query.queryKey, resolvedClientId);
+          },
+        });
       } else {
         queryClient.setQueryData<ClientProfile | null | undefined>(
           adminDomainQueryKeys.clientProfile(resolvedClientId),
@@ -136,6 +154,8 @@ export function useAdminClientLifecycleMutation(clientId: number | null) {
       }
       const invalidations = [
         queryClient.invalidateQueries({ queryKey: adminDomainQueryKeys.clientsWorkspace }),
+        queryClient.invalidateQueries({ queryKey: DASHBOARD_FULL_KEY }),
+        queryClient.invalidateQueries({ queryKey: ASSETS_KEY }),
       ];
       if (action !== "delete") {
         invalidations.push(
@@ -147,10 +167,16 @@ export function useAdminClientLifecycleMutation(clientId: number | null) {
       } else {
         queryClient.removeQueries({ queryKey: adminDomainQueryKeys.clientProfile(resolvedClientId) });
         queryClient.removeQueries({ queryKey: adminDomainQueryKeys.clientDetail(resolvedClientId) });
+        queryClient.removeQueries({ queryKey: adminDomainQueryKeys.clientEditDetail(resolvedClientId) });
+        queryClient.removeQueries({ queryKey: DASHBOARD_FULL_KEY });
+        queryClient.removeQueries({ queryKey: ASSETS_KEY });
         queryClient.removeQueries({
           predicate: (query) => {
-            const [scope, entity, id, slice] = query.queryKey as Array<string | number>;
-            return scope === "admin" && entity === "clients" && id === resolvedClientId && slice === "asset-pricing";
+            const key = query.queryKey;
+            if (Array.isArray(key) && key[0] === "admin" && key[1] === "clients" && key[2] === resolvedClientId && key[3] === "asset-pricing") {
+              return true;
+            }
+            return matchesClientRuntimeQueryKey(key, resolvedClientId);
           },
         });
       }
