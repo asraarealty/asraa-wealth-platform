@@ -124,8 +124,9 @@ export function LiveAssetPicker({
       delayMs: 250,
       watchlistSymbols,
     })
-      .then(async (groups) => {
+      .then(async (result) => {
         if (!active) return;
+        const groups = result.groups;
 
         const merged = [
           ...groups.stocks,

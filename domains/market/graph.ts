@@ -17,6 +17,7 @@ import {
   type MarketAsset,
   type MarketAssetKind,
   type MarketSnapshot,
+  type RuntimeStreamStatus,
 } from "@/domains/market/types";
 
 export type { MarketAsset, MarketSnapshot };
@@ -108,7 +109,16 @@ let snapshot: MarketSnapshot = {
     query: "",
     isSearching: false,
     error: null,
+    commodityUnavailable: false,
     groups: EMPTY_SEARCH_GROUPS,
+  },
+  runtime: {
+    connected: true,
+    replayActive: false,
+    staleRuntime: false,
+    currentSequence: 0,
+    resumeSequence: 0,
+    degradedSources: [],
   },
 };
 
@@ -119,6 +129,42 @@ let refreshJob: Promise<MarketAsset[]> | null = null;
 let pollHandle: ReturnType<typeof setInterval> | null = null;
 let lastRefreshAt = 0;
 let lastRefreshMessage: string | null = null;
+let runtimeSequence = 0;
+
+interface RuntimeStreamEvent {
+  sequence: number;
+  connected: boolean;
+  replayActive: boolean;
+  staleRuntime: boolean;
+  resumeSequence: number;
+  degradedSources: string[];
+}
+
+const INITIAL_RUNTIME_STREAM_STATUS: RuntimeStreamStatus = {
+  connected: true,
+  replayActive: false,
+  staleRuntime: false,
+  currentSequence: 0,
+  resumeSequence: 0,
+  degradedSources: [],
+};
+
+function applyRuntimeStreamEvent(
+  current: RuntimeStreamStatus,
+  event: RuntimeStreamEvent
+): RuntimeStreamStatus {
+  // Prevent replay/duplication and stale reconnect packets from mutating state.
+  // Exact-sequence packets are treated as duplicates by design.
+  if (event.sequence <= current.currentSequence) return current;
+  return {
+    connected: event.connected,
+    replayActive: event.replayActive,
+    staleRuntime: event.staleRuntime,
+    currentSequence: event.sequence,
+    resumeSequence: event.resumeSequence,
+    degradedSources: event.degradedSources,
+  };
+}
 
 function emit() {
   listeners.forEach((listener) => listener());
@@ -355,10 +401,13 @@ async function refreshMarketUniverse(force = false): Promise<MarketAsset[]> {
         mutualFundsResult.status === "rejected" ? "mutual funds" : null,
       ].filter(Boolean) as string[];
 
-      lastRefreshMessage =
-        failedAreas.length > 0
-          ? `Partial market sync: ${failedAreas.join(", ")} unavailable; showing last known values.`
-          : null;
+      if (failedAreas.length === 0) {
+        lastRefreshMessage = null;
+      } else if (failedAreas.includes("commodities")) {
+        lastRefreshMessage = "Commodity data temporarily unavailable";
+      } else {
+        lastRefreshMessage = `Partial market sync: ${failedAreas.join(", ")} unavailable; showing last known values.`;
+      }
 
       const combined = dedupeAssets([
         ...stocks,
@@ -406,6 +455,19 @@ export async function ensureMarketData(options: { force?: boolean; silent?: bool
       watchlistSymbols: getWatchlistSymbols(),
       adminTickers: ADMIN_TICKERS,
     });
+    runtimeSequence += 1;
+    const previousRuntime = snapshot.runtime ?? INITIAL_RUNTIME_STREAM_STATUS;
+    const reconnecting = !previousRuntime.connected;
+    const staleRuntime =
+      reconnecting && lastRefreshAt > 0 && Date.now() - lastRefreshAt > MARKET_STALE_MS * 2;
+    const runtime = applyRuntimeStreamEvent(previousRuntime, {
+      sequence: runtimeSequence,
+      connected: true,
+      replayActive: reconnecting,
+      staleRuntime,
+      resumeSequence: previousRuntime.currentSequence,
+      degradedSources: lastRefreshMessage ? [lastRefreshMessage] : [],
+    });
 
     setSnapshot({
       isLoading: false,
@@ -413,14 +475,26 @@ export async function ensureMarketData(options: { force?: boolean; silent?: bool
       error: lastRefreshMessage,
       lastUpdated: new Date().toISOString(),
       assets,
+      runtime,
       ...collections,
     });
     return assets;
   } catch (error) {
+    runtimeSequence += 1;
+    const previousRuntime = snapshot.runtime ?? INITIAL_RUNTIME_STREAM_STATUS;
+    const runtime = applyRuntimeStreamEvent(previousRuntime, {
+      sequence: runtimeSequence,
+      connected: false,
+      replayActive: false,
+      staleRuntime: true,
+      resumeSequence: previousRuntime.currentSequence,
+      degradedSources: [toErrorMessage(error)],
+    });
     setSnapshot({
       isLoading: false,
       isRefreshing: false,
       error: toErrorMessage(error),
+      runtime,
     });
     return snapshot.assets;
   }
@@ -435,6 +509,7 @@ export async function searchMarket(query: string) {
         query: normalized,
         isSearching: false,
         error: null,
+        commodityUnavailable: false,
         groups: EMPTY_SEARCH_GROUPS,
       },
     });
@@ -451,7 +526,7 @@ export async function searchMarket(query: string) {
   });
 
   try {
-    const groups = await searchMarketDebounced(normalized, {
+    const result = await searchMarketDebounced(normalized, {
       delayMs: 250,
       watchlistSymbols: getWatchlistSymbols(),
       watchlistAssets: snapshot.watchlist,
@@ -461,7 +536,8 @@ export async function searchMarket(query: string) {
         query: normalized,
         isSearching: false,
         error: null,
-        groups,
+        commodityUnavailable: result.commodityUnavailable,
+        groups: result.groups,
       },
     });
   } catch (error) {
@@ -471,6 +547,7 @@ export async function searchMarket(query: string) {
         query: normalized,
         isSearching: false,
         error: toErrorMessage(error),
+        commodityUnavailable: false,
         groups: EMPTY_SEARCH_GROUPS,
       },
     });

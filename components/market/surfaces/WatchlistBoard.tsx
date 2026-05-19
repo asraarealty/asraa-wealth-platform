@@ -4,6 +4,7 @@ import { memo, useEffect, useState } from "react";
 import { SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
 import { fmtPercent, fmtLastUpdated } from "@/lib/formatters";
 import { useMarketDomainGraph, useMarketIntelligenceEngine, type MarketAsset } from "@/domains/market";
+import { RuntimeObservabilityBadges } from "@/components/runtime/RuntimeObservabilityBadges";
 
 type AlertLevel = "critical" | "warning" | "info";
 
@@ -118,6 +119,8 @@ export function WatchlistBoard() {
     topGainers,
     topLosers,
     sectorMovers,
+    search,
+    runtime,
     toggleWatchlist,
     isLoading,
     error,
@@ -180,6 +183,12 @@ export function WatchlistBoard() {
             Refresh
           </button>
         </div>
+      </div>
+      <div className="border-b border-white/8 px-4 py-2.5">
+        <RuntimeObservabilityBadges
+          runtime={runtime}
+          commodityUnavailable={search.commodityUnavailable}
+        />
       </div>
 
       <div className="grid md:grid-cols-[1fr_280px] xl:grid-cols-[1fr_320px]">

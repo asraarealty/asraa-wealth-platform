@@ -3,6 +3,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { MetricTile, SectionHeader, SurfaceCard, StatusPill } from "@/components/v2/ui";
 import { SearchCommandBar } from "@/components/v2/workspace";
+import { RuntimeObservabilityBadges } from "@/components/runtime/RuntimeObservabilityBadges";
 import { fmtPercent, fmtLastUpdated } from "@/lib/formatters";
 import { useMarketDomainGraph, useMarketIntelligenceEngine, type MarketAsset } from "@/domains/market";
 import { MARKET_SEARCH_MIN_QUERY_LENGTH } from "@/domains/market/search";
@@ -79,6 +80,7 @@ export function MarketsPulse() {
     watchlist,
     breadth,
     search,
+    runtime,
     searchMarket,
     isLoading,
     error,
@@ -129,6 +131,12 @@ export function MarketsPulse() {
             Refresh
           </button>
         </div>
+      </div>
+      <div className="border-b border-white/8 px-4 py-2.5">
+        <RuntimeObservabilityBadges
+          runtime={runtime}
+          commodityUnavailable={search.commodityUnavailable}
+        />
       </div>
 
       <div className="overflow-y-auto">

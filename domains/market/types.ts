@@ -68,6 +68,15 @@ export interface BreadthMetrics {
   liquidityRotation: number;
 }
 
+export interface RuntimeStreamStatus {
+  connected: boolean;
+  replayActive: boolean;
+  staleRuntime: boolean;
+  currentSequence: number;
+  resumeSequence: number;
+  degradedSources: string[];
+}
+
 export interface MarketSnapshot {
   isLoading: boolean;
   isRefreshing: boolean;
@@ -86,8 +95,10 @@ export interface MarketSnapshot {
     query: string;
     isSearching: boolean;
     error: string | null;
+    commodityUnavailable?: boolean;
     groups: UnifiedSearchGroups;
   };
+  runtime: RuntimeStreamStatus;
 }
 
 export const EMPTY_SEARCH_GROUPS: UnifiedSearchGroups = {

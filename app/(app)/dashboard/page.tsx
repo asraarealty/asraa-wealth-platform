@@ -14,6 +14,7 @@ import {
   type IntelTone,
 } from "@/components/v2/ui";
 import { useOperatingContext } from "@/context/OperatingContext";
+import { RuntimeErrorBoundary } from "@/components/runtime/RuntimeErrorBoundary";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -281,10 +282,16 @@ export default function DashboardPage() {
         </SurfaceCard>
       </div>
 
-      <IntelligenceSection intelCards={intelCards} />
+      <RuntimeErrorBoundary scope="intelligence-widget">
+        <IntelligenceSection intelCards={intelCards} />
+      </RuntimeErrorBoundary>
       <ActionsRecommendationsSection data={data} />
-      <RealEstateActivitySection data={data} />
-      <MarketDiscoverySection />
+      <RuntimeErrorBoundary scope="runtime-stream-panel">
+        <RealEstateActivitySection data={data} />
+      </RuntimeErrorBoundary>
+      <RuntimeErrorBoundary scope="commodity-widget">
+        <MarketDiscoverySection />
+      </RuntimeErrorBoundary>
     </div>
   );
 }
