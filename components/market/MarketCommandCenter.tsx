@@ -3,6 +3,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { AllocationRing } from "@/components/admin/platform/AllocationRing";
 import { IntelligenceCard, MetricTile, SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
+import { SearchCommandBar } from "@/components/v2/workspace";
 import { fmtPercent } from "@/lib/formatters";
 import { useMarketDomainGraph as useMarketOrchestrator, type MarketAsset } from "@/domains/market";
 import { MARKET_SEARCH_MIN_QUERY_LENGTH } from "@/domains/market/search";
@@ -205,13 +206,10 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
       <div className="mt-4 hidden md:grid gap-4 md:grid-cols-[1fr_2fr] xl:grid-cols-[1fr_2fr_1fr]">
         <div className="space-y-4 md:col-span-2 xl:col-span-1">
           <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-            <p className="text-[10px] uppercase tracking-[0.16em] text-blue-400/70">Universal Search</p>
-            <input
+            <SearchCommandBar
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search stocks, ETFs, funds, commodities..."
-              className="v2-input mt-2 w-full"
-              aria-label="Market command search"
+              onChange={setQuery}
+              label="Market command search"
             />
             {query.trim().length >= MIN_SEARCH_LENGTH ? (
               <div className="mt-3 space-y-2 max-h-56 overflow-y-auto">
@@ -227,6 +225,14 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
                     />
                   ))}
                 {search.isSearching ? <p className="text-xs text-slate-500">Searching...</p> : null}
+                {[...(search.groups.clients ?? []), ...(search.groups.portfolios ?? []), ...(search.groups.sectors ?? []), ...(search.groups.themes ?? [])]
+                  .slice(0, 6)
+                  .map((item) => (
+                    <div key={item.id} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+                      <p className="text-xs text-white">{item.label}</p>
+                      <p className="text-[11px] text-slate-500">{item.subtitle ?? item.kind}</p>
+                    </div>
+                  ))}
               </div>
             ) : null}
           </div>

@@ -46,6 +46,17 @@ export interface UnifiedSearchGroups {
   mutualFunds: MarketAsset[];
   commodities: MarketAsset[];
   watchlist?: MarketAsset[];
+  clients?: CommandSearchItem[];
+  portfolios?: CommandSearchItem[];
+  sectors?: CommandSearchItem[];
+  themes?: CommandSearchItem[];
+}
+
+export interface CommandSearchItem {
+  id: string;
+  label: string;
+  subtitle?: string;
+  kind: "client" | "portfolio" | "sector" | "theme" | "watchlist";
 }
 
 export interface BreadthMetrics {
@@ -85,6 +96,10 @@ export const EMPTY_SEARCH_GROUPS: UnifiedSearchGroups = {
   mutualFunds: [],
   commodities: [],
   watchlist: [],
+  clients: [],
+  portfolios: [],
+  sectors: [],
+  themes: [],
 };
 
 export const EMPTY_BREADTH: BreadthMetrics = {

@@ -2,7 +2,11 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 import { SurfaceCard } from "@/components/v2/ui";
-import { useMarketDomainGraph as useMarketOrchestrator, type MarketAsset } from "@/domains/market";
+import {
+  useMarketDomainGraph as useMarketOrchestrator,
+  type CommandSearchItem,
+  type MarketAsset,
+} from "@/domains/market";
 import { fmtPercent } from "@/lib/formatters";
 
 const SearchRow = memo(function SearchRow({ item, onToggle }: { item: MarketAsset; onToggle: (symbol: string) => void }) {
@@ -76,7 +80,8 @@ export function GlobalMarketSearch() {
       ) : null}
 
       {query.trim() ? (
-        <div className="mt-4 grid gap-4 xl:grid-cols-3">
+        <div className="mt-4 space-y-4">
+          <div className="grid gap-4 xl:grid-cols-3">
           {[
             { label: "Stocks", items: search.groups.stocks },
             { label: "Mutual Funds", items: search.groups.mutualFunds },
@@ -98,8 +103,47 @@ export function GlobalMarketSearch() {
               )}
             </div>
           ))}
+          </div>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <CommandGroup label="Clients" items={search.groups.clients ?? []} />
+            <CommandGroup label="Portfolios" items={search.groups.portfolios ?? []} />
+            <CommandGroup label="Sectors" items={search.groups.sectors ?? []} />
+            <CommandGroup label="Themes" items={search.groups.themes ?? []} />
+            <CommandGroup
+              label="Watchlists"
+              items={(search.groups.watchlist ?? []).map((item) => ({
+                id: `watchlist:${item.id}`,
+                label: item.symbol,
+                subtitle: item.name,
+                kind: "watchlist" as const,
+              }))}
+            />
+          </div>
         </div>
       ) : null}
     </SurfaceCard>
+  );
+}
+
+function CommandGroup({ label, items }: { label: string; items: CommandSearchItem[] }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">{label}</p>
+        <span className="text-xs text-slate-600">{items.length}</span>
+      </div>
+      {items.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-3 py-4 text-xs text-slate-500">
+          No {label.toLowerCase()} matched this query.
+        </div>
+      ) : (
+        items.map((item) => (
+          <div key={item.id} className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5">
+            <p className="text-sm font-medium text-white">{item.label}</p>
+            <p className="text-[11px] text-slate-500">{item.subtitle ?? item.kind}</p>
+          </div>
+        ))
+      )}
+    </div>
   );
 }
