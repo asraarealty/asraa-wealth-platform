@@ -2,7 +2,13 @@
 
 import { fetcher } from "@/lib/fetcher";
 import { createRequestCache } from "@/domains/market/cache";
-import { EMPTY_SEARCH_GROUPS, type MarketAsset, type MarketAssetKind, type UnifiedSearchGroups } from "@/domains/market/types";
+import {
+  EMPTY_SEARCH_GROUPS,
+  type CommandSearchItem,
+  type MarketAsset,
+  type MarketAssetKind,
+  type UnifiedSearchGroups,
+} from "@/domains/market/types";
 
 export const MARKET_SEARCH_MIN_QUERY_LENGTH = 3;
 const SEARCH_FRESH_MS = 30_000;
@@ -173,6 +179,86 @@ function dedupeEntities(items: MarketAsset[]) {
   return [...byId.values()];
 }
 
+function dedupeCommandItems(items: CommandSearchItem[]) {
+  const byId = new Map<string, CommandSearchItem>();
+  for (const item of items) {
+    if (!item.id || !item.label) continue;
+    if (!byId.has(item.id)) byId.set(item.id, item);
+  }
+  return [...byId.values()];
+}
+
+function normalizeClientEntity(item: unknown): CommandSearchItem | null {
+  const record = safeRecord(item);
+  const id = n(record.id ?? record.client_id ?? record.user_id);
+  const name = s(record.name ?? record.client_name);
+  if (!id || !name) return null;
+  return {
+    id: `client:${id}`,
+    label: name,
+    subtitle: s(record.email ?? record.phone ?? record.lifecycle),
+    kind: "client",
+  };
+}
+
+function normalizePortfolioEntity(item: unknown): CommandSearchItem | null {
+  const record = safeRecord(item);
+  const id = n(record.id);
+  const assetType = s(record.type, "asset").toUpperCase();
+  const name = s(record.name ?? record.symbol ?? `${assetType} Holding`);
+  if (!id) return null;
+  return {
+    id: `portfolio:${id}`,
+    label: name,
+    subtitle: assetType,
+    kind: "portfolio",
+  };
+}
+
+function toCommandItems(values: string[], kind: "sector" | "theme"): CommandSearchItem[] {
+  return values.map((value, index) => ({
+    id: `${kind}:${value.toLowerCase().replace(/[^a-z0-9]+/g, "-")}:${index}`,
+    label: value,
+    kind,
+  }));
+}
+
+async function searchClientsRaw(query: string, signal?: AbortSignal): Promise<unknown[]> {
+  try {
+    const payload = await fetcher<unknown>(`/admin/clients?search=${encodeURIComponent(query)}&limit=8`, {
+      signal,
+      noRedirectOn401: true,
+      raw: true,
+      cache: "no-store",
+    });
+    const unwrapped = unwrap(payload);
+    if (Array.isArray(unwrapped)) return unwrapped;
+    if (Array.isArray(safeRecord(unwrapped).items)) return safeRecord(unwrapped).items as unknown[];
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+async function searchPortfoliosRaw(query: string, signal?: AbortSignal): Promise<unknown[]> {
+  try {
+    const payload = await fetcher<unknown>(`/assets?search=${encodeURIComponent(query)}&limit=8`, {
+      signal,
+      noRedirectOn401: true,
+      raw: true,
+      cache: "no-store",
+    });
+    const unwrapped = unwrap(payload);
+    const record = safeRecord(unwrapped);
+    if (Array.isArray(unwrapped)) return unwrapped;
+    if (Array.isArray(record.assets)) return record.assets as unknown[];
+    if (Array.isArray(record.items)) return record.items as unknown[];
+    return [];
+  } catch {
+    return [];
+  }
+}
+
 export async function searchMarket(
   query: string,
   options: { signal?: AbortSignal; watchlistSymbols?: string[]; watchlistAssets?: MarketAsset[] } = {}
@@ -185,10 +271,12 @@ export async function searchMarket(
   if (cached?.value && !cached.stale) return cached.value;
 
   return searchCache.getOrCreate(key, async () => {
-    const [stocksRaw, mutualFundsRaw, commoditiesRaw] = await Promise.all([
+    const [stocksRaw, mutualFundsRaw, commoditiesRaw, clientsRaw, portfoliosRaw] = await Promise.all([
       searchStocksRaw(normalized, options.signal),
       searchMutualFundsRaw(normalized, options.signal),
       searchCommoditiesRaw(normalized, options.signal),
+      searchClientsRaw(normalized, options.signal),
+      searchPortfoliosRaw(normalized, options.signal),
     ]);
 
     const normalizedStocks = dedupeEntities(stocksRaw.map(normalizeStockEntity));
@@ -204,6 +292,23 @@ export async function searchMarket(
       ...mutualFunds.filter((item) => watchSymbols.has(item.symbol.toUpperCase())),
       ...commodities.filter((item) => watchSymbols.has(item.symbol.toUpperCase())),
     ]);
+    const sectors = toCommandItems(
+      [...new Set(stocks.map((item) => item.sector).filter(Boolean))].slice(0, 8),
+      "sector"
+    );
+    const themes = toCommandItems(
+      [...new Set([...stocks, ...etfs].map((item) => item.category).filter(Boolean))].slice(0, 8),
+      "theme"
+    );
+    const clients = dedupeCommandItems(
+      clientsRaw.filter(Boolean).map(normalizeClientEntity).filter((item): item is CommandSearchItem => item !== null)
+    ).slice(0, 8);
+    const portfolios = dedupeCommandItems(
+      portfoliosRaw
+        .filter(Boolean)
+        .map(normalizePortfolioEntity)
+        .filter((item): item is CommandSearchItem => item !== null)
+    ).slice(0, 8);
 
     const groups: UnifiedSearchGroups = {
       stocks,
@@ -211,6 +316,10 @@ export async function searchMarket(
       mutualFunds,
       commodities,
       watchlist,
+      clients,
+      portfolios,
+      sectors,
+      themes,
     };
 
     searchCache.write(key, groups);
