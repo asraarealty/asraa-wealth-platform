@@ -1,6 +1,7 @@
 "use client";
 
 import { Component, type ReactNode } from "react";
+import { logDebug } from "@/lib/utils/debugMetrics";
 
 type RuntimeBoundaryScope =
   | "commodity-widget"
@@ -10,6 +11,7 @@ type RuntimeBoundaryScope =
 
 interface RuntimeErrorBoundaryProps {
   scope: RuntimeBoundaryScope;
+  label?: string;
   children: ReactNode;
 }
 
@@ -35,8 +37,9 @@ export class RuntimeErrorBoundary extends Component<
   }
 
   override componentDidCatch(error: unknown) {
-    console.error("[runtime-widget-boundary]", {
+    logDebug("render", "runtime-widget-boundary", {
       scope: this.props.scope,
+      label: this.props.label ?? this.props.scope,
       message: error instanceof Error ? error.message : String(error),
     });
   }
@@ -52,4 +55,3 @@ export class RuntimeErrorBoundary extends Component<
     return this.props.children;
   }
 }
-

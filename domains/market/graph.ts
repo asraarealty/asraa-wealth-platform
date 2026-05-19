@@ -112,7 +112,14 @@ let snapshot: MarketSnapshot = {
     commodityUnavailable: false,
     groups: EMPTY_SEARCH_GROUPS,
   },
-  runtime: INITIAL_RUNTIME_STREAM_STATUS,
+  runtime: {
+    connected: true,
+    replayActive: false,
+    staleRuntime: false,
+    currentSequence: 0,
+    resumeSequence: 0,
+    degradedSources: [],
+  },
 };
 
 const listeners = new Set<() => void>();
@@ -146,6 +153,8 @@ function applyRuntimeStreamEvent(
   current: RuntimeStreamStatus,
   event: RuntimeStreamEvent
 ): RuntimeStreamStatus {
+  // Prevent replay/duplication and stale reconnect packets from mutating state.
+  // Exact-sequence packets are treated as duplicates by design.
   if (event.sequence <= current.currentSequence) return current;
   return {
     connected: event.connected,
@@ -392,12 +401,13 @@ async function refreshMarketUniverse(force = false): Promise<MarketAsset[]> {
         mutualFundsResult.status === "rejected" ? "mutual funds" : null,
       ].filter(Boolean) as string[];
 
-      lastRefreshMessage =
-        failedAreas.length > 0
-          ? failedAreas.includes("commodities")
-            ? "Commodity data temporarily unavailable"
-            : `Partial market sync: ${failedAreas.join(", ")} unavailable; showing last known values.`
-          : null;
+      if (failedAreas.length === 0) {
+        lastRefreshMessage = null;
+      } else if (failedAreas.includes("commodities")) {
+        lastRefreshMessage = "Commodity data temporarily unavailable";
+      } else {
+        lastRefreshMessage = `Partial market sync: ${failedAreas.join(", ")} unavailable; showing last known values.`;
+      }
 
       const combined = dedupeAssets([
         ...stocks,

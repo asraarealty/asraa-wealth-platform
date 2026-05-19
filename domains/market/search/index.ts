@@ -1,6 +1,7 @@
 "use client";
 
 import { fetcher } from "@/lib/fetcher";
+import { logDebug } from "@/lib/utils/debugMetrics";
 import { createRequestCache } from "@/domains/market/cache";
 import {
   EMPTY_SEARCH_GROUPS,
@@ -101,6 +102,7 @@ async function searchCommoditiesRaw(
       unavailable: false,
     };
   } catch {
+    logDebug("query", "commodity-search-degraded", { query });
     return { items: [], unavailable: true };
   }
 }
@@ -360,7 +362,7 @@ export function searchMarketDebounced(
   debounceController?.abort();
   debounceController = new AbortController();
 
-  return new Promise<UnifiedSearchGroups>((resolve, reject) => {
+  return new Promise<UnifiedSearchResult>((resolve, reject) => {
     debounceTimer = setTimeout(() => {
       debounceTimer = null;
       void searchMarket(query, {

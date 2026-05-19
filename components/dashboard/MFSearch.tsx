@@ -34,8 +34,9 @@ export default function MFSearch({ onSelect, initialValue = "" }: MFSearchProps)
     setError(null);
 
     void searchMarketDebounced(query.trim(), { delayMs: SEARCH_DEBOUNCE_MS })
-      .then((groups) => {
+      .then((result) => {
         if (!active) return;
+        const groups = result.groups;
         setResults(
           groups.mutualFunds.slice(0, 10).map((item) => ({
             code: item.symbol,

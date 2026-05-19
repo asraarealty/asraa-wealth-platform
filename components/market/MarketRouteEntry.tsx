@@ -62,7 +62,7 @@ export function MarketRouteEntry({
 }) {
   if (operatorPreset === "stocks-terminal") {
     return (
-      <RuntimeErrorBoundary scope="commodity-widget">
+      <RuntimeErrorBoundary scope="market-pulse-component" label="stocks-terminal">
         <StocksTerminal />
       </RuntimeErrorBoundary>
     );
@@ -76,21 +76,21 @@ export function MarketRouteEntry({
   }
   if (operatorPreset === "watchlist-board") {
     return (
-      <RuntimeErrorBoundary scope="runtime-stream-panel">
+      <RuntimeErrorBoundary scope="runtime-stream-panel" label="watchlist-board">
         <WatchlistBoard />
       </RuntimeErrorBoundary>
     );
   }
   if (operatorPreset === "discover-engine") {
     return (
-      <RuntimeErrorBoundary scope="commodity-widget">
+      <RuntimeErrorBoundary scope="market-pulse-component" label="discover-engine">
         <DiscoverEngine />
       </RuntimeErrorBoundary>
     );
   }
   if (operatorPreset === "intelligence-mission-control") {
     return (
-      <RuntimeErrorBoundary scope="intelligence-widget">
+      <RuntimeErrorBoundary scope="intelligence-widget" label="intelligence-mission-control">
         <IntelligenceMissionControl />
       </RuntimeErrorBoundary>
     );
