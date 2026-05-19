@@ -39,6 +39,7 @@ const SURFACES: Array<{ key: WorkspaceSurface; label: string }> = [
 const QUICK_FILTERS = ["All", "India", "Global", "Fund", "Commodity", "Macro"] as const;
 const MIN_SEARCH_LENGTH = MARKET_SEARCH_MIN_QUERY_LENGTH;
 const PORTFOLIO_EXPOSURE_SIGNALS = ["concentrationRisk", "portfolioFit", "liquidityProfile"] as const;
+const MAX_COMMAND_SEARCH_ITEMS = 6;
 
 type QuickFilter = (typeof QUICK_FILTERS)[number];
 
@@ -177,6 +178,14 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
       return { asset, conviction };
     });
   }, [sectorMovers, trendingAssets]);
+  const commandSearchItems = useMemo(
+    () =>
+      [...(search.groups.clients ?? []), ...(search.groups.portfolios ?? []), ...(search.groups.sectors ?? []), ...(search.groups.themes ?? [])].slice(
+        0,
+        MAX_COMMAND_SEARCH_ITEMS
+      ),
+    [search.groups.clients, search.groups.portfolios, search.groups.sectors, search.groups.themes]
+  );
 
   const onSelectAsset = (asset: MarketAsset) => {
     setSelectedAsset(asset);
@@ -209,6 +218,7 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
             <SearchCommandBar
               value={query}
               onChange={setQuery}
+              placeholder="Search stocks, ETFs, funds, commodities, clients, portfolios, sectors, themes..."
               label="Market command search"
             />
             {query.trim().length >= MIN_SEARCH_LENGTH ? (
@@ -225,14 +235,12 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
                     />
                   ))}
                 {search.isSearching ? <p className="text-xs text-slate-500">Searching...</p> : null}
-                {[...(search.groups.clients ?? []), ...(search.groups.portfolios ?? []), ...(search.groups.sectors ?? []), ...(search.groups.themes ?? [])]
-                  .slice(0, 6)
-                  .map((item) => (
-                    <div key={item.id} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
-                      <p className="text-xs text-white">{item.label}</p>
-                      <p className="text-[11px] text-slate-500">{item.subtitle ?? item.kind}</p>
-                    </div>
-                  ))}
+                {commandSearchItems.map((item) => (
+                  <div key={item.id} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+                    <p className="text-xs text-white">{item.label}</p>
+                    <p className="text-[11px] text-slate-500">{item.subtitle ?? item.kind}</p>
+                  </div>
+                ))}
               </div>
             ) : null}
           </div>

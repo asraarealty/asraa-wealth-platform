@@ -204,20 +204,20 @@ function normalizeClientEntity(item: unknown): CommandSearchItem | null {
 function normalizePortfolioEntity(item: unknown): CommandSearchItem | null {
   const record = safeRecord(item);
   const id = n(record.id);
-  const type = s(record.type, "asset").toUpperCase();
-  const name = s(record.name ?? record.symbol ?? `${type} Holding`);
+  const assetType = s(record.type, "asset").toUpperCase();
+  const name = s(record.name ?? record.symbol ?? `${assetType} Holding`);
   if (!id) return null;
   return {
     id: `portfolio:${id}`,
     label: name,
-    subtitle: type,
+    subtitle: assetType,
     kind: "portfolio",
   };
 }
 
 function toCommandItems(values: string[], kind: "sector" | "theme"): CommandSearchItem[] {
-  return values.map((value) => ({
-    id: `${kind}:${value.toLowerCase()}`,
+  return values.map((value, index) => ({
+    id: `${kind}:${value.toLowerCase().replace(/[^a-z0-9]+/g, "-")}:${index}`,
     label: value,
     kind,
   }));
@@ -300,8 +300,15 @@ export async function searchMarket(
       [...new Set([...stocks, ...etfs].map((item) => item.category).filter(Boolean))].slice(0, 8),
       "theme"
     );
-    const clients = dedupeCommandItems(clientsRaw.map(normalizeClientEntity).filter(Boolean) as CommandSearchItem[]).slice(0, 8);
-    const portfolios = dedupeCommandItems(portfoliosRaw.map(normalizePortfolioEntity).filter(Boolean) as CommandSearchItem[]).slice(0, 8);
+    const clients = dedupeCommandItems(
+      clientsRaw.filter(Boolean).map(normalizeClientEntity).filter((item): item is CommandSearchItem => item !== null)
+    ).slice(0, 8);
+    const portfolios = dedupeCommandItems(
+      portfoliosRaw
+        .filter(Boolean)
+        .map(normalizePortfolioEntity)
+        .filter((item): item is CommandSearchItem => item !== null)
+    ).slice(0, 8);
 
     const groups: UnifiedSearchGroups = {
       stocks,

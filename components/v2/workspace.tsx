@@ -53,7 +53,7 @@ export function WorkspaceTabs({
 export function SearchCommandBar({
   value,
   onChange,
-  placeholder = "Search stocks, ETFs, funds, commodities, clients, portfolios, sectors, themes...",
+  placeholder = "Search assets, clients, portfolios, sectors, themes...",
   label = "Wealth OS command search",
 }: {
   value: string;
@@ -105,9 +105,18 @@ export function LifecyclePanel({
   children: ReactNode;
 }) {
   return (
-    <IntelligencePanel title={title} sub={sub}>
+    <section className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold text-white">{title}</h3>
+          <p className="mt-1 text-xs text-slate-400">{sub ?? "Lifecycle controls and operational workflow state."}</p>
+        </div>
+        <span className="rounded-full border border-blue-400/20 bg-blue-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-blue-200">
+          Lifecycle
+        </span>
+      </div>
       {children}
-    </IntelligencePanel>
+    </section>
   );
 }
 
@@ -311,10 +320,10 @@ export function DrawerShell({
   panel: ReactNode;
 }) {
   return (
-    <>
+    <div className="contents" data-drawer-shell="wealth-os">
       {backdrop}
       {panel}
-    </>
+    </div>
   );
 }
 
@@ -325,7 +334,11 @@ export function OperationalDrawer({
   backdrop: ReactNode;
   panel: ReactNode;
 }) {
-  return <DrawerShell backdrop={backdrop} panel={panel} />;
+  return (
+    <div data-operational-drawer="true">
+      <DrawerShell backdrop={backdrop} panel={panel} />
+    </div>
+  );
 }
 
 export function HoldingsTable({
