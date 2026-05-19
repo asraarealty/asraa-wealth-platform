@@ -12,7 +12,15 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
         refetchOnMount: false,
-        retry: 1,
+        retry: (failureCount, error) => {
+          const maybeStatus = (
+            error as { status?: unknown; response?: { status?: unknown } } | null | undefined
+          )?.response?.status ?? (error as { status?: unknown } | null | undefined)?.status;
+          const status = Number(maybeStatus);
+          if (Number.isFinite(status) && status >= 500) return failureCount < 1;
+          return failureCount < 2;
+        },
+        retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
       },
     },
   }));

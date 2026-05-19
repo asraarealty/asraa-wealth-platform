@@ -13,7 +13,12 @@ import {
 export const MARKET_SEARCH_MIN_QUERY_LENGTH = 3;
 const SEARCH_FRESH_MS = 30_000;
 
-const searchCache = createRequestCache<UnifiedSearchGroups>({ ttlMs: SEARCH_FRESH_MS, staleMs: 2 * SEARCH_FRESH_MS });
+export interface UnifiedSearchResult {
+  groups: UnifiedSearchGroups;
+  commodityUnavailable: boolean;
+}
+
+const searchCache = createRequestCache<UnifiedSearchResult>({ ttlMs: SEARCH_FRESH_MS, staleMs: 2 * SEARCH_FRESH_MS });
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let debounceController: AbortController | null = null;
 
@@ -79,15 +84,25 @@ async function searchMutualFundsRaw(query: string, signal?: AbortSignal): Promis
   return Array.isArray(unwrap(payload)) ? (unwrap(payload) as unknown[]) : [];
 }
 
-async function searchCommoditiesRaw(query: string, signal?: AbortSignal): Promise<unknown[]> {
-  const payload = await fetcher<unknown>(`/commodities/search?q=${encodeURIComponent(query)}`, {
-    signal,
-    noRedirectOn401: true,
-    raw: true,
-    cache: "no-store",
-  });
-  const data = unwrap(payload);
-  return Array.isArray(data) ? data : data && typeof data === "object" ? [data] : [];
+async function searchCommoditiesRaw(
+  query: string,
+  signal?: AbortSignal
+): Promise<{ items: unknown[]; unavailable: boolean }> {
+  try {
+    const payload = await fetcher<unknown>(`/commodities/search?q=${encodeURIComponent(query)}`, {
+      signal,
+      noRedirectOn401: true,
+      raw: true,
+      cache: "no-store",
+    });
+    const data = unwrap(payload);
+    return {
+      items: Array.isArray(data) ? data : data && typeof data === "object" ? [data] : [],
+      unavailable: false,
+    };
+  } catch {
+    return { items: [], unavailable: true };
+  }
 }
 
 function normalizeStockEntity(item: unknown): MarketAsset {
@@ -262,16 +277,18 @@ async function searchPortfoliosRaw(query: string, signal?: AbortSignal): Promise
 export async function searchMarket(
   query: string,
   options: { signal?: AbortSignal; watchlistSymbols?: string[]; watchlistAssets?: MarketAsset[] } = {}
-): Promise<UnifiedSearchGroups> {
+): Promise<UnifiedSearchResult> {
   const normalized = query.trim();
-  if (!normalized || normalized.length < MARKET_SEARCH_MIN_QUERY_LENGTH) return EMPTY_SEARCH_GROUPS;
+  if (!normalized || normalized.length < MARKET_SEARCH_MIN_QUERY_LENGTH) {
+    return { groups: EMPTY_SEARCH_GROUPS, commodityUnavailable: false };
+  }
   const key = normalized.toLowerCase();
 
   const cached = searchCache.read(key);
   if (cached?.value && !cached.stale) return cached.value;
 
   return searchCache.getOrCreate(key, async () => {
-    const [stocksRaw, mutualFundsRaw, commoditiesRaw, clientsRaw, portfoliosRaw] = await Promise.all([
+    const [stocksRaw, mutualFundsRaw, commoditiesResult, clientsRaw, portfoliosRaw] = await Promise.all([
       searchStocksRaw(normalized, options.signal),
       searchMutualFundsRaw(normalized, options.signal),
       searchCommoditiesRaw(normalized, options.signal),
@@ -283,7 +300,7 @@ export async function searchMarket(
     const etfs = normalizedStocks.filter((item) => item.kind === "etf").slice(0, 8);
     const stocks = normalizedStocks.filter((item) => item.kind !== "etf").slice(0, 8);
     const mutualFunds = dedupeEntities(mutualFundsRaw.map(normalizeMutualFundEntity)).slice(0, 8);
-    const commodities = dedupeEntities(commoditiesRaw.map(normalizeCommodityEntity)).slice(0, 8);
+    const commodities = dedupeEntities(commoditiesResult.items.map(normalizeCommodityEntity)).slice(0, 8);
 
     const watchSymbols = new Set((options.watchlistSymbols ?? []).map((item) => item.toUpperCase()));
     const watchlist = dedupeEntities([
@@ -322,8 +339,12 @@ export async function searchMarket(
       themes,
     };
 
-    searchCache.write(key, groups);
-    return groups;
+    const result: UnifiedSearchResult = {
+      groups,
+      commodityUnavailable: commoditiesResult.unavailable,
+    };
+    searchCache.write(key, result);
+    return result;
   });
 }
 
@@ -334,7 +355,7 @@ export function searchMarketDebounced(
     watchlistSymbols?: string[];
     watchlistAssets?: MarketAsset[];
   } = {}
-) {
+): Promise<UnifiedSearchResult> {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceController?.abort();
   debounceController = new AbortController();

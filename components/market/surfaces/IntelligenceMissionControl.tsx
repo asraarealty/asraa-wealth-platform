@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { IntelligenceCard, MetricTile, SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
 import { fmtLastUpdated } from "@/lib/formatters";
 import { useMarketDomainGraph, useMarketIntelligenceEngine } from "@/domains/market";
+import { RuntimeObservabilityBadges } from "@/components/runtime/RuntimeObservabilityBadges";
 
 function SignalRow({
   index,
@@ -54,6 +55,8 @@ export function IntelligenceMissionControl() {
     watchlist,
     breadth,
     marketOverview,
+    search,
+    runtime,
     isLoading,
     error,
     refresh,
@@ -136,6 +139,12 @@ export function IntelligenceMissionControl() {
             Refresh
           </button>
         </div>
+      </div>
+      <div className="border-b border-white/8 px-4 py-2.5">
+        <RuntimeObservabilityBadges
+          runtime={runtime}
+          commodityUnavailable={search.commodityUnavailable}
+        />
       </div>
 
       <div className="overflow-y-auto space-y-0">

@@ -4,6 +4,7 @@ import { memo, useEffect, useMemo, useState } from "react";
 import { AllocationRing } from "@/components/admin/platform/AllocationRing";
 import { IntelligenceCard, MetricTile, SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
 import { SearchCommandBar } from "@/components/v2/workspace";
+import { RuntimeObservabilityBadges } from "@/components/runtime/RuntimeObservabilityBadges";
 import { fmtPercent } from "@/lib/formatters";
 import { useMarketDomainGraph as useMarketOrchestrator, type MarketAsset } from "@/domains/market";
 import { MARKET_SEARCH_MIN_QUERY_LENGTH } from "@/domains/market/search";
@@ -128,6 +129,7 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
     sectorMovers,
     breadth,
     search,
+    runtime,
     searchMarket,
     toggleWatchlist,
     isLoading,
@@ -207,6 +209,13 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
           </button>
         }
       />
+
+      <div className="mt-3">
+        <RuntimeObservabilityBadges
+          runtime={runtime}
+          commodityUnavailable={search.commodityUnavailable}
+        />
+      </div>
 
       {error ? (
         <div className="mt-4 rounded-xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{error}</div>

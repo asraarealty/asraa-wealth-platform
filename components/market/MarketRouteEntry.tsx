@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import type { WorkspaceSurface } from "@/components/market/MarketCommandCenter";
 import { LoadingBlock } from "@/components/v2/ui";
+import { RuntimeErrorBoundary } from "@/components/runtime/RuntimeErrorBoundary";
 
 /** Operator presets give each route a unique surface identity and layout. */
 export type OperatorPreset =
@@ -59,12 +60,46 @@ export function MarketRouteEntry({
   compact?: boolean;
   operatorPreset?: OperatorPreset;
 }) {
-  if (operatorPreset === "stocks-terminal") return <StocksTerminal />;
-  if (operatorPreset === "markets-pulse") return <MarketsPulse />;
-  if (operatorPreset === "watchlist-board") return <WatchlistBoard />;
-  if (operatorPreset === "discover-engine") return <DiscoverEngine />;
-  if (operatorPreset === "intelligence-mission-control") return <IntelligenceMissionControl />;
+  if (operatorPreset === "stocks-terminal") {
+    return (
+      <RuntimeErrorBoundary scope="commodity-widget">
+        <StocksTerminal />
+      </RuntimeErrorBoundary>
+    );
+  }
+  if (operatorPreset === "markets-pulse") {
+    return (
+      <RuntimeErrorBoundary scope="market-pulse-component">
+        <MarketsPulse />
+      </RuntimeErrorBoundary>
+    );
+  }
+  if (operatorPreset === "watchlist-board") {
+    return (
+      <RuntimeErrorBoundary scope="runtime-stream-panel">
+        <WatchlistBoard />
+      </RuntimeErrorBoundary>
+    );
+  }
+  if (operatorPreset === "discover-engine") {
+    return (
+      <RuntimeErrorBoundary scope="commodity-widget">
+        <DiscoverEngine />
+      </RuntimeErrorBoundary>
+    );
+  }
+  if (operatorPreset === "intelligence-mission-control") {
+    return (
+      <RuntimeErrorBoundary scope="intelligence-widget">
+        <IntelligenceMissionControl />
+      </RuntimeErrorBoundary>
+    );
+  }
 
   // Default: existing MarketCommandCenter (used by admin and legacy routes)
-  return <MarketCommandCenter mode={mode} initialSurface={initialSurface} compact={compact} />;
+  return (
+    <RuntimeErrorBoundary scope="market-pulse-component">
+      <MarketCommandCenter mode={mode} initialSurface={initialSurface} compact={compact} />
+    </RuntimeErrorBoundary>
+  );
 }
