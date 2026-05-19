@@ -264,6 +264,9 @@ export default function ClientsPage() {
     // Do NOT auto-select clients[0] when selectedClientId is null — that would re-open
     // the panel immediately after the user closes it.
     if (selectedClientId != null && !clients.some((client) => client.id === selectedClientId)) {
+      if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+        console.info("[workspace-close]", { event: "workspace.close.client-removed", clientId: selectedClientId });
+      }
       setSelectedClientId(null);
     }
   }, [clients, selectedClientId]);
@@ -388,7 +391,9 @@ export default function ClientsPage() {
         },
       });
     }
-    console.info("[workspace-close]", { event: "workspace.close", clientId: selectedClientId ?? null });
+    if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+      console.info("[workspace-close]", { event: "workspace.close", clientId: selectedClientId ?? null });
+    }
     setSelectedClientId(null);
   }, [queryClient, selectedClientId]);
 
