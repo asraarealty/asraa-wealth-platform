@@ -14,11 +14,7 @@ import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 import { ADMIN_CLIENTS_QUERY_KEY, useAdminClients, type EnrichedClient } from "@/lib/hooks/useAdminClients";
 import { adminQueryKeys } from "@/lib/queryKeys/admin";
 import { useAdminWorkspaceState } from "@/domains/admin";
-import { ClientPortfolioWorkspace } from "@/components/admin/portfolio-workspace";
-import {
-  ALLOWED_TRANSITIONS,
-  type ClientOperationalStatus,
-} from "@/lib/services/clientService";
+import { ALLOWED_TRANSITIONS } from "@/lib/services/clientService";
 import { toErrorMessage } from "@/lib/fetcher";
 import { useAdminClientLifecycleMutation } from "@/domains/admin";
 
@@ -34,32 +30,14 @@ const ClientDetailPanel = dynamic(
   }
 );
 
-const AllocationRing = dynamic(
-  () => import("@/components/admin/platform/AllocationRing").then((mod) => mod.AllocationRing),
-  {
-    ssr: false,
-    loading: () => <LoadingBlock label="Loading allocation chart..." />,
-  }
-);
-
-type StatusFilter =
-  | "all"
-  | "lead"
-  | "onboarding"
-  | "pending_kyc"
-  | "approved"
-  | "active"
-  | "suspended"
-  | "archived";
-
 type ConfirmAction = {
   client: EnrichedClient;
-  type: "status" | "archive" | "restore" | "approve" | "delete";
-  nextStatus?: ClientOperationalStatus;
+  type: "archive" | "restore" | "delete";
   title: string;
   description: string;
   confirmLabel: string;
   tone?: "danger" | "primary";
+  requireTypedConfirmation?: string;
 };
 
 function fmtCompact(n: number): string {
@@ -83,102 +61,6 @@ function fmtDate(iso?: string): string {
     return iso;
   }
 }
-
-function getPhoneHref(phone?: string) {
-  const digits = String(phone ?? "").replace(/\D/g, "");
-  return digits ? `tel:${digits}` : undefined;
-}
-
-function getWhatsappHref(phone?: string, message?: string) {
-  const digits = String(phone ?? "").replace(/\D/g, "");
-  if (!digits) return undefined;
-  const base = `https://wa.me/${digits}`;
-  return message ? `${base}?text=${encodeURIComponent(message)}` : base;
-}
-
-function whatsappOnboardingMessage(name: string): string {
-  return `Hi ${name},
-
-Welcome to Asraa Wealth! 🎉
-
-Your account has been approved and you now have full access to your personalised wealth management platform.
-
-To get started:
-1. Log in at https://wealth.asraa.in
-2. Complete your portfolio onboarding
-3. Review your AI-generated insights
-
-Your dedicated advisor is here to guide you through the process.
-
-We look forward to helping you grow your wealth.
-
-— Asraa Wealth Team`;
-}
-
-function whatsappPortfolioReadyMessage(name: string): string {
-  return `Hi ${name},
-
-Your portfolio is now live on Asraa Wealth! 📊
-
-Your holdings have been synced and your personalised wealth intelligence dashboard is ready.
-
-Log in at https://wealth.asraa.in to view:
-- Live portfolio valuation
-- Asset allocation insights
-- AI-powered recommendations
-
-— Asraa Wealth Team`;
-}
-
-function whatsappPaymentReminderMessage(name: string): string {
-  return `Hi ${name},
-
-This is a friendly reminder from Asraa Wealth regarding an upcoming payment.
-
-Please log in to your dashboard at https://wealth.asraa.in or contact your advisor to review the details.
-
-— Asraa Wealth Team`;
-}
-
-function whatsappLeaseReminderMessage(name: string, propertyName?: string): string {
-  const subject = propertyName ? `Your lease agreement for ${propertyName}` : "Your lease agreement";
-  return `Hi ${name},
-
-${subject} is approaching renewal.
-
-Please log in to https://wealth.asraa.in to review your property details and schedule a discussion with your advisor.
-
-— Asraa Wealth Team`;
-}
-
-function whatsappWelcomeMessage(name: string): string {
-  return `Hi ${name},
-
-Welcome to Asraa Wealth — your premium wealth management platform. ✨
-
-We are delighted to have you onboard. Your advisor will reach out shortly to begin your wealth journey.
-
-Get started: https://wealth.asraa.in
-
-— Asraa Wealth Team`;
-}
-
-function whatsappRequestDocumentsMessage(name: string): string {
-  return `Hi ${name},
-
-As part of your onboarding with Asraa Wealth, we need a few documents to complete your KYC.
-
-Please share the following at your earliest convenience:
-- PAN card
-- Aadhaar card
-- Address proof
-- Latest bank statement (last 3 months)
-
-You can reply to this message or email your advisor directly.
-
-— Asraa Wealth Team`;
-}
-
 
 function AllocationMiniBar({ client }: { client: EnrichedClient }) {
   const total = client.assets.length;
@@ -249,8 +131,11 @@ export default function ClientsPage() {
     totalPages,
   } = useAdminWorkspaceState(clients, { pageSize: DEFAULT_WORKSPACE_PAGE_SIZE });
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+  const [selectedClientMode, setSelectedClientMode] = useState<"overview" | "portfolio" | "operations" | "intelligence">("overview");
   const [pendingAction, setPendingAction] = useState<ConfirmAction | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [deleteConfirmationInput, setDeleteConfirmationInput] = useState("");
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const lifecycleMutation = useAdminClientLifecycleMutation(pendingAction?.client.id ?? null);
 
@@ -258,6 +143,12 @@ export default function ClientsPage() {
     () => clients.find((client) => client.id === selectedClientId) ?? null,
     [clients, selectedClientId]
   );
+
+  useEffect(() => {
+    if (!actionSuccess) return;
+    const handle = window.setTimeout(() => setActionSuccess(null), 3000);
+    return () => window.clearTimeout(handle);
+  }, [actionSuccess]);
 
   useEffect(() => {
     // Only clear selection if the selected client was removed from the list (e.g. deleted).
@@ -270,47 +161,38 @@ export default function ClientsPage() {
       setSelectedClientId(null);
     }
   }, [clients, selectedClientId]);
-
-
-  const {
-    propertyAssets,
-    occupiedProperties,
-    dueSoonProperties,
-    overdueProperties,
-    widgetHeatmap,
-    widgetRisk,
-    widgetActivity,
-    widgetApprovalQueue,
-  } = useMemo(() => {
-    const nextPropertyAssets = clients.flatMap((client) => client.assets.filter((asset) => asset.type === "property"));
-    const nextOccupiedProperties = nextPropertyAssets.filter((asset) => Boolean(asset.tenantName ?? asset.tenant_name)).length;
-    const now = Date.now();
-    const nextDueSoonProperties = nextPropertyAssets.filter((asset) => {
-      if (!asset.rentDueDate && !asset.rent_due_date) return false;
-      const due = new Date(String(asset.rentDueDate ?? asset.rent_due_date)).getTime();
-      const diff = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
-      return diff >= 0 && diff <= 5;
-    }).length;
-    const nextOverdueProperties = nextPropertyAssets.filter((asset) => {
-      if (!asset.rentDueDate && !asset.rent_due_date) return false;
-      const due = new Date(String(asset.rentDueDate ?? asset.rent_due_date)).getTime();
-      return due < now;
-    }).length;
-
+  const lifecycleWidget = useMemo(() => {
     return {
-      propertyAssets: nextPropertyAssets,
-      occupiedProperties: nextOccupiedProperties,
-      dueSoonProperties: nextDueSoonProperties,
-      overdueProperties: nextOverdueProperties,
-      widgetHeatmap: [...clients].sort((a, b) => b.totalNetWorth - a.totalNetWorth).slice(0, 5),
-      widgetRisk: [...clients].sort((a, b) => b.equityExposurePct - a.equityExposurePct).slice(0, 5),
-      widgetActivity: [...clients]
-        .filter((client) => client.lastActivity)
-        .sort((a, b) => new Date(String(b.lastActivity)).getTime() - new Date(String(a.lastActivity)).getTime())
-        .slice(0, 5),
-      widgetApprovalQueue: clients.filter(
-        (client) => ["lead", "onboarding", "pending_kyc", "approved"].includes(client.canonicalStatus)
-      ),
+      active: clients.filter((client) => client.canonicalStatus === "active").length,
+      archived: clients.filter((client) => client.canonicalStatus === "archived").length,
+      lead: clients.filter((client) => client.canonicalStatus === "lead").length,
+      suspended: clients.filter((client) => client.canonicalStatus === "suspended").length,
+      actionable: clients.filter((client) => ["lead", "suspended", "archived"].includes(client.canonicalStatus)).slice(0, 5),
+    };
+  }, [clients]);
+  const runtimeWidget = useMemo(() => {
+    const connected = clients.filter((client) => client.totalNetWorth > 0).length;
+    const latest = [...clients]
+      .filter((client) => client.lastActivity)
+      .sort((a, b) => new Date(String(b.lastActivity)).getTime() - new Date(String(a.lastActivity)).getTime())
+      .slice(0, 5);
+    return { connected, latest };
+  }, [clients]);
+  const allocationWidget = useMemo(() => {
+    const count = Math.max(clients.length, 1);
+    return {
+      stock: clients.reduce((sum, client) => sum + client.allocationMix.stock, 0) / count,
+      mf: clients.reduce((sum, client) => sum + client.allocationMix.mf, 0) / count,
+      property: clients.reduce((sum, client) => sum + client.allocationMix.property, 0) / count,
+      commodity: clients.reduce((sum, client) => sum + client.allocationMix.commodity, 0) / count,
+      top: [...clients].sort((a, b) => b.totalNetWorth - a.totalNetWorth).slice(0, 5),
+    };
+  }, [clients]);
+  const intelligenceWidget = useMemo(() => {
+    return {
+      highRisk: clients.filter((client) => client.concentrationRisk.toLowerCase().includes("high")).length,
+      archived: clients.filter((client) => client.canonicalStatus === "archived").slice(0, 5),
+      topRisk: [...clients].sort((a, b) => b.equityExposurePct - a.equityExposurePct).slice(0, 5),
     };
   }, [clients]);
 
@@ -318,27 +200,33 @@ export default function ClientsPage() {
     try {
       setActionLoadingId(action.client.id);
       setActionError(null);
-      if (action.type === "status" && action.nextStatus) {
-        if (action.nextStatus !== "active" && action.nextStatus !== "suspended") {
-          throw new Error(`Unsupported status action transition target: ${action.nextStatus}`);
-        }
-        await lifecycleMutation.mutateAsync({
-          action: action.nextStatus === "suspended" ? "suspend" : "restore",
-        });
+      setActionSuccess(null);
+      if (action.type === "delete" && action.client.canonicalStatus !== "archived") {
+        throw new Error("Permanent delete is only available for archived clients.");
       }
       if (action.type === "archive") {
-        await lifecycleMutation.mutateAsync({ action: "archive" });
+        await lifecycleMutation.mutateAsync({ action: "archive", currentStatus: action.client.canonicalStatus });
       }
       if (action.type === "restore") {
-        await lifecycleMutation.mutateAsync({ action: "restore" });
-      }
-      if (action.type === "approve") {
-        await lifecycleMutation.mutateAsync({ action: "approve" });
+        await lifecycleMutation.mutateAsync({ action: "restore", currentStatus: action.client.canonicalStatus });
       }
       if (action.type === "delete") {
-        await lifecycleMutation.mutateAsync({ action: "delete" });
+        await lifecycleMutation.mutateAsync({ action: "delete", currentStatus: action.client.canonicalStatus });
       }
-      await queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientDetail(action.client.id) }),
+        queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientProfile(action.client.id) }),
+        queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientAssetPricing(action.client.id) }),
+      ]);
+      setActionSuccess(
+        action.type === "restore"
+          ? "Client restored successfully."
+          : action.type === "delete"
+            ? "Client permanently deleted."
+            : "Client action completed successfully."
+      );
+      setDeleteConfirmationInput("");
       setPendingAction(null);
     } catch (value) {
       setActionError(toErrorMessage(value));
@@ -347,22 +235,9 @@ export default function ClientsPage() {
     }
   }
 
-  function openStatusAction(client: EnrichedClient, nextStatus: ClientOperationalStatus) {
-    const title = nextStatus === "active" ? "Activate Client" : "Suspend Client";
-    const description =
-      nextStatus === "active"
-        ? "This will restore the client to live operational coverage."
-        : "This will pause all operational access until the client is restored.";
-
-    setPendingAction({
-      client,
-      type: "status",
-      nextStatus,
-      title,
-      description,
-      confirmLabel: nextStatus === "active" ? "Activate" : "Suspend",
-      tone: nextStatus === "active" ? "primary" : "danger",
-    });
+  function openClient(clientId: number, mode: "overview" | "portfolio" | "operations" | "intelligence" = "overview") {
+    setSelectedClientMode(mode);
+    setSelectedClientId(clientId);
   }
 
   const kpiTiles = useMemo(() => [
@@ -372,7 +247,7 @@ export default function ClientsPage() {
     { label: "Suspended", value: String(kpis.suspendedClients), tone: "danger" as const },
     { label: "Archived", value: String(kpis.archivedClients), tone: "danger" as const },
     { label: "Managed AUM", value: fmtCompact(kpis.totalAUM), tone: "info" as const },
-    { label: "Property book", value: String(kpis.totalProperties), tone: "info" as const },
+    { label: "Avg portfolio", value: fmtCompact(kpis.avgPortfolioValue), tone: "info" as const },
   ], [kpis]);
 
   const closeClientWorkspace = useCallback(() => {
@@ -395,6 +270,7 @@ export default function ClientsPage() {
       console.info("[workspace-close]", { event: "workspace.close", clientId: selectedClientId ?? null });
     }
     setSelectedClientId(null);
+    setSelectedClientMode("overview");
   }, [queryClient, selectedClientId]);
 
   return (
@@ -403,7 +279,7 @@ export default function ClientsPage() {
         <SectionHeader
           eyebrow="Institutional client operations"
           title="Admin client workspace"
-          subtitle="Operational intelligence, relationship oversight, portfolio risk, and real estate execution in one command layer"
+          subtitle="Canonical client command center for lifecycle, runtime portfolio state, allocation, and AI intelligence"
           action={
             <Link href="/admin/clients/new" className="rounded-xl bg-sky-400 px-4 py-2 text-sm font-semibold text-[#04102a] transition hover:bg-sky-300">
               Add Client
@@ -414,107 +290,85 @@ export default function ClientsPage() {
 
       <KpiStrip data={kpiTiles} />
 
-      <ClientPortfolioWorkspace
-        clients={clients}
-        onOpenClient={(clientId) => setSelectedClientId(clientId)}
-      />
-
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <IntelligenceWidget eyebrow="AUM heatmap" title="Top client concentration" detail="Largest capital clusters across live operational books.">
+        <IntelligenceWidget eyebrow="Client lifecycle" title="Lifecycle command" detail="Primary lifecycle states and actionable queues.">
           <div className="space-y-3">
-            {widgetHeatmap.length === 0 ? (
-              <p className="text-sm text-slate-400">Portfolio not onboarded yet.</p>
-            ) : (
-              widgetHeatmap.map((client) => (
-                <button key={client.id} type="button" onClick={() => setSelectedClientId(client.id)} className="block w-full rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition hover:border-sky-300/30 hover:bg-sky-500/[0.08]">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-white">{client.name}</p>
-                      <p className="text-xs text-slate-400">{client.operationalFallback}</p>
-                    </div>
-                    <p className="text-xs font-semibold text-sky-200">{fmtCompact(client.totalNetWorth)}</p>
-                  </div>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/5">
-                    <div className="h-full rounded-full bg-sky-400" style={{ width: `${kpis.totalAUM > 0 ? (client.totalNetWorth / kpis.totalAUM) * 100 : 0}%` }} />
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </IntelligenceWidget>
-
-        <IntelligenceWidget eyebrow="Risk exposure" title="Equity and concentration watch" detail="Accounts breaching operating concentration thresholds.">
-          <div className="space-y-3">
-            {widgetRisk.map((client) => (
-                <button key={client.id} type="button" onClick={() => setSelectedClientId(client.id)} className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition hover:border-amber-300/30 hover:bg-amber-500/[0.08]">
-                <div>
-                  <p className="text-sm font-semibold text-white">{client.name}</p>
-                  <p className="text-xs text-slate-400">{client.concentrationRisk}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-amber-100">{fmtPercent(client.equityExposurePct)}</p>
-                  <p className="text-[11px] text-slate-400">Equity exposure</p>
-                </div>
-              </button>
-            ))}
-            {widgetRisk.length === 0 ? <p className="text-sm text-slate-400">Awaiting holdings sync.</p> : null}
-          </div>
-        </IntelligenceWidget>
-
-        <IntelligenceWidget eyebrow="Rental pipeline" title="Real estate operations" detail="Occupancy, due-soon rent events, and portfolio rental pressure.">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-            <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Occupied</p><p className="mt-1 text-lg font-semibold text-white">{occupiedProperties}</p></div>
-            <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Vacant / pipeline</p><p className="mt-1 text-lg font-semibold text-white">{Math.max(propertyAssets.length - occupiedProperties, 0)}</p></div>
-            <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Rent due soon</p><p className="mt-1 text-lg font-semibold text-amber-100">{dueSoonProperties}</p></div>
-            <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Overdue rent</p><p className="mt-1 text-lg font-semibold text-rose-100">{overdueProperties}</p></div>
-          </div>
-        </IntelligenceWidget>
-
-        <IntelligenceWidget eyebrow="Live market movement" title="Portfolio health" detail="Derived live valuation and unrealized movement using the canonical valuation engine.">
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Unrealized PnL</p><p className={`mt-1 text-lg font-semibold ${clients.reduce((sum, client) => sum + client.unrealizedPnL, 0) >= 0 ? "text-emerald-100" : "text-rose-100"}`}>{fmtCurrency(clients.reduce((sum, client) => sum + client.unrealizedPnL, 0))}</p></div>
-              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Avg portfolio</p><p className="mt-1 text-lg font-semibold text-white">{fmtCompact(kpis.avgPortfolioValue)}</p></div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Active</p><p className="mt-1 text-lg font-semibold text-emerald-100">{lifecycleWidget.active}</p></div>
+              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Archived</p><p className="mt-1 text-lg font-semibold text-rose-100">{lifecycleWidget.archived}</p></div>
+              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Leads</p><p className="mt-1 text-lg font-semibold text-amber-100">{lifecycleWidget.lead}</p></div>
+              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Suspended</p><p className="mt-1 text-lg font-semibold text-amber-100">{lifecycleWidget.suspended}</p></div>
             </div>
-            <AllocationRing
-              segments={[
-                { label: "Equity", value: clients.reduce((sum, client) => sum + client.allocationMix.stock, 0) / Math.max(clients.length, 1), color: "#38bdf8" },
-                { label: "Funds", value: clients.reduce((sum, client) => sum + client.allocationMix.mf, 0) / Math.max(clients.length, 1), color: "#818cf8" },
-                { label: "Property", value: clients.reduce((sum, client) => sum + client.allocationMix.property, 0) / Math.max(clients.length, 1), color: "#34d399" },
-                { label: "Commodity", value: clients.reduce((sum, client) => sum + client.allocationMix.commodity, 0) / Math.max(clients.length, 1), color: "#f59e0b" },
-              ]}
-              size={110}
-            />
-          </div>
-        </IntelligenceWidget>
-
-        <IntelligenceWidget eyebrow="Client activity feed" title="Latest relationship signals" detail="Operational touch points and engagement recency.">
-          <div className="space-y-3">
-            {widgetActivity.map((client) => (
-              <button key={client.id} type="button" onClick={() => setSelectedClientId(client.id)} className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition hover:border-sky-300/30 hover:bg-white/[0.06]">
+            {lifecycleWidget.actionable.map((client) => (
+              <button key={client.id} type="button" onClick={() => openClient(client.id, "operations")} className="flex w-full items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2 text-left transition hover:border-sky-300/30 hover:bg-white/[0.06]">
                 <div>
                   <p className="text-sm font-semibold text-white">{client.name}</p>
-                  <p className="text-xs text-slate-400">{client.activitySignal}</p>
-                </div>
-                <p className="text-xs text-slate-300">{fmtDate(client.lastActivity)}</p>
-              </button>
-            ))}
-            {widgetActivity.length === 0 ? <p className="text-sm text-slate-400">Awaiting first relationship signal.</p> : null}
-          </div>
-        </IntelligenceWidget>
-
-        <IntelligenceWidget eyebrow="Approval queue" title="Onboarding and approval state" detail="Accounts requiring relationship or compliance progression.">
-          <div className="space-y-3">
-            {widgetApprovalQueue.slice(0, 5).map((client) => (
-              <button key={client.id} type="button" onClick={() => setSelectedClientId(client.id)} className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition hover:border-sky-300/30 hover:bg-white/[0.06]">
-                <div>
-                  <p className="text-sm font-semibold text-white">{client.name}</p>
-                  <p className="text-xs text-slate-400">{client.onboardingStatus ?? "Awaiting onboarding progression"}</p>
+                  <p className="text-xs text-slate-400">Lifecycle action required</p>
                 </div>
                 <StatusBadge label={client.canonicalStatus} />
               </button>
             ))}
-            {widgetApprovalQueue.length === 0 ? <p className="text-sm text-slate-400">Approval queue clear.</p> : null}
+          </div>
+        </IntelligenceWidget>
+
+        <IntelligenceWidget eyebrow="Portfolio runtime" title="Runtime coverage" detail="Live portfolio runtime status and latest activity streams.">
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Runtime connected</p><p className="mt-1 text-lg font-semibold text-emerald-100">{runtimeWidget.connected}</p></div>
+              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Managed AUM</p><p className="mt-1 text-lg font-semibold text-white">{fmtCompact(kpis.totalAUM)}</p></div>
+            </div>
+            {runtimeWidget.latest.map((client) => (
+                <button key={client.id} type="button" onClick={() => openClient(client.id, "portfolio")} className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition hover:border-sky-300/30 hover:bg-sky-500/[0.08]">
+                <div>
+                  <p className="text-sm font-semibold text-white">{client.name}</p>
+                  <p className="text-xs text-slate-400">{client.activitySignal}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-sky-100">{fmtDate(client.lastActivity)}</p>
+                  <p className="text-[11px] text-slate-400">Last runtime event</p>
+                </div>
+              </button>
+            ))}
+            {runtimeWidget.latest.length === 0 ? <p className="text-sm text-slate-400">Awaiting holdings sync.</p> : null}
+          </div>
+        </IntelligenceWidget>
+
+        <IntelligenceWidget eyebrow="Asset allocation" title="Allocation command" detail="Cross-book allocation distribution and concentration leaders.">
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Stocks</p><p className="mt-1 text-lg font-semibold text-sky-100">{allocationWidget.stock.toFixed(0)}%</p></div>
+              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Mutual funds</p><p className="mt-1 text-lg font-semibold text-indigo-100">{allocationWidget.mf.toFixed(0)}%</p></div>
+              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Property</p><p className="mt-1 text-lg font-semibold text-emerald-100">{allocationWidget.property.toFixed(0)}%</p></div>
+              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Commodity</p><p className="mt-1 text-lg font-semibold text-amber-100">{allocationWidget.commodity.toFixed(0)}%</p></div>
+            </div>
+            {allocationWidget.top.map((client) => (
+              <button key={client.id} type="button" onClick={() => openClient(client.id, "portfolio")} className="flex w-full items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2 text-left transition hover:border-sky-300/30 hover:bg-white/[0.06]">
+                <div>
+                  <p className="text-sm font-semibold text-white">{client.name}</p>
+                  <p className="text-xs text-slate-400">{client.operationalFallback}</p>
+                </div>
+                <p className="text-xs font-semibold text-sky-200">{fmtCompact(client.totalNetWorth)}</p>
+              </button>
+            ))}
+          </div>
+        </IntelligenceWidget>
+
+        <IntelligenceWidget eyebrow="AI intelligence" title="Risk & recommendations" detail="AI risk markers and archived-state intelligence coverage.">
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">High risk profiles</p><p className="mt-1 text-lg font-semibold text-rose-100">{intelligenceWidget.highRisk}</p></div>
+              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3"><p className="text-slate-400">Archived requiring action</p><p className="mt-1 text-lg font-semibold text-amber-100">{intelligenceWidget.archived.length}</p></div>
+            </div>
+            {intelligenceWidget.topRisk.map((client) => (
+              <button key={client.id} type="button" onClick={() => openClient(client.id, "intelligence")} className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 text-left transition hover:border-sky-300/30 hover:bg-white/[0.06]">
+                <div>
+                  <p className="text-sm font-semibold text-white">{client.name}</p>
+                  <p className="text-xs text-slate-400">{client.concentrationRisk}</p>
+                </div>
+                <p className="text-xs text-slate-300">Equity {fmtPercent(client.equityExposurePct)}</p>
+              </button>
+            ))}
+            {intelligenceWidget.topRisk.length === 0 ? <p className="text-sm text-slate-400">No elevated risk signals.</p> : null}
           </div>
         </IntelligenceWidget>
       </div>
@@ -592,25 +446,27 @@ export default function ClientsPage() {
                 <tr>
                   <th className="px-4 py-3">Client</th>
                   <th className="px-4 py-3">Relationship</th>
-                  <th className="px-4 py-3">Portfolio</th>
-                  <th className="px-4 py-3">Allocation</th>
-                  <th className="px-4 py-3">Real estate</th>
-                  <th className="px-4 py-3">AI intelligence</th>
-                  <th className="px-4 py-3">Activity</th>
+                  <th className="px-4 py-3">Portfolio Runtime</th>
+                  <th className="px-4 py-3">Asset Allocation</th>
+                  <th className="px-4 py-3">AI Intelligence</th>
+                  <th className="px-4 py-3">Lifecycle</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedClients.map((client) => (
-                  <tr key={client.id} className="cursor-pointer border-t border-white/8 transition hover:bg-white/[0.04]" onClick={() => setSelectedClientId(client.id)} style={VIRTUAL_ROW_STYLE}>
+                    <tr key={client.id} className="cursor-pointer border-t border-white/8 transition hover:bg-white/[0.04]" onClick={() => openClient(client.id)} style={VIRTUAL_ROW_STYLE}>
                     <td className="px-4 py-4 align-top">
                       <div className="flex items-start gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-500/10 text-sm font-semibold text-sky-100">
                           {client.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-white">{client.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-white">{client.name}</p>
+                            {client.canonicalStatus === "archived" ? <StatusBadge label="Archived" tone="danger" /> : null}
+                          </div>
                           <p className="text-xs text-slate-400">{client.email}</p>
                           <p className="mt-2 text-[11px] text-slate-500">{client.phone || "Call channel pending"}</p>
                         </div>
@@ -627,15 +483,11 @@ export default function ClientsPage() {
                     </td>
                     <td className="px-4 py-4 align-top"><AllocationMiniBar client={client} /></td>
                     <td className="px-4 py-4 align-top">
-                      <p className="text-sm text-white">{client.propertiesCount > 0 ? `${client.propertiesCount} properties` : "Property pipeline pending"}</p>
-                      <p className="mt-1 text-xs text-slate-400">{client.propertiesCount > 0 ? `${client.occupiedProperties}/${client.propertiesCount} occupied · ${fmtCurrency(client.monthlyRentIncome)}/mo` : "No active rent pipeline"}</p>
-                    </td>
-                    <td className="px-4 py-4 align-top">
                       <p className="text-sm text-white">{client.diversificationScore}/100 diversification</p>
                       <p className="mt-1 text-xs text-slate-400">{client.concentrationRisk}</p>
                     </td>
                     <td className="px-4 py-4 align-top">
-                      <p className="text-sm text-white">{fmtDate(client.lastActivity)}</p>
+                      <p className="text-sm text-white">{client.canonicalStatus === "archived" ? "Archived" : client.canonicalStatus === "suspended" ? "Suspended" : "Operational"}</p>
                       <p className="mt-1 text-xs text-slate-400">{client.activitySignal}</p>
                     </td>
                     <td className="px-4 py-4 align-top">
@@ -647,27 +499,54 @@ export default function ClientsPage() {
                       <div className="flex justify-end">
                         <ActionMenu
                           items={[
-                             { label: "View Intelligence", onSelect: () => setSelectedClientId(client.id) },
-                             { label: "Edit Client", href: `/admin/clients/${client.id}/edit` },
-                             { label: "WhatsApp", href: getWhatsappHref(client.whatsapp ?? client.phone), disabled: !getWhatsappHref(client.whatsapp ?? client.phone) },
-                             { label: "Approve & WhatsApp", href: getWhatsappHref(client.whatsapp ?? client.phone, whatsappOnboardingMessage(client.name)), disabled: !getWhatsappHref(client.whatsapp ?? client.phone) },
-                             { label: "Send Welcome", href: getWhatsappHref(client.whatsapp ?? client.phone, whatsappWelcomeMessage(client.name)), disabled: !getWhatsappHref(client.whatsapp ?? client.phone) },
-                             { label: "Request Documents", href: getWhatsappHref(client.whatsapp ?? client.phone, whatsappRequestDocumentsMessage(client.name)), disabled: !getWhatsappHref(client.whatsapp ?? client.phone) },
-                             { label: "Share Portfolio Summary", href: getWhatsappHref(client.whatsapp ?? client.phone, whatsappPortfolioReadyMessage(client.name)), disabled: !getWhatsappHref(client.whatsapp ?? client.phone) },
-                             { label: "Lease Reminder", href: getWhatsappHref(client.whatsapp ?? client.phone, whatsappLeaseReminderMessage(client.name)), disabled: !getWhatsappHref(client.whatsapp ?? client.phone) },
-                             { label: "Payment Reminder", href: getWhatsappHref(client.whatsapp ?? client.phone, whatsappPaymentReminderMessage(client.name)), disabled: !getWhatsappHref(client.whatsapp ?? client.phone) },
-                             { label: "Call", href: getPhoneHref(client.phone), disabled: !getPhoneHref(client.phone) },
-                             { label: "Email", href: client.email ? `mailto:${client.email}` : undefined, disabled: !client.email },
-                             { label: "Schedule Meeting", href: client.email ? `mailto:${client.email}?subject=${encodeURIComponent(`Meeting schedule - ${client.name}`)}` : undefined, disabled: !client.email },
-                             { label: "Send Report", href: client.email ? `mailto:${client.email}?subject=${encodeURIComponent(`Portfolio report - ${client.name}`)}` : undefined, disabled: !client.email },
-                               { label: "Approve", onSelect: () => setPendingAction({ client, type: "approve", title: "Approve Client", description: "Approve this client for live onboarding and advisory operations.", confirmLabel: "Approve", tone: "primary" }), disabled: !(ALLOWED_TRANSITIONS[client.canonicalStatus] ?? []).includes("approved") },
-                               { label: "Activate", onSelect: () => openStatusAction(client, "active"), disabled: !(ALLOWED_TRANSITIONS[client.canonicalStatus] ?? []).includes("active") },
-                               { label: "Suspend", onSelect: () => openStatusAction(client, "suspended"), disabled: !(ALLOWED_TRANSITIONS[client.canonicalStatus] ?? []).includes("suspended") },
-                               { label: "Restore", onSelect: () => setPendingAction({ client, type: "restore", title: "Restore Client", description: "This client will return to the active operational roster.", confirmLabel: "Restore", tone: "primary" }), disabled: client.canonicalStatus !== "archived" },
-                               { label: "Archive", onSelect: () => setPendingAction({ client, type: "archive", title: "Archive Client", description: "This client will be removed from active operations but can be restored later.", confirmLabel: "Archive Client" }), disabled: !(ALLOWED_TRANSITIONS[client.canonicalStatus] ?? []).includes("archived") },
-                              { label: "Delete", onSelect: () => setPendingAction({ client, type: "delete", title: "Delete Client", description: "This permanently deletes the client workspace and cannot be undone.", confirmLabel: "Delete Client", tone: "danger" }), tone: "danger" },
-                            ]}
-                          />
+                            { label: "View", onSelect: () => openClient(client.id, "overview") },
+                            { label: "Operate", onSelect: () => openClient(client.id, "operations") },
+                            {
+                              label: "Archive",
+                              onSelect: () =>
+                                setPendingAction({
+                                  client,
+                                  type: "archive",
+                                  title: "Archive Client",
+                                  description: "Archive this client workspace from active books.",
+                                  confirmLabel: "Archive Client",
+                                  tone: "danger",
+                                }),
+                              disabled: !(ALLOWED_TRANSITIONS[client.canonicalStatus] ?? []).includes("archived"),
+                            },
+                            {
+                              label: "Restore",
+                              onSelect: () =>
+                                setPendingAction({
+                                  client,
+                                  type: "restore",
+                                  title: "Restore Client",
+                                  description: "Restore this client back to active operational coverage.",
+                                  confirmLabel: "Restore",
+                                  tone: "primary",
+                                }),
+                              disabled: client.canonicalStatus !== "archived",
+                            },
+                            ...(client.canonicalStatus === "archived"
+                              ? [
+                                  {
+                                    label: "Delete Permanently",
+                                    onSelect: () =>
+                                      setPendingAction({
+                                        client,
+                                        type: "delete",
+                                        title: "Delete Client Permanently",
+                                        description: "This permanently deletes the archived client and all runtime projections. This action cannot be undone.",
+                                        confirmLabel: "Delete Permanently",
+                                        tone: "danger" as const,
+                                        requireTypedConfirmation: "DELETE CLIENT",
+                                      }),
+                                    tone: "danger" as const,
+                                  },
+                                ]
+                              : []),
+                          ]}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -686,18 +565,30 @@ export default function ClientsPage() {
         </div>
       </SurfaceCard>
 
-      {selectedClient ? <ClientDetailPanel client={selectedClient} onClose={closeClientWorkspace} /> : null}
+      {selectedClient ? <ClientDetailPanel client={selectedClient} onClose={closeClientWorkspace} initialMode={selectedClientMode} /> : null}
 
       {pendingAction ? (
         <PlatformConfirmModal
           title={pendingAction.title}
           description={pendingAction.description}
           confirmLabel={pendingAction.confirmLabel}
-          onClose={() => setPendingAction(null)}
+          onClose={() => {
+            setPendingAction(null);
+            setDeleteConfirmationInput("");
+          }}
           onConfirm={() => void runAction(pendingAction)}
           pending={actionLoadingId === pendingAction.client.id || lifecycleMutation.isPending}
           tone={pendingAction.tone}
+          requireTypedConfirmation={pendingAction.requireTypedConfirmation}
+          confirmationInput={deleteConfirmationInput}
+          onConfirmationInputChange={setDeleteConfirmationInput}
         />
+      ) : null}
+
+      {actionSuccess ? (
+        <div className="fixed bottom-4 right-4 z-[95] rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200 shadow-2xl">
+          {actionSuccess}
+        </div>
       ) : null}
     </div>
   );

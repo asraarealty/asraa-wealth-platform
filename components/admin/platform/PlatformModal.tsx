@@ -82,6 +82,9 @@ export function PlatformConfirmModal({
   onConfirm,
   pending,
   tone = "danger",
+  requireTypedConfirmation,
+  confirmationInput,
+  onConfirmationInputChange,
 }: {
   title: string;
   description: string;
@@ -90,7 +93,11 @@ export function PlatformConfirmModal({
   onConfirm: () => void;
   pending?: boolean;
   tone?: "danger" | "primary";
+  requireTypedConfirmation?: string;
+  confirmationInput?: string;
+  onConfirmationInputChange?: (value: string) => void;
 }) {
+  const typedConfirmationSatisfied = !requireTypedConfirmation || confirmationInput === requireTypedConfirmation;
   return (
     <PlatformModal
       title={title}
@@ -109,7 +116,7 @@ export function PlatformConfirmModal({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={pending}
+            disabled={pending || !typedConfirmationSatisfied}
             className={`w-full sm:w-auto rounded-xl px-4 py-2 text-sm font-semibold transition disabled:opacity-50 ${
               tone === "danger"
                 ? "bg-rose-500 text-white hover:bg-rose-400"
@@ -121,8 +128,23 @@ export function PlatformConfirmModal({
         </>
       }
     >
-      <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-sm leading-6 text-slate-300">
-        {description}
+      <div className="space-y-3">
+        <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-sm leading-6 text-slate-300">
+          {description}
+        </div>
+        {requireTypedConfirmation ? (
+          <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4">
+            <p className="text-xs text-rose-200">
+              Type <span className="font-semibold">{requireTypedConfirmation}</span> to confirm.
+            </p>
+            <input
+              value={confirmationInput ?? ""}
+              onChange={(event) => onConfirmationInputChange?.(event.target.value)}
+              placeholder={requireTypedConfirmation}
+              className="mt-2 w-full rounded-xl border border-white/15 bg-[#040915]/90 px-3 py-2 text-sm text-white outline-none transition focus:border-rose-300/40"
+            />
+          </div>
+        ) : null}
       </div>
     </PlatformModal>
   );
