@@ -40,6 +40,17 @@ interface ClientFormState {
   notificationPush: boolean;
 }
 
+type EditStep = "identity" | "lifecycle" | "portfolio" | "communication" | "advisory" | "notes";
+
+const EDIT_STEPS: Array<{ id: EditStep; label: string }> = [
+  { id: "identity", label: "Identity" },
+  { id: "lifecycle", label: "Lifecycle" },
+  { id: "portfolio", label: "Portfolio Preferences" },
+  { id: "communication", label: "Communication" },
+  { id: "advisory", label: "Advisory" },
+  { id: "notes", label: "Notes" },
+];
+
 function createInitialState(client?: ClientProfile | null): ClientFormState {
   return {
     name: client?.name ?? "",
@@ -111,9 +122,11 @@ export function ClientEditForm({
   onSubmit: (payload: ClientUpdatePayload & { status: ClientOperationalStatus }) => Promise<void>;
 }) {
   const [form, setForm] = useState<ClientFormState>(() => createInitialState(client));
+  const [step, setStep] = useState<EditStep>("identity");
 
   useEffect(() => {
     setForm(createInitialState(client));
+    setStep("identity");
   }, [client]);
 
   const title = useMemo(() => (mode === "create" ? "Create client workspace" : "Edit client workspace"), [mode]);
@@ -121,6 +134,10 @@ export function ClientEditForm({
   function setField<K extends keyof ClientFormState>(key: K, value: ClientFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
+
+  const stepIndex = EDIT_STEPS.findIndex((item) => item.id === step);
+  const hasPreviousStep = stepIndex > 0;
+  const hasNextStep = stepIndex < EDIT_STEPS.length - 1;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -179,104 +196,168 @@ export function ClientEditForm({
       </div>
 
       <form className="space-y-5" onSubmit={handleSubmit}>
-        <Section title="Personal information" description="Identity, communication channels, and compliance-ready profile details.">
-          <Field label="Name"><input required className={INPUT_CLASS} value={form.name} onChange={(event) => setField("name", event.target.value)} /></Field>
-          <Field label="Email"><input required type="email" className={INPUT_CLASS} value={form.email} onChange={(event) => setField("email", event.target.value)} /></Field>
-          <Field label="Phone"><input className={INPUT_CLASS} value={form.phone} onChange={(event) => setField("phone", event.target.value)} /></Field>
-          <Field label="WhatsApp"><input className={INPUT_CLASS} value={form.whatsapp} onChange={(event) => setField("whatsapp", event.target.value)} /></Field>
-          <Field label="Date of birth"><input type="date" className={INPUT_CLASS} value={form.dob} onChange={(event) => setField("dob", event.target.value)} /></Field>
-          <Field label="Address" fullWidth><textarea rows={3} className={INPUT_CLASS} value={form.address} onChange={(event) => setField("address", event.target.value)} /></Field>
-        </Section>
+        <div className="overflow-x-auto">
+          <div className="inline-flex min-w-full gap-2 rounded-xl border border-white/8 bg-white/[0.03] p-1 sm:min-w-0">
+            {EDIT_STEPS.map((item) => {
+              const active = item.id === step;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setStep(item.id)}
+                  className={`rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition ${
+                    active ? "bg-sky-500/20 text-sky-100" : "text-slate-300 hover:bg-white/[0.05]"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-        <Section title="Wealth intelligence" description="Economic profile, investment appetite, and strategic suitability data.">
-          <Field label="Net worth"><input type="number" min="0" className={INPUT_CLASS} value={form.netWorth} onChange={(event) => setField("netWorth", event.target.value)} /></Field>
-          <Field label="Risk profile">
-            <select className={INPUT_CLASS} value={form.riskProfile} onChange={(event) => setField("riskProfile", event.target.value)}>
-              <option value="">Select profile</option>
-              <option value="conservative">Conservative</option>
-              <option value="balanced">Balanced</option>
-              <option value="growth">Growth</option>
-              <option value="aggressive">Aggressive</option>
-            </select>
-          </Field>
-          <Field label="Income bracket">
-            <select className={INPUT_CLASS} value={form.incomeBracket} onChange={(event) => setField("incomeBracket", event.target.value)}>
-              <option value="">Select bracket</option>
-              <option value="emerging">Emerging HNI</option>
-              <option value="hni">HNI</option>
-              <option value="uhni">UHNI</option>
-              <option value="institutional">Institutional</option>
-            </select>
-          </Field>
-          <Field label="Investment preference"><input className={INPUT_CLASS} value={form.investmentPreference} onChange={(event) => setField("investmentPreference", event.target.value)} placeholder="Income, growth, preservation…" /></Field>
-        </Section>
+        {step === "identity" ? (
+          <Section title="Identity" description="Core identity and profile data.">
+            <Field label="Name"><input required className={INPUT_CLASS} value={form.name} onChange={(event) => setField("name", event.target.value)} /></Field>
+            <Field label="Email"><input required type="email" className={INPUT_CLASS} value={form.email} onChange={(event) => setField("email", event.target.value)} /></Field>
+            <Field label="Date of birth"><input type="date" className={INPUT_CLASS} value={form.dob} onChange={(event) => setField("dob", event.target.value)} /></Field>
+            <Field label="Address" fullWidth><textarea rows={3} className={INPUT_CLASS} value={form.address} onChange={(event) => setField("address", event.target.value)} /></Field>
+          </Section>
+        ) : null}
 
-        <Section title="Relationship intelligence" description="Coverage ownership, acquisition source, and segmentation context for operations and campaigns.">
-          <Field label="Relationship manager"><input className={INPUT_CLASS} value={form.relationshipManager} onChange={(event) => setField("relationshipManager", event.target.value)} /></Field>
-          <Field label="Advisor assigned"><input className={INPUT_CLASS} value={form.advisorAssigned} onChange={(event) => setField("advisorAssigned", event.target.value)} /></Field>
-          <Field label="Lead source"><input className={INPUT_CLASS} value={form.leadSource} onChange={(event) => setField("leadSource", event.target.value)} /></Field>
-          <Field label="Tags" fullWidth><input className={INPUT_CLASS} value={form.tags} onChange={(event) => setField("tags", event.target.value)} placeholder="family office, priority, nri" /></Field>
-          <Field label="Campaign segmentation" fullWidth><input className={INPUT_CLASS} value={form.campaignSegmentation} onChange={(event) => setField("campaignSegmentation", event.target.value)} placeholder="income desk / property onboarding / hedge campaign" /></Field>
-        </Section>
+        {step === "lifecycle" ? (
+          <Section title="Lifecycle" description="Workflow stage, approval, and service state.">
+            <Field label="Client status">
+              <select className={INPUT_CLASS} value={form.status} onChange={(event) => setField("status", event.target.value as ClientOperationalStatus)}>
+                <option value="lead">Lead</option>
+                <option value="onboarding">Onboarding</option>
+                <option value="pending_kyc">Pending KYC</option>
+                <option value="approved">Approved</option>
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+                <option value="archived">Archived</option>
+              </select>
+            </Field>
+            <Field label="Approval status">
+              <select className={INPUT_CLASS} value={form.approvalStatus} onChange={(event) => setField("approvalStatus", event.target.value as ClientApprovalStatus)}>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </Field>
+            <Field label="Onboarding status"><input className={INPUT_CLASS} value={form.onboardingStatus} onChange={(event) => setField("onboardingStatus", event.target.value)} placeholder="pipeline / kyc / live" /></Field>
+            <Field label="Onboarding stage"><input className={INPUT_CLASS} value={form.onboardingStage} onChange={(event) => setField("onboardingStage", event.target.value)} placeholder="documents / verification / ready" /></Field>
+            <Field label="KYC status">
+              <select className={INPUT_CLASS} value={form.kycStatus} onChange={(event) => setField("kycStatus", event.target.value)}>
+                <option value="">Select status</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </Field>
+            <Field label="Subscription tier"><input className={INPUT_CLASS} value={form.subscriptionTier} onChange={(event) => setField("subscriptionTier", event.target.value)} placeholder="standard / premium / private" /></Field>
+          </Section>
+        ) : null}
 
-        <Section title="Operational controls" description="Lifecycle state, approval flow, service tier, and notification routing.">
-          <Field label="Client status">
-            <select className={INPUT_CLASS} value={form.status} onChange={(event) => setField("status", event.target.value as ClientOperationalStatus)}>
-              <option value="lead">Lead</option>
-              <option value="onboarding">Onboarding</option>
-              <option value="pending_kyc">Pending KYC</option>
-              <option value="approved">Approved</option>
-              <option value="active">Active</option>
-              <option value="suspended">Suspended</option>
-              <option value="archived">Archived</option>
-            </select>
-          </Field>
-          <Field label="Approval status">
-            <select className={INPUT_CLASS} value={form.approvalStatus} onChange={(event) => setField("approvalStatus", event.target.value as ClientApprovalStatus)}>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </Field>
-          <Field label="Subscription tier"><input className={INPUT_CLASS} value={form.subscriptionTier} onChange={(event) => setField("subscriptionTier", event.target.value)} placeholder="standard / premium / private" /></Field>
-          <Field label="Onboarding status"><input className={INPUT_CLASS} value={form.onboardingStatus} onChange={(event) => setField("onboardingStatus", event.target.value)} placeholder="pipeline / kyc / live" /></Field>
-          <Field label="Onboarding stage"><input className={INPUT_CLASS} value={form.onboardingStage} onChange={(event) => setField("onboardingStage", event.target.value)} placeholder="documents / verification / ready" /></Field>
-          <Field label="KYC status">
-            <select className={INPUT_CLASS} value={form.kycStatus} onChange={(event) => setField("kycStatus", event.target.value)}>
-              <option value="">Select status</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </Field>
-          <Field label="Investment objective"><input className={INPUT_CLASS} value={form.investmentObjective} onChange={(event) => setField("investmentObjective", event.target.value)} placeholder="growth / income / preservation" /></Field>
-          <Field label="Financial planning status"><input className={INPUT_CLASS} value={form.financialPlanningStatus} onChange={(event) => setField("financialPlanningStatus", event.target.value)} placeholder="not started / in progress / completed" /></Field>
-          <Field label="Relationship notes" fullWidth><textarea rows={4} className={INPUT_CLASS} value={form.notes} onChange={(event) => setField("notes", event.target.value)} placeholder="Latest meeting notes, escalation context, service notes…" /></Field>
-          <Field label="Notification preferences" fullWidth>
-            <div className="grid grid-cols-2 gap-3 rounded-2xl border border-white/8 bg-[#071229] p-4 sm:grid-cols-4">
-              {[
-                ["notificationEmail", "Email"],
-                ["notificationWhatsapp", "WhatsApp"],
-                ["notificationSms", "SMS"],
-                ["notificationPush", "Push"],
-              ].map(([key, label]) => (
-                <label key={key} className="flex items-center gap-2 text-sm text-slate-200">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-white/10 bg-white/5 accent-sky-400"
-                    checked={Boolean(form[key as keyof ClientFormState])}
-                    onChange={(event) => setField(key as keyof ClientFormState, event.target.checked as never)}
-                  />
-                  <span>{label}</span>
-                </label>
-              ))}
-            </div>
-          </Field>
-        </Section>
+        {step === "portfolio" ? (
+          <Section title="Portfolio preferences" description="Risk and investment suitability fields.">
+            <Field label="Net worth"><input type="number" min="0" className={INPUT_CLASS} value={form.netWorth} onChange={(event) => setField("netWorth", event.target.value)} /></Field>
+            <Field label="Risk profile">
+              <select className={INPUT_CLASS} value={form.riskProfile} onChange={(event) => setField("riskProfile", event.target.value)}>
+                <option value="">Select profile</option>
+                <option value="conservative">Conservative</option>
+                <option value="balanced">Balanced</option>
+                <option value="growth">Growth</option>
+                <option value="aggressive">Aggressive</option>
+              </select>
+            </Field>
+            <Field label="Income bracket">
+              <select className={INPUT_CLASS} value={form.incomeBracket} onChange={(event) => setField("incomeBracket", event.target.value)}>
+                <option value="">Select bracket</option>
+                <option value="emerging">Emerging HNI</option>
+                <option value="hni">HNI</option>
+                <option value="uhni">UHNI</option>
+                <option value="institutional">Institutional</option>
+              </select>
+            </Field>
+            <Field label="Investment preference"><input className={INPUT_CLASS} value={form.investmentPreference} onChange={(event) => setField("investmentPreference", event.target.value)} placeholder="Income, growth, preservation…" /></Field>
+            <Field label="Investment objective"><input className={INPUT_CLASS} value={form.investmentObjective} onChange={(event) => setField("investmentObjective", event.target.value)} placeholder="growth / income / preservation" /></Field>
+            <Field label="Financial planning status"><input className={INPUT_CLASS} value={form.financialPlanningStatus} onChange={(event) => setField("financialPlanningStatus", event.target.value)} placeholder="not started / in progress / completed" /></Field>
+          </Section>
+        ) : null}
+
+        {step === "communication" ? (
+          <Section title="Communication" description="Channels and notification routing.">
+            <Field label="Phone"><input className={INPUT_CLASS} value={form.phone} onChange={(event) => setField("phone", event.target.value)} /></Field>
+            <Field label="WhatsApp"><input className={INPUT_CLASS} value={form.whatsapp} onChange={(event) => setField("whatsapp", event.target.value)} /></Field>
+            <Field label="Notification preferences" fullWidth>
+              <div className="grid grid-cols-2 gap-3 rounded-2xl border border-white/8 bg-[#071229] p-4 sm:grid-cols-4">
+                {[
+                  ["notificationEmail", "Email"],
+                  ["notificationWhatsapp", "WhatsApp"],
+                  ["notificationSms", "SMS"],
+                  ["notificationPush", "Push"],
+                ].map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2 text-sm text-slate-200">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-white/10 bg-white/5 accent-sky-400"
+                      checked={Boolean(form[key as keyof ClientFormState])}
+                      onChange={(event) => setField(key as keyof ClientFormState, event.target.checked as never)}
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
+            </Field>
+          </Section>
+        ) : null}
+
+        {step === "advisory" ? (
+          <Section title="Advisory" description="Coverage ownership and segmentation intelligence.">
+            <Field label="Relationship manager"><input className={INPUT_CLASS} value={form.relationshipManager} onChange={(event) => setField("relationshipManager", event.target.value)} /></Field>
+            <Field label="Advisor assigned"><input className={INPUT_CLASS} value={form.advisorAssigned} onChange={(event) => setField("advisorAssigned", event.target.value)} /></Field>
+            <Field label="Lead source"><input className={INPUT_CLASS} value={form.leadSource} onChange={(event) => setField("leadSource", event.target.value)} /></Field>
+            <Field label="Campaign segmentation"><input className={INPUT_CLASS} value={form.campaignSegmentation} onChange={(event) => setField("campaignSegmentation", event.target.value)} placeholder="income desk / property onboarding / hedge campaign" /></Field>
+            <Field label="Tags" fullWidth><input className={INPUT_CLASS} value={form.tags} onChange={(event) => setField("tags", event.target.value)} placeholder="family office, priority, nri" /></Field>
+          </Section>
+        ) : null}
+
+        {step === "notes" ? (
+          <Section title="Notes" description="Advisor notes and relationship context.">
+            <Field label="Relationship notes" fullWidth><textarea rows={5} className={INPUT_CLASS} value={form.notes} onChange={(event) => setField("notes", event.target.value)} placeholder="Latest meeting notes, escalation context, service notes…" /></Field>
+          </Section>
+        ) : null}
 
         {error ? <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{error}</div> : null}
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={!hasPreviousStep}
+              onClick={() => {
+                if (!hasPreviousStep) return;
+                setStep(EDIT_STEPS[stepIndex - 1].id);
+              }}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10 disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              disabled={!hasNextStep}
+              onClick={() => {
+                if (!hasNextStep) return;
+                setStep(EDIT_STEPS[stepIndex + 1].id);
+              }}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10 disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
           <Link href="/admin/clients" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white">
             Cancel
           </Link>
@@ -287,6 +368,7 @@ export function ClientEditForm({
           >
             {submitting ? "Saving…" : mode === "create" ? "Create client" : "Save client changes"}
           </button>
+          </div>
         </div>
       </form>
     </div>
