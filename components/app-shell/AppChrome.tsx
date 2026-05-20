@@ -54,15 +54,6 @@ function IconBuilding() {
   );
 }
 
-function IconInsights() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
-      <path d="M2 12L5.5 7.5L8.5 10L12 5L14 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="14" cy="7" r="1.5" fill="currentColor" />
-    </svg>
-  );
-}
-
 function IconAssets() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
@@ -113,7 +104,6 @@ const NAV = [
   { href: "/markets", label: "Markets", short: "Markets", Icon: IconMarket },
   { href: "/watchlist", label: "Watchlist", short: "Watchlist", Icon: IconWatchlist },
   { href: "/discover", label: "Discover", short: "Discover", Icon: IconCompass },
-  { href: "/intelligence", label: "Intelligence", short: "Intel", Icon: IconInsights },
   { href: "/real-estate", label: "Real Estate", short: "Property", Icon: IconBuilding },
   { href: "/assets", label: "Assets", short: "Assets", Icon: IconAssets },
   { href: "/transactions", label: "Transactions", short: "Deals", Icon: IconTransactions },

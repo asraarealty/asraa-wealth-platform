@@ -1,13 +1,5 @@
-"use client";
-
-import { MarketRouteEntry } from "@/components/market/MarketRouteEntry";
+import { redirect } from "next/navigation";
 
 export default function IntelligencePage() {
-  return (
-    <MarketRouteEntry
-      mode="client"
-      initialSurface="ai-analysis"
-      operatorPreset="intelligence-mission-control"
-    />
-  );
+  redirect("/markets");
 }

@@ -10,8 +10,7 @@ export type OperatorPreset =
   | "stocks-terminal"
   | "markets-pulse"
   | "watchlist-board"
-  | "discover-engine"
-  | "intelligence-mission-control";
+  | "discover-engine";
 
 const MarketCommandCenter = dynamic(
   () => import("@/components/market/MarketCommandCenter").then((mod) => mod.MarketCommandCenter),
@@ -39,14 +38,6 @@ const WatchlistBoard = dynamic(
 const DiscoverEngine = dynamic(
   () => import("@/components/market/surfaces/DiscoverEngine").then((mod) => mod.DiscoverEngine),
   { ssr: false, loading: () => <LoadingBlock label="Loading discovery engine..." /> }
-);
-
-const IntelligenceMissionControl = dynamic(
-  () =>
-    import("@/components/market/surfaces/IntelligenceMissionControl").then(
-      (mod) => mod.IntelligenceMissionControl
-    ),
-  { ssr: false, loading: () => <LoadingBlock label="Loading intelligence mission control..." /> }
 );
 
 export function MarketRouteEntry({
@@ -88,14 +79,6 @@ export function MarketRouteEntry({
       </RuntimeErrorBoundary>
     );
   }
-  if (operatorPreset === "intelligence-mission-control") {
-    return (
-      <RuntimeErrorBoundary scope="intelligence-widget" label="intelligence-mission-control">
-        <IntelligenceMissionControl />
-      </RuntimeErrorBoundary>
-    );
-  }
-
   // Default: existing MarketCommandCenter (used by admin and legacy routes)
   return (
     <RuntimeErrorBoundary scope="market-pulse-component">
