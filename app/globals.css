@@ -54,6 +54,24 @@
   to   { stroke-dashoffset: 0; }
 }
 
+/* Live price flash — green tick up */
+@keyframes price-flash-up {
+  0%   { background-color: rgba(16, 185, 129, 0.28); }
+  100% { background-color: transparent; }
+}
+
+/* Live price flash — red tick down */
+@keyframes price-flash-down {
+  0%   { background-color: rgba(239, 68, 68, 0.24); }
+  100% { background-color: transparent; }
+}
+
+/* Breathing live dot */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.72); }
+}
+
 /* ─── Body — flat matte dark, no radial colour blooms ────────────────────── */
 body {
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
@@ -75,6 +93,9 @@ html {
 .animate-slide-up-delay3 { animation: slide-up 0.45s ease 0.3s both; }
 .animate-slide-up-delay4 { animation: slide-up 0.45s ease 0.4s both; }
 .animate-draw-line       { animation: draw-line 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.price-flash-up          { animation: price-flash-up 0.9s ease-out forwards; }
+.price-flash-down        { animation: price-flash-down 0.9s ease-out forwards; }
+.live-pulse              { animation: live-pulse 2.2s ease-in-out infinite; }
 
 /* ─── Glass surface — subtle, dark, institutional ────────────────────────── */
 .glass-card {
