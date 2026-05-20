@@ -17,6 +17,7 @@ const SPARKLINE_VERTICAL_OFFSET = 2;
 const BREAKOUT_CHANGE_THRESHOLD = 1.2;
 const BREAKOUT_VOLUME_THRESHOLD = 600_000;
 const DEFAULT_SECTOR_RANK = 6;
+const DEFAULT_NAVIGATOR_SPARKLINE = [50, 53, 52, 55, 57, 56, 58, 60, 59, 61, 60, 62] as const;
 const DISCOVERY_TABS = [
   "Recent",
   "Watchlist",
@@ -57,21 +58,22 @@ function formatAssetType(kind: MarketAsset["kind"]) {
 }
 
 function commandItemToAsset(item: CommandSearchItem, index: number): MarketAsset {
+  const isSector = item.kind === "sector";
   return {
     id: `navigator-${item.kind}-${item.id || index}`,
     symbol: item.label.toUpperCase().replace(/\s+/g, "-"),
     name: item.label,
     kind: "index",
     market: "Macro",
-    sector: item.kind === "sector" ? item.label : "Macro Theme",
-    category: item.kind === "theme" ? item.label : "Sector Signal",
+    sector: isSector ? item.label : "Theme",
+    category: isSector ? "Sector Signal" : item.label,
     price: 0,
     change: 0,
     changePercent: 0,
     volume: 0,
     marketCap: 0,
     currency: "INR",
-    sparkline: [50, 53, 52, 55, 57, 56, 58, 60, 59, 61, 60, 62],
+    sparkline: [...DEFAULT_NAVIGATOR_SPARKLINE],
     lastUpdated: new Date().toISOString(),
     searchLabel: item.subtitle,
   };
@@ -381,7 +383,7 @@ export function StocksTerminal() {
             ...(search.groups.mutualFunds ?? []),
             ...(search.groups.commodities ?? []),
             ...((search.groups.sectors ?? []).map((item, index) => commandItemToAsset(item, index))),
-            ...((search.groups.themes ?? []).map((item, index) => commandItemToAsset(item, index + 100))),
+            ...((search.groups.themes ?? []).map((item, index) => commandItemToAsset(item, index))),
           ].slice(0, 24)
         : [],
     [query, search.groups]
