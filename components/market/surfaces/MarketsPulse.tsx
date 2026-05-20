@@ -1,14 +1,16 @@
 "use client";
 
-import { memo, useEffect, useMemo, useState } from "react";
-import { MetricTile, SectionHeader, SurfaceCard, StatusPill } from "@/components/v2/ui";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { MetricTile, SectionHeader, SurfaceCard } from "@/components/v2/ui";
 import { SearchCommandBar } from "@/components/v2/workspace";
 import { RuntimeObservabilityBadges } from "@/components/runtime/RuntimeObservabilityBadges";
 import { fmtPercent, fmtLastUpdated } from "@/lib/formatters";
-import { useMarketDomainGraph, useMarketIntelligenceEngine, type MarketAsset } from "@/domains/market";
+import { useMarketDomainGraph, useMarketIntelligenceEngine, scoreAssetConviction, type MarketAsset } from "@/domains/market";
 import { MARKET_SEARCH_MIN_QUERY_LENGTH } from "@/domains/market/search";
 
 const MIN_SEARCH_LENGTH = MARKET_SEARCH_MIN_QUERY_LENGTH;
+
+// ─── Heatmap ─────────────────────────────────────────────────────────────────
 
 type HeatmapTone = "strong-up" | "up" | "flat" | "down" | "strong-down";
 
@@ -36,11 +38,26 @@ const HeatCell = memo(function HeatCell({
   onSelect: (asset: MarketAsset) => void;
 }) {
   const tone = heatmapTone(item.changePercent);
+  const prevRef = useRef(item.changePercent);
+  const [flashClass, setFlashClass] = useState("");
+
+  useEffect(() => {
+    const prev = prevRef.current;
+    const current = item.changePercent;
+    if (current !== prev) {
+      prevRef.current = current;
+      const cls = current > prev ? "price-flash-up" : "price-flash-down";
+      setFlashClass(cls);
+      const t = setTimeout(() => setFlashClass(""), 950);
+      return () => clearTimeout(t);
+    }
+  }, [item.changePercent]);
+
   return (
     <button
       type="button"
       onClick={() => onSelect(item)}
-      className={`rounded-xl border px-3 py-2.5 text-left transition-all hover:brightness-110 ${HEATMAP_CLASSES[tone]}`}
+      className={`rounded-xl border px-3 py-2.5 text-left transition-all hover:brightness-110 ${HEATMAP_CLASSES[tone]} ${flashClass}`}
     >
       <p className="text-xs font-bold">{item.symbol}</p>
       <p className="mt-0.5 text-[10px] opacity-70 truncate">{item.sector}</p>
@@ -48,6 +65,8 @@ const HeatCell = memo(function HeatCell({
     </button>
   );
 });
+
+// ─── Breadth bar ──────────────────────────────────────────────────────────────
 
 function BreadthBar({ advances, declines, unchanged }: { advances: number; declines: number; unchanged: number }) {
   const total = advances + declines + unchanged || 1;
@@ -57,18 +76,231 @@ function BreadthBar({ advances, declines, unchanged }: { advances: number; decli
   return (
     <div className="space-y-2">
       <div className="flex h-4 overflow-hidden rounded-full">
-        <div className="bg-emerald-500/70 transition-all" style={{ width: `${advPct}%` }} />
-        <div className="bg-slate-700/60 transition-all" style={{ width: `${unchPct}%` }} />
-        <div className="bg-rose-500/70 transition-all" style={{ width: `${decPct}%` }} />
+        <div className="bg-emerald-500/70 transition-all duration-700" style={{ width: `${advPct}%` }} />
+        <div className="bg-slate-700/60 transition-all duration-700" style={{ width: `${unchPct}%` }} />
+        <div className="bg-rose-500/70 transition-all duration-700" style={{ width: `${decPct}%` }} />
       </div>
       <div className="flex justify-between text-[10px]">
-        <span className="text-emerald-400">{advances} adv</span>
-        <span className="text-slate-500">{unchanged} unch</span>
-        <span className="text-rose-400">{declines} dec</span>
+        <span className="text-emerald-400 tabular-nums">{advances} adv</span>
+        <span className="text-slate-500 tabular-nums">{unchanged} unch</span>
+        <span className="text-rose-400 tabular-nums">{declines} dec</span>
       </div>
     </div>
   );
 }
+
+// ─── Mini sparkline ───────────────────────────────────────────────────────────
+
+function MiniSparkline({ points, up, width = 56, height = 20 }: { points: number[]; up: boolean; width?: number; height?: number }) {
+  const data = points.length > 1 ? points : [0, 0];
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const spread = Math.max(1, max - min);
+  const path = data
+    .map((p, i) => {
+      const x = (i / Math.max(data.length - 1, 1)) * width;
+      const y = height - ((p - min) / spread) * (height - 4) - 2;
+      return `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(" ");
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="shrink-0" style={{ width, height }} aria-hidden="true">
+      <path d={path} fill="none" stroke={up ? "#34d399" : "#fb7185"} strokeWidth={1.5} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+
+function classifyCapTier(marketCap: number): string {
+  if (marketCap >= 200_000_000_000) return "Large";
+  if (marketCap >= 50_000_000_000) return "Mid";
+  if (marketCap > 0) return "Small";
+  return "";
+}
+
+function fmtVolume(volume: number): string {
+  if (volume >= 10_000_000) return `${(volume / 10_000_000).toFixed(1)}Cr`;
+  if (volume >= 1_000_000) return `${(volume / 1_000_000).toFixed(1)}M`;
+  if (volume >= 1_000) return `${(volume / 1_000).toFixed(0)}K`;
+  return volume > 0 ? String(volume) : "—";
+}
+
+function liquidityScore(volume: number): number {
+  if (volume >= 5_000_000) return 95;
+  if (volume >= 2_000_000) return 82;
+  if (volume >= 1_000_000) return 70;
+  if (volume >= 500_000) return 55;
+  if (volume >= 100_000) return 40;
+  return 25;
+}
+
+function fmtAbsChange(change: number): string {
+  if (!change || change === 0) return "";
+  const sign = change > 0 ? "+" : "";
+  return `${sign}${Math.abs(change).toFixed(2)}`;
+}
+
+function formatAssetKind(kind: MarketAsset["kind"]): string {
+  switch (kind) {
+    case "stock": return "Stock";
+    case "global-stock": return "Gbl Stock";
+    case "etf": return "ETF";
+    case "mutual-fund": return "Fund";
+    case "commodity": return "Commodity";
+    case "metal": return "Metal";
+    case "forex": return "FX";
+    case "index": return "Index";
+    default: return "Asset";
+  }
+}
+
+// ─── Enriched Mover Row (Phase 2) ─────────────────────────────────────────────
+
+const MoverRow = memo(function MoverRow({
+  item,
+  side,
+  sectorRank,
+  conviction,
+  onSelect,
+}: {
+  item: MarketAsset;
+  side: "gainer" | "loser";
+  sectorRank: number;
+  conviction: number;
+  onSelect: (asset: MarketAsset) => void;
+}) {
+  const up = side === "gainer";
+  const isBreakout = item.changePercent >= 2.5 && item.volume >= 500_000;
+  const capTier = classifyCapTier(item.marketCap);
+  const liqScore = liquidityScore(item.volume);
+  const trendUp =
+    item.sparkline.length > 1 ? item.sparkline[item.sparkline.length - 1] >= item.sparkline[0] : up;
+
+  const prevRef = useRef(item.changePercent);
+  const [flashClass, setFlashClass] = useState("");
+
+  useEffect(() => {
+    const prev = prevRef.current;
+    const current = item.changePercent;
+    if (current !== prev) {
+      prevRef.current = current;
+      const cls = current > prev ? "price-flash-up" : "price-flash-down";
+      setFlashClass(cls);
+      const t = setTimeout(() => setFlashClass(""), 950);
+      return () => clearTimeout(t);
+    }
+  }, [item.changePercent]);
+
+  const convictionColor =
+    conviction >= 80
+      ? "text-emerald-300"
+      : conviction >= 65
+      ? "text-sky-300"
+      : conviction >= 50
+      ? "text-amber-300"
+      : "text-rose-300";
+
+  const relStrength = item.changePercent >= 2 ? "Strong" : item.changePercent >= 0 ? "Positive" : item.changePercent >= -2 ? "Weak" : "Negative";
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(item)}
+      className={`group w-full rounded-xl border px-3 py-2.5 text-left transition-all hover:brightness-105 ${flashClass} ${
+        up
+          ? "border-emerald-400/12 bg-emerald-500/[0.04] hover:border-emerald-400/25"
+          : "border-rose-400/12 bg-rose-500/[0.04] hover:border-rose-400/25"
+      }`}
+    >
+      {/* Top: ticker + badges + percent */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="text-xs font-bold text-white">{item.symbol}</p>
+            {isBreakout && (
+              <span className="rounded-full border border-sky-400/30 bg-sky-500/10 px-1.5 py-px text-[9px] font-semibold text-sky-300">
+                BO
+              </span>
+            )}
+            <span className="rounded border border-white/8 bg-white/[0.04] px-1.5 py-px text-[9px] text-slate-400">
+              {formatAssetKind(item.kind)}
+            </span>
+            {capTier ? (
+              <span className="rounded border border-white/6 bg-white/[0.03] px-1.5 py-px text-[9px] text-slate-500">
+                {capTier}
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-0.5 truncate text-[10px] text-slate-400">{item.name}</p>
+          <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.1em] text-slate-600">{item.sector}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className={`text-sm font-bold tabular-nums ${up ? "text-emerald-400" : "text-rose-400"}`}>
+            {fmtPercent(item.changePercent, true)}
+          </p>
+          {item.change !== 0 ? (
+            <p className="mt-0.5 text-[10px] tabular-nums text-slate-500">{fmtAbsChange(item.change)}</p>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Bottom: volume / liquidity / conviction / rel-strength / sparkline */}
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
+          <span className="text-[9px] text-slate-500 tabular-nums">Vol {fmtVolume(item.volume)}</span>
+          <span className="text-[9px] text-slate-600 tabular-nums">Liq {liqScore}</span>
+          <span className={`text-[9px] font-semibold tabular-nums ${convictionColor}`}>AI {conviction}</span>
+          <span className="text-[9px] text-slate-600">{relStrength} RS</span>
+          {sectorRank > 0 && (
+            <span className="text-[9px] text-slate-600 tabular-nums">#{sectorRank}</span>
+          )}
+        </div>
+        <MiniSparkline points={item.sparkline} up={trendUp} />
+      </div>
+    </button>
+  );
+});
+
+// ─── Sector chip filters (Phase 3) ───────────────────────────────────────────
+
+const HEATMAP_CHIPS = [
+  "All", "Tech", "Banking", "Pharma", "Energy", "Metals", "Defense", "India Growth", "Global Tech",
+] as const;
+type HeatmapChip = (typeof HEATMAP_CHIPS)[number];
+
+const CHIP_SECTOR_MAP: Record<Exclude<HeatmapChip, "All" | "India Growth" | "Global Tech">, string[]> = {
+  Tech: ["technology", "communication", "ai", "software"],
+  Banking: ["financials", "banking", "finance"],
+  Pharma: ["healthcare", "pharma", "biotech"],
+  Energy: ["energy", "oil", "gas", "power"],
+  Metals: ["metals", "metal", "mining", "precious metal"],
+  Defense: ["defense", "aerospace", "industrials"],
+};
+
+function applyChipFilter(assets: MarketAsset[], chip: HeatmapChip): MarketAsset[] {
+  if (chip === "All") return assets;
+  if (chip === "India Growth") return assets.filter((a) => a.market === "India");
+  if (chip === "Global Tech") {
+    return assets.filter(
+      (a) =>
+        a.market === "Global" &&
+        ["technology", "communication", "ai"].some((t) =>
+          a.sector.toLowerCase().includes(t)
+        )
+    );
+  }
+  const targets = CHIP_SECTOR_MAP[chip];
+  return assets.filter((a) =>
+    targets.some(
+      (t) =>
+        a.sector.toLowerCase().includes(t) ||
+        a.category.toLowerCase().includes(t)
+    )
+  );
+}
+
+// ─── Main surface ─────────────────────────────────────────────────────────────
 
 export function MarketsPulse() {
   const {
@@ -90,6 +322,7 @@ export function MarketsPulse() {
 
   const [query, setQuery] = useState("");
   const [highlightedAsset, setHighlightedAsset] = useState<MarketAsset | null>(null);
+  const [heatmapChip, setHeatmapChip] = useState<HeatmapChip>("All");
 
   const intelligence = useMarketIntelligenceEngine(null, sectorMovers, watchlist);
 
@@ -98,24 +331,68 @@ export function MarketsPulse() {
     void searchMarket(query);
   }, [query, searchMarket]);
 
-  const indiaAssets = useMemo(() => assets.filter((a) => a.market === "India").slice(0, 20), [assets]);
-  const globalAssets = useMemo(() => assets.filter((a) => a.market === "Global").slice(0, 16), [assets]);
-  const macroAssets = useMemo(() => assets.filter((a) => a.market === "Macro" || a.market === "Commodity").slice(0, 12), [assets]);
+  const sectorRankMap = useMemo(
+    () =>
+      new Map(
+        sectorMovers.map((mover, index) => [mover.sector.toLowerCase(), Math.max(1, index + 1)])
+      ),
+    [sectorMovers]
+  );
+
+  const baseAssets = useMemo(() => assets.filter((a) => a.market !== "Fund"), [assets]);
+  const filteredHeatmapAssets = useMemo(
+    () => applyChipFilter(baseAssets, heatmapChip),
+    [baseAssets, heatmapChip]
+  );
+
+  const indiaAssets = useMemo(
+    () => filteredHeatmapAssets.filter((a) => a.market === "India").slice(0, 20),
+    [filteredHeatmapAssets]
+  );
+  const globalAssets = useMemo(
+    () => filteredHeatmapAssets.filter((a) => a.market === "Global").slice(0, 16),
+    [filteredHeatmapAssets]
+  );
+  const macroAssets = useMemo(
+    () =>
+      filteredHeatmapAssets
+        .filter((a) => a.market === "Macro" || a.market === "Commodity")
+        .slice(0, 12),
+    [filteredHeatmapAssets]
+  );
 
   const topSectors = sectorMovers.slice(0, 8);
-
   const updatedAt = fmtLastUpdated(lastUpdated);
+
+  const pulseLabel =
+    breadth.marketPulse >= 60 ? "Bullish" : breadth.marketPulse >= 40 ? "Neutral" : "Bearish";
+  const pulseColor =
+    breadth.marketPulse >= 60
+      ? "text-emerald-400"
+      : breadth.marketPulse >= 40
+      ? "text-amber-300"
+      : "text-rose-400";
+  const pulseDotClass =
+    breadth.marketPulse >= 60
+      ? "bg-emerald-400"
+      : breadth.marketPulse >= 40
+      ? "bg-amber-400"
+      : "bg-rose-500";
 
   return (
     <SurfaceCard className="p-0 overflow-hidden">
-      {/* Macro desk header */}
+      {/* ── Header ── */}
       <div className="flex items-center justify-between gap-4 border-b border-white/8 bg-black/20 px-4 py-2.5">
         <div className="flex items-center gap-3">
           <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-violet-500/20">
             <span className="text-[9px] font-bold text-violet-300">MK</span>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-[0.16em] text-violet-400/80">Markets Pulse</p>
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-violet-400/80">Markets Pulse</p>
+              <span className={`inline-block h-1.5 w-1.5 rounded-full live-pulse ${pulseDotClass}`} />
+              <span className={`text-[10px] font-semibold ${pulseColor}`}>{pulseLabel}</span>
+            </div>
             <p className="text-[11px] text-slate-500">
               Macro desk · global indices · sector rotation
               {updatedAt ? ` · ${updatedAt}` : ""}
@@ -140,7 +417,7 @@ export function MarketsPulse() {
       </div>
 
       <div className="overflow-y-auto">
-        {/* Row 1: Market overview pulse bar */}
+        {/* ── Row 1: Market overview pulse bar ── */}
         <div className="border-b border-white/8 px-4 py-3">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
             {isLoading && marketOverview.length === 0 ? (
@@ -159,7 +436,7 @@ export function MarketsPulse() {
           </div>
         </div>
 
-        {/* Row 2: Sector rotation + breadth */}
+        {/* ── Row 2: Sector rotation + breadth ── */}
         <div className="grid md:grid-cols-[2fr_1fr] gap-0 border-b border-white/8">
           {/* Sector rotation */}
           <div className="border-r border-white/8 p-4">
@@ -168,7 +445,7 @@ export function MarketsPulse() {
               {topSectors.map((sector, i) => (
                 <div
                   key={sector.sector}
-                  className={`rounded-xl border px-3 py-2.5 ${
+                  className={`rounded-xl border px-3 py-2.5 transition-colors ${
                     sector.avgChangePercent >= 0
                       ? "border-emerald-400/20 bg-emerald-500/[0.06]"
                       : "border-rose-400/20 bg-rose-500/[0.06]"
@@ -193,7 +470,7 @@ export function MarketsPulse() {
             </div>
           </div>
 
-          {/* Market breadth */}
+          {/* Breadth */}
           <div className="p-4">
             <SectionHeader title="Market Breadth" subtitle="Advancers vs decliners" />
             <div className="mt-3 space-y-3">
@@ -209,52 +486,81 @@ export function MarketsPulse() {
                 <MetricTile label="Tracked" value={String(breadth.total)} />
               </div>
               <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2">
-                <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500">Market Pulse</p>
-                <p className="mt-1 text-sm font-semibold text-white">
-                  {breadth.marketPulse >= 60 ? "Bullish" : breadth.marketPulse >= 40 ? "Neutral" : "Bearish"}
-                </p>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`h-2 w-2 rounded-full live-pulse ${pulseDotClass}`} />
+                  <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500">Market Pulse</p>
+                </div>
+                <p className={`text-sm font-semibold ${pulseColor}`}>{pulseLabel}</p>
+                <div className="mt-1.5 h-1 w-full rounded-full bg-white/8 overflow-hidden">
+                  <div
+                    className={`h-1 rounded-full transition-all duration-700 ${pulseDotClass}`}
+                    style={{ width: `${Math.max(4, Math.min(100, breadth.marketPulse))}%` }}
+                  />
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Row 3: Heatmaps — India + Global + Macro */}
+        {/* ── Row 3: Chip filters + Heatmaps ── */}
         <div className="border-b border-white/8 p-4 space-y-4">
-          <div>
-            <SectionHeader
-              title="India Heatmap"
-              subtitle={`${indiaAssets.length} liquid symbols`}
-              action={
-                <span className="text-[10px] text-slate-500">
-                  {indiaAssets.filter((a) => a.changePercent >= 0).length} up /{" "}
-                  {indiaAssets.filter((a) => a.changePercent < 0).length} down
-                </span>
-              }
-            />
-            <div className="mt-3 grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 xl:grid-cols-10 gap-1.5">
-              {indiaAssets.map((item) => (
-                <HeatCell key={item.id} item={item} onSelect={setHighlightedAsset} />
-              ))}
-            </div>
+          {/* Chip filters */}
+          <div className="flex flex-wrap gap-1.5">
+            {HEATMAP_CHIPS.map((chip) => (
+              <button
+                key={chip}
+                type="button"
+                onClick={() => setHeatmapChip(chip)}
+                className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                  heatmapChip === chip
+                    ? "border-violet-400/40 bg-violet-500/15 text-violet-200"
+                    : "border-white/10 bg-white/[0.03] text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {chip}
+              </button>
+            ))}
           </div>
 
-          <div>
-            <SectionHeader
-              title="Global Heatmap"
-              subtitle={`${globalAssets.length} global symbols`}
-              action={
-                <span className="text-[10px] text-slate-500">
-                  {globalAssets.filter((a) => a.changePercent >= 0).length} up /{" "}
-                  {globalAssets.filter((a) => a.changePercent < 0).length} down
-                </span>
-              }
-            />
-            <div className="mt-3 grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 gap-1.5">
-              {globalAssets.map((item) => (
-                <HeatCell key={item.id} item={item} onSelect={setHighlightedAsset} />
-              ))}
+          {indiaAssets.length > 0 ? (
+            <div>
+              <SectionHeader
+                title="India Heatmap"
+                subtitle={`${indiaAssets.length} liquid symbols`}
+                action={
+                  <span className="text-[10px] text-slate-500">
+                    {indiaAssets.filter((a) => a.changePercent >= 0).length} up /{" "}
+                    {indiaAssets.filter((a) => a.changePercent < 0).length} down
+                  </span>
+                }
+              />
+              <div className="mt-3 grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 xl:grid-cols-10 gap-1.5">
+                {indiaAssets.map((item) => (
+                  <HeatCell key={item.id} item={item} onSelect={setHighlightedAsset} />
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
+
+          {globalAssets.length > 0 ? (
+            <div>
+              <SectionHeader
+                title="Global Heatmap"
+                subtitle={`${globalAssets.length} global symbols`}
+                action={
+                  <span className="text-[10px] text-slate-500">
+                    {globalAssets.filter((a) => a.changePercent >= 0).length} up /{" "}
+                    {globalAssets.filter((a) => a.changePercent < 0).length} down
+                  </span>
+                }
+              />
+              <div className="mt-3 grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 gap-1.5">
+                {globalAssets.map((item) => (
+                  <HeatCell key={item.id} item={item} onSelect={setHighlightedAsset} />
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {macroAssets.length > 0 ? (
             <div>
@@ -266,47 +572,77 @@ export function MarketsPulse() {
               </div>
             </div>
           ) : null}
+
+          {indiaAssets.length === 0 && globalAssets.length === 0 && macroAssets.length === 0 ? (
+            <p className="text-xs text-slate-500">No assets match the selected filter.</p>
+          ) : null}
         </div>
 
-        {/* Row 4: Top movers — gainers + losers */}
+        {/* ── Row 4: Market Leaders — enriched mover rows (Phase 2) ── */}
         <div className="grid md:grid-cols-2 gap-0 border-b border-white/8">
           <div className="border-r border-white/8 p-4">
-            <SectionHeader title="Top Gainers" subtitle="Momentum leaders" />
-            <div className="mt-3 space-y-1.5">
-              {topGainers.slice(0, 7).map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-emerald-400/10 bg-emerald-500/[0.04] px-3 py-2"
-                >
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-white">{item.symbol}</p>
-                    <p className="text-[10px] text-slate-500 truncate">{item.sector}</p>
-                  </div>
-                  <p className="shrink-0 text-sm font-bold text-emerald-400">{fmtPercent(item.changePercent, true)}</p>
-                </div>
-              ))}
+            <SectionHeader
+              title="Top Gainers"
+              subtitle="Momentum leaders"
+              action={
+                topGainers.length > 0 ? (
+                  <span className="text-[10px] text-emerald-400/70">{topGainers.length} symbols</span>
+                ) : undefined
+              }
+            />
+            <div className="mt-3 space-y-2">
+              {topGainers.slice(0, 8).map((item) => {
+                const rank = sectorRankMap.get(item.sector.toLowerCase()) ?? 6;
+                const conviction = scoreAssetConviction(item.changePercent, rank, item.volume);
+                return (
+                  <MoverRow
+                    key={item.id}
+                    item={item}
+                    side="gainer"
+                    sectorRank={rank}
+                    conviction={conviction}
+                    onSelect={setHighlightedAsset}
+                  />
+                );
+              })}
+              {topGainers.length === 0 && (
+                <p className="text-xs text-slate-500">Scanning for momentum leaders…</p>
+              )}
             </div>
           </div>
           <div className="p-4">
-            <SectionHeader title="Top Losers" subtitle="Pressure zones" />
-            <div className="mt-3 space-y-1.5">
-              {topLosers.slice(0, 7).map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-rose-400/10 bg-rose-500/[0.04] px-3 py-2"
-                >
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-white">{item.symbol}</p>
-                    <p className="text-[10px] text-slate-500 truncate">{item.sector}</p>
-                  </div>
-                  <p className="shrink-0 text-sm font-bold text-rose-400">{fmtPercent(item.changePercent, true)}</p>
-                </div>
-              ))}
+            <SectionHeader
+              title="Top Losers"
+              subtitle="Pressure zones"
+              action={
+                topLosers.length > 0 ? (
+                  <span className="text-[10px] text-rose-400/70">{topLosers.length} symbols</span>
+                ) : undefined
+              }
+            />
+            <div className="mt-3 space-y-2">
+              {topLosers.slice(0, 8).map((item) => {
+                const rank = sectorRankMap.get(item.sector.toLowerCase()) ?? 6;
+                const conviction = scoreAssetConviction(item.changePercent, rank, item.volume);
+                return (
+                  <MoverRow
+                    key={item.id}
+                    item={item}
+                    side="loser"
+                    sectorRank={rank}
+                    conviction={conviction}
+                    onSelect={setHighlightedAsset}
+                  />
+                );
+              })}
+              {topLosers.length === 0 && (
+                <p className="text-xs text-slate-500">No significant declines detected.</p>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Row 5: Macro AI signals */}
+        {/* ── Row 5: Macro AI signals ── */}
         <div className="p-4">
           <SectionHeader title="Macro Intelligence" subtitle="Institutional macro tape · AI-generated signals" />
           <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -335,7 +671,7 @@ export function MarketsPulse() {
           ) : null}
         </div>
 
-        {/* Highlighted asset detail (if user clicks heatmap cell) */}
+        {/* ── Highlighted asset detail ── */}
         {highlightedAsset ? (
           <div className="border-t border-white/8 px-4 py-3 flex items-center justify-between gap-4 bg-white/[0.02]">
             <div>
@@ -346,7 +682,9 @@ export function MarketsPulse() {
               <div className="text-right">
                 <p className="text-[10px] text-slate-500">Change</p>
                 <p
-                  className={`text-sm font-semibold ${highlightedAsset.changePercent >= 0 ? "text-emerald-400" : "text-rose-400"}`}
+                  className={`text-sm font-semibold tabular-nums ${
+                    highlightedAsset.changePercent >= 0 ? "text-emerald-400" : "text-rose-400"
+                  }`}
                 >
                   {fmtPercent(highlightedAsset.changePercent, true)}
                 </p>

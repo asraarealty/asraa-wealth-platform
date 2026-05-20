@@ -13,6 +13,19 @@ const MIN_SEARCH_LENGTH = MARKET_SEARCH_MIN_QUERY_LENGTH;
 const SCREENER_FILTERS = ["All", "Momentum", "Value", "Recovery", "Breakout", "Accumulation"] as const;
 type ScreenerFilter = (typeof SCREENER_FILTERS)[number];
 
+const SECTOR_CHIPS = ["All Sectors", "AI", "Banking", "Pharma", "Energy", "Metals", "Tech", "Defense", "India Growth", "Global Tech"] as const;
+type SectorChip = (typeof SECTOR_CHIPS)[number];
+
+const SECTOR_CHIP_MAP: Record<Exclude<SectorChip, "All Sectors" | "India Growth" | "Global Tech">, string[]> = {
+  AI: ["ai", "technology", "software"],
+  Banking: ["financials", "banking", "finance"],
+  Pharma: ["healthcare", "pharma", "biotech"],
+  Energy: ["energy", "oil", "gas"],
+  Metals: ["metals", "metal", "mining", "precious metal"],
+  Tech: ["technology", "communication", "software", "ai"],
+  Defense: ["defense", "aerospace", "industrials"],
+};
+
 interface Opportunity {
   asset: MarketAsset;
   conviction: number;
@@ -74,6 +87,28 @@ function applyScreenerFilter(items: Opportunity[], filter: ScreenerFilter): Oppo
   };
   const tags = tagMap[filter] ?? [];
   return items.filter((o) => tags.includes(o.tag));
+}
+
+function applySectorChip(items: Opportunity[], chip: SectorChip): Opportunity[] {
+  if (chip === "All Sectors") return items;
+  if (chip === "India Growth") return items.filter((o) => o.asset.market === "India");
+  if (chip === "Global Tech") {
+    return items.filter(
+      (o) =>
+        o.asset.market === "Global" &&
+        ["technology", "communication", "ai"].some((t) =>
+          o.asset.sector.toLowerCase().includes(t)
+        )
+    );
+  }
+  const targets = SECTOR_CHIP_MAP[chip];
+  return items.filter((o) =>
+    targets.some(
+      (t) =>
+        o.asset.sector.toLowerCase().includes(t) ||
+        o.asset.category.toLowerCase().includes(t)
+    )
+  );
 }
 
 const TAG_STYLES: Record<string, string> = {
@@ -169,6 +204,7 @@ export function DiscoverEngine() {
 
   const [query, setQuery] = useState("");
   const [screenerFilter, setScreenerFilter] = useState<ScreenerFilter>("All");
+  const [sectorChip, setSectorChip] = useState<SectorChip>("All Sectors");
 
   useEffect(() => {
     if (query.trim().length > 0 && query.trim().length < MIN_SEARCH_LENGTH) return;
@@ -180,10 +216,10 @@ export function DiscoverEngine() {
     [assets, sectorMovers, trendingAssets, intelligence.opportunities]
   );
 
-  const filteredOpportunities = useMemo(
-    () => applyScreenerFilter(opportunities, screenerFilter),
-    [opportunities, screenerFilter]
-  );
+  const filteredOpportunities = useMemo(() => {
+    const byScreener = applyScreenerFilter(opportunities, screenerFilter);
+    return applySectorChip(byScreener, sectorChip);
+  }, [opportunities, screenerFilter, sectorChip]);
 
   const searchResults = useMemo(
     () =>
@@ -232,28 +268,47 @@ export function DiscoverEngine() {
 
       {/* Screener bar */}
       <div className="border-b border-white/8 px-4 py-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex-1 min-w-[200px] max-w-sm">
-            <SearchCommandBar
-              value={query}
-              onChange={setQuery}
-              placeholder="Search ideas, sectors, themes..."
-              label="Discovery screener"
-            />
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex-1 min-w-[200px] max-w-sm">
+              <SearchCommandBar
+                value={query}
+                onChange={setQuery}
+                placeholder="Search ideas, sectors, themes..."
+                label="Discovery screener"
+              />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {SCREENER_FILTERS.map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setScreenerFilter(f)}
+                  className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+                    screenerFilter === f
+                      ? "border-amber-400/30 bg-amber-500/15 text-amber-200"
+                      : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
           </div>
+          {/* Sector/theme chip filters */}
           <div className="flex flex-wrap gap-1.5">
-            {SCREENER_FILTERS.map((f) => (
+            {SECTOR_CHIPS.map((chip) => (
               <button
-                key={f}
+                key={chip}
                 type="button"
-                onClick={() => setScreenerFilter(f)}
-                className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
-                  screenerFilter === f
-                    ? "border-amber-400/30 bg-amber-500/15 text-amber-200"
-                    : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-slate-200"
+                onClick={() => setSectorChip(chip)}
+                className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium transition-colors ${
+                  sectorChip === chip
+                    ? "border-amber-400/35 bg-amber-500/12 text-amber-200"
+                    : "border-white/8 bg-white/[0.02] text-slate-500 hover:text-slate-300"
                 }`}
               >
-                {f}
+                {chip}
               </button>
             ))}
           </div>

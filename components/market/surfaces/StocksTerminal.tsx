@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { RuntimeObservabilityBadges } from "@/components/runtime/RuntimeObservabilityBadges";
 import { SurfaceCard } from "@/components/v2/ui";
 import { fmtLastUpdated, fmtPercent } from "@/lib/formatters";
@@ -176,6 +176,21 @@ const AssetRow = memo(function AssetRow({
   const trendPath = sparklinePath(item.sparkline);
   const convictionTone = tone(conviction);
   const convictionState = convictionLabel(conviction);
+
+  const prevRef = useRef(item.changePercent);
+  const [flashClass, setFlashClass] = useState("");
+  useEffect(() => {
+    const prev = prevRef.current;
+    const current = item.changePercent;
+    if (current !== prev) {
+      prevRef.current = current;
+      const cls = current > prev ? "price-flash-up" : "price-flash-down";
+      setFlashClass(cls);
+      const t = setTimeout(() => setFlashClass(""), 950);
+      return () => clearTimeout(t);
+    }
+  }, [item.changePercent]);
+
   return (
     <button
       id={rowId}
@@ -183,7 +198,7 @@ const AssetRow = memo(function AssetRow({
       role="option"
       aria-selected={selected || highlighted}
       onClick={() => onSelect(item)}
-      className={`w-full rounded-xl border px-3.5 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/60 ${
+      className={`w-full rounded-xl border px-3.5 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/60 ${flashClass} ${
         selected
           ? "border-sky-300/50 bg-sky-500/12 shadow-[0_0_0_1px_rgba(125,211,252,0.15)]"
           : highlighted
@@ -210,7 +225,7 @@ const AssetRow = memo(function AssetRow({
         </div>
         <div className="shrink-0 text-right">
           <p className="text-xs text-slate-400">{item.price > 0 ? formatPrice(item) : "—"}</p>
-          <p className={`mt-0.5 text-xs font-semibold ${item.changePercent >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+          <p className={`mt-0.5 text-xs font-semibold tabular-nums ${item.changePercent >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
             {fmtPercent(item.changePercent, true)}
           </p>
           <p className="mt-1 text-[10px] text-slate-500">Conviction {conviction}/100</p>
