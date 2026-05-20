@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Asset as DashboardAsset } from "@/lib/types/assets";
 import type { Asset as AdminAsset } from "@/lib/api";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
+import type { PortfolioHolding } from "@/domains/portfolio";
 import type { MarketPricePoint } from "@/lib/services/market";
 
 function getEditHref(asset: Asset): string {
@@ -55,7 +56,6 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-
 function read(asset: Asset, ...keys: string[]) {
   const record = asset as unknown as Record<string, unknown>;
   for (const key of keys) {
@@ -68,9 +68,7 @@ type Asset = DashboardAsset | AdminAsset;
 
 export function AssetCard({
   asset,
-  allocationPct,
-  livePrice,
-  liveValue,
+  holding,
   pricePoint,
   onDelete,
   onEdit,
@@ -78,26 +76,19 @@ export function AssetCard({
   onView,
 }: {
   asset: Asset;
-  allocationPct?: number;
-  livePrice?: number;
-  liveValue?: number;
+  holding: PortfolioHolding;
   pricePoint?: MarketPricePoint;
   onDelete?: () => void;
   onEdit?: () => void;
   deleteLabel?: string;
   onView?: () => void;
 }) {
-  const avgCost = asset.type === "property" ? toNumber(read(asset, "purchase_price", "purchasePrice")) : asset.type === "mf" ? toNumber(read(asset, "nav", "avg_price", "avgPrice")) : toNumber(read(asset, "avg_price", "avgPrice"));
-  const effectiveLivePrice = livePrice ?? (asset.type === "property" ? toNumber(read(asset, "current_value", "currentValue", "value")) : asset.type === "mf" ? toNumber(read(asset, "nav", "current_price", "currentPrice", "avg_price", "avgPrice")) : toNumber(read(asset, "current_price", "currentPrice", "avg_price", "avgPrice")));
-  const units = asset.type === "property" ? 1 : toNumber(read(asset, "units", "quantity"));
-  const effectiveLiveValue = liveValue ?? (asset.type === "property" ? toNumber(read(asset, "current_value", "currentValue", "value")) : effectiveLivePrice * units || toNumber(read(asset, "value")));
-  const investedValue = asset.type === "property" ? toNumber(read(asset, "purchase_price", "purchasePrice")) : units * avgCost;
-  const pnlPct = investedValue > 0 ? ((effectiveLiveValue - investedValue) / investedValue) * 100 : toNumber(read(asset, "return_percentage", "returnPercent", "return_percent"));
-  const income = asset.type === "property" ? toNumber(read(asset, "rent_amount", "rentAmount")) : 0;
-  const risk = (allocationPct ?? 0) >= 35 ? "Concentrated" : (allocationPct ?? 0) >= 15 ? "Elevated" : "Balanced";
+  const allocationPct = holding.allocationPercent ?? 0;
   const occupancy = asset.type === "property" ? (read(asset, "tenant_name", "tenantName") ? "Occupied" : "Pipeline") : null;
   const tenant = asset.type === "property" ? (read(asset, "tenant_name", "tenantName") as string | null | undefined ?? null) : null;
   const propertyVisual = asset.type === "property" ? String(read(asset, "location") ?? asset.name).slice(0, 2).toUpperCase() : getIcon(asset);
+  const income = asset.type === "property" ? toNumber(read(asset, "rent_amount", "rentAmount")) : 0;
+  const risk = allocationPct >= 35 ? "Concentrated" : allocationPct >= 15 ? "Elevated" : "Balanced";
 
   return (
     <article className="flex h-full flex-col rounded-[1.4rem] border border-white/8 bg-[linear-gradient(165deg,rgba(10,22,51,0.88),rgba(4,9,21,0.92))] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.28)]">
@@ -112,8 +103,8 @@ export function AssetCard({
               <p className="mt-1 truncate text-xs uppercase tracking-[0.14em] text-slate-400">{asset.symbol || getTypeLabel(asset)}</p>
             </div>
             <div className="text-right">
-              <p className="text-sm font-semibold text-white">{fmtCurrency(effectiveLiveValue)}</p>
-              <p className={`mt-1 text-xs font-semibold ${pnlPct >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtPercent(pnlPct, true)}</p>
+              <p className="text-sm font-semibold text-white">{fmtCurrency(holding.currentValue)}</p>
+              <p className={`mt-1 text-xs font-semibold ${holding.returnPercent >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtPercent(holding.returnPercent, true)}</p>
             </div>
           </div>
           {(occupancy || tenant) ? (
@@ -126,9 +117,9 @@ export function AssetCard({
       </div>
 
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-        <Metric label={getUnitsLabel(asset)} value={asset.type === "property" ? "1 property" : `${units || 0}`} />
-        <Metric label="Avg cost" value={avgCost > 0 ? fmtCurrency(avgCost) : "Awaiting cost basis"} />
-        <Metric label="Live price" value={effectiveLivePrice > 0 ? fmtCurrency(effectiveLivePrice) : "Awaiting price sync"} />
+        <Metric label={getUnitsLabel(asset)} value={asset.type === "property" ? "1 property" : `${holding.quantity || 0}`} />
+        <Metric label={asset.type === "property" ? "Purchase price" : "Avg cost"} value={holding.purchasePrice > 0 ? fmtCurrency(holding.purchasePrice) : "Awaiting cost basis"} />
+        <Metric label="Live price" value={holding.currentPrice > 0 ? fmtCurrency(holding.currentPrice) : "Awaiting price sync"} />
         <Metric label="Allocation" value={allocationPct != null && allocationPct > 0 ? fmtPercent(allocationPct) : "Portfolio pending"} />
       </div>
 
@@ -136,7 +127,7 @@ export function AssetCard({
         <Metric label="Asset class" value={getTypeLabel(asset)} />
         <Metric label="Income" value={income > 0 ? `${fmtCurrency(income)}/mo` : "No active income"} />
         <Metric label="Risk" value={risk} />
-        <Metric label="Last updated" value={formatDate((pricePoint?.asOf as string | undefined) ?? (read(asset, "created_at", "createdAt") as string | undefined))} />
+        <Metric label="Last updated" value={formatDate((holding.lastPriceUpdatedAt as string | undefined) ?? (pricePoint?.asOf as string | undefined) ?? (read(asset, "created_at", "createdAt") as string | undefined))} />
       </div>
 
       <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-2 pt-3">

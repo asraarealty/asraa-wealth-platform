@@ -38,6 +38,7 @@ import { DASHBOARD_FULL_KEY } from "@/context/DashboardContext";
 import { adminQueryKeys } from "@/lib/queryKeys/admin";
 import { deriveClientReadinessContract } from "@/domains/client";
 import { useAdminClientLifecycleMutation, useAdminClientProfile } from "@/domains/admin";
+import { toPortfolioHolding } from "@/domains/portfolio";
 
 const INITIAL_WORKSPACE_MODE: WorkspaceMode = "portfolio";
 const DRAWER_BG_GRADIENT = "bg-[linear-gradient(160deg,rgba(10,22,51,0.98),rgba(4,9,21,0.99))]";
@@ -979,15 +980,19 @@ export function ClientDetailPanel({
                     {safeAssets.map((asset) => {
                       const holding = valuationMap[asset.id];
                       const source = livePricing.data?.[asset.id];
-                      const liveValue = holding?.liveValue ?? asset.value ?? 0;
-                      const allocationPct = workspaceClient.totalNetWorth > 0 ? (liveValue * 100) / workspaceClient.totalNetWorth : 0;
+                      const cardHolding = toPortfolioHolding(asset, {
+                        currentPrice: holding?.livePrice,
+                        currentValue: holding?.liveValue,
+                        investedValue: holding?.investedValue,
+                        profitLoss: holding?.unrealizedPnL,
+                        totalCurrentValue: valuation.liveValue,
+                        lastPriceUpdatedAt: typeof source?.asOf === "string" ? source.asOf : undefined,
+                      });
                       return (
                         <AssetCard
                           key={asset.id}
                           asset={asset}
-                          allocationPct={allocationPct}
-                          livePrice={holding?.livePrice}
-                          liveValue={holding?.liveValue}
+                          holding={cardHolding}
                           pricePoint={source}
                           onEdit={inventoryMutation.isPending ? undefined : () => openInventoryEditor("edit", asset)}
                           onDelete={inventoryMutation.isPending ? undefined : () => setAssetToDelete(asset)}
