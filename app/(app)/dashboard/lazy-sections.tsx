@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
   AlertFeedItem,
@@ -23,6 +23,13 @@ interface RecommendationItem {
   confidence?: number;
 }
 
+function getRecommendationBadge(tone: IntelTone): { label: string; tone: "info" | "success" | "warn" | "danger" } {
+  if (tone === "danger") return { label: "Priority", tone: "danger" };
+  if (tone === "warn") return { label: "Watch", tone: "warn" };
+  if (tone === "success") return { label: "Good", tone: "success" };
+  return { label: "Info", tone: "info" };
+}
+
 function fmtCompact(n: number) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -38,7 +45,7 @@ export function PropertyIncomeOccupancySection({ data }: { data: DashboardOperat
   return (
     <SurfaceCard className="p-5 sm:p-6">
       <SectionHeader
-        eyebrow="Property Income & Occupancy"
+        eyebrow="Property Performance"
         title="Property Income & Occupancy"
         subtitle="Rental income, occupancy, overdue rent and valuation"
         action={<Link href="/real-estate" className="v2-link">View properties →</Link>}
@@ -91,12 +98,12 @@ export function PortfolioHealthSection({
 
   const tone = state === "Action Needed" ? "danger" : state === "Watch" ? "warn" : "success";
 
-  const orderedRecommendations = useMemo(() => recommendations.slice(0, 3), [recommendations]);
+  const orderedRecommendations = recommendations.slice(0, 3);
 
   return (
     <SurfaceCard className="p-5 sm:p-6">
       <SectionHeader
-        eyebrow="Portfolio Health"
+        eyebrow="Risk & Recommendations"
         title="Portfolio Health"
         subtitle="Clear risk state and focused next steps"
       />
@@ -109,18 +116,21 @@ export function PortfolioHealthSection({
       </div>
 
       <div className="mt-4 space-y-2">
-        {orderedRecommendations.map((item, index) => (
-          <div key={`${item.title}-${index}`} className="v2-tile rounded-xl p-3">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-sm font-medium text-white leading-snug">{item.title}</p>
-              <StatusPill label={item.tone === "danger" ? "Priority" : item.tone === "warn" ? "Watch" : item.tone === "success" ? "Good" : "Info"} tone={item.tone === "danger" ? "danger" : item.tone === "warn" ? "warn" : item.tone === "success" ? "success" : "info"} />
+        {orderedRecommendations.map((item) => {
+          const badge = getRecommendationBadge(item.tone);
+          return (
+            <div key={`${item.title}-${item.message}`} className="v2-tile rounded-xl p-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-medium text-white leading-snug">{item.title}</p>
+                <StatusPill label={badge.label} tone={badge.tone} />
+              </div>
+              <p className="mt-1 text-xs text-slate-400 leading-relaxed">{item.message}</p>
+              {showConfidence && typeof item.confidence === "number" ? (
+                <p className="mt-1 text-[11px] text-slate-500">{Math.round(item.confidence * 100)}% confidence</p>
+              ) : null}
             </div>
-            <p className="mt-1 text-xs text-slate-400 leading-relaxed">{item.message}</p>
-            {showConfidence && typeof item.confidence === "number" ? (
-              <p className="mt-1 text-[11px] text-slate-500">{Math.round(item.confidence * 100)}% confidence</p>
-            ) : null}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </SurfaceCard>
   );
@@ -130,7 +140,7 @@ export function RecentActivitySection({ data }: { data: DashboardOperatingData }
   return (
     <SurfaceCard className="p-5 sm:p-6">
       <SectionHeader
-        eyebrow="Recent Activity"
+        eyebrow="Activity Feed"
         title="Recent Activity"
         subtitle="Latest events across your portfolio"
         action={<Link href="/activity" className="v2-link">View all →</Link>}

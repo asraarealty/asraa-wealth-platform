@@ -49,6 +49,7 @@ function fmtPct(n: number) {
 }
 
 type HealthState = "Healthy" | "Watch" | "Action Needed";
+type StatusTone = "info" | "success" | "warn" | "danger";
 
 interface RecommendationItem {
   title: string;
@@ -63,45 +64,58 @@ function mapHealthState(riskState: "Low" | "Medium" | "High"): HealthState {
   return "Healthy";
 }
 
-function mapHealthTone(state: HealthState): "success" | "warn" | "danger" {
+function mapHealthTone(state: HealthState): StatusTone {
   if (state === "Action Needed") return "danger";
   if (state === "Watch") return "warn";
   return "success";
 }
 
+const HEALTH_SCORE_BASE = {
+  highRisk: 42,
+  mediumRisk: 66,
+  lowRisk: 88,
+} as const;
+
+/**
+ * Truncates recommendation copy for compact cards.
+ * The default limit keeps messages readable on tablet while preserving quick scanability.
+ * Ellipsis is appended only when truncation occurs.
+ */
 function summarizeText(text: string, limit = 110) {
   const compact = text.replace(/\s+/g, " ").trim();
   if (compact.length <= limit) return compact;
-  return `${compact.slice(0, limit - 1)}…`;
+  return `${compact.slice(0, limit)}…`;
 }
 
 function computeHealthScore(data: ReturnType<typeof useOperatingSystemData>["data"]) {
-  const base = data.executive.riskState === "High" ? 42 : data.executive.riskState === "Medium" ? 66 : 88;
+  const base =
+    data.executive.riskState === "High"
+      ? HEALTH_SCORE_BASE.highRisk
+      : data.executive.riskState === "Medium"
+      ? HEALTH_SCORE_BASE.mediumRisk
+      : HEALTH_SCORE_BASE.lowRisk;
   const diversificationRaw = Number(data.risk?.diversification?.score ?? Number.NaN);
+  // If diversification score is unavailable from backend hydration, keep a stable risk-state baseline.
   if (!Number.isFinite(diversificationRaw)) return base;
   const diversification = Math.max(0, Math.min(100, diversificationRaw));
   return Math.round(base * 0.65 + diversification * 0.35);
 }
 
 function buildHealthRecommendations(data: ReturnType<typeof useOperatingSystemData>["data"]): RecommendationItem[] {
-  const items: RecommendationItem[] = [];
-
-  data.priorityActions.slice(0, 3).forEach((action) => {
-    items.push({
+  const actionItems: RecommendationItem[] = data.priorityActions.slice(0, 3).map((action) => ({
       title: action.title,
       message: summarizeText(action.description || "Review this portfolio action."),
       tone: action.severity === "high" ? "danger" : action.severity === "medium" ? "warn" : "info",
-    });
-  });
+    }));
 
-  data.recommendations.slice(0, 3).forEach((rec) => {
-    items.push({
+  const recommendationItems: RecommendationItem[] = data.recommendations.slice(0, 3).map((rec) => ({
       title: rec.title,
       message: summarizeText(rec.rationale || "Review this recommendation."),
       tone: "info",
       confidence: rec.confidence,
-    });
-  });
+    }));
+
+  const items: RecommendationItem[] = [...actionItems, ...recommendationItems];
 
   if (data.realEstate.overdueRent > 0) {
     items.push({
@@ -129,6 +143,8 @@ function buildAllocation(data: ReturnType<typeof useOperatingSystemData>["data"]
   const commodity = Math.max(0, data.allocation.commodity ?? 0);
   const known = stock + mf + property + commodity;
   const cash = known < 100 ? Math.max(0, 100 - known) : 0;
+  // /dashboard/full currently exposes stock/mf/property/commodity allocation only.
+  // Keep fixed income explicit in UI taxonomy until backend provides a dedicated field.
   const fixedIncome = 0;
 
   return [
@@ -180,12 +196,19 @@ export default function DashboardPage() {
   const allocationSlices = buildAllocation(data);
   const donutGradient = buildDonutGradient(allocationSlices);
 
-  const topHolding = [...data.assets].sort((a, b) => (b.value ?? 0) - (a.value ?? 0))[0];
-  const largestExposure = [...allocationSlices].sort((a, b) => b.value - a.value)[0];
+  const topHolding = data.assets.reduce<(typeof data.assets)[number] | undefined>(
+    (maxAsset, asset) => ((asset.value ?? 0) > (maxAsset?.value ?? 0) ? asset : maxAsset),
+    undefined
+  );
+  const largestExposure = allocationSlices.reduce<(typeof allocationSlices)[number] | undefined>(
+    (maxSlice, slice) => (slice.value > (maxSlice?.value ?? 0) ? slice : maxSlice),
+    undefined
+  );
 
   const activeClassCount = allocationSlices.filter((item) => item.value > 0).length;
   const diversificationScore = Number.isFinite(Number(data.risk?.diversification?.score))
     ? Math.max(0, Math.min(100, Number(data.risk?.diversification?.score)))
+    // Fallback proxy uses breadth of active asset classes when backend score is unavailable.
     : Math.round((activeClassCount / allocationSlices.length) * 100);
 
   return (
@@ -193,7 +216,7 @@ export default function DashboardPage() {
       <SurfaceCard className="p-5 sm:p-6 lg:p-7">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
           <SectionHeader
-            eyebrow="Unified Wealth Overview"
+            eyebrow="Executive Summary"
             title="Your wealth at a glance"
             subtitle={`Horizon ${timeHorizon.toUpperCase()} · Risk profile ${riskProfile}`}
           />
@@ -244,7 +267,7 @@ export default function DashboardPage() {
       <SurfaceCard className="p-5 sm:p-6">
         <SectionHeader
           eyebrow="Portfolio Allocation + Performance"
-          title="Portfolio Allocation"
+          title="Portfolio Allocation & Performance"
           subtitle="A single view of what you own and how balanced it is"
         />
 
