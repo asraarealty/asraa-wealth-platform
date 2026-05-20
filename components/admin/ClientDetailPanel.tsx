@@ -431,11 +431,19 @@ export function ClientDetailPanel({
     () =>
       safeAssets
         .map((asset) => {
+          const num = (value: unknown) => {
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : 0;
+          };
+          const record = asset as unknown as Record<string, unknown>;
           const holding = valuationMap[asset.id];
-          const liveValue = holding?.liveValue ?? asset.value ?? 0;
-          const investedValue = holding?.investedValue ?? asset.value ?? 0;
-          const unrealizedPnL = holding?.unrealizedPnL ?? 0;
-          const unrealizedPnLPct = (unrealizedPnL / Math.max(investedValue, 1)) * 100;
+          const liveValue = num(record.current_value ?? record.currentValue ?? record.value);
+          const investedValue = num(record.invested_value ?? record.investedValue);
+          const unrealizedPnL = num(
+            record.profit_loss ?? record.profitLoss ?? record.unrealized_pnl ?? record.unrealizedPnL ?? record.gain_loss ?? record.gainLoss ?? 0
+          );
+          const unrealizedPnLPct = num(record.return_percentage ?? record.returnPercent ?? record.return_percent);
+          const allocationPct = num(record.allocation_percent ?? record.allocationPercent ?? record.allocation);
           return {
             key: `${workspaceClient.id}-${asset.id}`,
             clientId: workspaceClient.id,
@@ -448,7 +456,7 @@ export function ClientDetailPanel({
             livePrice: holding?.livePrice ?? asset.currentPrice ?? asset.current_price ?? 0,
             liveValue,
             investedValue,
-            allocationPct: valuation.liveValue > 0 ? (liveValue * 100) / valuation.liveValue : 0,
+            allocationPct,
             unrealizedPnL,
             unrealizedPnLPct,
             quoteConnected: Boolean(livePricing.data?.[asset.id]),
@@ -464,7 +472,7 @@ export function ClientDetailPanel({
           };
         })
         .sort((a, b) => b.liveValue - a.liveValue),
-    [livePricing.data, safeAssets, valuation.liveValue, valuationMap, workspaceClient.canonicalStatus, workspaceClient.id, workspaceClient.name]
+    [livePricing.data, safeAssets, valuationMap, workspaceClient.canonicalStatus, workspaceClient.id, workspaceClient.name]
   );
 
   const overviewKpis = useMemo(
@@ -982,10 +990,6 @@ export function ClientDetailPanel({
                       const source = livePricing.data?.[asset.id];
                       const cardHolding = toPortfolioHolding(asset, {
                         currentPrice: holding?.livePrice,
-                        currentValue: holding?.liveValue,
-                        investedValue: holding?.investedValue,
-                        profitLoss: holding?.unrealizedPnL,
-                        totalCurrentValue: valuation.liveValue,
                         lastPriceUpdatedAt: typeof source?.asOf === "string" ? source.asOf : undefined,
                       });
                       return (

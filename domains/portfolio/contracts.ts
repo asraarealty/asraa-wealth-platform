@@ -1,6 +1,5 @@
 import type { Asset as ApiAsset } from "@/lib/api";
 import type { Asset as DashboardAsset } from "@/lib/types/assets";
-import { deriveReturnPercent } from "@/lib/finance/returns";
 
 type AnyAsset = ApiAsset | DashboardAsset;
 
@@ -39,7 +38,7 @@ interface ToPortfolioHoldingOptions {
   investedValue?: number;
   profitLoss?: number;
   returnPercent?: number;
-  totalCurrentValue?: number;
+  allocationPercent?: number;
   lastPriceUpdatedAt?: string;
 }
 
@@ -73,7 +72,7 @@ export function toPortfolioHolding(
   options: ToPortfolioHoldingOptions = {}
 ): PortfolioHolding {
   const assetType = toAssetType(read(asset, "type", "asset_type"));
-  const quantity = assetType === "property" ? 1 : n(read(asset, "quantity", "units"), 0);
+  const quantity = assetType === "property" ? 1 : round2(n(read(asset, "quantity", "units"), 0));
 
   const purchasePrice = round2(
     n(
@@ -91,16 +90,14 @@ export function toPortfolioHolding(
   const currentPrice = round2(
     n(
       options.currentPrice,
-      assetType === "property"
-        ? n(read(asset, "current_value", "currentValue"), purchasePrice)
-        : n(read(asset, "current_price", "currentPrice", "nav"), purchasePrice)
+      n(read(asset, "current_price", "currentPrice", "nav"), 0)
     )
   );
 
   const investedValue = round2(
     n(
       options.investedValue,
-      assetType === "property" ? purchasePrice : quantity * purchasePrice
+      n(read(asset, "invested_value", "investedValue"), 0)
     )
   );
   const currentValue = round2(
@@ -108,20 +105,22 @@ export function toPortfolioHolding(
       options.currentValue,
       n(
         read(asset, "current_value", "currentValue", "value"),
-        assetType === "property" ? currentPrice : quantity * currentPrice
+        0
       )
     )
   );
 
-  const profitLoss = round2(n(options.profitLoss, currentValue - investedValue));
+  const profitLoss = round2(
+    n(
+      options.profitLoss,
+      n(read(asset, "profit_loss", "profitLoss", "unrealized_pnl", "unrealizedPnl", "gain_loss", "gainLoss"), 0)
+    )
+  );
   const explicitReturnRaw = options.returnPercent ?? read(asset, "return_percentage", "returnPercent", "return_percent");
-  const explicitReturnPercent =
-    explicitReturnRaw === undefined || explicitReturnRaw === null
-      ? undefined
-      : Number(explicitReturnRaw);
-  const returnPercent = round2(deriveReturnPercent(investedValue, currentValue, explicitReturnPercent));
-  const totalCurrentValue = n(options.totalCurrentValue, 0);
-  const allocationPercent = totalCurrentValue > 0 ? round2((currentValue * 100) / totalCurrentValue) : undefined;
+  const returnPercent = round2(n(explicitReturnRaw, 0));
+  const allocationPercentRaw =
+    options.allocationPercent ?? read(asset, "allocation_percent", "allocationPercent", "allocation");
+  const allocationPercent = allocationPercentRaw === undefined || allocationPercentRaw === null ? undefined : round2(n(allocationPercentRaw, 0));
   const purchaseDate = read(asset, "purchase_date", "purchaseDate");
 
   return {
