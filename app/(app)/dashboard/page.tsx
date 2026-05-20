@@ -94,7 +94,7 @@ function computeHealthScore(data: ReturnType<typeof useOperatingSystemData>["dat
       : data.executive.riskState === "Medium"
       ? HEALTH_SCORE_BASE.mediumRisk
       : HEALTH_SCORE_BASE.lowRisk;
-  const diversificationRaw = Number(data.risk?.diversification?.score ?? Number.NaN);
+  const diversificationRaw = Number(data.risk?.diversification?.score);
   // If diversification score is unavailable from backend hydration, keep a stable risk-state baseline.
   if (!Number.isFinite(diversificationRaw)) return base;
   const diversification = Math.max(0, Math.min(100, diversificationRaw));
@@ -137,15 +137,15 @@ function buildHealthRecommendations(data: ReturnType<typeof useOperatingSystemDa
 }
 
 function buildAllocation(data: ReturnType<typeof useOperatingSystemData>["data"]) {
+  const allocationRecord = data.allocation as unknown as Record<string, unknown>;
   const stock = Math.max(0, data.allocation.stock ?? 0);
   const mf = Math.max(0, data.allocation.mf ?? 0);
   const property = Math.max(0, data.allocation.property ?? 0);
   const commodity = Math.max(0, data.allocation.commodity ?? 0);
-  const known = stock + mf + property + commodity;
+  const fixedIncomeRaw = Number(allocationRecord.fixed_income ?? allocationRecord.fixedIncome);
+  const fixedIncome = Number.isFinite(fixedIncomeRaw) ? Math.max(0, fixedIncomeRaw) : 0;
+  const known = stock + mf + property + commodity + fixedIncome;
   const cash = known < 100 ? Math.max(0, 100 - known) : 0;
-  // /dashboard/full currently exposes stock/mf/property/commodity allocation only.
-  // Keep fixed income explicit in UI taxonomy until backend provides a dedicated field.
-  const fixedIncome = 0;
 
   return [
     { label: "Stocks", value: stock, color: "#3b82f6" },
@@ -194,6 +194,7 @@ export default function DashboardPage() {
   const healthScore = computeHealthScore(data);
   const recommendations = buildHealthRecommendations(data);
   const allocationSlices = buildAllocation(data);
+  const backendClassCount = allocationSlices.filter((item) => item.label !== "Cash").length;
   const donutGradient = buildDonutGradient(allocationSlices);
 
   const topHolding = data.assets.reduce<(typeof data.assets)[number] | undefined>(
@@ -205,11 +206,13 @@ export default function DashboardPage() {
     undefined
   );
 
-  const activeClassCount = allocationSlices.filter((item) => item.value > 0).length;
+  const activeClassCount = allocationSlices.filter((item) => item.label !== "Cash" && item.value > 0).length;
   const diversificationScore = Number.isFinite(Number(data.risk?.diversification?.score))
     ? Math.max(0, Math.min(100, Number(data.risk?.diversification?.score)))
-    // Fallback proxy uses breadth of active asset classes when backend score is unavailable.
-    : Math.round((activeClassCount / allocationSlices.length) * 100);
+    // Fallback proxy uses breadth of backend-provided asset classes when score is unavailable.
+    : backendClassCount > 0
+    ? Math.round((activeClassCount / backendClassCount) * 100)
+    : 0;
 
   return (
     <div className="space-y-7 animate-fade-in">
@@ -288,9 +291,9 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="flex-1 min-w-0 space-y-2.5 w-full">
+              <div className="flex-1 min-w-0 space-y-2.5 w-full" role="list" aria-label="Asset allocation breakdown">
                 {allocationSlices.map((slice) => (
-                  <div key={slice.label} className="flex items-center gap-2 text-xs">
+                  <div key={slice.label} className="flex items-center gap-2 text-xs" role="listitem">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: slice.color }} />
                     <span className="text-slate-300">{slice.label}</span>
                     <span className="ml-auto font-semibold text-white tabular-nums">{slice.value.toFixed(1)}%</span>

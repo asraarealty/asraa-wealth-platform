@@ -165,9 +165,11 @@ export function RecentActivitySection({ data }: { data: DashboardOperatingData }
 }
 
 export function MarketIntelligenceSection() {
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
     <SurfaceCard className="p-4 sm:p-5">
-      <details>
+      <details open={isOpen} onToggle={(event) => setIsOpen((event.currentTarget as HTMLDetailsElement).open)}>
         <summary className="cursor-pointer list-none">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -175,7 +177,7 @@ export function MarketIntelligenceSection() {
               <h2 className="text-sm sm:text-lg font-semibold text-white leading-tight">Market Command Center</h2>
               <p className="text-xs text-slate-500 mt-0.5">Secondary market context for optional review</p>
             </div>
-            <span className="v2-action">Expand</span>
+            <span className="v2-action">{isOpen ? "Collapse" : "Expand"}</span>
           </div>
         </summary>
         <div className="mt-4">
