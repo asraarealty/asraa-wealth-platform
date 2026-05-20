@@ -7,7 +7,10 @@ type RuntimeBoundaryScope =
   | "commodity-widget"
   | "intelligence-widget"
   | "runtime-stream-panel"
-  | "market-pulse-component";
+  | "market-pulse-component"
+  | "featured-opportunities-section"
+  | "property-income-occupancy-section"
+  | "market-snapshot-section";
 
 interface RuntimeErrorBoundaryProps {
   scope: RuntimeBoundaryScope;
@@ -24,6 +27,9 @@ const SCOPE_FALLBACKS: Record<RuntimeBoundaryScope, string> = {
   "intelligence-widget": "Intelligence widget temporarily unavailable",
   "runtime-stream-panel": "Runtime stream panel temporarily unavailable",
   "market-pulse-component": "Market pulse component temporarily unavailable",
+  "featured-opportunities-section": "Featured opportunities temporarily unavailable",
+  "property-income-occupancy-section": "Property income and occupancy temporarily unavailable",
+  "market-snapshot-section": "Market snapshot temporarily unavailable",
 };
 
 export class RuntimeErrorBoundary extends Component<

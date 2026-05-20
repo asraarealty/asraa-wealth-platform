@@ -4,6 +4,9 @@ import { memo, useCallback, useMemo, useRef } from "react";
 import type { FeaturedProperty } from "@/domains/portfolio";
 import { SectionHeader, SurfaceCard } from "@/components/v2/ui";
 
+const SCROLL_WIDTH_FACTOR = 0.88;
+const MIN_SCROLL_WIDTH_PX = 280;
+
 function isExternalHref(href: string) {
   return /^https?:\/\//i.test(href);
 }
@@ -28,7 +31,7 @@ export const FeaturedOpportunitiesSlider = memo(function FeaturedOpportunitiesSl
   const scrollRail = useCallback((direction: "prev" | "next") => {
     const rail = railRef.current;
     if (!rail) return;
-    const amount = Math.max(rail.clientWidth * 0.88, 280);
+    const amount = Math.max(rail.clientWidth * SCROLL_WIDTH_FACTOR, MIN_SCROLL_WIDTH_PX);
     rail.scrollBy({
       left: direction === "next" ? amount : -amount,
       behavior: "smooth",

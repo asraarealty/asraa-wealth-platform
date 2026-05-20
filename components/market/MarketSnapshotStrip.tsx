@@ -21,6 +21,11 @@ interface SnapshotState {
 }
 
 const POLL_INTERVAL_MS = 45_000;
+const GOLD_INSERT_INDEX = 3;
+const SPARKLINE_SEED_DIVISOR = 19;
+const SPARKLINE_WAVE_FACTOR = 0.85;
+const SPARKLINE_AMPLITUDE = 0.008;
+const SPARKLINE_DRIFT_FACTOR = 0.8;
 
 const INDEX_INSTRUMENTS = [
   { key: "^NSEI", label: "NIFTY" },
@@ -57,8 +62,8 @@ function buildSparkline(seed: string, price: number, changePercent: number) {
   const charSeed = Array.from(seed).reduce((sum, char, index) => sum + char.charCodeAt(0) * (index + 5), 0);
   const anchor = price > 0 ? price : 100;
   return Array.from({ length: 10 }, (_, index) => {
-    const wave = Math.sin((index + 1 + charSeed / 19) * 0.85) * (anchor * 0.008);
-    const drift = ((index - 4.5) / 9) * ((changePercent / 100) * anchor * 0.8);
+    const wave = Math.sin((index + 1 + charSeed / SPARKLINE_SEED_DIVISOR) * SPARKLINE_WAVE_FACTOR) * (anchor * SPARKLINE_AMPLITUDE);
+    const drift = ((index - 4.5) / 9) * ((changePercent / 100) * anchor * SPARKLINE_DRIFT_FACTOR);
     return Number((anchor - drift + wave).toFixed(2));
   });
 }
@@ -157,7 +162,7 @@ export const MarketSnapshotStrip = memo(function MarketSnapshotStrip() {
           };
         });
 
-        if (gold) items.splice(3, 0, gold);
+        if (gold) items.splice(GOLD_INSERT_INDEX, 0, gold);
 
         setState({
           items,

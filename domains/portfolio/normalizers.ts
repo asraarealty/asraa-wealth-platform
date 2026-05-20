@@ -44,7 +44,8 @@ const normalizeRiskState = (value: unknown): "Low" | "Medium" | "High" => {
 
 const readFirstString = (record: Record<string, unknown>, keys: string[]): string => {
   for (const key of keys) {
-    if (typeof record[key] === "string" && record[key].trim()) return record[key].trim();
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
   }
   return "";
 };
@@ -64,7 +65,7 @@ function buildFeaturedTagline(record: Record<string, unknown>): string {
   const location = readFirstString(record, ["location", "city", "address"]);
   const monthlyRent = asNum(record.rent_amount ?? record.rentAmount);
   const currentValue = asNum(record.current_value ?? record.currentValue ?? record.value);
-  if (monthlyRent > 0 && location) return `Income-ready address in ${location} with active rental potential.`;
+  if (monthlyRent > 0 && location) return `Income-producing property in ${location} with active rental potential.`;
   if (currentValue > 0) return "Curated real estate exposure designed for long-term wealth preservation.";
   return "Private real estate access selected for premium portfolio diversification.";
 }
