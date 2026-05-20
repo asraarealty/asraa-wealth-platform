@@ -25,14 +25,14 @@ export function AssetEditScreen({ forceType }: AssetEditScreenProps) {
 
   if (isLoading) {
     return (
-      <div className="px-4 pt-8 max-w-lg mx-auto text-slate-400 text-sm">Loading holding...</div>
+      <div className="mx-auto max-w-lg px-4 pt-8 text-sm text-slate-400">Loading holding...</div>
     );
   }
 
   if (!asset) {
     return (
-      <div className="px-4 pt-8 max-w-lg mx-auto space-y-3">
-        <p className="text-white text-sm">Holding not found.</p>
+      <div className="mx-auto max-w-lg space-y-3 px-4 pt-8">
+        <p className="text-sm text-white">Holding not found.</p>
         <button className="v2-action" onClick={() => router.push("/assets")}>
           Back to assets
         </button>
@@ -42,8 +42,8 @@ export function AssetEditScreen({ forceType }: AssetEditScreenProps) {
 
   if (forceType && asset.type !== forceType) {
     return (
-      <div className="px-4 pt-8 max-w-lg mx-auto space-y-3">
-        <p className="text-white text-sm">
+      <div className="mx-auto max-w-lg space-y-3 px-4 pt-8">
+        <p className="text-sm text-white">
           This holding is not a {forceType} asset.
         </p>
         <button className="v2-action" onClick={() => router.push(`/assets/${asset.id}/edit`)}>
@@ -60,6 +60,7 @@ export function AssetEditScreen({ forceType }: AssetEditScreenProps) {
       isSubmitting={updateAsset.isPending}
       error={error}
       onCancel={() => router.push("/assets")}
+      lockedType={forceType}
       onSubmit={async (payload) => {
         setError(null);
         try {
@@ -72,4 +73,3 @@ export function AssetEditScreen({ forceType }: AssetEditScreenProps) {
     />
   );
 }
-
