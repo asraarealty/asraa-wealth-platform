@@ -331,11 +331,11 @@ export default function DashboardPage() {
         </div>
       </SurfaceCard>
 
-      <RuntimeErrorBoundary scope="runtime-stream-panel">
+      <RuntimeErrorBoundary scope="runtime-stream-panel" label="featured-opportunities">
         <FeaturedOpportunitiesSection data={data} />
       </RuntimeErrorBoundary>
 
-      <RuntimeErrorBoundary scope="featured-property-performance">
+      <RuntimeErrorBoundary scope="runtime-stream-panel" label="property-income-occupancy">
         <PropertyIncomeOccupancySection data={data} />
       </RuntimeErrorBoundary>
 
@@ -347,7 +347,7 @@ export default function DashboardPage() {
         <RecentActivitySection data={data} />
       </RuntimeErrorBoundary>
 
-      <RuntimeErrorBoundary scope="market-snapshot-strip">
+      <RuntimeErrorBoundary scope="market-pulse-component" label="market-snapshot-strip">
         <MarketSnapshotSection />
       </RuntimeErrorBoundary>
     </div>
