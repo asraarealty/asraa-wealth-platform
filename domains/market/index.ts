@@ -27,3 +27,4 @@ export * from "./watchlist";
 export * from "./breadth";
 export * from "./intelligence";
 export * from "./allocation";
+export * from "./selectors";

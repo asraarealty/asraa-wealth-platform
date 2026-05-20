@@ -4,9 +4,16 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { MetricTile, SectionHeader, SurfaceCard } from "@/components/v2/ui";
 import { SearchCommandBar } from "@/components/v2/workspace";
 import { RuntimeObservabilityBadges } from "@/components/runtime/RuntimeObservabilityBadges";
-import { SurfaceDebugMarker } from "@/components/market/surfaces/SurfaceDebugMarker";
 import { fmtPercent, fmtLastUpdated } from "@/lib/formatters";
-import { useMarketDomainGraph, useMarketIntelligenceEngine, scoreAssetConviction, type MarketAsset } from "@/domains/market";
+import {
+  useMarketBreadth,
+  useMarketDomainGraph,
+  useSectorRotation,
+  useTopGainers,
+  useTopLosers,
+  scoreAssetConviction,
+  type MarketAsset,
+} from "@/domains/market";
 import { MARKET_SEARCH_MIN_QUERY_LENGTH } from "@/domains/market/search";
 import { MARKET_SECTOR_CHIPS, SECTOR_CHIP_KEYWORDS, type MarketSectorChip } from "@/domains/market/sectorFilters";
 
@@ -304,11 +311,6 @@ export function MarketsPulse() {
   const {
     assets,
     marketOverview,
-    topGainers,
-    topLosers,
-    sectorMovers,
-    watchlist,
-    breadth,
     search,
     runtime,
     searchMarket,
@@ -317,12 +319,14 @@ export function MarketsPulse() {
     refresh,
     lastUpdated,
   } = useMarketDomainGraph();
+  const topGainers = useTopGainers(8);
+  const topLosers = useTopLosers(8);
+  const sectorMovers = useSectorRotation(8);
+  const breadth = useMarketBreadth();
 
   const [query, setQuery] = useState("");
   const [highlightedAsset, setHighlightedAsset] = useState<MarketAsset | null>(null);
   const [heatmapChip, setHeatmapChip] = useState<MarketSectorChip>("All");
-
-  const intelligence = useMarketIntelligenceEngine(null, sectorMovers, watchlist);
 
   useEffect(() => {
     if (query.trim().length > 0 && query.trim().length < MIN_SEARCH_LENGTH) return;
@@ -359,27 +363,25 @@ export function MarketsPulse() {
     [filteredHeatmapAssets]
   );
 
-  const topSectors = sectorMovers.slice(0, 8);
   const updatedAt = fmtLastUpdated(lastUpdated);
 
   const pulseLabel =
-    breadth.marketPulse >= 60 ? "Bullish" : breadth.marketPulse >= 40 ? "Neutral" : "Bearish";
+    breadth.marketPulse > 0 ? "Positive tape" : breadth.marketPulse < 0 ? "Negative tape" : "Flat tape";
   const pulseColor =
-    breadth.marketPulse >= 60
+    breadth.marketPulse > 0
       ? "text-emerald-400"
-      : breadth.marketPulse >= 40
-      ? "text-amber-300"
-      : "text-rose-400";
+      : breadth.marketPulse < 0
+      ? "text-rose-400"
+      : "text-slate-300";
   const pulseDotClass =
-    breadth.marketPulse >= 60
+    breadth.marketPulse > 0
       ? "bg-emerald-400"
-      : breadth.marketPulse >= 40
-      ? "bg-amber-400"
-      : "bg-rose-500";
+      : breadth.marketPulse < 0
+      ? "bg-rose-500"
+      : "bg-slate-400";
 
   return (
     <SurfaceCard className="p-0 overflow-hidden">
-      <SurfaceDebugMarker surface="MarketsPulse" />
       {/* ── Header ── */}
       <div className="flex items-center justify-between gap-4 border-b border-white/8 bg-black/20 px-4 py-2.5">
         <div className="flex items-center gap-3">
@@ -441,7 +443,7 @@ export function MarketsPulse() {
           <div className="border-r border-white/8 p-4">
             <SectionHeader title="Sector Rotation" subtitle="Leadership drift and flow" />
             <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              {topSectors.map((sector, i) => (
+              {sectorMovers.map((sector, i) => (
                 <div
                   key={sector.sector}
                   className={`rounded-xl border px-3 py-2.5 transition-colors ${
@@ -493,7 +495,7 @@ export function MarketsPulse() {
                 <div className="mt-1.5 h-1 w-full rounded-full bg-white/8 overflow-hidden">
                   <div
                     className={`h-1 rounded-full transition-all duration-700 ${pulseDotClass}`}
-                    style={{ width: `${Math.max(4, Math.min(100, breadth.marketPulse))}%` }}
+                    style={{ width: `${Math.max(4, Math.min(100, Math.abs(breadth.marketPulse) * 20))}%` }}
                   />
                 </div>
               </div>
@@ -639,35 +641,6 @@ export function MarketsPulse() {
               )}
             </div>
           </div>
-        </div>
-
-        {/* ── Row 5: Macro AI signals ── */}
-        <div className="p-4">
-          <SectionHeader title="Macro Intelligence" subtitle="Institutional macro tape · AI-generated signals" />
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {intelligence.aiInsights.slice(0, 6).map((insight) => (
-              <div
-                key={insight.title}
-                className="rounded-xl border border-violet-400/15 bg-violet-500/[0.05] px-3 py-3"
-              >
-                <p className="text-[10px] uppercase tracking-[0.1em] text-violet-400/70">{insight.title}</p>
-                <p className="mt-1.5 text-xs text-slate-300 leading-5">{insight.message}</p>
-              </div>
-            ))}
-          </div>
-
-          {intelligence.riskAlerts.length > 0 ? (
-            <div className="mt-3 rounded-xl border border-amber-400/15 bg-amber-500/[0.05] px-4 py-3">
-              <p className="text-[10px] uppercase tracking-[0.1em] text-amber-400/70 mb-2">Macro Risk Signals</p>
-              <div className="grid gap-1.5 sm:grid-cols-2">
-                {intelligence.riskAlerts.slice(0, 4).map((alert) => (
-                  <p key={alert} className="text-xs text-amber-100/80">
-                    {alert}
-                  </p>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </div>
 
         {/* ── Highlighted asset detail ── */}

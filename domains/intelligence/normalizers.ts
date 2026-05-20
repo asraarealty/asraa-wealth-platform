@@ -1,6 +1,7 @@
 import { fetcher, toErrorMessage } from "@/lib/fetcher";
 import { fetchInsights } from "@/lib/api";
 import type { InsightsResponse } from "@/lib/api";
+import { parseIntelligencePipelineDto } from "./contracts";
 
 export interface IntelligencePipelineData {
   aiInsights: Array<{ title: string; message: string; confidence?: number }>;
@@ -59,7 +60,7 @@ export function normalizeIntelligencePayload(payload: unknown): IntelligencePipe
     rationale: asText(item.rationale ?? item.message),
   }));
 
-  return {
+  return parseIntelligencePipelineDto({
     aiInsights: asArray<Record<string, unknown>>(record.ai_market_insights ?? record.aiInsights ?? record.insights).map(
       (item, index) => ({
         title: asText(item.title, `Insight ${index + 1}`),
@@ -75,13 +76,17 @@ export function normalizeIntelligencePayload(payload: unknown): IntelligencePipe
     allocationRecommendations,
     marketSentiment: asText(record.market_sentiment ?? record.sentiment, "Neutral to constructive"),
     degradedState: null,
-  };
+  });
+}
+
+export function parseCanonicalIntelligencePayload(payload: unknown): IntelligencePipelineData {
+  return parseIntelligencePipelineDto(payload);
 }
 
 export async function fetchIntelligencePipeline(signal?: AbortSignal): Promise<IntelligencePipelineData> {
   try {
     const payload = await fetcher<unknown>("/intelligence", { raw: true, noRedirectOn401: true, signal });
-    return normalizeIntelligencePayload(payload);
+    return parseCanonicalIntelligencePayload(payload);
   } catch (error) {
     return {
       ...EMPTY_INTELLIGENCE,

@@ -99,10 +99,6 @@ export function deriveMarketCollections(
   items: MarketAsset[],
   options: { watchlistSymbols: string[]; adminTickers: string[] }
 ) {
-  console.log("[BREADTH_ENGINE_INPUT]", {
-    total: items.length,
-    first: items[0],
-  });
   const liquid = items.filter((item) => item.kind !== "mutual-fund");
   const topGainers = [...liquid].sort((a, b) => b.changePercent - a.changePercent).slice(0, 6);
   const topLosers = [...liquid].sort((a, b) => a.changePercent - b.changePercent).slice(0, 6);
@@ -119,12 +115,6 @@ export function deriveMarketCollections(
     .filter(Boolean) as MarketAsset[];
 
   const breadth = deriveBreadthMetrics(items);
-  console.log("[BREADTH_ENGINE_OUTPUT]", {
-    gainers: topGainers.length,
-    losers: topLosers.length,
-    breadth,
-    sampleGainer: topGainers[0],
-  });
 
   return {
     marketOverview: buildOverview(items),
