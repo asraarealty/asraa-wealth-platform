@@ -442,7 +442,7 @@ export function ClientDetailPanel({
           const unrealizedPnL = num(
             record.profit_loss ?? record.profitLoss ?? record.unrealized_pnl ?? record.unrealizedPnL ?? record.gain_loss ?? record.gainLoss ?? 0
           );
-          const unrealizedPnLPct = num(record.return_percentage ?? record.returnPercent ?? record.return_percent);
+          const returnPercentage = num(record.return_percentage ?? record.returnPercent ?? record.return_percent);
           const allocationPct = num(record.allocation_percent ?? record.allocationPercent ?? record.allocation);
           return {
             key: `${workspaceClient.id}-${asset.id}`,
@@ -458,7 +458,7 @@ export function ClientDetailPanel({
             investedValue,
             allocationPct,
             unrealizedPnL,
-            unrealizedPnLPct,
+            unrealizedPnLPct: returnPercentage,
             quoteConnected: Boolean(livePricing.data?.[asset.id]),
             groupingLabel:
               asset.type === "stock"
