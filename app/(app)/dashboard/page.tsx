@@ -21,8 +21,16 @@ const PropertyIncomeOccupancySection = dynamic(
   () => import("./lazy-sections").then((mod) => mod.PropertyIncomeOccupancySection),
   { loading: () => <DashboardSectionSkeleton /> }
 );
+const FeaturedOpportunitiesSection = dynamic(
+  () => import("./lazy-sections").then((mod) => mod.FeaturedOpportunitiesSection),
+  { loading: () => <DashboardSectionSkeleton /> }
+);
 const RecentActivitySection = dynamic(
   () => import("./lazy-sections").then((mod) => mod.RecentActivitySection),
+  { loading: () => <DashboardSectionSkeleton /> }
+);
+const MarketSnapshotSection = dynamic(
+  () => import("./lazy-sections").then((mod) => mod.MarketSnapshotSection),
   { loading: () => <DashboardSectionSkeleton /> }
 );
 
@@ -323,7 +331,11 @@ export default function DashboardPage() {
         </div>
       </SurfaceCard>
 
-      <RuntimeErrorBoundary scope="runtime-stream-panel">
+      <RuntimeErrorBoundary scope="featured-opportunities-section">
+        <FeaturedOpportunitiesSection data={data} />
+      </RuntimeErrorBoundary>
+
+      <RuntimeErrorBoundary scope="property-income-occupancy-section">
         <PropertyIncomeOccupancySection data={data} />
       </RuntimeErrorBoundary>
 
@@ -333,6 +345,10 @@ export default function DashboardPage() {
 
       <RuntimeErrorBoundary scope="market-pulse-component">
         <RecentActivitySection data={data} />
+      </RuntimeErrorBoundary>
+
+      <RuntimeErrorBoundary scope="market-snapshot-section">
+        <MarketSnapshotSection />
       </RuntimeErrorBoundary>
     </div>
   );

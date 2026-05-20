@@ -1,7 +1,12 @@
 import { fetcher } from "@/lib/fetcher";
 import type { Asset } from "@/lib/types/assets";
 import type { Transaction } from "@/lib/api";
-import { EMPTY_PORTFOLIO_OPERATING_DATA, type EventType, type PortfolioOperatingData } from "./types";
+import {
+  EMPTY_PORTFOLIO_OPERATING_DATA,
+  type EventType,
+  type FeaturedProperty,
+  type PortfolioOperatingData,
+} from "./types";
 
 const asNum = (value: unknown, fallback = 0): number => {
   const n = Number(value);
@@ -37,6 +42,107 @@ const normalizeRiskState = (value: unknown): "Low" | "Medium" | "High" => {
   return "Low";
 };
 
+const readFirstString = (record: Record<string, unknown>, keys: string[]): string => {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+};
+
+const normalizeOptionalUrl = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (!text) return null;
+  if (/^https?:\/\//i.test(text) || text.startsWith("/")) return text;
+  if (/^www\./i.test(text)) return `https://${text}`;
+  return null;
+};
+
+function buildFeaturedTagline(record: Record<string, unknown>): string {
+  const explicit = readFirstString(record, ["tagline", "tag_line", "subtitle", "headline", "description"]);
+  if (explicit) return explicit;
+  const location = readFirstString(record, ["location", "city", "address"]);
+  const monthlyRent = asNum(record.rent_amount ?? record.rentAmount);
+  const currentValue = asNum(record.current_value ?? record.currentValue ?? record.value);
+  if (monthlyRent > 0 && location) return `Income-producing property in ${location} with active rental potential.`;
+  if (currentValue > 0) return "Curated real estate exposure designed for long-term wealth preservation.";
+  return "Private real estate access selected for premium portfolio diversification.";
+}
+
+function toFeaturedProperty(record: Record<string, unknown>, index: number): FeaturedProperty | null {
+  const title = readFirstString(record, ["title", "name", "project_name", "projectName", "property_name", "propertyName"]);
+  if (!title) return null;
+
+  const location =
+    readFirstString(record, ["location", "city", "address", "micro_market", "microMarket"]) ||
+    "Private real estate opportunity";
+  const imageUrl = normalizeOptionalUrl(
+    record.image_url ??
+      record.imageUrl ??
+      record.card_image ??
+      record.cardImage ??
+      record.hero_image ??
+      record.heroImage ??
+      record.cover_image ??
+      record.coverImage ??
+      record.featured_image ??
+      record.featuredImage ??
+      record.thumbnail
+  );
+  const href = normalizeOptionalUrl(
+    record.site_link ??
+      record.siteLink ??
+      record.website ??
+      record.website_url ??
+      record.websiteUrl ??
+      record.url ??
+      record.link ??
+      record.property_url ??
+      record.propertyUrl
+  );
+
+  return {
+    id: readFirstString(record, ["id", "asset_id", "assetId", "slug"]) || `featured-property-${index}`,
+    title,
+    location,
+    tagline: buildFeaturedTagline(record),
+    imageUrl,
+    href,
+  };
+}
+
+function pickFeaturedPropertySource(
+  payload: Record<string, unknown>,
+  portfolioRaw: Record<string, unknown>,
+  realEstateRaw: Record<string, unknown>
+) {
+  const sources = [
+    payload.featured_properties,
+    payload.featuredProperties,
+    payload.featured_opportunities,
+    payload.featuredOpportunities,
+    payload.property_cards,
+    payload.propertyCards,
+    portfolioRaw.featured_properties,
+    portfolioRaw.featuredProperties,
+    portfolioRaw.featured_opportunities,
+    portfolioRaw.featuredOpportunities,
+    portfolioRaw.property_cards,
+    portfolioRaw.propertyCards,
+    realEstateRaw.featured_properties,
+    realEstateRaw.featuredProperties,
+    realEstateRaw.property_cards,
+    realEstateRaw.propertyCards,
+  ];
+
+  for (const source of sources) {
+    const items = asArray<Record<string, unknown>>(source);
+    if (items.length > 0) return items;
+  }
+  return [];
+}
+
 const classifyAlertType = (value: unknown): EventType => {
   const text = String(value ?? "").toLowerCase();
   if (text.includes("risk") || text.includes("overexposed") || text.includes("loss")) return "risk";
@@ -61,6 +167,18 @@ export function normalizeDashboardFullPayload(payloadValue: unknown): PortfolioO
   const explicitProperties = asArray<Asset>(portfolioRaw.properties);
   const properties = explicitProperties.length > 0 ? explicitProperties : assets.filter((asset) => asset?.type === "property");
   const transactions = asArray<Transaction>(portfolioRaw.transactions);
+  const realEstateRaw = asRecord(portfolioRaw.real_estate ?? portfolioRaw.realEstate);
+  const featuredPropertySource = pickFeaturedPropertySource(payload, portfolioRaw, realEstateRaw);
+  const normalizedFeaturedProperties = featuredPropertySource
+    .map((item, index) => toFeaturedProperty(asRecord(item), index))
+    .filter((item): item is FeaturedProperty => Boolean(item));
+  const fallbackFeaturedProperties = properties
+    .map((item, index) => toFeaturedProperty(asRecord(item as unknown as Record<string, unknown>), index))
+    .filter((item): item is FeaturedProperty => Boolean(item));
+  const featuredProperties = (normalizedFeaturedProperties.length > 0
+    ? normalizedFeaturedProperties
+    : fallbackFeaturedProperties
+  ).slice(0, 8);
 
   const typedAlerts = insightsRaw.slice(0, 12).map((alert, index) => {
     if (typeof alert === "string") {
@@ -110,7 +228,6 @@ export function normalizeDashboardFullPayload(payloadValue: unknown): PortfolioO
     severity: normalizeSeverity(item?.severity),
   }));
 
-  const realEstateRaw = asRecord(portfolioRaw.real_estate ?? portfolioRaw.realEstate);
   const occupied = asNum(realEstateRaw.occupied, properties.filter((p) => Boolean(p?.tenant_name)).length);
   const totalProperties = properties.length;
   const serverOccupancyPct = asNum(realEstateRaw.occupancy_pct ?? realEstateRaw.occupancyPct, Number.NaN);
@@ -171,6 +288,7 @@ export function normalizeDashboardFullPayload(payloadValue: unknown): PortfolioO
     activityFeed,
     priorityActions,
     recommendations,
+    featuredProperties,
     realEstate,
     executive,
     degradedState: null,

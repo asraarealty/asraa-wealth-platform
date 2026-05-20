@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { FeaturedOpportunitiesSlider } from "@/components/dashboard/FeaturedOpportunitiesSlider";
+import { MarketSnapshotStrip } from "@/components/market/MarketSnapshotStrip";
 import {
   AlertFeedItem,
   MetricTile,
@@ -86,6 +88,10 @@ export function PropertyIncomeOccupancySection({ data }: { data: DashboardOperat
   );
 }
 
+export function FeaturedOpportunitiesSection({ data }: { data: DashboardOperatingData }) {
+  return <FeaturedOpportunitiesSlider properties={data.featuredProperties} />;
+}
+
 export function PortfolioHealthSection({
   state,
   recommendations,
@@ -161,4 +167,8 @@ export function RecentActivitySection({ data }: { data: DashboardOperatingData }
       </div>
     </SurfaceCard>
   );
+}
+
+export function MarketSnapshotSection() {
+  return <MarketSnapshotStrip />;
 }
