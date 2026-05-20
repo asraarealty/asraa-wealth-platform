@@ -9,7 +9,6 @@ export {
 import { fetcher } from "./fetcher";
 import { resolveContractRequest } from "./api/contracts";
 import { normalizeAssetType, normalizeInsights } from "./api/normalizers";
-import { deriveReturnPercent } from "./finance/returns";
 
 /* ── Auth ───────────────────────────────────────────────────────────── */
 
@@ -351,10 +350,8 @@ function normalizeAssetRecord(a: any, userId?: number): Asset {
     (toFiniteNumber(a?.user_id ?? a?.userId ?? a?.client_id ?? a?.clientId, 0) || undefined);
   const quantity = toFiniteNumber(a?.quantity ?? 0, 0);
   const value = toFiniteNumber(a?.value ?? 0, 0);
-  const invested = type === "property" ? purchasePrice : quantity * avgPrice;
   const backendReturnPercent = Number(a?.return_percentage ?? a?.returnPercent ?? a?.return_percent);
-  const effectiveCurrentValue = type === "property" ? toFiniteNumber(a?.current_value ?? a?.currentValue ?? value, value) : value;
-  const returnPercent = deriveReturnPercent(invested, effectiveCurrentValue, backendReturnPercent);
+  const returnPercent = Number.isFinite(backendReturnPercent) ? backendReturnPercent : 0;
   const normalizedId = toFiniteNumber(a?.id ?? a?.asset_id ?? a?.assetId, 0);
 
   return {

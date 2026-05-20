@@ -77,9 +77,7 @@ export default function AssetsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {filtered.map((asset: Asset) => {
-            const holding = toPortfolioHolding(asset, {
-              totalCurrentValue: Number(summary?.total_value ?? 0),
-            });
+            const holding = toPortfolioHolding(asset);
             return (
               <AssetCard
                 key={asset.id}
