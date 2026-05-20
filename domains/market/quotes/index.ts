@@ -85,17 +85,33 @@ function parseQuoteResponse(payload: unknown): TickerQuote[] {
   return list.flatMap((item) => {
     if (!item || typeof item !== "object") return [];
     const quote = item as Record<string, unknown>;
-    const symbol = typeof quote.symbol === "string" ? normalizeTicker(quote.symbol) : "";
+    const symbol = typeof quote.symbol === "string"
+      ? normalizeTicker(quote.symbol)
+      : typeof quote.ticker === "string"
+      ? normalizeTicker(quote.ticker)
+      : typeof quote.code === "string"
+      ? normalizeTicker(quote.code)
+      : "";
     if (!symbol) return [];
     return [
       {
         symbol,
-        name: typeof quote.name === "string" ? quote.name : symbol,
-        price: toNum(quote.price ?? quote.regularMarketPrice),
-        change: toNum(quote.change ?? quote.regularMarketChange),
-        changePercent: toNum(quote.changePercent ?? quote.regularMarketChangePercent),
-        volume: toNum(quote.volume ?? quote.regularMarketVolume),
-        marketCap: toNum(quote.marketCap),
+        name: typeof quote.name === "string" ? quote.name : typeof quote.longName === "string" ? quote.longName : symbol,
+        price: toNum(quote.price ?? quote.lastPrice ?? quote.last_price ?? quote.ltp ?? quote.regularMarketPrice),
+        change: toNum(
+          quote.change ?? quote.price_change ?? quote.change_amount ?? quote.net_change ?? quote.regularMarketChange
+        ),
+        changePercent: toNum(
+          quote.changePercent ??
+            quote.change_percentage ??
+            quote.change_percent ??
+            quote.percent_change ??
+            quote.netChangePercent ??
+            quote.dayChangePercent ??
+            quote.regularMarketChangePercent
+        ),
+        volume: toNum(quote.volume ?? quote.totalVolume ?? quote.traded_volume ?? quote.regularMarketVolume),
+        marketCap: toNum(quote.marketCap ?? quote.market_cap),
         lastUpdated: Date.now(),
       },
     ];

@@ -172,6 +172,7 @@ function emit() {
 
 function setSnapshot(next: Partial<MarketSnapshot>) {
   snapshot = { ...snapshot, ...next };
+  console.log("[SNAPSHOT_DEBUG]", snapshot);
   emit();
 }
 
@@ -279,7 +280,14 @@ function parseCommodityResult(seed: CommoditySeed, payload: unknown): MarketAsse
 
   const price = n(result.price ?? result.ltp ?? result.last_price ?? result.current_price ?? result.close);
   const change = n(result.change ?? result.price_change ?? result.net_change);
-  const changePercent = n(result.changePercent ?? result.change_percent ?? result.percent_change);
+  const changePercent = n(
+    result.changePercent ??
+      result.change_percentage ??
+      result.change_percent ??
+      result.percent_change ??
+      result.netChangePercent ??
+      result.dayChangePercent
+  );
   const symbol = s(result.symbol ?? result.code, seed.symbol);
 
   return {

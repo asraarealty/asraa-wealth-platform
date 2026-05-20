@@ -109,13 +109,21 @@ async function searchCommoditiesRaw(
 
 function normalizeStockEntity(item: unknown): MarketAsset {
   const record = safeRecord(item);
-  const symbol = s(record.symbol);
+  const symbol = s(record.symbol ?? record.ticker ?? record.code);
   const name = s(record.name, symbol);
   const isEtf = /ETF/i.test(name);
   const kind = (isEtf ? "etf" : symbol.includes("=") ? "forex" : "stock") as MarketAssetKind;
   const isIndia = symbol.endsWith(".NS") || symbol.endsWith(".BO");
-  const price = n(record.price ?? record.regularMarketPrice);
-  const changePercent = n(record.changePercent ?? record.regularMarketChangePercent);
+  const price = n(record.price ?? record.lastPrice ?? record.last_price ?? record.ltp ?? record.regularMarketPrice);
+  const changePercent = n(
+    record.changePercent ??
+      record.change_percentage ??
+      record.change_percent ??
+      record.percent_change ??
+      record.netChangePercent ??
+      record.dayChangePercent ??
+      record.regularMarketChangePercent
+  );
 
   return {
     id: marketId(kind, symbol),
@@ -126,10 +134,10 @@ function normalizeStockEntity(item: unknown): MarketAsset {
     sector: isEtf ? "ETF" : "Equity",
     category: isEtf ? "ETF" : "Stock",
     price,
-    change: n(record.change ?? record.regularMarketChange),
+    change: n(record.change ?? record.price_change ?? record.change_amount ?? record.net_change ?? record.regularMarketChange),
     changePercent,
-    volume: n(record.volume ?? record.regularMarketVolume),
-    marketCap: n(record.marketCap),
+    volume: n(record.volume ?? record.totalVolume ?? record.traded_volume ?? record.regularMarketVolume),
+    marketCap: n(record.marketCap ?? record.market_cap),
     currency: isIndia ? "INR" : "USD",
     sparkline: buildSparkline(symbol, n(price, 100), changePercent),
     lastUpdated: new Date().toISOString(),
@@ -165,7 +173,14 @@ function normalizeCommodityEntity(item: unknown, index: number): MarketAsset {
   const record = safeRecord(item);
   const symbol = s(record.symbol ?? record.code, `CMD-${index}`);
   const price = n(record.price ?? record.ltp ?? record.last_price ?? record.current_price);
-  const changePercent = n(record.changePercent ?? record.change_percent ?? record.percent_change);
+  const changePercent = n(
+    record.changePercent ??
+      record.change_percentage ??
+      record.change_percent ??
+      record.percent_change ??
+      record.netChangePercent ??
+      record.dayChangePercent
+  );
 
   return {
     id: marketId("commodity", symbol),
