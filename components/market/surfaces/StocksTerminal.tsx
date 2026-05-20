@@ -110,12 +110,14 @@ const AssetRow = memo(function AssetRow({
   selected,
   highlighted,
   conviction,
+  rowId,
   onSelect,
 }: {
   item: MarketAsset;
   selected: boolean;
   highlighted: boolean;
   conviction: number;
+  rowId: string;
   onSelect: (asset: MarketAsset) => void;
 }) {
   const trendUp = isTrendUp(item.sparkline, item.changePercent);
@@ -124,6 +126,7 @@ const AssetRow = memo(function AssetRow({
   const convictionState = convictionLabel(conviction);
   return (
     <button
+      id={rowId}
       type="button"
       onClick={() => onSelect(item)}
       className={`w-full rounded-xl border px-3.5 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/60 ${
@@ -161,7 +164,7 @@ const AssetRow = memo(function AssetRow({
         >
           {trendUp ? "Trend Up" : "Trend Soft"}
         </span>
-        <svg viewBox="0 0 96 28" className="h-6 w-24">
+        <svg viewBox="0 0 96 28" className="h-6 w-24" role="img" aria-label={`Price trend: ${trendUp ? "upward" : "downward"}`}>
           <path d={trendPath} fill="none" stroke={trendUp ? "#34d399" : "#fb7185"} strokeWidth={2} strokeLinecap="round" />
         </svg>
       </div>
@@ -610,7 +613,10 @@ export function StocksTerminal() {
 
       <div className="grid min-h-[760px] lg:grid-cols-[360px_1fr] xl:grid-cols-[400px_1fr] 2xl:grid-cols-[430px_1fr]">
         <aside className="border-r border-white/10 bg-black/20 p-3 sm:p-4 lg:p-5">
-          <div className="sticky top-0 z-10 -mx-1 rounded-2xl border border-white/10 bg-slate-950/95 p-3 backdrop-blur">
+          <div
+            role="search"
+            className="sticky top-0 z-10 -mx-1 rounded-2xl border border-white/10 bg-slate-950/95 p-3 backdrop-blur"
+          >
             <p className="text-[10px] uppercase tracking-[0.16em] text-sky-300/80">Equity Command Search</p>
             <input
               value={query}
@@ -619,15 +625,19 @@ export function StocksTerminal() {
               placeholder="Search company, ticker, sector, or theme"
               className="mt-2 h-12 w-full rounded-xl border border-white/15 bg-black/35 px-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-sky-300/55 focus:ring-2 focus:ring-sky-300/30"
               aria-label="Company and market search"
+              aria-describedby="stocks-search-hints stocks-search-status"
+              aria-activedescendant={sidebarAssets[highlightedIndex] ? `stock-discovery-${sidebarAssets[highlightedIndex].id}` : undefined}
             />
-            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500">
+            <div id="stocks-search-hints" className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500">
               {SEARCH_HINT_EXAMPLES.map((hint) => (
                 <span key={hint} className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5">
                   {hint}
                 </span>
               ))}
             </div>
-            {search.isSearching ? <p className="mt-2 text-[11px] text-slate-500">Searching market coverage…</p> : null}
+            <p id="stocks-search-status" className="mt-2 text-[11px] text-slate-500">
+              {search.isSearching ? "Searching market coverage…" : "Use arrow keys to highlight and Enter to open."}
+            </p>
           </div>
 
           {query.trim().length < MIN_SEARCH_LENGTH ? (
@@ -637,6 +647,7 @@ export function StocksTerminal() {
                   key={tab}
                   type="button"
                   onClick={() => setActiveTab(tab)}
+                  aria-pressed={activeTab === tab}
                   className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] transition ${
                     activeTab === tab
                       ? "border-sky-300/45 bg-sky-500/12 text-sky-100"
@@ -662,6 +673,7 @@ export function StocksTerminal() {
                     selected={selectedAsset?.id === item.id}
                     highlighted={index === highlightedIndex}
                     conviction={itemConviction}
+                    rowId={`stock-discovery-${item.id}`}
                     onSelect={onSelect}
                   />
                 );
@@ -687,6 +699,7 @@ export function StocksTerminal() {
                         key={`${label}-${asset.id}`}
                         type="button"
                         onClick={() => onSelect(asset)}
+                        aria-label={`${label}: ${asset.symbol}, ${fmtPercent(asset.changePercent, true)}`}
                         className="rounded-md border border-white/10 bg-black/25 px-2 py-1 text-[10px] text-slate-200 hover:bg-white/[0.05]"
                       >
                         {asset.symbol} {fmtPercent(asset.changePercent, true)}
