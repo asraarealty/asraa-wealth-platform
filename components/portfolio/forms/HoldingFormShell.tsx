@@ -33,6 +33,7 @@ function read(record: Record<string, unknown>, ...keys: string[]) {
 function toHoldingDTO(asset: Asset | null | undefined): HoldingDTO | null {
   if (!asset) return null;
   const record = asset as unknown as Record<string, unknown>;
+  const tenantDetailsValue = read(record, "tenant_details", "tenant_name");
   return {
     id: asset.id,
     assetType: asset.type,
@@ -47,7 +48,7 @@ function toHoldingDTO(asset: Asset | null | undefined): HoldingDTO | null {
     location: asset.location ?? undefined,
     currentValuation: toNumber(read(record, "current_value")),
     monthlyRent: toNumber(read(record, "rent_amount")),
-    tenantDetails: typeof read(record, "tenant_details", "tenant_name") === "string" ? String(read(record, "tenant_details", "tenant_name")) : undefined,
+    tenantDetails: typeof tenantDetailsValue === "string" ? String(tenantDetailsValue) : undefined,
     valuation: {
       currentPrice: toNumber(read(record, "current_price")),
       currentValue: toNumber(read(record, "current_value")),
