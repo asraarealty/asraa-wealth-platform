@@ -9,6 +9,7 @@ import { LoadingBlock, SectionHeader, SurfaceCard } from "@/components/v2/ui";
 import { useAssets, useDeleteAsset } from "@/lib/hooks/useAssets";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
 import type { Asset, AssetType } from "@/lib/types/assets";
+import { toPortfolioHolding } from "@/domains/portfolio";
 
 const TABS: { key: AssetType | "all"; label: string; emptyTitle: string; emptyHint: string }[] = [
   { key: "all", label: "All assets", emptyTitle: "Portfolio not onboarded", emptyHint: "Holdings sync" },
@@ -76,15 +77,14 @@ export default function AssetsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {filtered.map((asset: Asset) => {
-            const liveValue = asset.type === "property" ? Number(asset.current_value ?? asset.value ?? 0) : Number(asset.value ?? 0);
-            const allocationPct = summary && summary.total_value > 0 ? (liveValue * 100) / summary.total_value : 0;
+            const holding = toPortfolioHolding(asset, {
+              totalCurrentValue: Number(summary?.total_value ?? 0),
+            });
             return (
               <AssetCard
                 key={asset.id}
                 asset={asset}
-                liveValue={liveValue}
-                livePrice={asset.type === "property" ? Number(asset.current_value ?? asset.value ?? 0) : Number(asset.current_price ?? asset.nav ?? asset.avg_price ?? 0)}
-                allocationPct={allocationPct}
+                holding={holding}
                 onDelete={() => setAssetToDelete(asset)}
                 deleteLabel="Delete"
               />
