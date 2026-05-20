@@ -50,6 +50,15 @@ const PORTFOLIO_FIT_BALANCED_CONCENTRATION_BONUS = 8;
 const PORTFOLIO_FIT_MODERATE_CONCENTRATION_BONUS = 3;
 const PORTFOLIO_FIT_ELEVATED_CONCENTRATION_PENALTY = -4;
 
+const VOLUME_DISPLAY_DIVISOR = 1000;
+const GAINER_MAX_CONFIDENCE = 95;
+const GAINER_BASE_CONFIDENCE = 60;
+const GAINER_CONFIDENCE_MULTIPLIER = 5;
+const LOSER_MAX_CONFIDENCE = 90;
+const LOSER_BASE_CONFIDENCE = 55;
+const LOSER_CONFIDENCE_MULTIPLIER = 4;
+const SIGNIFICANT_DROP_THRESHOLD = -3;
+
 function liquidityTone(volume: number): ProprietarySignal["tone"] {
   if (volume > 4_000_000) return "success";
   if (volume > 1_000_000) return "info";
@@ -258,18 +267,18 @@ function deriveLocalIntelligence(
   // ── aiInsights from top movers ──────────────────────────────────────────────
   const aiInsights: IntelligencePayload["aiInsights"] = [];
   for (const asset of topGainers.slice(0, 3)) {
-    const volLabel = asset.volume > 0 ? ` · ${Math.round(asset.volume / 1000)}k vol` : "";
+    const volLabel = asset.volume > 0 ? ` · ${Math.round(asset.volume / VOLUME_DISPLAY_DIVISOR)}k vol` : "";
     aiInsights.push({
       title: `${asset.symbol} momentum`,
       message: `${asset.name} (${fmt(asset.changePercent)}%) leading ${asset.sector}${volLabel}.`,
-      confidence: Math.min(95, 60 + Math.abs(asset.changePercent) * 5),
+      confidence: Math.min(GAINER_MAX_CONFIDENCE, GAINER_BASE_CONFIDENCE + Math.abs(asset.changePercent) * GAINER_CONFIDENCE_MULTIPLIER),
     });
   }
   for (const asset of topLosers.slice(0, 2)) {
     aiInsights.push({
       title: `${asset.symbol} pressure`,
       message: `${asset.name} (${fmt(asset.changePercent)}%) under distribution in ${asset.sector}.`,
-      confidence: Math.min(90, 55 + Math.abs(asset.changePercent) * 4),
+      confidence: Math.min(LOSER_MAX_CONFIDENCE, LOSER_BASE_CONFIDENCE + Math.abs(asset.changePercent) * LOSER_CONFIDENCE_MULTIPLIER),
     });
   }
 
@@ -286,7 +295,7 @@ function deriveLocalIntelligence(
       `Declining breadth: ${breadth.declines} assets under pressure vs ${breadth.advances} advancing.`
     );
   }
-  for (const asset of topLosers.filter((a) => a.changePercent < -3).slice(0, 2)) {
+  for (const asset of topLosers.filter((a) => a.changePercent < SIGNIFICANT_DROP_THRESHOLD).slice(0, 2)) {
     riskAlerts.push(
       `${asset.symbol} sharp move ${fmt(asset.changePercent)}% — monitor for continuation risk.`
     );
