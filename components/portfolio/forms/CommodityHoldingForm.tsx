@@ -202,7 +202,7 @@ export function CommodityHoldingForm({
       </div>
 
       <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5 text-xs text-slate-300">
-        Selected Commodity: <span className="font-semibold text-white">{selectedInstrument?.symbol ?? symbol || "—"}</span> · Quantity {formatQuantity(quantity)}
+        Selected Commodity: <span className="font-semibold text-white">{(selectedInstrument?.symbol ?? symbol) || "—"}</span> · Quantity {formatQuantity(quantity)}
       </div>
 
       {(validationError || error) ? (
