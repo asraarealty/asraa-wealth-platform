@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import type { CSSProperties } from "react";
 import {
   EmptyBlock,
   ExposureBar,
@@ -124,12 +123,6 @@ function getCollectionState(property: Asset, dueDays: number | null): Collection
   if (dueDays !== null && dueDays < 0 && !property.rent_received) return "overdue";
   if (dueDays !== null && dueDays <= 14 && !property.rent_received) return "due-soon";
   return "clear";
-}
-
-function toneFromCollection(state: CollectionState): Tone {
-  if (state === "overdue") return "danger";
-  if (state === "due-soon" || state === "vacant") return "warn";
-  return "success";
 }
 
 function StatCard({
