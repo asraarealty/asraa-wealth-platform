@@ -91,7 +91,9 @@ export function toPortfolioHolding(
   const currentPrice = round2(
     n(
       options.currentPrice,
-      n(read(asset, "current_price", "currentPrice", "nav", "current_value", "currentValue"), purchasePrice)
+      assetType === "property"
+        ? n(read(asset, "current_value", "currentValue"), purchasePrice)
+        : n(read(asset, "current_price", "currentPrice", "nav"), purchasePrice)
     )
   );
 
@@ -112,7 +114,11 @@ export function toPortfolioHolding(
   );
 
   const profitLoss = round2(n(options.profitLoss, currentValue - investedValue));
-  const explicitReturnPercent = n(options.returnPercent, n(read(asset, "return_percentage", "returnPercent", "return_percent"), Number.NaN));
+  const explicitReturnRaw = options.returnPercent ?? read(asset, "return_percentage", "returnPercent", "return_percent");
+  const explicitReturnPercent =
+    explicitReturnRaw === undefined || explicitReturnRaw === null
+      ? undefined
+      : Number(explicitReturnRaw);
   const returnPercent = round2(deriveReturnPercent(investedValue, currentValue, explicitReturnPercent));
   const totalCurrentValue = n(options.totalCurrentValue, 0);
   const allocationPercent = totalCurrentValue > 0 ? round2((currentValue * 100) / totalCurrentValue) : undefined;

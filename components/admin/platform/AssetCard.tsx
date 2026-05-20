@@ -118,7 +118,7 @@ export function AssetCard({
 
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
         <Metric label={getUnitsLabel(asset)} value={asset.type === "property" ? "1 property" : `${holding.quantity || 0}`} />
-        <Metric label="Cost basis" value={holding.purchasePrice > 0 ? fmtCurrency(holding.purchasePrice) : "Awaiting cost basis"} />
+        <Metric label={asset.type === "property" ? "Purchase price" : "Avg cost"} value={holding.purchasePrice > 0 ? fmtCurrency(holding.purchasePrice) : "Awaiting cost basis"} />
         <Metric label="Live price" value={holding.currentPrice > 0 ? fmtCurrency(holding.currentPrice) : "Awaiting price sync"} />
         <Metric label="Allocation" value={allocationPct != null && allocationPct > 0 ? fmtPercent(allocationPct) : "Portfolio pending"} />
       </div>
