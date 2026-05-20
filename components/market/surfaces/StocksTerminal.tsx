@@ -6,16 +6,18 @@ import { SurfaceCard } from "@/components/v2/ui";
 import { fmtLastUpdated, fmtPercent } from "@/lib/formatters";
 import { useMarketDomainGraph, scoreAssetConviction, useMarketIntelligenceEngine, type MarketAsset } from "@/domains/market";
 import { MARKET_SEARCH_MIN_QUERY_LENGTH } from "@/domains/market/search";
+import type { CommandSearchItem } from "@/domains/market/types";
 
 const MIN_SEARCH_LENGTH = MARKET_SEARCH_MIN_QUERY_LENGTH;
 const FINANCIAL_TABS = ["Quarterly", "P&L", "Balance Sheet", "Cash Flow", "Ratios", "Shareholding"] as const;
 type FinancialTab = (typeof FINANCIAL_TABS)[number];
-const SEARCH_HINT_EXAMPLES = ["INFY", "RELIANCE", "BANKING", "AI", "ENERGY"] as const;
+const SEARCH_HINT_EXAMPLES = ["INFY", "RELIANCE", "GOLD", "USDINR", "BANKING", "AI", "ENERGY", "NIFTYBEES"] as const;
 const SPARKLINE_VERTICAL_PADDING = 4;
 const SPARKLINE_VERTICAL_OFFSET = 2;
 const BREAKOUT_CHANGE_THRESHOLD = 1.2;
 const BREAKOUT_VOLUME_THRESHOLD = 600_000;
 const DEFAULT_SECTOR_RANK = 6;
+const DEFAULT_NAVIGATOR_SPARKLINE: number[] = [50, 53, 52, 55, 57, 56, 58, 60, 59, 61, 60, 62];
 const DISCOVERY_TABS = [
   "Recent",
   "Watchlist",
@@ -24,8 +26,58 @@ const DISCOVERY_TABS = [
   "Top Losers",
   "Breakouts",
   "AI Momentum",
+  "ETFs",
+  "Funds",
+  "Commodities",
+  "Macro Signals",
+  "Sector Rotation",
 ] as const;
 type DiscoveryTab = (typeof DISCOVERY_TABS)[number];
+
+function formatAssetType(kind: MarketAsset["kind"]) {
+  switch (kind) {
+    case "stock":
+      return "Stock";
+    case "global-stock":
+      return "Global Stock";
+    case "etf":
+      return "ETF";
+    case "mutual-fund":
+      return "Fund";
+    case "commodity":
+      return "Commodity";
+    case "metal":
+      return "Metal";
+    case "forex":
+      return "FX";
+    case "index":
+      return "Index";
+    default:
+      return "Asset";
+  }
+}
+
+function commandItemToAsset(item: CommandSearchItem, index: number): MarketAsset {
+  const isSector = item.kind === "sector";
+  return {
+    id: `navigator-${item.kind}-${item.id || index}`,
+    symbol: item.label.toUpperCase().replace(/\s+/g, "-"),
+    name: item.label,
+    kind: "index",
+    market: "Macro",
+    sector: isSector ? item.label : "Theme",
+    category: isSector ? "Sector Signal" : item.label,
+    price: 0,
+    change: 0,
+    changePercent: 0,
+    volume: 0,
+    marketCap: 0,
+    currency: "INR",
+    sparkline: DEFAULT_NAVIGATOR_SPARKLINE,
+    lastUpdated: new Date().toISOString(),
+    searchLabel: item.subtitle,
+  };
+}
 
 function formatPrice(item: MarketAsset) {
   return new Intl.NumberFormat(item.currency === "INR" ? "en-IN" : "en-US", {
@@ -143,12 +195,18 @@ const AssetRow = memo(function AssetRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate text-sm font-semibold text-white">{item.symbol}</p>
+            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] font-semibold text-slate-200">
+              {formatAssetType(item.kind)}
+            </span>
             <span className={`rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-semibold ${convictionTone}`}>
               {convictionState}
             </span>
           </div>
           <p className="mt-0.5 truncate text-xs text-slate-300">{item.name}</p>
-          <p className="mt-1 truncate text-[11px] uppercase tracking-[0.12em] text-slate-500">{item.sector || "Unclassified"}</p>
+          <p className="mt-1 truncate text-[11px] uppercase tracking-[0.12em] text-slate-500">
+            {item.sector || "Unclassified"}
+            {item.category ? ` · ${item.category}` : ""}
+          </p>
         </div>
         <div className="shrink-0 text-right">
           <p className="text-xs text-slate-400">{item.price > 0 ? formatPrice(item) : "—"}</p>
@@ -316,6 +374,15 @@ export function StocksTerminal() {
     setRecentSymbols((prev) => [asset.symbol, ...prev.filter((s) => s !== asset.symbol)].slice(0, 30));
   };
 
+  const sectorNavigatorSignals = useMemo(
+    () => (search.groups.sectors ?? []).map((item, index) => commandItemToAsset(item, index)),
+    [search.groups.sectors]
+  );
+  const themeNavigatorSignals = useMemo(
+    () => (search.groups.themes ?? []).map((item, index) => commandItemToAsset(item, index)),
+    [search.groups.themes]
+  );
+
   const searchResults = useMemo(
     () =>
       query.trim().length >= MIN_SEARCH_LENGTH
@@ -323,9 +390,12 @@ export function StocksTerminal() {
             ...(search.groups.stocks ?? []),
             ...(search.groups.etfs ?? []),
             ...(search.groups.mutualFunds ?? []),
+            ...(search.groups.commodities ?? []),
+            ...sectorNavigatorSignals,
+            ...themeNavigatorSignals,
           ].slice(0, 24)
         : [],
-    [query, search.groups]
+    [query, search.groups.stocks, search.groups.etfs, search.groups.mutualFunds, search.groups.commodities, sectorNavigatorSignals, themeNavigatorSignals]
   );
 
   const recentAssets = useMemo(
@@ -355,6 +425,25 @@ export function StocksTerminal() {
         .slice(0, 20),
     [assets]
   );
+  const etfUniverse = useMemo(() => assets.filter((asset) => asset.kind === "etf").slice(0, 20), [assets]);
+  const fundUniverse = useMemo(
+    () => assets.filter((asset) => asset.kind === "mutual-fund" || asset.market === "Fund").slice(0, 20),
+    [assets]
+  );
+  const commodityUniverse = useMemo(
+    () =>
+      assets
+        .filter((asset) => asset.kind === "commodity" || asset.kind === "metal" || asset.market === "Commodity")
+        .slice(0, 20),
+    [assets]
+  );
+  const macroSignals = useMemo(
+    () =>
+      assets
+        .filter((asset) => asset.market === "Macro" || asset.kind === "index" || asset.kind === "forex")
+        .slice(0, 20),
+    [assets]
+  );
 
   const aiMomentum = useMemo(
     () =>
@@ -376,6 +465,15 @@ export function StocksTerminal() {
     if (fromUniverse.length > 0) return fromUniverse.slice(0, 20);
     return topGainers.slice(0, 20);
   }, [assets, watchlist, topGainers]);
+  const sectorRotationAssets = useMemo(
+    () =>
+      sectorMovers
+        .slice(0, 10)
+        .flatMap((sector) => sector.leaders.slice(0, 2))
+        .map((symbol) => assets.find((asset) => asset.symbol === symbol))
+        .filter(Boolean) as MarketAsset[],
+    [sectorMovers, assets]
+  );
 
   const discoveryPools = useMemo(
     () => ({
@@ -386,8 +484,30 @@ export function StocksTerminal() {
       "Top Losers": topLosers.slice(0, 20),
       Breakouts: breakoutCandidates,
       "AI Momentum": aiMomentum,
+      ETFs: etfUniverse.length > 0 ? etfUniverse : search.groups.etfs ?? [],
+      Funds: fundUniverse.length > 0 ? fundUniverse : search.groups.mutualFunds ?? [],
+      Commodities: commodityUniverse.length > 0 ? commodityUniverse : search.groups.commodities ?? [],
+      "Macro Signals": macroSignals,
+      "Sector Rotation": sectorRotationAssets.length > 0 ? sectorRotationAssets : topGainers.slice(0, 20),
     }),
-    [recentAssets, assets, watchlist, portfolioHoldings, topGainers, topLosers, breakoutCandidates, aiMomentum]
+    [
+      recentAssets,
+      assets,
+      watchlist,
+      portfolioHoldings,
+      topGainers,
+      topLosers,
+      breakoutCandidates,
+      aiMomentum,
+      etfUniverse,
+      fundUniverse,
+      commodityUniverse,
+      macroSignals,
+      sectorRotationAssets,
+      search.groups.etfs,
+      search.groups.mutualFunds,
+      search.groups.commodities,
+    ]
   );
 
   const sidebarAssets = query.trim().length >= MIN_SEARCH_LENGTH ? searchResults : discoveryPools[activeTab];
@@ -626,12 +746,12 @@ export function StocksTerminal() {
             role="search"
             className="sticky top-0 z-10 -mx-1 rounded-2xl border border-white/10 bg-slate-950/95 p-3 backdrop-blur"
           >
-            <p className="text-[10px] uppercase tracking-[0.16em] text-sky-300/80">Equity Command Search</p>
+              <p className="text-[10px] uppercase tracking-[0.16em] text-sky-300/80">Cross-Asset Research Navigator</p>
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={handleSearchNavigation}
-              placeholder="Search company, ticker, sector, or theme"
+               placeholder="Search ticker, company, sector, macro theme, ETF, fund, or commodity"
               className="mt-2 h-12 w-full rounded-xl border border-white/15 bg-black/35 px-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-sky-300/55 focus:ring-2 focus:ring-sky-300/30"
               role="combobox"
               aria-controls="stocks-discovery-listbox"
@@ -695,8 +815,10 @@ export function StocksTerminal() {
                 <p className="px-1 text-xs text-slate-500">Loading companies…</p>
               ) : null}
               {!isLoading && sidebarAssets.length === 0 ? (
-                <p className="px-1 text-xs text-slate-500">No equities found. Try ticker, company, sector, or theme.</p>
-              ) : null}
+                 <p className="px-1 text-xs text-slate-500">
+                   No assets found. Try ticker, company, sector, macro theme, ETF, fund, or commodity.
+                 </p>
+               ) : null}
             </div>
           </div>
 
