@@ -1,5 +1,6 @@
 import type { Asset as ApiAsset } from "@/lib/api";
 import type { Asset as DashboardAsset } from "@/lib/types/assets";
+import { deriveReturnPercent } from "@/lib/finance/returns";
 
 type AnyAsset = ApiAsset | DashboardAsset;
 
@@ -111,14 +112,11 @@ export function toPortfolioHolding(
   );
 
   const profitLoss = round2(n(options.profitLoss, currentValue - investedValue));
-  const returnPercent = round2(
-    n(
-      options.returnPercent,
-      n(read(asset, "return_percentage", "returnPercent", "return_percent"), investedValue > 0 ? (profitLoss / investedValue) * 100 : 0)
-    )
-  );
+  const explicitReturnPercent = n(options.returnPercent, n(read(asset, "return_percentage", "returnPercent", "return_percent"), Number.NaN));
+  const returnPercent = round2(deriveReturnPercent(investedValue, currentValue, explicitReturnPercent));
   const totalCurrentValue = n(options.totalCurrentValue, 0);
   const allocationPercent = totalCurrentValue > 0 ? round2((currentValue * 100) / totalCurrentValue) : undefined;
+  const purchaseDate = read(asset, "purchase_date", "purchaseDate");
 
   return {
     id: String(read(asset, "id") ?? ""),
@@ -133,7 +131,7 @@ export function toPortfolioHolding(
     profitLoss,
     returnPercent,
     allocationPercent,
-    purchaseDate: typeof read(asset, "purchase_date", "purchaseDate") === "string" ? (read(asset, "purchase_date", "purchaseDate") as string) : undefined,
+    purchaseDate: typeof purchaseDate === "string" ? purchaseDate : undefined,
     lastPriceUpdatedAt: options.lastPriceUpdatedAt,
   };
 }
