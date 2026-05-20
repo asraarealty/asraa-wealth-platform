@@ -1,7 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo, useState } from "react";
-import { SearchCommandBar } from "@/components/v2/workspace";
+import { memo, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { RuntimeObservabilityBadges } from "@/components/runtime/RuntimeObservabilityBadges";
 import { SurfaceCard } from "@/components/v2/ui";
 import { fmtLastUpdated, fmtPercent } from "@/lib/formatters";
@@ -11,6 +10,16 @@ import { MARKET_SEARCH_MIN_QUERY_LENGTH } from "@/domains/market/search";
 const MIN_SEARCH_LENGTH = MARKET_SEARCH_MIN_QUERY_LENGTH;
 const FINANCIAL_TABS = ["Quarterly", "P&L", "Balance Sheet", "Cash Flow", "Ratios", "Shareholding"] as const;
 type FinancialTab = (typeof FINANCIAL_TABS)[number];
+const DISCOVERY_TABS = [
+  "Recent",
+  "Watchlist",
+  "Portfolio Holdings",
+  "Top Gainers",
+  "Top Losers",
+  "Breakouts",
+  "AI Momentum",
+] as const;
+type DiscoveryTab = (typeof DISCOVERY_TABS)[number];
 
 function formatPrice(item: MarketAsset) {
   return new Intl.NumberFormat(item.currency === "INR" ? "en-IN" : "en-US", {
@@ -65,34 +74,79 @@ function tone(score: number) {
   return "text-rose-300";
 }
 
+function sparklinePath(points: number[], width = 96, height = 28) {
+  const data = points.length > 0 ? points : [0, 0, 0, 0];
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const spread = Math.max(1, max - min);
+  return data
+    .map((p, i) => {
+      const x = (i / Math.max(data.length - 1, 1)) * width;
+      const y = height - ((p - min) / spread) * (height - 4) - 2;
+      return `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
 const AssetRow = memo(function AssetRow({
   item,
   selected,
+  highlighted,
+  conviction,
   onSelect,
 }: {
   item: MarketAsset;
   selected: boolean;
+  highlighted: boolean;
+  conviction: number;
   onSelect: (asset: MarketAsset) => void;
 }) {
+  const trendUp = item.sparkline.length > 1 ? item.sparkline[item.sparkline.length - 1] >= item.sparkline[0] : item.changePercent >= 0;
+  const trendPath = sparklinePath(item.sparkline);
+  const convictionTone = conviction >= 75 ? "text-emerald-300" : conviction >= 60 ? "text-sky-300" : conviction >= 45 ? "text-amber-300" : "text-rose-300";
+  const convictionState = convictionLabel(conviction);
   return (
     <button
       type="button"
       onClick={() => onSelect(item)}
-      className={`w-full rounded-xl border px-3 py-2.5 text-left transition ${
-        selected ? "border-sky-400/35 bg-sky-500/10" : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05]"
+      className={`w-full rounded-xl border px-3.5 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/60 ${
+        selected
+          ? "border-sky-300/50 bg-sky-500/12 shadow-[0_0_0_1px_rgba(125,211,252,0.15)]"
+          : highlighted
+            ? "border-slate-300/35 bg-white/[0.08]"
+            : "border-white/10 bg-white/[0.02] hover:border-white/25 hover:bg-white/[0.06]"
       }`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-white">{item.symbol}</p>
-          <p className="truncate text-xs text-slate-400">{item.name}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-semibold text-white">{item.symbol}</p>
+            <span className={`rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-semibold ${convictionTone}`}>
+              {convictionState}
+            </span>
+          </div>
+          <p className="mt-0.5 truncate text-xs text-slate-300">{item.name}</p>
+          <p className="mt-1 truncate text-[11px] uppercase tracking-[0.12em] text-slate-500">{item.sector || "Unclassified"}</p>
         </div>
         <div className="shrink-0 text-right">
           <p className="text-xs text-slate-400">{item.price > 0 ? formatPrice(item) : "—"}</p>
-          <p className={`text-xs font-semibold ${item.changePercent >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+          <p className={`mt-0.5 text-xs font-semibold ${item.changePercent >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
             {fmtPercent(item.changePercent, true)}
           </p>
+          <p className="mt-1 text-[10px] text-slate-500">Conviction {conviction}/100</p>
         </div>
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span
+          className={`rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${
+            trendUp ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-200" : "border-rose-300/30 bg-rose-500/10 text-rose-200"
+          }`}
+        >
+          {trendUp ? "Trend Up" : "Trend Soft"}
+        </span>
+        <svg viewBox="0 0 96 28" className="h-6 w-24">
+          <path d={trendPath} fill="none" stroke={trendUp ? "#34d399" : "#fb7185"} strokeWidth={2} strokeLinecap="round" />
+        </svg>
       </div>
     </button>
   );
@@ -145,7 +199,7 @@ function PremiumChart({ asset, conviction }: { asset: MarketAsset; conviction: n
         </p>
       </div>
       <div className="relative overflow-hidden rounded-xl border border-white/10 bg-slate-950/70 p-2">
-        <svg viewBox={`0 0 ${width} ${height}`} className="h-64 w-full">
+        <svg viewBox={`0 0 ${width} ${height}`} className="h-52 w-full sm:h-60 lg:h-64">
           <defs>
             <linearGradient id="priceGlow" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.5" />
@@ -201,6 +255,7 @@ export function StocksTerminal() {
   const {
     assets,
     topGainers,
+    topLosers,
     trendingAssets,
     watchlist,
     sectorMovers,
@@ -217,6 +272,8 @@ export function StocksTerminal() {
   const [query, setQuery] = useState("");
   const [selectedAsset, setSelectedAsset] = useState<MarketAsset | null>(null);
   const [recentSymbols, setRecentSymbols] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<DiscoveryTab>("Recent");
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [financialOpen, setFinancialOpen] = useState(false);
   const [financialTab, setFinancialTab] = useState<FinancialTab>("Quarterly");
 
@@ -233,7 +290,7 @@ export function StocksTerminal() {
 
   const onSelect = (asset: MarketAsset) => {
     setSelectedAsset(asset);
-    setRecentSymbols((prev) => [asset.symbol, ...prev.filter((s) => s !== asset.symbol)].slice(0, 10));
+    setRecentSymbols((prev) => [asset.symbol, ...prev.filter((s) => s !== asset.symbol)].slice(0, 30));
   };
 
   const searchResults = useMemo(
@@ -243,8 +300,7 @@ export function StocksTerminal() {
             ...(search.groups.stocks ?? []),
             ...(search.groups.etfs ?? []),
             ...(search.groups.mutualFunds ?? []),
-            ...(search.groups.commodities ?? []),
-          ].slice(0, 10)
+          ].slice(0, 24)
         : [],
     [query, search.groups]
   );
@@ -257,8 +313,71 @@ export function StocksTerminal() {
     [assets, recentSymbols]
   );
 
-  const sidebarAssets =
-    searchResults.length > 0 ? searchResults : recentAssets.length > 0 ? recentAssets : assets.slice(0, 14);
+  const sectorRankMap = useMemo(
+    () =>
+      new Map(
+        sectorMovers.map((mover, index) => [
+          mover.sector.toLowerCase(),
+          Math.max(1, index + 1),
+        ])
+      ),
+    [sectorMovers]
+  );
+
+  const breakoutCandidates = useMemo(
+    () =>
+      assets
+        .filter((asset) => asset.changePercent >= 1.2 && asset.volume >= 600_000)
+        .sort((a, b) => b.changePercent - a.changePercent)
+        .slice(0, 20),
+    [assets]
+  );
+
+  const aiMomentum = useMemo(
+    () =>
+      [...assets]
+        .sort((a, b) => {
+          const rankA = sectorRankMap.get(a.sector.toLowerCase()) ?? 6;
+          const rankB = sectorRankMap.get(b.sector.toLowerCase()) ?? 6;
+          const scoreA = scoreAssetConviction(a.changePercent, rankA, a.volume);
+          const scoreB = scoreAssetConviction(b.changePercent, rankB, b.volume);
+          return scoreB - scoreA;
+        })
+        .slice(0, 20),
+    [assets, sectorRankMap]
+  );
+
+  const portfolioHoldings = useMemo(() => {
+    const watchSymbols = new Set(watchlist.map((w) => w.symbol));
+    const fromUniverse = assets.filter((asset) => watchSymbols.has(asset.symbol));
+    if (fromUniverse.length > 0) return fromUniverse.slice(0, 20);
+    return topGainers.slice(0, 20);
+  }, [assets, watchlist, topGainers]);
+
+  const discoveryPools = useMemo(
+    () => ({
+      Recent: recentAssets.length > 0 ? recentAssets : assets.slice(0, 20),
+      Watchlist: watchlist.length > 0 ? watchlist.slice(0, 20) : assets.slice(0, 20),
+      "Portfolio Holdings": portfolioHoldings,
+      "Top Gainers": topGainers.slice(0, 20),
+      "Top Losers": topLosers.slice(0, 20),
+      Breakouts: breakoutCandidates,
+      "AI Momentum": aiMomentum,
+    }),
+    [recentAssets, assets, watchlist, portfolioHoldings, topGainers, topLosers, breakoutCandidates, aiMomentum]
+  );
+
+  const sidebarAssets = query.trim().length >= MIN_SEARCH_LENGTH ? searchResults : discoveryPools[activeTab];
+
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [query, activeTab]);
+
+  useEffect(() => {
+    if (highlightedIndex >= sidebarAssets.length) {
+      setHighlightedIndex(Math.max(0, sidebarAssets.length - 1));
+    }
+  }, [sidebarAssets, highlightedIndex]);
 
   const sectorRank = selectedAsset
     ? Math.max(1, sectorMovers.findIndex((s) => s.sector.toLowerCase() === selectedAsset.sector.toLowerCase()) + 1)
@@ -412,6 +531,42 @@ export function StocksTerminal() {
 
   const updatedAt = fmtLastUpdated(lastUpdated);
 
+  const quickDiscovery = useMemo(
+    () => ({
+      "Trending Today": trendingAssets.slice(0, 6),
+      "AI Picks": aiMomentum.slice(0, 6),
+      "Sector Leaders": sectorMovers
+        .slice(0, 4)
+        .flatMap((sector) => sector.leaders.slice(0, 1))
+        .map((symbol) => assets.find((asset) => asset.symbol === symbol))
+        .filter(Boolean) as MarketAsset[],
+      "High Volume": [...assets].sort((a, b) => b.volume - a.volume).slice(0, 6),
+      "Breakout Candidates": breakoutCandidates.slice(0, 6),
+    }),
+    [trendingAssets, aiMomentum, sectorMovers, assets, breakoutCandidates]
+  );
+
+  const activeDiscoveryLabel = query.trim().length >= MIN_SEARCH_LENGTH ? "Search Results" : activeTab;
+
+  const handleSearchNavigation = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (sidebarAssets.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setHighlightedIndex((prev) => Math.min(prev + 1, sidebarAssets.length - 1));
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const picked = sidebarAssets[highlightedIndex];
+      if (picked) onSelect(picked);
+    }
+  };
+
   return (
     <SurfaceCard className="overflow-hidden p-0">
       <div className="border-b border-white/10 bg-black/20 px-5 py-3">
@@ -433,30 +588,98 @@ export function StocksTerminal() {
         <RuntimeObservabilityBadges runtime={runtime} commodityUnavailable={search.commodityUnavailable} />
       </div>
 
-      <div className="grid min-h-[760px] xl:grid-cols-[280px_1fr]">
-        <aside className="border-r border-white/10 p-4">
-          <SearchCommandBar
-            value={query}
-            onChange={setQuery}
-            placeholder="Search company, ticker..."
-            label="Company search"
-          />
-          {search.isSearching ? <p className="mt-1 text-xs text-slate-500">Searching…</p> : null}
+      <div className="grid min-h-[760px] lg:grid-cols-[360px_1fr] xl:grid-cols-[400px_1fr] 2xl:grid-cols-[430px_1fr]">
+        <aside className="border-r border-white/10 bg-black/20 p-3 sm:p-4 lg:p-5">
+          <div className="sticky top-0 z-10 -mx-1 rounded-2xl border border-white/10 bg-slate-950/95 p-3 backdrop-blur">
+            <p className="text-[10px] uppercase tracking-[0.16em] text-sky-300/80">Equity Command Search</p>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={handleSearchNavigation}
+              placeholder="Search company · ticker · sector · theme"
+              className="mt-2 h-12 w-full rounded-xl border border-white/15 bg-black/35 px-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-sky-300/55 focus:ring-2 focus:ring-sky-300/30"
+              aria-label="Company and market search"
+            />
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500">
+              {["INFY", "RELIANCE", "BANKING", "AI", "ENERGY"].map((hint) => (
+                <span key={hint} className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5">
+                  {hint}
+                </span>
+              ))}
+            </div>
+            {search.isSearching ? <p className="mt-2 text-[11px] text-slate-500">Searching market coverage…</p> : null}
+          </div>
+
+          {query.trim().length < MIN_SEARCH_LENGTH ? (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {DISCOVERY_TABS.map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] transition ${
+                    activeTab === tab
+                      ? "border-sky-300/45 bg-sky-500/12 text-sky-100"
+                      : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           <div className="mt-4 space-y-2">
-            <p className="px-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">
-              {searchResults.length > 0 ? "Search Results" : recentAssets.length > 0 ? "Recent" : "Coverage"}
-            </p>
-            <div className="max-h-[540px] space-y-2 overflow-y-auto pr-1">
-              {sidebarAssets.map((item) => (
-                <AssetRow key={item.id} item={item} selected={selectedAsset?.id === item.id} onSelect={onSelect} />
+            <p className="px-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">{activeDiscoveryLabel}</p>
+            <div className="max-h-[500px] space-y-2 overflow-y-auto pr-1">
+              {sidebarAssets.map((item, index) => {
+                const rank = sectorRankMap.get(item.sector.toLowerCase()) ?? 6;
+                const itemConviction = scoreAssetConviction(item.changePercent, rank, item.volume);
+                return (
+                  <AssetRow
+                    key={item.id}
+                    item={item}
+                    selected={selectedAsset?.id === item.id}
+                    highlighted={index === highlightedIndex}
+                    conviction={itemConviction}
+                    onSelect={onSelect}
+                  />
+                );
+              })}
+              {isLoading && sidebarAssets.length === 0 ? (
+                <p className="px-1 text-xs text-slate-500">Loading companies…</p>
+              ) : null}
+              {!isLoading && sidebarAssets.length === 0 ? (
+                <p className="px-1 text-xs text-slate-500">No equities found. Try ticker, company, sector, or theme.</p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <p className="px-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">Quick Discovery</p>
+            <div className="space-y-2">
+              {Object.entries(quickDiscovery).map(([label, items]) => (
+                <div key={label} className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-slate-400">{label}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {(items.length > 0 ? items : assets.slice(0, 3)).slice(0, 4).map((asset) => (
+                      <button
+                        key={`${label}-${asset.id}`}
+                        type="button"
+                        onClick={() => onSelect(asset)}
+                        className="rounded-md border border-white/10 bg-black/25 px-2 py-1 text-[10px] text-slate-200 hover:bg-white/[0.05]"
+                      >
+                        {asset.symbol} {fmtPercent(asset.changePercent, true)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
-              {isLoading && sidebarAssets.length === 0 ? <p className="px-1 text-xs text-slate-500">Loading companies…</p> : null}
             </div>
           </div>
         </aside>
 
-        <main className="p-5">
+        <main className="p-4 sm:p-5 lg:p-6">
           {selectedAsset ? (
             <div className="space-y-5">
               <section className="rounded-2xl border border-white/10 bg-gradient-to-b from-slate-900/80 to-slate-950/80 p-5">
