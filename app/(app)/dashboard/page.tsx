@@ -4,10 +4,7 @@ import dynamic from "next/dynamic";
 import { useOperatingSystemData } from "@/lib/hooks/useOperatingSystem";
 import {
   EmptyBlock,
-  ExposureBar,
   LoadingBlock,
-  MetricTile,
-  RiskScorePanel,
   SectionHeader,
   StatusPill,
   SurfaceCard,
@@ -15,6 +12,29 @@ import {
 } from "@/components/v2/ui";
 import { useOperatingContext } from "@/context/OperatingContext";
 import { RuntimeErrorBoundary } from "@/components/runtime/RuntimeErrorBoundary";
+
+const PortfolioHealthSection = dynamic(
+  () => import("./lazy-sections").then((mod) => mod.PortfolioHealthSection),
+  { loading: () => <DashboardSectionSkeleton /> }
+);
+const PropertyIncomeOccupancySection = dynamic(
+  () => import("./lazy-sections").then((mod) => mod.PropertyIncomeOccupancySection),
+  { loading: () => <DashboardSectionSkeleton /> }
+);
+const RecentActivitySection = dynamic(
+  () => import("./lazy-sections").then((mod) => mod.RecentActivitySection),
+  { loading: () => <DashboardSectionSkeleton /> }
+);
+const MarketIntelligenceSection = dynamic(
+  () => import("./lazy-sections").then((mod) => mod.MarketIntelligenceSection),
+  { loading: () => <DashboardSectionSkeleton /> }
+);
+
+function DashboardSectionSkeleton() {
+  return (
+    <div className="h-56 rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
+  );
+}
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -24,127 +44,135 @@ function fmt(n: number) {
   }).format(n);
 }
 
-const IntelligenceSection = dynamic(
-  () => import("./lazy-sections").then((mod) => mod.IntelligenceSection),
-  { loading: () => <DashboardSectionSkeleton /> }
-);
-const ActionsRecommendationsSection = dynamic(
-  () => import("./lazy-sections").then((mod) => mod.ActionsRecommendationsSection),
-  { loading: () => <DashboardSectionSkeleton /> }
-);
-const RealEstateActivitySection = dynamic(
-  () => import("./lazy-sections").then((mod) => mod.RealEstateActivitySection),
-  { loading: () => <DashboardSectionSkeleton /> }
-);
-const MarketDiscoverySection = dynamic(
-  () => import("./lazy-sections").then((mod) => mod.MarketDiscoverySection),
-  { loading: () => <DashboardSectionSkeleton /> }
-);
-
-function DashboardSectionSkeleton() {
-  return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-      <div className="xl:col-span-2 h-48 rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
-      <div className="h-48 rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
-    </div>
-  );
+function fmtPct(n: number) {
+  return `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
 }
 
-function buildIntelCards(data: ReturnType<typeof useOperatingSystemData>["data"]) {
-  const cards: { title: string; message: string; tone: IntelTone; confidence?: number }[] = [];
-  const risk = data.risk ?? {};
-  const concentration = risk.concentration ?? {};
-  const diversification = risk.diversification ?? {};
-  const inactivity = risk.inactivity ?? {};
-  const { realEstate, allocation, executive } = data;
+type HealthState = "Healthy" | "Watch" | "Action Needed";
+type StatusTone = "info" | "success" | "warn" | "danger";
 
-  const rentDep =
-    executive.totalValue > 0
-      ? ((realEstate.monthlyRent * 12) / executive.totalValue) * 100
-      : 0;
+interface RecommendationItem {
+  title: string;
+  message: string;
+  tone: IntelTone;
+  confidence?: number;
+}
 
-  if (realEstate.overdueRent > 0) {
-    cards.push({
-      title: "Rent collection action required",
-      message: `${realEstate.overdueRent} propert${realEstate.overdueRent > 1 ? "ies have" : "y has"} overdue rent. Follow up immediately to avoid cashflow pressure.`,
-      tone: "danger",
-    });
-  }
+function mapHealthState(riskState: "Low" | "Medium" | "High"): HealthState {
+  if (riskState === "High") return "Action Needed";
+  if (riskState === "Medium") return "Watch";
+  return "Healthy";
+}
 
-  if (realEstate.dueSoonRent > 0 && realEstate.overdueRent === 0) {
-    cards.push({
-      title: "Upcoming rent collections",
-      message: `${realEstate.dueSoonRent} propert${realEstate.dueSoonRent > 1 ? "ies have" : "y has"} rent due within 5 days. Prepare collection workflows.`,
-      tone: "warn",
-    });
-  }
+function mapHealthTone(state: HealthState): StatusTone {
+  if (state === "Action Needed") return "danger";
+  if (state === "Watch") return "warn";
+  return "success";
+}
 
-  if (allocation.property > 60) {
-    cards.push({
-      title: "High real estate concentration",
-      message: `Real estate represents ${allocation.property.toFixed(1)}% of portfolio. Diversification into liquid equity or mutual funds is recommended to reduce concentration risk.`,
-      tone: "warn",
-      confidence: 0.84,
-    });
-  }
+const HEALTH_SCORE_BASE = {
+  highRisk: 42,
+  mediumRisk: 66,
+  lowRisk: 88,
+} as const;
 
-  if (rentDep > 55) {
-    cards.push({
-      title: "Rental income dependency elevated",
-      message: `Rental income covers ${rentDep.toFixed(0)}% of total portfolio income. Reducing dependence through equity SIPs or debt instruments is advisable.`,
-      tone: "warn",
-      confidence: 0.79,
-    });
-  }
+/**
+ * Truncates recommendation copy for compact cards.
+ * The default limit keeps messages readable on tablet while preserving quick scanability.
+ * Ellipsis is appended only when truncation occurs.
+ */
+function summarizeText(text: string, limit = 110) {
+  const compact = text.replace(/\s+/g, " ").trim();
+  if (compact.length <= limit) return compact;
+  return `${compact.slice(0, limit)}…`;
+}
 
-  if (inactivity?.level === "high") {
-    cards.push({
-      title: "Portfolio inactivity detected",
-      message: `${inactivity.label ?? "Portfolio has low activity"}. Consider reviewing allocation drift and rebalancing to maintain target risk profile.`,
-      tone: "warn",
-      confidence: 0.72,
-    });
-  }
+function computeHealthScore(data: ReturnType<typeof useOperatingSystemData>["data"]) {
+  const base =
+    data.executive.riskState === "High"
+      ? HEALTH_SCORE_BASE.highRisk
+      : data.executive.riskState === "Medium"
+      ? HEALTH_SCORE_BASE.mediumRisk
+      : HEALTH_SCORE_BASE.lowRisk;
+  const diversificationRaw = Number(data.risk?.diversification?.score);
+  // If diversification score is unavailable from backend hydration, keep a stable risk-state baseline.
+  if (!Number.isFinite(diversificationRaw)) return base;
+  const diversification = Math.max(0, Math.min(100, diversificationRaw));
+  return Math.round(base * 0.65 + diversification * 0.35);
+}
 
-  if (
-    diversification?.level === "low" ||
-    diversification?.level === "medium"
-  ) {
-    cards.push({
-      title: "Diversification below target",
-      message: `Diversification score ${diversification?.score ?? "—"}. Broadening across uncorrelated asset classes (commodities, international equity) would improve resilience.`,
+function buildHealthRecommendations(data: ReturnType<typeof useOperatingSystemData>["data"]): RecommendationItem[] {
+  const actionItems: RecommendationItem[] = data.priorityActions.slice(0, 3).map((action) => ({
+      title: action.title,
+      message: summarizeText(action.description || "Review this portfolio action."),
+      tone: action.severity === "high" ? "danger" : action.severity === "medium" ? "warn" : "info",
+    }));
+
+  const recommendationItems: RecommendationItem[] = data.recommendations.slice(0, 3).map((rec) => ({
+      title: rec.title,
+      message: summarizeText(rec.rationale || "Review this recommendation."),
       tone: "info",
-      confidence: 0.76,
-    });
-  }
+      confidence: rec.confidence,
+    }));
 
-  if (concentration?.level === "high") {
-    cards.push({
-      title: "Concentration risk elevated",
-      message: concentration.label ?? "Current portfolio concentration is above preferred limits.",
+  const items: RecommendationItem[] = [...actionItems, ...recommendationItems];
+
+  if (data.realEstate.overdueRent > 0) {
+    items.push({
+      title: "Address overdue rent",
+      message: `${data.realEstate.overdueRent} propert${data.realEstate.overdueRent > 1 ? "ies have" : "y has"} pending rent collection.`,
       tone: "warn",
-      confidence: 0.78,
     });
   }
 
-  if (executive.totalReturn >= 0 && executive.returnPct > 8) {
-    cards.push({
-      title: "Portfolio outperforming benchmark",
-      message: `Unrealised return of ${executive.returnPct.toFixed(2)}% exceeds the 8% equity benchmark. Review for tactical profit-booking opportunities.`,
-      tone: "success",
-      confidence: 0.81,
-    });
-  }
-
-  if (cards.length === 0) {
-    cards.push({
-      title: "Portfolio operating within healthy parameters",
-      message: "No concentration risk, inactivity, or cashflow pressure detected. Continue monitoring for rebalancing triggers.",
+  if (items.length === 0) {
+    items.push({
+      title: "Portfolio is stable",
+      message: "No immediate actions required. Continue regular monthly review.",
       tone: "success",
     });
   }
 
-  return cards.slice(0, 5);
+  return items.slice(0, 3);
+}
+
+function buildAllocation(data: ReturnType<typeof useOperatingSystemData>["data"]) {
+  const allocationRecord = data.allocation as unknown as Record<string, unknown>;
+  const stock = Math.max(0, data.allocation.stock ?? 0);
+  const mf = Math.max(0, data.allocation.mf ?? 0);
+  const property = Math.max(0, data.allocation.property ?? 0);
+  const commodity = Math.max(0, data.allocation.commodity ?? 0);
+  const fixedIncomeRaw = Number(allocationRecord.fixed_income ?? allocationRecord.fixedIncome);
+  const fixedIncome = Number.isFinite(fixedIncomeRaw) ? Math.max(0, fixedIncomeRaw) : 0;
+  const known = stock + mf + property + commodity + fixedIncome;
+  const cash = known < 100 ? Math.max(0, 100 - known) : 0;
+
+  return [
+    { label: "Stocks", value: stock, color: "#3b82f6" },
+    { label: "Mutual Funds", value: mf, color: "#10b981" },
+    { label: "Property", value: property, color: "#8b5cf6" },
+    { label: "Commodities", value: commodity, color: "#f59e0b" },
+    { label: "Cash", value: cash, color: "#22d3ee" },
+    { label: "Fixed Income", value: fixedIncome, color: "#64748b" },
+  ];
+}
+
+function buildDonutGradient(slices: Array<{ value: number; color: string }>) {
+  const total = slices.reduce((sum, item) => sum + item.value, 0);
+  if (total <= 0) return "conic-gradient(#334155 0deg 360deg)";
+
+  let current = 0;
+  const segments: string[] = [];
+  slices.forEach((slice) => {
+    if (slice.value <= 0) return;
+    const sweep = (slice.value / total) * 360;
+    const start = current;
+    const end = current + sweep;
+    segments.push(`${slice.color} ${start}deg ${end}deg`);
+    current = end;
+  });
+
+  return `conic-gradient(${segments.join(", ")})`;
 }
 
 export default function DashboardPage() {
@@ -156,29 +184,43 @@ export default function DashboardPage() {
     return (
       <EmptyBlock
         title="Unable to load portfolio data"
-        message="Please retry to reconnect portfolio, intelligence and transaction modules."
+        message="Please retry to reconnect portfolio and intelligence data."
       />
     );
   }
 
-  const riskTone =
-    data.executive.riskState === "High"
-      ? "danger"
-      : data.executive.riskState === "Medium"
-      ? "warn"
-      : "success";
+  const healthState = mapHealthState(data.executive.riskState);
+  const healthTone = mapHealthTone(healthState);
+  const healthScore = computeHealthScore(data);
+  const recommendations = buildHealthRecommendations(data);
+  const allocationSlices = buildAllocation(data);
+  const backendClassCount = allocationSlices.filter((item) => item.label !== "Cash").length;
+  const donutGradient = buildDonutGradient(allocationSlices);
 
-  const intelCards = buildIntelCards(data);
+  const topHolding = data.assets.reduce<(typeof data.assets)[number] | undefined>(
+    (maxAsset, asset) => ((asset.value ?? 0) > (maxAsset?.value ?? 0) ? asset : maxAsset),
+    undefined
+  );
+  const largestExposure = allocationSlices.reduce<(typeof allocationSlices)[number] | undefined>(
+    (maxSlice, slice) => (slice.value > (maxSlice?.value ?? 0) ? slice : maxSlice),
+    undefined
+  );
+
+  const activeClassCount = allocationSlices.filter((item) => item.label !== "Cash" && item.value > 0).length;
+  const diversificationScore = Number.isFinite(Number(data.risk?.diversification?.score))
+    ? Math.max(0, Math.min(100, Number(data.risk?.diversification?.score)))
+    // Fallback proxy uses breadth of backend-provided asset classes when score is unavailable.
+    : backendClassCount > 0
+    ? Math.round((activeClassCount / backendClassCount) * 100)
+    : 0;
 
   return (
-    <div className="space-y-5 animate-fade-in">
-
-      {/* ── Executive summary ──────────────────────────────────────────── */}
-      <SurfaceCard className="p-4 sm:p-5">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+    <div className="space-y-7 animate-fade-in">
+      <SurfaceCard className="p-5 sm:p-6 lg:p-7">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
           <SectionHeader
-            eyebrow="Portfolio Intelligence"
-            title="Wealth overview"
+            eyebrow="Executive Summary"
+            title="Your wealth at a glance"
             subtitle={`Horizon ${timeHorizon.toUpperCase()} · Risk profile ${riskProfile}`}
           />
           <button onClick={refetchAll} className="v2-action text-xs" type="button">
@@ -187,110 +229,118 @@ export default function DashboardPage() {
         </div>
 
         {marketSyncNotice ? (
-          <div className="mb-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          <div className="mb-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
             {marketSyncNotice}
           </div>
         ) : null}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <MetricTile label="Total Portfolio Value" value={fmt(data.executive.totalValue)} />
-          <MetricTile label="Total Invested" value={fmt(data.executive.totalInvested)} />
-          <MetricTile
-            label="Unrealised P&L"
-            value={fmt(data.executive.totalReturn)}
-            change={`${data.executive.returnPct >= 0 ? "+" : ""}${data.executive.returnPct.toFixed(2)}%`}
-            positive={data.executive.totalReturn >= 0}
-          />
-          <MetricTile
-            label="Net Worth"
-            value={fmt(data.executive.netWorth ?? data.executive.totalValue)}
-          />
-        </div>
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <MetricTile
-            label="Monthly Income"
-            value={fmt(data.executive.monthlyIncome ?? 0)}
-            sub="Rental + yield"
-          />
-          <div className="v2-tile rounded-xl p-4">
-            <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-medium">Portfolio Risk</p>
-            <div className="mt-2">
-              <StatusPill label={data.executive.riskState} tone={riskTone} />
+        <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4 sm:p-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Net Worth</p>
+              <p className="mt-2 text-3xl sm:text-4xl font-bold tracking-tight text-white">{fmt(data.executive.netWorth ?? data.executive.totalValue)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Unrealized Gain/Loss</p>
+              <p className={`mt-2 text-3xl sm:text-4xl font-bold tracking-tight ${data.executive.totalReturn >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                {fmt(data.executive.totalReturn)}
+              </p>
+              <p className={`mt-1 text-xs font-medium ${data.executive.totalReturn >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                {fmtPct(data.executive.returnPct)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Monthly Income</p>
+              <p className="mt-2 text-3xl sm:text-4xl font-bold tracking-tight text-white">{fmt(data.executive.monthlyIncome ?? 0)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Portfolio Health Score</p>
+              <div className="mt-2 flex items-end gap-3">
+                <p className="text-3xl sm:text-4xl font-bold tracking-tight text-white">{healthScore}</p>
+                <p className="pb-1 text-sm text-slate-400">/100</p>
+              </div>
+              <div className="mt-2">
+                <StatusPill label={healthState} tone={healthTone} />
+              </div>
             </div>
           </div>
         </div>
       </SurfaceCard>
 
-      {/* ── Asset allocation + Market exposure ─────────────────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <SurfaceCard className="p-4 sm:p-5">
-          <SectionHeader
-            eyebrow="Asset Allocation"
-            title="Portfolio composition"
-            subtitle="Current holding distribution by asset class"
-          />
-          <div className="mt-4 space-y-3">
-            {[
-              { label: "Equities", val: data.allocation.stock,     color: "#3b82f6" },
-              { label: "Mutual Funds", val: data.allocation.mf,    color: "#10b981" },
-              { label: "Real Estate", val: data.allocation.property, color: "#8b5cf6" },
-              { label: "Commodities", val: data.allocation.commodity ?? 0, color: "#f59e0b" },
-            ].map((x) => (
-              <ExposureBar key={x.label} label={x.label} value={x.val} color={x.color} />
-            ))}
-          </div>
-        </SurfaceCard>
+      <SurfaceCard className="p-5 sm:p-6">
+        <SectionHeader
+          eyebrow="Portfolio Allocation + Performance"
+          title="Portfolio Allocation & Performance"
+          subtitle="A single view of what you own and how balanced it is"
+        />
 
-        <SurfaceCard className="p-4 sm:p-5">
-          <SectionHeader
-            eyebrow="Market Exposure"
-            title="Exposure analysis"
-            subtitle="Liquid vs. illiquid and market vs. alternative"
-          />
-          <div className="mt-4 space-y-3">
-            {[
-              {
-                label: "Market exposure (equity + MF)",
-                val: (data.allocation.stock ?? 0) + (data.allocation.mf ?? 0),
-                color: "#3b82f6",
-              },
-              {
-                label: "Illiquid exposure (RE + commodity)",
-                val: (data.allocation.property ?? 0) + (data.allocation.commodity ?? 0),
-                color: "#8b5cf6",
-              },
-              {
-                label: "Real estate only",
-                val: data.allocation.property ?? 0,
-                color: "#6366f1",
-              },
-              {
-                label: "Equity only",
-                val: data.allocation.stock ?? 0,
-                color: "#60a5fa",
-              },
-            ].map((x) => (
-              <ExposureBar key={x.label} label={x.label} value={x.val} color={x.color} />
-            ))}
+        <div className="mt-5 grid grid-cols-1 xl:grid-cols-[1.2fr_1fr] gap-6">
+          <div className="v2-tile rounded-2xl p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+              <div
+                className="relative w-44 h-44 rounded-full shrink-0"
+                style={{ background: donutGradient }}
+                role="img"
+                aria-label="Portfolio allocation donut chart"
+              >
+                <div className="absolute inset-[18%] rounded-full bg-[#0f1220] border border-white/10 flex items-center justify-center text-center px-2">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Diversification</p>
+                    <p className="mt-1 text-2xl font-bold text-white">{Math.round(diversificationScore)}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-0 space-y-2.5 w-full" role="list" aria-label="Asset allocation breakdown">
+                {allocationSlices.map((slice) => (
+                  <div key={slice.label} className="flex items-center gap-2 text-xs" role="listitem">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: slice.color }} />
+                    <span className="text-slate-300">{slice.label}</span>
+                    <span className="ml-auto font-semibold text-white tabular-nums">{slice.value.toFixed(1)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-          <div className="mt-4 pt-3 border-t border-white/[0.06]">
-            <RiskScorePanel
-              score={data.executive.riskState}
-              label="Computed from allocation, concentration and inactivity signals"
-            />
+
+          <div className="space-y-3">
+            <div className="v2-tile rounded-xl">
+              <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-medium">Largest Exposure</p>
+              <p className="mt-2 text-lg font-semibold text-white">{largestExposure?.label ?? "—"}</p>
+              <p className="mt-1 text-xs text-slate-400">{largestExposure?.value?.toFixed(1) ?? "0.0"}% of portfolio</p>
+            </div>
+            <div className="v2-tile rounded-xl">
+              <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-medium">Top Holding</p>
+              <p className="mt-2 text-lg font-semibold text-white truncate">{topHolding?.name ?? "No holdings"}</p>
+              <p className="mt-1 text-xs text-slate-400">{topHolding ? fmt(topHolding.value ?? 0) : "—"}</p>
+            </div>
+            <div className="v2-tile rounded-xl">
+              <p className="text-[10px] uppercase tracking-[0.1em] text-slate-500 font-medium">Performance</p>
+              <p className={`mt-2 text-lg font-semibold ${data.executive.totalReturn >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                {fmt(data.executive.totalReturn)}
+              </p>
+              <p className={`mt-1 text-xs ${data.executive.totalReturn >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                {fmtPct(data.executive.returnPct)} unrealized
+              </p>
+            </div>
           </div>
-        </SurfaceCard>
-      </div>
+        </div>
+      </SurfaceCard>
+
+      <RuntimeErrorBoundary scope="runtime-stream-panel">
+        <PropertyIncomeOccupancySection data={data} />
+      </RuntimeErrorBoundary>
 
       <RuntimeErrorBoundary scope="intelligence-widget">
-        <IntelligenceSection intelCards={intelCards} />
+        <PortfolioHealthSection state={healthState} recommendations={recommendations} />
       </RuntimeErrorBoundary>
-      <ActionsRecommendationsSection data={data} />
-      <RuntimeErrorBoundary scope="runtime-stream-panel">
-        <RealEstateActivitySection data={data} />
+
+      <RuntimeErrorBoundary scope="market-pulse-component">
+        <RecentActivitySection data={data} />
       </RuntimeErrorBoundary>
+
       <RuntimeErrorBoundary scope="commodity-widget">
-        <MarketDiscoverySection />
+        <MarketIntelligenceSection />
       </RuntimeErrorBoundary>
     </div>
   );
