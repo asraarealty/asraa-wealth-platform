@@ -109,7 +109,14 @@ async function fetchGoldInstrument(signal?: AbortSignal): Promise<SnapshotInstru
 
   const price = toNumber(result.price ?? result.ltp ?? result.last_price ?? result.current_price ?? result.close);
   const change = toNumber(result.change ?? result.price_change ?? result.net_change);
-  const changePercent = toNumber(result.changePercent ?? result.change_percent ?? result.percent_change);
+  const changePercent = toNumber(
+    result.changePercent ??
+      result.change_percentage ??
+      result.change_percent ??
+      result.percent_change ??
+      result.netChangePercent ??
+      result.dayChangePercent
+  );
 
   return {
     key: "GOLD",
