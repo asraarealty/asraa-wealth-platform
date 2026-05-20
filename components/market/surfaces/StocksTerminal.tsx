@@ -17,7 +17,7 @@ const SPARKLINE_VERTICAL_OFFSET = 2;
 const BREAKOUT_CHANGE_THRESHOLD = 1.2;
 const BREAKOUT_VOLUME_THRESHOLD = 600_000;
 const DEFAULT_SECTOR_RANK = 6;
-const DEFAULT_NAVIGATOR_SPARKLINE = [50, 53, 52, 55, 57, 56, 58, 60, 59, 61, 60, 62] as const;
+const DEFAULT_NAVIGATOR_SPARKLINE: number[] = [50, 53, 52, 55, 57, 56, 58, 60, 59, 61, 60, 62];
 const DISCOVERY_TABS = [
   "Recent",
   "Watchlist",
@@ -73,7 +73,7 @@ function commandItemToAsset(item: CommandSearchItem, index: number): MarketAsset
     volume: 0,
     marketCap: 0,
     currency: "INR",
-    sparkline: [...DEFAULT_NAVIGATOR_SPARKLINE],
+    sparkline: DEFAULT_NAVIGATOR_SPARKLINE,
     lastUpdated: new Date().toISOString(),
     searchLabel: item.subtitle,
   };
@@ -374,6 +374,15 @@ export function StocksTerminal() {
     setRecentSymbols((prev) => [asset.symbol, ...prev.filter((s) => s !== asset.symbol)].slice(0, 30));
   };
 
+  const sectorNavigatorSignals = useMemo(
+    () => (search.groups.sectors ?? []).map((item, index) => commandItemToAsset(item, index)),
+    [search.groups.sectors]
+  );
+  const themeNavigatorSignals = useMemo(
+    () => (search.groups.themes ?? []).map((item, index) => commandItemToAsset(item, index)),
+    [search.groups.themes]
+  );
+
   const searchResults = useMemo(
     () =>
       query.trim().length >= MIN_SEARCH_LENGTH
@@ -382,11 +391,11 @@ export function StocksTerminal() {
             ...(search.groups.etfs ?? []),
             ...(search.groups.mutualFunds ?? []),
             ...(search.groups.commodities ?? []),
-            ...((search.groups.sectors ?? []).map((item, index) => commandItemToAsset(item, index))),
-            ...((search.groups.themes ?? []).map((item, index) => commandItemToAsset(item, index))),
+            ...sectorNavigatorSignals,
+            ...themeNavigatorSignals,
           ].slice(0, 24)
         : [],
-    [query, search.groups]
+    [query, search.groups.stocks, search.groups.etfs, search.groups.mutualFunds, search.groups.commodities, sectorNavigatorSignals, themeNavigatorSignals]
   );
 
   const recentAssets = useMemo(
