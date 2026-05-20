@@ -7,8 +7,13 @@ import { RuntimeObservabilityBadges } from "@/components/runtime/RuntimeObservab
 import { fmtPercent, fmtLastUpdated } from "@/lib/formatters";
 import { useMarketDomainGraph, useMarketIntelligenceEngine, scoreAssetConviction, type MarketAsset } from "@/domains/market";
 import { MARKET_SEARCH_MIN_QUERY_LENGTH } from "@/domains/market/search";
+import { MARKET_SECTOR_CHIPS, SECTOR_CHIP_KEYWORDS, type MarketSectorChip } from "@/domains/market/sectorFilters";
 
 const MIN_SEARCH_LENGTH = MARKET_SEARCH_MIN_QUERY_LENGTH;
+
+// ─── Breakout thresholds ──────────────────────────────────────────────────────
+const BREAKOUT_CHANGE_THRESHOLD = 2.5;
+const BREAKOUT_VOLUME_THRESHOLD = 500_000;
 
 // ─── Heatmap ─────────────────────────────────────────────────────────────────
 
@@ -157,6 +162,16 @@ function formatAssetKind(kind: MarketAsset["kind"]): string {
 
 // ─── Enriched Mover Row (Phase 2) ─────────────────────────────────────────────
 
+const RS_STRONG_THRESHOLD = 2;
+const RS_WEAK_THRESHOLD = -2;
+
+function relativeStrengthLabel(changePercent: number): string {
+  if (changePercent >= RS_STRONG_THRESHOLD) return "Strong";
+  if (changePercent >= 0) return "Positive";
+  if (changePercent >= RS_WEAK_THRESHOLD) return "Weak";
+  return "Negative";
+}
+
 const MoverRow = memo(function MoverRow({
   item,
   side,
@@ -171,7 +186,7 @@ const MoverRow = memo(function MoverRow({
   onSelect: (asset: MarketAsset) => void;
 }) {
   const up = side === "gainer";
-  const isBreakout = item.changePercent >= 2.5 && item.volume >= 500_000;
+  const isBreakout = item.changePercent >= BREAKOUT_CHANGE_THRESHOLD && item.volume >= BREAKOUT_VOLUME_THRESHOLD;
   const capTier = classifyCapTier(item.marketCap);
   const liqScore = liquidityScore(item.volume);
   const trendUp =
@@ -201,7 +216,7 @@ const MoverRow = memo(function MoverRow({
       ? "text-amber-300"
       : "text-rose-300";
 
-  const relStrength = item.changePercent >= 2 ? "Strong" : item.changePercent >= 0 ? "Positive" : item.changePercent >= -2 ? "Weak" : "Negative";
+  const relStrength = relativeStrengthLabel(item.changePercent);
 
   return (
     <button
@@ -264,38 +279,20 @@ const MoverRow = memo(function MoverRow({
 
 // ─── Sector chip filters (Phase 3) ───────────────────────────────────────────
 
-const HEATMAP_CHIPS = [
-  "All", "Tech", "Banking", "Pharma", "Energy", "Metals", "Defense", "India Growth", "Global Tech",
-] as const;
-type HeatmapChip = (typeof HEATMAP_CHIPS)[number];
-
-const CHIP_SECTOR_MAP: Record<Exclude<HeatmapChip, "All" | "India Growth" | "Global Tech">, string[]> = {
-  Tech: ["technology", "communication", "ai", "software"],
-  Banking: ["financials", "banking", "finance"],
-  Pharma: ["healthcare", "pharma", "biotech"],
-  Energy: ["energy", "oil", "gas", "power"],
-  Metals: ["metals", "metal", "mining", "precious metal"],
-  Defense: ["defense", "aerospace", "industrials"],
-};
-
-function applyChipFilter(assets: MarketAsset[], chip: HeatmapChip): MarketAsset[] {
+function applyChipFilter(assets: MarketAsset[], chip: MarketSectorChip): MarketAsset[] {
   if (chip === "All") return assets;
   if (chip === "India Growth") return assets.filter((a) => a.market === "India");
   if (chip === "Global Tech") {
     return assets.filter(
       (a) =>
         a.market === "Global" &&
-        ["technology", "communication", "ai"].some((t) =>
-          a.sector.toLowerCase().includes(t)
-        )
+        ["technology", "communication", "ai"].some((t) => a.sector.toLowerCase().includes(t))
     );
   }
-  const targets = CHIP_SECTOR_MAP[chip];
+  const targets = SECTOR_CHIP_KEYWORDS[chip];
   return assets.filter((a) =>
     targets.some(
-      (t) =>
-        a.sector.toLowerCase().includes(t) ||
-        a.category.toLowerCase().includes(t)
+      (t) => a.sector.toLowerCase().includes(t) || a.category.toLowerCase().includes(t)
     )
   );
 }
@@ -322,7 +319,7 @@ export function MarketsPulse() {
 
   const [query, setQuery] = useState("");
   const [highlightedAsset, setHighlightedAsset] = useState<MarketAsset | null>(null);
-  const [heatmapChip, setHeatmapChip] = useState<HeatmapChip>("All");
+  const [heatmapChip, setHeatmapChip] = useState<MarketSectorChip>("All");
 
   const intelligence = useMarketIntelligenceEngine(null, sectorMovers, watchlist);
 
@@ -506,7 +503,7 @@ export function MarketsPulse() {
         <div className="border-b border-white/8 p-4 space-y-4">
           {/* Chip filters */}
           <div className="flex flex-wrap gap-1.5">
-            {HEATMAP_CHIPS.map((chip) => (
+            {MARKET_SECTOR_CHIPS.map((chip) => (
               <button
                 key={chip}
                 type="button"

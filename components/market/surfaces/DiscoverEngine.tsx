@@ -7,24 +7,17 @@ import { RuntimeObservabilityBadges } from "@/components/runtime/RuntimeObservab
 import { fmtPercent, fmtLastUpdated } from "@/lib/formatters";
 import { useMarketDomainGraph, scoreAssetConviction, useMarketIntelligenceEngine, type MarketAsset } from "@/domains/market";
 import { MARKET_SEARCH_MIN_QUERY_LENGTH } from "@/domains/market/search";
+import { MARKET_SECTOR_CHIPS, SECTOR_CHIP_KEYWORDS, type MarketSectorChip } from "@/domains/market/sectorFilters";
 
 const MIN_SEARCH_LENGTH = MARKET_SEARCH_MIN_QUERY_LENGTH;
 
 const SCREENER_FILTERS = ["All", "Momentum", "Value", "Recovery", "Breakout", "Accumulation"] as const;
 type ScreenerFilter = (typeof SCREENER_FILTERS)[number];
 
-const SECTOR_CHIPS = ["All Sectors", "AI", "Banking", "Pharma", "Energy", "Metals", "Tech", "Defense", "India Growth", "Global Tech"] as const;
-type SectorChip = (typeof SECTOR_CHIPS)[number];
-
-const SECTOR_CHIP_MAP: Record<Exclude<SectorChip, "All Sectors" | "India Growth" | "Global Tech">, string[]> = {
-  AI: ["ai", "technology", "software"],
-  Banking: ["financials", "banking", "finance"],
-  Pharma: ["healthcare", "pharma", "biotech"],
-  Energy: ["energy", "oil", "gas"],
-  Metals: ["metals", "metal", "mining", "precious metal"],
-  Tech: ["technology", "communication", "software", "ai"],
-  Defense: ["defense", "aerospace", "industrials"],
-};
+// The "All Sectors" entry in DiscoverEngine maps to "All" in the shared chip list.
+// We prepend "All Sectors" as a local alias for the "no filter" state.
+const DISCOVER_SECTOR_CHIPS = ["All Sectors", ...MARKET_SECTOR_CHIPS.filter((c) => c !== "All")] as const;
+type DiscoverSectorChip = "All Sectors" | Exclude<MarketSectorChip, "All">;
 
 interface Opportunity {
   asset: MarketAsset;
@@ -89,7 +82,7 @@ function applyScreenerFilter(items: Opportunity[], filter: ScreenerFilter): Oppo
   return items.filter((o) => tags.includes(o.tag));
 }
 
-function applySectorChip(items: Opportunity[], chip: SectorChip): Opportunity[] {
+function applySectorChip(items: Opportunity[], chip: DiscoverSectorChip): Opportunity[] {
   if (chip === "All Sectors") return items;
   if (chip === "India Growth") return items.filter((o) => o.asset.market === "India");
   if (chip === "Global Tech") {
@@ -101,7 +94,7 @@ function applySectorChip(items: Opportunity[], chip: SectorChip): Opportunity[] 
         )
     );
   }
-  const targets = SECTOR_CHIP_MAP[chip];
+  const targets = SECTOR_CHIP_KEYWORDS[chip];
   return items.filter((o) =>
     targets.some(
       (t) =>
@@ -204,7 +197,7 @@ export function DiscoverEngine() {
 
   const [query, setQuery] = useState("");
   const [screenerFilter, setScreenerFilter] = useState<ScreenerFilter>("All");
-  const [sectorChip, setSectorChip] = useState<SectorChip>("All Sectors");
+  const [sectorChip, setSectorChip] = useState<DiscoverSectorChip>("All Sectors");
 
   useEffect(() => {
     if (query.trim().length > 0 && query.trim().length < MIN_SEARCH_LENGTH) return;
@@ -297,7 +290,7 @@ export function DiscoverEngine() {
           </div>
           {/* Sector/theme chip filters */}
           <div className="flex flex-wrap gap-1.5">
-            {SECTOR_CHIPS.map((chip) => (
+            {DISCOVER_SECTOR_CHIPS.map((chip) => (
               <button
                 key={chip}
                 type="button"
