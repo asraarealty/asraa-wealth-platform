@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { toErrorMessage } from "@/lib/fetcher";
-import type { MarketAsset, SectorMover } from "@/domains/market/types";
-import { useIntelligencePipelineQuery } from "@/domains/intelligence";
+import type { BreadthMetrics, MarketAsset, SectorMover } from "@/domains/market/types";
+import { getMarketSnapshot } from "@/domains/market/graph";
 
 interface IntelligencePayload {
   aiInsights: Array<{ title: string; message: string; confidence?: number }>;
@@ -50,6 +49,15 @@ const PORTFOLIO_FIT_OPPORTUNITY_BONUS = 10;
 const PORTFOLIO_FIT_BALANCED_CONCENTRATION_BONUS = 8;
 const PORTFOLIO_FIT_MODERATE_CONCENTRATION_BONUS = 3;
 const PORTFOLIO_FIT_ELEVATED_CONCENTRATION_PENALTY = -4;
+
+const VOLUME_DISPLAY_DIVISOR = 1000;
+const GAINER_MAX_CONFIDENCE = 95;
+const GAINER_BASE_CONFIDENCE = 60;
+const GAINER_CONFIDENCE_MULTIPLIER = 5;
+const LOSER_MAX_CONFIDENCE = 90;
+const LOSER_BASE_CONFIDENCE = 55;
+const LOSER_CONFIDENCE_MULTIPLIER = 4;
+const SIGNIFICANT_DROP_THRESHOLD = -3;
 
 function liquidityTone(volume: number): ProprietarySignal["tone"] {
   if (volume > 4_000_000) return "success";
@@ -217,23 +225,137 @@ export function buildProprietarySignals(
   ];
 }
 
+function fmt(n: number, decimals = 2): string {
+  return (n >= 0 ? "+" : "") + n.toFixed(decimals);
+}
+
+function deriveLocalIntelligence(
+  sectorMovers: SectorMover[],
+  watchlist: MarketAsset[],
+  topGainers: MarketAsset[],
+  topLosers: MarketAsset[],
+  breadth: BreadthMetrics
+): IntelligencePayload {
+  const total = breadth.total;
+  const pulse = breadth.marketPulse;
+  const advRatio = total > 0 ? (breadth.advances / total) * 100 : 50;
+
+  // ── macroSummary ────────────────────────────────────────────────────────────
+  const breadthColor =
+    advRatio >= 60
+      ? "Broad-based buying evident across sectors."
+      : advRatio <= 40
+      ? "Selling pressure visible across the liquid universe."
+      : "Mixed participation — selective rotation in progress.";
+  const macroSummary =
+    total > 0
+      ? `Market breadth: ${breadth.advances} advancing, ${breadth.declines} declining of ${total} liquid assets (${fmt(pulse)}% avg move). ${breadthColor}`
+      : "Market data initializing. Breadth metrics pending first data cycle.";
+
+  // ── marketSentiment ─────────────────────────────────────────────────────────
+  const marketSentiment =
+    pulse >= 0.75
+      ? "Bullish"
+      : pulse >= 0.25
+      ? "Constructive"
+      : pulse >= -0.25
+      ? "Neutral"
+      : pulse >= -0.75
+      ? "Cautious"
+      : "Bearish";
+
+  // ── aiInsights from top movers ──────────────────────────────────────────────
+  const aiInsights: IntelligencePayload["aiInsights"] = [];
+  for (const asset of topGainers.slice(0, 3)) {
+    const volLabel = asset.volume > 0 ? ` · ${Math.round(asset.volume / VOLUME_DISPLAY_DIVISOR)}k vol` : "";
+    aiInsights.push({
+      title: `${asset.symbol} momentum`,
+      message: `${asset.name} (${fmt(asset.changePercent)}%) leading ${asset.sector}${volLabel}.`,
+      confidence: Math.min(GAINER_MAX_CONFIDENCE, GAINER_BASE_CONFIDENCE + Math.abs(asset.changePercent) * GAINER_CONFIDENCE_MULTIPLIER),
+    });
+  }
+  for (const asset of topLosers.slice(0, 2)) {
+    aiInsights.push({
+      title: `${asset.symbol} pressure`,
+      message: `${asset.name} (${fmt(asset.changePercent)}%) under distribution in ${asset.sector}.`,
+      confidence: Math.min(LOSER_MAX_CONFIDENCE, LOSER_BASE_CONFIDENCE + Math.abs(asset.changePercent) * LOSER_CONFIDENCE_MULTIPLIER),
+    });
+  }
+
+  // ── trendAnalysis from sector rotation ─────────────────────────────────────
+  const trendAnalysis = sectorMovers.slice(0, 5).map((sm) => {
+    const leaderStr = sm.leaders.slice(0, 2).join(", ");
+    return `${sm.sector} ${fmt(sm.avgChangePercent)}% · leaders: ${leaderStr || "—"}`;
+  });
+
+  // ── riskAlerts ──────────────────────────────────────────────────────────────
+  const riskAlerts: string[] = [];
+  if (breadth.declines > breadth.advances && total > 0) {
+    riskAlerts.push(
+      `Declining breadth: ${breadth.declines} assets under pressure vs ${breadth.advances} advancing.`
+    );
+  }
+  for (const asset of topLosers.filter((a) => a.changePercent < SIGNIFICANT_DROP_THRESHOLD).slice(0, 2)) {
+    riskAlerts.push(
+      `${asset.symbol} sharp move ${fmt(asset.changePercent)}% — monitor for continuation risk.`
+    );
+  }
+  if (riskAlerts.length === 0 && total > 0) {
+    riskAlerts.push("No elevated risk signals. Market participation within normal parameters.");
+  }
+
+  // ── opportunities ──────────────────────────────────────────────────────────
+  const opportunities = topGainers.slice(0, 6).map(
+    (a) => `${a.symbol}: ${fmt(a.changePercent)}% (${a.sector})`
+  );
+
+  // ── portfolioIntelligence from watchlist ────────────────────────────────────
+  const portfolioIntelligence: string[] = [];
+  if (watchlist.length > 0) {
+    const wlGainers = watchlist.filter((a) => a.changePercent > 0).length;
+    const wlAvg = watchlist.reduce((s, a) => s + a.changePercent, 0) / watchlist.length;
+    portfolioIntelligence.push(
+      `Watchlist: ${wlGainers}/${watchlist.length} positions advancing · avg ${fmt(wlAvg)}%.`
+    );
+    const topSectors = [...new Set(watchlist.map((a) => a.sector))].slice(0, 3);
+    if (topSectors.length > 0) {
+      portfolioIntelligence.push(`Sector exposure: ${topSectors.join(", ")}.`);
+    }
+  } else {
+    portfolioIntelligence.push(
+      "Add assets to watchlist to monitor live portfolio intelligence."
+    );
+  }
+
+  return {
+    aiInsights,
+    trendAnalysis,
+    riskAlerts,
+    opportunities,
+    macroSummary,
+    portfolioIntelligence,
+    allocationRecommendations: [],
+    marketSentiment,
+  };
+}
+
 export function useMarketIntelligenceEngine(
   selectedAsset: MarketAsset | null,
   sectorMovers: SectorMover[],
   watchlist: MarketAsset[]
 ) {
-  const query = useIntelligencePipelineQuery();
-
-  const data: IntelligencePayload = {
-    aiInsights: query.data?.aiInsights ?? [],
-    trendAnalysis: query.data?.trendAnalysis ?? [],
-    riskAlerts: query.data?.riskAlerts ?? [],
-    opportunities: query.data?.opportunities ?? [],
-    macroSummary: query.data?.macroSummary ?? "Macroeconomic intelligence stream initializing.",
-    portfolioIntelligence: query.data?.portfolioIntelligence ?? [],
-    allocationRecommendations: query.data?.allocationRecommendations ?? [],
-    marketSentiment: query.data?.marketSentiment ?? "Neutral",
-  };
+  // Derive all intelligence locally from live market state.
+  // No external API call — eliminates stale 401/403 requests to the removed intelligence endpoint.
+  const data = useMemo(() => {
+    const snap = getMarketSnapshot();
+    return deriveLocalIntelligence(
+      sectorMovers,
+      watchlist,
+      snap.topGainers,
+      snap.topLosers,
+      snap.breadth
+    );
+  }, [sectorMovers, watchlist]);
 
   const proprietarySignals = useMemo(
     () => buildProprietarySignals(selectedAsset, sectorMovers, watchlist, data.opportunities),
@@ -243,10 +365,8 @@ export function useMarketIntelligenceEngine(
   return {
     ...data,
     proprietarySignals,
-    isLoading: query.isLoading && !query.data,
-    isFetching: query.isFetching,
-    errorMessage: query.error
-      ? toErrorMessage(query.error)
-      : (query.data?.degradedState ?? null),
+    isLoading: false,
+    isFetching: false,
+    errorMessage: null,
   };
 }
