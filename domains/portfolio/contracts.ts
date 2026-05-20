@@ -72,7 +72,7 @@ export function toPortfolioHolding(
   options: ToPortfolioHoldingOptions = {}
 ): PortfolioHolding {
   const assetType = toAssetType(read(asset, "type", "asset_type"));
-  const quantity = assetType === "property" ? 1 : round2(n(read(asset, "quantity", "units"), 0));
+  const quantity = assetType === "property" ? 1 : n(read(asset, "quantity", "units"), 0);
 
   const purchasePrice = round2(
     n(
@@ -90,7 +90,7 @@ export function toPortfolioHolding(
   const currentPrice = round2(
     n(
       options.currentPrice,
-      n(read(asset, "current_price", "currentPrice", "nav"), 0)
+      n(read(asset, "current_price", "currentPrice", "nav"), purchasePrice)
     )
   );
 
