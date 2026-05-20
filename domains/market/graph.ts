@@ -12,13 +12,18 @@ import {
 } from "@/domains/market/search";
 import { getWatchlistSymbols, toggleWatchlistSymbol } from "@/domains/market/watchlist";
 import {
-  EMPTY_BREADTH,
   EMPTY_SEARCH_GROUPS,
   type MarketAsset,
   type MarketAssetKind,
   type MarketSnapshot,
   type RuntimeStreamStatus,
 } from "@/domains/market/types";
+import {
+  getMarketSnapshot as getStoredMarketSnapshot,
+  getMarketSubscriberCount,
+  setMarketSnapshot,
+  subscribeMarketStore,
+} from "@/domains/market/runtimeStore";
 
 export type { MarketAsset, MarketSnapshot };
 
@@ -91,38 +96,6 @@ const MUTUAL_FUND_UNIVERSE: MutualFundSeed[] = [
 
 const ADMIN_TICKERS = ["^NSEI", "^BSESN", "^NSEBANK", "GOLD", "USDINR=X"];
 
-let snapshot: MarketSnapshot = {
-  isLoading: true,
-  isRefreshing: false,
-  error: null,
-  lastUpdated: null,
-  assets: [],
-  marketOverview: [],
-  topGainers: [],
-  topLosers: [],
-  trendingAssets: [],
-  watchlist: [],
-  sectorMovers: [],
-  adminTickers: [],
-  breadth: EMPTY_BREADTH,
-  search: {
-    query: "",
-    isSearching: false,
-    error: null,
-    commodityUnavailable: false,
-    groups: EMPTY_SEARCH_GROUPS,
-  },
-  runtime: {
-    connected: true,
-    replayActive: false,
-    staleRuntime: false,
-    currentSequence: 0,
-    resumeSequence: 0,
-    degradedSources: [],
-  },
-};
-
-const listeners = new Set<() => void>();
 const commodityJobs = new Map<string, Promise<MarketAsset | null>>();
 const fundJobs = new Map<string, Promise<MarketAsset | null>>();
 let refreshJob: Promise<MarketAsset[]> | null = null;
@@ -166,14 +139,8 @@ function applyRuntimeStreamEvent(
   };
 }
 
-function emit() {
-  listeners.forEach((listener) => listener());
-}
-
-function setSnapshot(next: Partial<MarketSnapshot>) {
-  snapshot = { ...snapshot, ...next };
-  console.log("[SNAPSHOT_DEBUG]", snapshot);
-  emit();
+function getSnapshot() {
+  return getStoredMarketSnapshot();
 }
 
 function safeRecord(value: unknown): Record<string, unknown> {
@@ -374,6 +341,7 @@ async function fetchMutualFund(seed: MutualFundSeed): Promise<MarketAsset | null
 
 async function refreshMarketUniverse(force = false): Promise<MarketAsset[]> {
   if (!force && refreshJob) return refreshJob;
+  const snapshot = getSnapshot();
   if (!force && Date.now() - lastRefreshAt < MARKET_STALE_MS && snapshot.assets.length > 0) {
     return snapshot.assets;
   }
@@ -384,6 +352,7 @@ async function refreshMarketUniverse(force = false): Promise<MarketAsset[]> {
     Promise.all(MUTUAL_FUND_UNIVERSE.map((seed) => fetchMutualFund(seed))),
   ])
     .then(([stocksResult, commoditiesResult, mutualFundsResult]) => {
+      const snapshot = getSnapshot();
       const previous = snapshot.assets;
       const previousStocks = previous.filter((asset) =>
         ["stock", "global-stock", "etf", "index", "forex"].includes(asset.kind)
@@ -449,8 +418,9 @@ function stopPolling() {
 
 export async function ensureMarketData(options: { force?: boolean; silent?: boolean } = {}) {
   const { force = false, silent = false } = options;
+  const snapshot = getSnapshot();
   if (!silent && !snapshot.isLoading && !snapshot.isRefreshing) {
-    setSnapshot({
+    setMarketSnapshot({
       isLoading: snapshot.assets.length === 0,
       isRefreshing: snapshot.assets.length > 0,
       error: null,
@@ -477,7 +447,7 @@ export async function ensureMarketData(options: { force?: boolean; silent?: bool
       degradedSources: lastRefreshMessage ? [lastRefreshMessage] : [],
     });
 
-    setSnapshot({
+    setMarketSnapshot({
       isLoading: false,
       isRefreshing: false,
       error: lastRefreshMessage,
@@ -488,6 +458,7 @@ export async function ensureMarketData(options: { force?: boolean; silent?: bool
     });
     return assets;
   } catch (error) {
+    const snapshot = getSnapshot();
     runtimeSequence += 1;
     const previousRuntime = snapshot.runtime ?? INITIAL_RUNTIME_STREAM_STATUS;
     const runtime = applyRuntimeStreamEvent(previousRuntime, {
@@ -498,7 +469,7 @@ export async function ensureMarketData(options: { force?: boolean; silent?: bool
       resumeSequence: previousRuntime.currentSequence,
       degradedSources: [toErrorMessage(error)],
     });
-    setSnapshot({
+    setMarketSnapshot({
       isLoading: false,
       isRefreshing: false,
       error: toErrorMessage(error),
@@ -509,10 +480,11 @@ export async function ensureMarketData(options: { force?: boolean; silent?: bool
 }
 
 export async function searchMarket(query: string) {
+  const snapshot = getSnapshot();
   const normalized = query.trim();
   if (!normalized || normalized.length < MARKET_SEARCH_MIN_QUERY_LENGTH) {
     cancelDebouncedMarketSearch();
-    setSnapshot({
+    setMarketSnapshot({
       search: {
         query: normalized,
         isSearching: false,
@@ -524,7 +496,7 @@ export async function searchMarket(query: string) {
     return;
   }
 
-  setSnapshot({
+  setMarketSnapshot({
     search: {
       ...snapshot.search,
       query: normalized,
@@ -539,7 +511,7 @@ export async function searchMarket(query: string) {
       watchlistSymbols: getWatchlistSymbols(),
       watchlistAssets: snapshot.watchlist,
     });
-    setSnapshot({
+    setMarketSnapshot({
       search: {
         query: normalized,
         isSearching: false,
@@ -550,7 +522,7 @@ export async function searchMarket(query: string) {
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") return;
-    setSnapshot({
+    setMarketSnapshot({
       search: {
         query: normalized,
         isSearching: false,
@@ -563,25 +535,26 @@ export async function searchMarket(query: string) {
 }
 
 export function toggleWatchlist(symbol: string) {
+  const snapshot = getSnapshot();
   const nextSymbols = toggleWatchlistSymbol(symbol, getWatchlistSymbols());
   const collections = deriveMarketCollections(snapshot.assets, {
     watchlistSymbols: nextSymbols,
     adminTickers: ADMIN_TICKERS,
   });
-  setSnapshot({ ...collections });
+  setMarketSnapshot({ ...collections });
 }
 
 export function subscribeMarket(listener: () => void) {
-  listeners.add(listener);
-  if (listeners.size === 1) startPolling();
+  const unsubscribe = subscribeMarketStore(listener);
+  if (getMarketSubscriberCount() === 1) startPolling();
   return () => {
-    listeners.delete(listener);
-    if (listeners.size === 0) stopPolling();
+    unsubscribe();
+    if (getMarketSubscriberCount() === 0) stopPolling();
   };
 }
 
 export function getMarketSnapshot() {
-  return snapshot;
+  return getSnapshot();
 }
 
 function formatMoney(value: number, currency: "INR" | "USD") {
@@ -597,6 +570,7 @@ export function useMarketDomainGraph() {
   const state = useSyncExternalStore(subscribeMarket, getMarketSnapshot, getMarketSnapshot);
 
   useEffect(() => {
+    const snapshot = getSnapshot();
     if (typeof performance !== "undefined" && typeof performance.mark === "function") {
       performance.mark("market:mount:start");
     }
