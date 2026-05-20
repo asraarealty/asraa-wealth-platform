@@ -418,6 +418,7 @@ function stopPolling() {
 
 export async function ensureMarketData(options: { force?: boolean; silent?: boolean } = {}) {
   const { force = false, silent = false } = options;
+  const snapshot = getSnapshot();
   if (!silent && !snapshot.isLoading && !snapshot.isRefreshing) {
     setMarketSnapshot({
       isLoading: snapshot.assets.length === 0,
