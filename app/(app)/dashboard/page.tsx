@@ -25,10 +25,6 @@ const RecentActivitySection = dynamic(
   () => import("./lazy-sections").then((mod) => mod.RecentActivitySection),
   { loading: () => <DashboardSectionSkeleton /> }
 );
-const MarketIntelligenceSection = dynamic(
-  () => import("./lazy-sections").then((mod) => mod.MarketIntelligenceSection),
-  { loading: () => <DashboardSectionSkeleton /> }
-);
 
 function DashboardSectionSkeleton() {
   return (
@@ -337,10 +333,6 @@ export default function DashboardPage() {
 
       <RuntimeErrorBoundary scope="market-pulse-component">
         <RecentActivitySection data={data} />
-      </RuntimeErrorBoundary>
-
-      <RuntimeErrorBoundary scope="commodity-widget">
-        <MarketIntelligenceSection />
       </RuntimeErrorBoundary>
     </div>
   );

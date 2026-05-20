@@ -11,7 +11,6 @@ import {
   SurfaceCard,
   type IntelTone,
 } from "@/components/v2/ui";
-import { MarketCommandCenter } from "@/components/market/MarketCommandCenter";
 import type { DashboardOperatingData } from "@/lib/hooks/useOperatingSystem";
 
 type HealthState = "Healthy" | "Watch" | "Action Needed";
@@ -160,30 +159,6 @@ export function RecentActivitySection({ data }: { data: DashboardOperatingData }
           ))
         )}
       </div>
-    </SurfaceCard>
-  );
-}
-
-export function MarketIntelligenceSection() {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <SurfaceCard className="p-4 sm:p-5">
-      <details open={isOpen} onToggle={(event) => setIsOpen((event.currentTarget as HTMLDetailsElement).open)}>
-        <summary className="cursor-pointer list-none">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.16em] text-blue-400/70">Optional Market Intelligence</p>
-              <h2 className="text-sm sm:text-lg font-semibold text-white leading-tight">Market Command Center</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Secondary market context for optional review</p>
-            </div>
-            <span className="v2-action">{isOpen ? "Collapse" : "Expand"}</span>
-          </div>
-        </summary>
-        <div className="mt-4">
-          <MarketCommandCenter mode="client" initialSurface="market-overview" compact />
-        </div>
-      </details>
     </SurfaceCard>
   );
 }
