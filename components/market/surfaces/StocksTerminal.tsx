@@ -10,6 +10,12 @@ import { MARKET_SEARCH_MIN_QUERY_LENGTH } from "@/domains/market/search";
 const MIN_SEARCH_LENGTH = MARKET_SEARCH_MIN_QUERY_LENGTH;
 const FINANCIAL_TABS = ["Quarterly", "P&L", "Balance Sheet", "Cash Flow", "Ratios", "Shareholding"] as const;
 type FinancialTab = (typeof FINANCIAL_TABS)[number];
+const SEARCH_HINT_EXAMPLES = ["INFY", "RELIANCE", "BANKING", "AI", "ENERGY"] as const;
+const SPARKLINE_VERTICAL_PADDING = 4;
+const SPARKLINE_VERTICAL_OFFSET = 2;
+const BREAKOUT_CHANGE_THRESHOLD = 1.2;
+const BREAKOUT_VOLUME_THRESHOLD = 600_000;
+const DEFAULT_SECTOR_RANK = 6;
 const DISCOVERY_TABS = [
   "Recent",
   "Watchlist",
@@ -74,6 +80,10 @@ function tone(score: number) {
   return "text-rose-300";
 }
 
+function normalizeSector(sector?: string | null) {
+  return (sector ?? "").toLowerCase();
+}
+
 function sparklinePath(points: number[], width = 96, height = 28) {
   const data = points.length > 0 ? points : [0, 0, 0, 0];
   const min = Math.min(...data);
@@ -82,10 +92,17 @@ function sparklinePath(points: number[], width = 96, height = 28) {
   return data
     .map((p, i) => {
       const x = (i / Math.max(data.length - 1, 1)) * width;
-      const y = height - ((p - min) / spread) * (height - 4) - 2;
+      const y = height - ((p - min) / spread) * (height - SPARKLINE_VERTICAL_PADDING) - SPARKLINE_VERTICAL_OFFSET;
       return `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
     })
     .join(" ");
+}
+
+function isTrendUp(sparkline: number[], changePercent: number) {
+  if (sparkline.length > 1) {
+    return sparkline[sparkline.length - 1] >= sparkline[0];
+  }
+  return changePercent >= 0;
 }
 
 const AssetRow = memo(function AssetRow({
@@ -101,9 +118,9 @@ const AssetRow = memo(function AssetRow({
   conviction: number;
   onSelect: (asset: MarketAsset) => void;
 }) {
-  const trendUp = item.sparkline.length > 1 ? item.sparkline[item.sparkline.length - 1] >= item.sparkline[0] : item.changePercent >= 0;
+  const trendUp = isTrendUp(item.sparkline, item.changePercent);
   const trendPath = sparklinePath(item.sparkline);
-  const convictionTone = conviction >= 75 ? "text-emerald-300" : conviction >= 60 ? "text-sky-300" : conviction >= 45 ? "text-amber-300" : "text-rose-300";
+  const convictionTone = tone(conviction);
   const convictionState = convictionLabel(conviction);
   return (
     <button
@@ -317,7 +334,7 @@ export function StocksTerminal() {
     () =>
       new Map(
         sectorMovers.map((mover, index) => [
-          mover.sector.toLowerCase(),
+          normalizeSector(mover.sector),
           Math.max(1, index + 1),
         ])
       ),
@@ -327,7 +344,7 @@ export function StocksTerminal() {
   const breakoutCandidates = useMemo(
     () =>
       assets
-        .filter((asset) => asset.changePercent >= 1.2 && asset.volume >= 600_000)
+        .filter((asset) => asset.changePercent >= BREAKOUT_CHANGE_THRESHOLD && asset.volume >= BREAKOUT_VOLUME_THRESHOLD)
         .sort((a, b) => b.changePercent - a.changePercent)
         .slice(0, 20),
     [assets]
@@ -337,8 +354,8 @@ export function StocksTerminal() {
     () =>
       [...assets]
         .sort((a, b) => {
-          const rankA = sectorRankMap.get(a.sector.toLowerCase()) ?? 6;
-          const rankB = sectorRankMap.get(b.sector.toLowerCase()) ?? 6;
+          const rankA = sectorRankMap.get(normalizeSector(a.sector)) ?? DEFAULT_SECTOR_RANK;
+          const rankB = sectorRankMap.get(normalizeSector(b.sector)) ?? DEFAULT_SECTOR_RANK;
           const scoreA = scoreAssetConviction(a.changePercent, rankA, a.volume);
           const scoreB = scoreAssetConviction(b.changePercent, rankB, b.volume);
           return scoreB - scoreA;
@@ -380,7 +397,10 @@ export function StocksTerminal() {
   }, [sidebarAssets, highlightedIndex]);
 
   const sectorRank = selectedAsset
-    ? Math.max(1, sectorMovers.findIndex((s) => s.sector.toLowerCase() === selectedAsset.sector.toLowerCase()) + 1)
+    ? Math.max(
+        1,
+        sectorMovers.findIndex((s) => normalizeSector(s.sector) === normalizeSector(selectedAsset.sector)) + 1
+      )
     : 0;
 
   const conviction = selectedAsset
@@ -478,14 +498,14 @@ export function StocksTerminal() {
   const peerCandidates = useMemo(() => {
     if (!selectedAsset) return [] as MarketAsset[];
     const leaderSymbols =
-      sectorMovers.find((s) => s.sector.toLowerCase() === selectedAsset.sector.toLowerCase())?.leaders ?? [];
+      sectorMovers.find((s) => normalizeSector(s.sector) === normalizeSector(selectedAsset.sector))?.leaders ?? [];
     const peers = leaderSymbols.map((sym) => assets.find((a) => a.symbol === sym)).filter(Boolean) as MarketAsset[];
     return peers.filter((p) => p.symbol !== selectedAsset.symbol).slice(0, 4);
   }, [selectedAsset, sectorMovers, assets]);
 
   const portfolioRelevance = useMemo(() => {
     if (!selectedAsset) return [] as string[];
-    const sameSector = watchlist.filter((w) => w.sector.toLowerCase() === selectedAsset.sector.toLowerCase()).length;
+    const sameSector = watchlist.filter((w) => normalizeSector(w.sector) === normalizeSector(selectedAsset.sector)).length;
     const diversificationLine =
       sameSector >= 3
         ? `Increases ${selectedAsset.sector} concentration risk in your tracked universe.`
@@ -596,12 +616,12 @@ export function StocksTerminal() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={handleSearchNavigation}
-              placeholder="Search company · ticker · sector · theme"
+              placeholder="Search company, ticker, sector, or theme"
               className="mt-2 h-12 w-full rounded-xl border border-white/15 bg-black/35 px-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-sky-300/55 focus:ring-2 focus:ring-sky-300/30"
               aria-label="Company and market search"
             />
             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500">
-              {["INFY", "RELIANCE", "BANKING", "AI", "ENERGY"].map((hint) => (
+              {SEARCH_HINT_EXAMPLES.map((hint) => (
                 <span key={hint} className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5">
                   {hint}
                 </span>
@@ -633,7 +653,7 @@ export function StocksTerminal() {
             <p className="px-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">{activeDiscoveryLabel}</p>
             <div className="max-h-[500px] space-y-2 overflow-y-auto pr-1">
               {sidebarAssets.map((item, index) => {
-                const rank = sectorRankMap.get(item.sector.toLowerCase()) ?? 6;
+                const rank = sectorRankMap.get(normalizeSector(item.sector)) ?? DEFAULT_SECTOR_RANK;
                 const itemConviction = scoreAssetConviction(item.changePercent, rank, item.volume);
                 return (
                   <AssetRow
@@ -662,7 +682,7 @@ export function StocksTerminal() {
                 <div key={label} className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
                   <p className="text-[10px] uppercase tracking-[0.12em] text-slate-400">{label}</p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    {(items.length > 0 ? items : assets.slice(0, 3)).slice(0, 4).map((asset) => (
+                    {(items.length > 0 ? items : assets).slice(0, 4).map((asset) => (
                       <button
                         key={`${label}-${asset.id}`}
                         type="button"
@@ -811,7 +831,7 @@ export function StocksTerminal() {
                   {(peerCandidates.length > 0 ? peerCandidates : topGainers.slice(0, 4)).map((peer) => {
                     const peerConviction = scoreAssetConviction(
                       peer.changePercent,
-                      Math.max(1, sectorMovers.findIndex((s) => s.sector.toLowerCase() === peer.sector.toLowerCase()) + 1),
+                      Math.max(1, sectorMovers.findIndex((s) => normalizeSector(s.sector) === normalizeSector(peer.sector)) + 1),
                       peer.volume
                     );
                     return (
