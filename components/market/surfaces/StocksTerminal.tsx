@@ -128,6 +128,8 @@ const AssetRow = memo(function AssetRow({
     <button
       id={rowId}
       type="button"
+      role="option"
+      aria-selected={selected || highlighted}
       onClick={() => onSelect(item)}
       className={`w-full rounded-xl border px-3.5 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/60 ${
         selected
@@ -165,6 +167,7 @@ const AssetRow = memo(function AssetRow({
           {trendUp ? "Trend Up" : "Trend Soft"}
         </span>
         <svg viewBox="0 0 96 28" className="h-6 w-24" role="img" aria-label={`Price trend: ${trendUp ? "upward" : "downward"}`}>
+          <title>Price trend {trendUp ? "upward" : "downward"}</title>
           <path d={trendPath} fill="none" stroke={trendUp ? "#34d399" : "#fb7185"} strokeWidth={2} strokeLinecap="round" />
         </svg>
       </div>
@@ -572,6 +575,12 @@ export function StocksTerminal() {
   const activeDiscoveryLabel = query.trim().length >= MIN_SEARCH_LENGTH ? "Search Results" : activeTab;
 
   const handleSearchNavigation = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setQuery("");
+      setHighlightedIndex(0);
+      return;
+    }
     if (sidebarAssets.length === 0) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -624,6 +633,10 @@ export function StocksTerminal() {
               onKeyDown={handleSearchNavigation}
               placeholder="Search company, ticker, sector, or theme"
               className="mt-2 h-12 w-full rounded-xl border border-white/15 bg-black/35 px-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-sky-300/55 focus:ring-2 focus:ring-sky-300/30"
+              role="combobox"
+              aria-controls="stocks-discovery-listbox"
+              aria-autocomplete="list"
+              aria-expanded={sidebarAssets.length > 0}
               aria-label="Company and market search"
               aria-describedby="stocks-search-hints stocks-search-status"
               aria-activedescendant={sidebarAssets[highlightedIndex] ? `stock-discovery-${sidebarAssets[highlightedIndex].id}` : undefined}
@@ -662,7 +675,7 @@ export function StocksTerminal() {
 
           <div className="mt-4 space-y-2">
             <p className="px-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">{activeDiscoveryLabel}</p>
-            <div className="max-h-[500px] space-y-2 overflow-y-auto pr-1">
+            <div id="stocks-discovery-listbox" role="listbox" className="max-h-[500px] space-y-2 overflow-y-auto pr-1">
               {sidebarAssets.map((item, index) => {
                 const rank = sectorRankMap.get(normalizeSector(item.sector)) ?? DEFAULT_SECTOR_RANK;
                 const itemConviction = scoreAssetConviction(item.changePercent, rank, item.volume);
@@ -694,17 +707,21 @@ export function StocksTerminal() {
                 <div key={label} className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
                   <p className="text-[10px] uppercase tracking-[0.12em] text-slate-400">{label}</p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    {(items.length > 0 ? items : assets).slice(0, 4).map((asset) => (
-                      <button
-                        key={`${label}-${asset.id}`}
-                        type="button"
-                        onClick={() => onSelect(asset)}
-                        aria-label={`${label}: ${asset.symbol}, ${fmtPercent(asset.changePercent, true)}`}
-                        className="rounded-md border border-white/10 bg-black/25 px-2 py-1 text-[10px] text-slate-200 hover:bg-white/[0.05]"
-                      >
-                        {asset.symbol} {fmtPercent(asset.changePercent, true)}
-                      </button>
-                    ))}
+                    {items.length > 0 ? (
+                      items.slice(0, 4).map((asset) => (
+                        <button
+                          key={`${label}-${asset.id}`}
+                          type="button"
+                          onClick={() => onSelect(asset)}
+                          aria-label={`${label}: ${asset.symbol}, ${fmtPercent(asset.changePercent, true)}`}
+                          className="rounded-md border border-white/10 bg-black/25 px-2 py-1 text-[10px] text-slate-200 hover:bg-white/[0.05]"
+                        >
+                          {asset.symbol} {fmtPercent(asset.changePercent, true)}
+                        </button>
+                      ))
+                    ) : (
+                      <p className="text-[10px] text-slate-500">No signals yet</p>
+                    )}
                   </div>
                 </div>
               ))}
