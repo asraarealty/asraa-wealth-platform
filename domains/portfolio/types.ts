@@ -75,6 +75,15 @@ export interface Recommendation {
   confidence: number;
 }
 
+export interface FeaturedProperty {
+  id: string;
+  title: string;
+  location: string;
+  tagline: string;
+  imageUrl: string | null;
+  href: string | null;
+}
+
 export interface PortfolioOperatingData {
   summary: DashboardSummary;
   portfolio: Record<string, unknown>;
@@ -88,6 +97,7 @@ export interface PortfolioOperatingData {
   activityFeed: EventItem[];
   priorityActions: PriorityAction[];
   recommendations: Recommendation[];
+  featuredProperties: FeaturedProperty[];
   realEstate: DashboardRealEstate;
   executive: DashboardExecutive;
   degradedState: string | null;
@@ -113,6 +123,7 @@ export const EMPTY_PORTFOLIO_OPERATING_DATA: PortfolioOperatingData = {
   activityFeed: [],
   priorityActions: [],
   recommendations: [],
+  featuredProperties: [],
   realEstate: {
     properties: [],
     totalValue: 0,
