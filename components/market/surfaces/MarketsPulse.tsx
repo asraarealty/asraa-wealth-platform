@@ -4,6 +4,7 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { MetricTile, SectionHeader, SurfaceCard } from "@/components/v2/ui";
 import { SearchCommandBar } from "@/components/v2/workspace";
 import { RuntimeObservabilityBadges } from "@/components/runtime/RuntimeObservabilityBadges";
+import { SurfaceDebugMarker } from "@/components/market/surfaces/SurfaceDebugMarker";
 import { fmtPercent, fmtLastUpdated } from "@/lib/formatters";
 import { useMarketDomainGraph, useMarketIntelligenceEngine, scoreAssetConviction, type MarketAsset } from "@/domains/market";
 import { MARKET_SEARCH_MIN_QUERY_LENGTH } from "@/domains/market/search";
@@ -378,6 +379,7 @@ export function MarketsPulse() {
 
   return (
     <SurfaceCard className="p-0 overflow-hidden">
+      <SurfaceDebugMarker surface="MarketsPulse" />
       {/* ── Header ── */}
       <div className="flex items-center justify-between gap-4 border-b border-white/8 bg-black/20 px-4 py-2.5">
         <div className="flex items-center gap-3">
