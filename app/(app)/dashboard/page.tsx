@@ -180,8 +180,7 @@ export default function DashboardPage() {
   const allocationSlices = buildAllocation(data);
   const donutGradient = buildDonutGradient(allocationSlices);
 
-  const topHolding = [...data.assets]
-    .sort((a, b) => (b.allocation ?? b.value ?? 0) - (a.allocation ?? a.value ?? 0))[0];
+  const topHolding = [...data.assets].sort((a, b) => (b.value ?? 0) - (a.value ?? 0))[0];
   const largestExposure = [...allocationSlices].sort((a, b) => b.value - a.value)[0];
 
   const activeClassCount = allocationSlices.filter((item) => item.value > 0).length;
@@ -302,19 +301,19 @@ export default function DashboardPage() {
         </div>
       </SurfaceCard>
 
-      <RuntimeErrorBoundary scope="property-income-occupancy">
+      <RuntimeErrorBoundary scope="runtime-stream-panel">
         <PropertyIncomeOccupancySection data={data} />
       </RuntimeErrorBoundary>
 
-      <RuntimeErrorBoundary scope="portfolio-health-ai">
+      <RuntimeErrorBoundary scope="intelligence-widget">
         <PortfolioHealthSection state={healthState} recommendations={recommendations} />
       </RuntimeErrorBoundary>
 
-      <RuntimeErrorBoundary scope="recent-activity">
+      <RuntimeErrorBoundary scope="market-pulse-component">
         <RecentActivitySection data={data} />
       </RuntimeErrorBoundary>
 
-      <RuntimeErrorBoundary scope="market-intelligence-optional">
+      <RuntimeErrorBoundary scope="commodity-widget">
         <MarketIntelligenceSection />
       </RuntimeErrorBoundary>
     </div>
