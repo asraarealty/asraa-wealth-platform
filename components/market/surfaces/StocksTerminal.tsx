@@ -2,6 +2,7 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { RuntimeObservabilityBadges } from "@/components/runtime/RuntimeObservabilityBadges";
+import { SurfaceDebugMarker } from "@/components/market/surfaces/SurfaceDebugMarker";
 import { SurfaceCard } from "@/components/v2/ui";
 import { fmtLastUpdated, fmtPercent } from "@/lib/formatters";
 import { useMarketDomainGraph, scoreAssetConviction, useMarketIntelligenceEngine, type MarketAsset } from "@/domains/market";
@@ -736,6 +737,7 @@ export function StocksTerminal() {
 
   return (
     <SurfaceCard className="overflow-hidden p-0">
+      <SurfaceDebugMarker surface="StocksTerminal" />
       <div className="border-b border-white/10 bg-black/20 px-5 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
