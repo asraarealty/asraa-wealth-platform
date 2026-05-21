@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useOperatingContext } from "@/context/OperatingContext";
+import { useMarketDomainGraph } from "@/domains/market";
+import { MarketSnapshotStrip } from "@/components/market/MarketSnapshotStrip";
 
 function IconDashboard() {
   return (
@@ -130,6 +132,8 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     density,
     setDensity,
   } = useOperatingContext();
+  const { search, searchMarket, runtime, lastUpdated, refresh } = useMarketDomainGraph();
+  const [globalSearch, setGlobalSearch] = useState("");
 
   useEffect(() => {
     if (!authReady || isRefreshing) return;
@@ -145,6 +149,13 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof document !== "undefined") document.body.dataset.density = density;
   }, [density]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void searchMarket(globalSearch);
+    }, 220);
+    return () => clearTimeout(timer);
+  }, [globalSearch, searchMarket]);
 
   if (!authReady || isRefreshing) {
     return (
@@ -209,10 +220,63 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         </div>
+        <MarketSnapshotStrip />
+        <div className="border-t border-white/10 px-3 py-2 sm:px-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={globalSearch}
+              onChange={(event) => setGlobalSearch(event.target.value)}
+              placeholder="Global search: symbol, company, sector, macro signal"
+              aria-label="Synchronized global search"
+              className="h-8 min-w-[16rem] flex-1 rounded-lg border border-white/10 bg-black/30 px-2.5 text-xs text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-300/50"
+            />
+            <span className={`rounded-md border px-2 py-1 text-[10px] ${runtime.connected ? "border-emerald-400/40 text-emerald-300" : "border-rose-400/40 text-rose-300"}`}>
+              {runtime.connected ? "Socket connected" : "Socket disconnected"}
+            </span>
+            <span className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-slate-300">
+              Seq {runtime.currentSequence}
+            </span>
+            <button type="button" onClick={() => router.push("/stocks")} className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-slate-300 hover:bg-white/[0.05]">
+              Stocks
+            </button>
+            <button type="button" onClick={() => router.push("/watchlist")} className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-slate-300 hover:bg-white/[0.05]">
+              Watchlist
+            </button>
+            <button type="button" onClick={() => router.push("/activity")} className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-slate-300 hover:bg-white/[0.05]">
+              Activity
+            </button>
+            <button type="button" onClick={() => void refresh()} className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-slate-300 hover:bg-white/[0.05]">
+              Sync
+            </button>
+            {lastUpdated ? <span className="text-[10px] text-slate-500">Updated {new Date(lastUpdated).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span> : null}
+          </div>
+          {globalSearch.trim().length > 0 ? (
+            <div className="mt-2 max-h-24 overflow-y-auto rounded-lg border border-white/10 bg-black/35 p-2 text-[11px]">
+              {search.isSearching ? (
+                <p className="text-slate-500">Searching runtime feeds…</p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {[...(search.groups.stocks ?? []), ...(search.groups.etfs ?? []), ...(search.groups.commodities ?? [])]
+                    .slice(0, 12)
+                    .map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => router.push("/stocks")}
+                        className="rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-slate-300 hover:bg-white/[0.08]"
+                      >
+                        {item.symbol}
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
       </header>
 
       <div className="flex">
-        <aside className="hidden md:flex w-56 shrink-0 flex-col border-r border-white/[0.07] min-h-[calc(100vh-56px)] sticky top-14">
+        <aside className="hidden md:flex w-56 shrink-0 flex-col border-r border-white/[0.07] min-h-[calc(100vh-132px)] sticky top-[132px]">
           <nav className="flex-1 p-3 space-y-0.5">
             {NAV.map(({ href, label, Icon }) => {
               const active = pathname === href || pathname.startsWith(`${href}/`);
@@ -234,7 +298,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           </nav>
         </aside>
 
-        <main className="flex-1 min-h-[calc(100vh-56px)] overflow-x-hidden pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-8">
+        <main className="flex-1 min-h-[calc(100vh-132px)] overflow-x-hidden pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-8">
           <div className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6">{children}</div>
         </main>
       </div>
