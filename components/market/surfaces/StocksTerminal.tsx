@@ -33,6 +33,17 @@ const DISCOVERY_TABS = [
   "Sector Rotation",
 ] as const;
 type DiscoveryTab = (typeof DISCOVERY_TABS)[number];
+const RESEARCH_DRAWERS = [
+  "Financials",
+  "Ownership",
+  "Filings",
+  "AI Research",
+  "Earnings",
+  "Transcripts",
+  "News",
+  "Macro Context",
+] as const;
+type ResearchDrawer = (typeof RESEARCH_DRAWERS)[number];
 
 function formatAssetType(kind: MarketAsset["kind"]) {
   switch (kind) {
@@ -372,6 +383,17 @@ export function StocksTerminal() {
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [financialOpen, setFinancialOpen] = useState(false);
   const [financialTab, setFinancialTab] = useState<FinancialTab>("Quarterly");
+  const [dockCollapsed, setDockCollapsed] = useState<string[]>([]);
+  const [openDrawers, setOpenDrawers] = useState<Record<ResearchDrawer, boolean>>({
+    Financials: false,
+    Ownership: false,
+    Filings: false,
+    "AI Research": true,
+    Earnings: false,
+    Transcripts: false,
+    News: false,
+    "Macro Context": false,
+  });
 
   const intelligence = useMarketIntelligenceEngine(selectedAsset, sectorMovers, watchlist);
 
@@ -734,6 +756,14 @@ export function StocksTerminal() {
     }
   };
 
+  const toggleDock = (key: string) => {
+    setDockCollapsed((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
+  };
+
+  const toggleDrawer = (drawer: ResearchDrawer) => {
+    setOpenDrawers((current) => ({ ...current, [drawer]: !current[drawer] }));
+  };
+
   return (
     <SurfaceCard className="overflow-hidden p-0">
       <div className="border-b border-white/10 bg-black/20 px-5 py-3">
@@ -755,8 +785,8 @@ export function StocksTerminal() {
         <RuntimeObservabilityBadges runtime={runtime} commodityUnavailable={search.commodityUnavailable} />
       </div>
 
-      <div className="grid min-h-[760px] lg:grid-cols-[360px_1fr] xl:grid-cols-[400px_1fr] 2xl:grid-cols-[430px_1fr]">
-        <aside className="border-r border-white/10 bg-black/20 p-3 sm:p-4 lg:p-5">
+      <div className="grid min-h-[760px] xl:grid-cols-[minmax(300px,25%)_minmax(0,50%)_minmax(300px,25%)]">
+        <aside className="border-r border-white/10 bg-black/20 p-3 sm:p-4">
           <div
             role="search"
             className="sticky top-0 z-10 -mx-1 rounded-2xl border border-white/10 bg-slate-950/95 p-3 backdrop-blur"
@@ -808,9 +838,9 @@ export function StocksTerminal() {
             </div>
           ) : null}
 
-          <div className="mt-4 space-y-2">
+          <div className="mt-3 space-y-2">
             <p className="px-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">{activeDiscoveryLabel}</p>
-            <div id="stocks-discovery-listbox" role="listbox" className="max-h-[500px] space-y-2 overflow-y-auto pr-1">
+            <div id="stocks-discovery-listbox" role="listbox" className="max-h-[440px] space-y-1.5 overflow-y-auto pr-1">
               {sidebarAssets.map((item, index) => {
                 const rank = sectorRankMap.get(normalizeSector(item.sector)) ?? DEFAULT_SECTOR_RANK;
                 const itemConviction = scoreAssetConviction(item.changePercent, rank, item.volume);
@@ -837,9 +867,9 @@ export function StocksTerminal() {
             </div>
           </div>
 
-          <div className="mt-4 space-y-3">
+          <div className="mt-3 space-y-2">
             <p className="px-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">Quick Discovery</p>
-            <div className="space-y-2">
+            <div className="max-h-[220px] space-y-2 overflow-y-auto pr-1">
               {Object.entries(quickDiscovery).map(([label, items]) => (
                 <div key={label} className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
                   <p className="text-[10px] uppercase tracking-[0.12em] text-slate-400">{label}</p>
@@ -866,10 +896,10 @@ export function StocksTerminal() {
           </div>
         </aside>
 
-        <main className="p-4 sm:p-5 lg:p-6">
+        <main className="border-r border-white/10 p-4 sm:p-5">
           {selectedAsset ? (
-            <div className="space-y-5">
-              <section className="rounded-2xl border border-white/10 bg-gradient-to-b from-slate-900/80 to-slate-950/80 p-5">
+            <div className="space-y-4">
+              <section className="rounded-xl border border-white/10 bg-gradient-to-b from-slate-900/80 to-slate-950/80 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.14em] text-slate-400">
@@ -892,7 +922,7 @@ export function StocksTerminal() {
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                   <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
                     <p className="text-xs text-slate-400">AI Conviction</p>
                     <p className={`mt-1 text-lg font-semibold ${tone(conviction)}`}>
@@ -931,209 +961,82 @@ export function StocksTerminal() {
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                <p className="text-xs uppercase tracking-[0.16em] text-sky-300/80">AI Summary</p>
-                <p className="mt-2 text-base leading-7 text-slate-200">
-                  {summaryText || "AI summary is initializing for this company."}
-                </p>
-              </section>
-
               <PremiumChart asset={selectedAsset} conviction={conviction} />
 
-              <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-400">AI Conviction Engine</p>
-                <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                  {convictionEngine.map((entry) => (
-                    <div key={entry.label} className="rounded-xl border border-white/10 bg-black/20 p-4">
-                      <div className="mb-2 flex items-center justify-between gap-3">
-                        <p className="text-sm font-semibold text-white">{entry.label}</p>
-                        <p className={`text-sm font-semibold ${tone(entry.score)}`}>{Math.round(entry.score)}/100</p>
-                      </div>
-                      <ScoreBar score={entry.score} />
-                      <p className="mt-2 text-sm text-slate-300">{entry.note}</p>
-                    </div>
-                  ))}
+              <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-sky-300/80">Runtime Signal Layers</p>
+                <div className="mt-2 grid gap-2 text-xs text-slate-200 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">Support/Resistance: Live</div>
+                  <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">Conviction Zones: Active</div>
+                  <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">Liquidity Zones: Tracked</div>
+                  <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">Breakout Markers: Monitored</div>
                 </div>
               </section>
 
-              <section className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-2xl border border-emerald-300/20 bg-emerald-500/[0.05] p-5">
-                  <p className="text-xs uppercase tracking-[0.16em] text-emerald-300/80">Strengths</p>
-                  <ul className="mt-3 space-y-2 text-sm text-slate-200">
-                    {(strengths.length > 0 ? strengths : ["Quality indicators are stabilizing."]).map((line) => (
-                      <li key={line}>• {line}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="rounded-2xl border border-amber-300/20 bg-amber-500/[0.05] p-5">
-                  <p className="text-xs uppercase tracking-[0.16em] text-amber-300/80">Risks</p>
-                  <ul className="mt-3 space-y-2 text-sm text-slate-200">
-                    {(risks.length > 0 ? risks : ["No major risk alert yet; continue monitoring."]).map((line) => (
-                      <li key={line}>• {line}</li>
-                    ))}
-                  </ul>
-                </div>
-              </section>
-
-              <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                <p className="text-xs uppercase tracking-[0.16em] text-sky-300/80">Why this matters to your portfolio</p>
-                <ul className="mt-3 grid gap-2 text-sm text-slate-200 md:grid-cols-2">
-                  {(portfolioRelevance.length > 0
-                    ? portfolioRelevance
-                    : ["Portfolio relevance will appear as intelligence data expands."]
-                  ).map((line) => (
-                    <li key={line} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2.5">
-                      {line}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-
-              <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Peer Comparison</p>
-                  <p className="text-xs text-slate-500">Top peers first · expand later for advanced view</p>
-                </div>
-                <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
-                  {(peerCandidates.length > 0 ? peerCandidates : topGainers.slice(0, 4)).map((peer) => {
-                    const peerConviction = scoreAssetConviction(
-                      peer.changePercent,
-                      Math.max(1, sectorMovers.findIndex((s) => normalizeSector(s.sector) === normalizeSector(peer.sector)) + 1),
-                      peer.volume
-                    );
-                    return (
-                      <div key={peer.id} className="rounded-xl border border-white/10 bg-black/20 p-4">
-                        <p className="text-sm font-semibold text-white">{peer.symbol}</p>
-                        <p className="text-xs text-slate-400">{peer.name}</p>
-                        <div className="mt-3 space-y-1 text-xs text-slate-200">
-                          <p>PE: {peer.changePercent > 0 ? "Premium" : "Moderate"}</p>
-                          <p>ROE proxy: {Math.max(8, Math.round(10 + Math.abs(peer.changePercent) * 3))}%</p>
-                          <p>Growth: {fmtPercent(peer.changePercent, true)}</p>
-                          <p>Market Cap: {formatMarketCap(peer.marketCap, peer.currency)}</p>
-                          <p>AI Score: {peerConviction}/100</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-
-              <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Financials</p>
-                  <button
-                    type="button"
-                    className="v2-action text-xs"
-                    onClick={() => setFinancialOpen((prev) => !prev)}
-                  >
-                    {financialOpen ? "Collapse" : "Expand"}
-                  </button>
-                </div>
-
-                {financialOpen ? (
-                  <>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {FINANCIAL_TABS.map((tab) => (
-                        <button
-                          key={tab}
-                          type="button"
-                          onClick={() => setFinancialTab(tab)}
-                          className={`rounded-lg border px-3 py-1.5 text-xs transition ${
-                            tab === financialTab
-                              ? "border-sky-300/40 bg-sky-500/10 text-sky-200"
-                              : "border-white/10 bg-black/20 text-slate-300 hover:bg-white/[0.04]"
-                          }`}
-                        >
-                          {tab}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-slate-200">
-                      {financialTab === "Quarterly"
-                        ? "Quarterly trajectory remains aligned with the latest trend and AI momentum signals."
-                        : null}
-                      {financialTab === "P&L"
-                        ? "Profitability profile reflects current momentum and sector rotation context."
-                        : null}
-                      {financialTab === "Balance Sheet"
-                        ? "Balance sheet quality view can be interpreted with valuation and risk stability scores above."
-                        : null}
-                      {financialTab === "Cash Flow"
-                        ? "Cash-flow inference remains constructive where trend signals and institutional flow are supportive."
-                        : null}
-                      {financialTab === "Ratios"
-                        ? "Key ratio context: conviction, valuation pressure, and portfolio fit should be read together."
-                        : null}
-                      {financialTab === "Shareholding"
-                        ? "Institutional participation and watchlist concentration provide ownership context."
-                        : null}
-                    </div>
-                  </>
-                ) : (
-                  <p className="mt-3 text-sm text-slate-400">
-                    Financial statements are collapsed by default for cleaner research flow.
-                  </p>
-                )}
-              </section>
-
-              <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Market Positioning</p>
-                <div className="mt-3 grid gap-3 md:grid-cols-3 xl:grid-cols-5">
-                  {positioningStrip.map((item) => (
-                    <div key={item.label} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2.5">
-                      <p className="text-[11px] text-slate-400">{item.label}</p>
-                      <p className="mt-1 text-sm font-semibold text-white">{item.value}</p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Opportunity Radar</p>
-                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  {Object.entries(radar).map(([group, items]) => (
-                    <div key={group} className="rounded-xl border border-white/10 bg-black/20 p-3">
-                      <p className="text-xs font-semibold text-slate-200">{group}</p>
-                      <div className="mt-2 space-y-1.5 text-sm text-slate-300">
-                        {(items.length > 0 ? items : ["No signal yet"]).map((item) => (
-                          <p key={`${group}-${item}`}>• {item}</p>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Decision Lens</p>
-                <p className="mt-2 text-sm leading-7 text-slate-200">
-                  {conviction >= 80
-                    ? "AI view suggests Buy / Accumulate with monitored risk controls."
-                    : conviction >= 65
-                    ? "AI view suggests Watch closely with phased entries on confirmation."
-                    : conviction >= 50
-                    ? "AI view suggests Hold / Watch for clearer trend and valuation alignment."
-                    : "AI view suggests Reduce / Avoid until quality and momentum improve."}
-                </p>
-              </section>
-
-              {trendingAssets.length > 0 ? (
-                <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                  <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Trending now</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {trendingAssets.slice(0, 8).map((asset) => (
+              <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Research Drawers</p>
+                <div className="mt-3 space-y-2">
+                  {RESEARCH_DRAWERS.map((drawer) => (
+                    <div key={drawer} className="rounded-lg border border-white/10 bg-black/20">
                       <button
-                        key={asset.id}
                         type="button"
-                        onClick={() => onSelect(asset)}
-                        className="rounded-lg border border-white/10 bg-black/20 px-3 py-1.5 text-xs text-slate-200 hover:bg-white/[0.04]"
+                        onClick={() => toggleDrawer(drawer)}
+                        className="flex w-full items-center justify-between px-3 py-2 text-left text-xs text-slate-200"
                       >
-                        {asset.symbol} {fmtPercent(asset.changePercent, true)}
+                        <span className="uppercase tracking-[0.1em]">{drawer}</span>
+                        <span>{openDrawers[drawer] ? "−" : "+"}</span>
                       </button>
-                    ))}
-                  </div>
-                </section>
-              ) : null}
+                      {openDrawers[drawer] ? (
+                        <div className="border-t border-white/10 px-3 py-2 text-xs text-slate-300">
+                          {drawer === "Financials" ? (
+                            <>
+                              <div className="mb-2 flex flex-wrap gap-2">
+                                {FINANCIAL_TABS.map((tab) => (
+                                  <button
+                                    key={tab}
+                                    type="button"
+                                    onClick={() => {
+                                      setFinancialOpen(true);
+                                      setFinancialTab(tab);
+                                    }}
+                                    className={`rounded border px-2 py-1 text-[10px] ${
+                                      tab === financialTab
+                                        ? "border-sky-300/40 bg-sky-500/10 text-sky-200"
+                                        : "border-white/10 bg-black/20 text-slate-300"
+                                    }`}
+                                  >
+                                    {tab}
+                                  </button>
+                                ))}
+                              </div>
+                              {financialOpen ? (
+                                <p>
+                                  {financialTab === "Quarterly"
+                                    ? "Quarterly trajectory remains aligned with trend and momentum."
+                                    : financialTab === "P&L"
+                                    ? "Profitability profile reflects sector rotation."
+                                    : financialTab === "Balance Sheet"
+                                    ? "Balance sheet quality should be read with risk stability."
+                                    : financialTab === "Cash Flow"
+                                    ? "Cash-flow inference is tied to institutional flow."
+                                    : financialTab === "Ratios"
+                                    ? "Ratios align with conviction and valuation pressure."
+                                    : "Institutional participation provides ownership context."}
+                                </p>
+                              ) : (
+                                <p>Financial statements are collapsed by default.</p>
+                              )}
+                            </>
+                          ) : null}
+                          {drawer !== "Financials" ? (
+                            <p>{summaryText || "Research module is loading runtime context for the active symbol."}</p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </section>
             </div>
           ) : (
             <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
@@ -1141,6 +1044,125 @@ export function StocksTerminal() {
             </div>
           )}
         </main>
+
+        <aside className="bg-black/20 p-3 sm:p-4">
+          <div className="sticky top-2 space-y-2">
+            {[
+              {
+                key: "conviction",
+                title: "Conviction / Valuation / Risk",
+                content: (
+                  <div className="space-y-2">
+                    {convictionEngine.map((entry) => (
+                      <div key={entry.label} className="rounded-lg border border-white/10 bg-black/20 p-3">
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold text-white">{entry.label}</p>
+                          <p className={`text-xs font-semibold ${tone(entry.score)}`}>{Math.round(entry.score)}/100</p>
+                        </div>
+                        <ScoreBar score={entry.score} />
+                      </div>
+                    ))}
+                  </div>
+                ),
+              },
+              {
+                key: "positioning",
+                title: "Sector Positioning / Sentiment",
+                content: (
+                  <div className="grid gap-2">
+                    {positioningStrip.map((item) => (
+                      <div key={item.label} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+                        <p className="text-[10px] text-slate-400">{item.label}</p>
+                        <p className="text-xs font-semibold text-white">{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                ),
+              },
+              {
+                key: "peers",
+                title: "Peer Comparison / Institutional Activity",
+                content: (
+                  <div className="space-y-2">
+                    {(peerCandidates.length > 0 ? peerCandidates : topGainers.slice(0, 4)).map((peer) => (
+                      <button
+                        key={peer.id}
+                        type="button"
+                        onClick={() => onSelect(peer)}
+                        className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-left"
+                      >
+                        <p className="text-xs font-semibold text-white">{peer.symbol}</p>
+                        <p className="text-[11px] text-slate-400">{peer.name}</p>
+                        <p className="text-[11px] text-slate-300">{fmtPercent(peer.changePercent, true)}</p>
+                      </button>
+                    ))}
+                  </div>
+                ),
+              },
+              {
+                key: "signals",
+                title: "Catalysts / Opportunity Radar / Decision Lens",
+                content: (
+                  <div className="space-y-2">
+                    <div className="rounded-lg border border-emerald-300/20 bg-emerald-500/[0.06] px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-[0.12em] text-emerald-300/80">Strengths</p>
+                      <ul className="mt-1 space-y-1 text-xs text-slate-200">
+                        {(strengths.length > 0 ? strengths : ["Quality indicators are stabilizing."]).map((line) => (
+                          <li key={line}>• {line}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="rounded-lg border border-amber-300/20 bg-amber-500/[0.06] px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-[0.12em] text-amber-300/80">Risk</p>
+                      <ul className="mt-1 space-y-1 text-xs text-slate-200">
+                        {(risks.length > 0 ? risks : ["No major risk alert yet; continue monitoring."]).map((line) => (
+                          <li key={line}>• {line}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-[0.12em] text-slate-400">Opportunity Radar</p>
+                      <div className="mt-1 space-y-1 text-xs text-slate-300">
+                        {Object.entries(radar).map(([group, items]) => (
+                          <p key={group}>
+                            {group}: {(items.length > 0 ? items : ["No signal"]).join(", ")}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-slate-200">
+                      {conviction >= 80
+                        ? "Decision lens: Buy / Accumulate with active risk controls."
+                        : conviction >= 65
+                        ? "Decision lens: Watch closely and scale on confirmation."
+                        : conviction >= 50
+                        ? "Decision lens: Hold / wait for stronger trend alignment."
+                        : "Decision lens: Reduce / avoid until quality improves."}
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-slate-200">
+                      Portfolio fit: {(portfolioRelevance[0] ?? "Portfolio relevance is loading.")}
+                    </div>
+                  </div>
+                ),
+              },
+            ].map((section) => {
+              const collapsed = dockCollapsed.includes(section.key);
+              return (
+                <section key={section.key} className="rounded-xl border border-white/10 bg-white/[0.03]">
+                  <button
+                    type="button"
+                    onClick={() => toggleDock(section.key)}
+                    className="flex w-full items-center justify-between border-b border-white/10 px-3 py-2 text-left"
+                  >
+                    <span className="text-[10px] uppercase tracking-[0.12em] text-slate-400">{section.title}</span>
+                    <span className="text-xs text-slate-300">{collapsed ? "Expand" : "Collapse"}</span>
+                  </button>
+                  {!collapsed ? <div className="max-h-64 overflow-y-auto p-3">{section.content}</div> : null}
+                </section>
+              );
+            })}
+          </div>
+        </aside>
       </div>
     </SurfaceCard>
   );

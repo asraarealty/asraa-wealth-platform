@@ -3,7 +3,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { fetcher, toErrorMessage } from "@/lib/fetcher";
 import { fetchBulkQuotes, type TickerQuote } from "@/domains/market";
-import { SectionHeader, SurfaceCard } from "@/components/v2/ui";
+import { useMarketDomainGraph } from "@/domains/market";
 
 interface SnapshotInstrument {
   key: string;
@@ -21,7 +21,6 @@ interface SnapshotState {
 }
 
 const POLL_INTERVAL_MS = 45_000;
-const GOLD_INSERT_INDEX = 3;
 const SPARKLINE_SEED_DIVISOR = 19;
 const SPARKLINE_WAVE_FACTOR = 0.85;
 const SPARKLINE_AMPLITUDE = 0.008;
@@ -31,7 +30,12 @@ const INDEX_INSTRUMENTS = [
   { key: "^NSEI", label: "NIFTY" },
   { key: "^BSESN", label: "SENSEX" },
   { key: "^NSEBANK", label: "BANKNIFTY" },
+  { key: "GOLD", label: "GOLD" },
   { key: "USDINR=X", label: "USDINR" },
+  { key: "BTC-USD", label: "BTC" },
+  { key: "^VIX", label: "VIX" },
+  { key: "ES=F", label: "US Futures" },
+  { key: "^TNX", label: "Bond Yield" },
 ] as const;
 
 function safeRecord(value: unknown): Record<string, unknown> {
@@ -69,8 +73,14 @@ function buildSparkline(seed: string, price: number, changePercent: number) {
 }
 
 function formatPrice(label: string, value: number) {
+  if (label === "Bond Yield") {
+    return `${value.toFixed(2)}%`;
+  }
   if (label === "USDINR") {
     return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(value);
+  }
+  if (label === "BTC") {
+    return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(value);
   }
   return new Intl.NumberFormat("en-IN", { maximumFractionDigits: value >= 1000 ? 0 : 2 }).format(value);
 }
@@ -129,6 +139,7 @@ async function fetchGoldInstrument(signal?: AbortSignal): Promise<SnapshotInstru
 }
 
 export const MarketSnapshotStrip = memo(function MarketSnapshotStrip() {
+  const { runtime } = useMarketDomainGraph();
   const [state, setState] = useState<SnapshotState>({
     items: [],
     lastUpdated: null,
@@ -156,6 +167,7 @@ export const MarketSnapshotStrip = memo(function MarketSnapshotStrip() {
         if (!active) return;
 
         const items: SnapshotInstrument[] = INDEX_INSTRUMENTS.map((instrument) => {
+          if (instrument.key === "GOLD" && gold) return gold;
           const quote: TickerQuote | undefined = quoteMap.get(instrument.key);
           const price = quote?.price ?? 0;
           const changePercent = quote?.changePercent ?? 0;
@@ -168,8 +180,6 @@ export const MarketSnapshotStrip = memo(function MarketSnapshotStrip() {
             sparkline: buildSparkline(instrument.key, price, changePercent),
           };
         });
-
-        if (gold) items.splice(GOLD_INSERT_INDEX, 0, gold);
 
         setState({
           items,
@@ -200,63 +210,48 @@ export const MarketSnapshotStrip = memo(function MarketSnapshotStrip() {
   const items = useMemo(() => state.items, [state.items]);
 
   return (
-    <SurfaceCard className="p-5 sm:p-6">
-      <SectionHeader
-        eyebrow="Market Pulse"
-        title="Market Snapshot"
-        subtitle="Quiet context for the day across benchmark indices, gold, and currency."
-      />
-
-      <div className="mt-4 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="border-b border-white/10 bg-[#05070d]/95 backdrop-blur-xl">
+      <div className="flex h-9 items-center gap-3 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${runtime.connected ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/15 text-rose-300"}`}>
+          {runtime.connected ? "WS LIVE" : "WS DOWN"}
+        </span>
         {items.map((item) => {
           const positive = item.changePercent >= 0;
           return (
             <div
               key={item.key}
-              className="min-w-[11rem] rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3"
+              className="flex shrink-0 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
-                  <p className="mt-2 text-lg font-semibold text-white">{formatPrice(item.label, item.price)}</p>
-                </div>
-                <div
-                  className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
-                    positive ? "bg-emerald-500/10 text-emerald-300" : "bg-rose-500/10 text-rose-300"
-                  }`}
-                >
-                  {positive ? "▲" : "▼"} {formatDelta(item.changePercent)}
-                </div>
-              </div>
-              <div className="mt-3 flex items-end justify-between gap-3">
-                <svg viewBox="0 0 44 20" className="h-6 w-16 overflow-visible">
-                  <polyline
-                    fill="none"
-                    stroke={positive ? "rgba(52,211,153,0.9)" : "rgba(251,113,133,0.9)"}
-                    strokeWidth="1.8"
-                    points={sparklinePoints(item.sparkline)}
-                  />
-                </svg>
-                <p className={`text-xs ${positive ? "text-emerald-400" : "text-rose-400"}`}>
-                  {item.change >= 0 ? "+" : ""}
-                  {item.change.toFixed(2)}
-                </p>
-              </div>
+              <p className="text-[10px] uppercase tracking-[0.13em] text-slate-400">{item.label}</p>
+              <p className="text-xs font-semibold text-white tabular-nums">{formatPrice(item.label, item.price)}</p>
+              <p className={`text-[11px] font-semibold tabular-nums ${positive ? "text-emerald-300" : "text-rose-300"}`}>
+                {formatDelta(item.changePercent)}
+              </p>
+              <svg viewBox="0 0 44 20" className="h-4 w-12 overflow-visible">
+                <polyline
+                  fill="none"
+                  stroke={positive ? "rgba(52,211,153,0.9)" : "rgba(251,113,133,0.9)"}
+                  strokeWidth="1.8"
+                  points={sparklinePoints(item.sparkline)}
+                />
+              </svg>
             </div>
           );
         })}
+        {runtime.replayActive ? <span className="shrink-0 text-[10px] text-sky-300">Replay</span> : null}
+        {runtime.staleRuntime ? <span className="shrink-0 text-[10px] text-amber-300">Stale runtime</span> : null}
+        {runtime.degradedSources.map((source) => (
+          <span key={source} className="shrink-0 text-[10px] text-amber-200">
+            {source}
+          </span>
+        ))}
+        {state.lastUpdated ? (
+          <span className="ml-auto shrink-0 text-[10px] text-slate-500">
+            {new Date(state.lastUpdated).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        ) : null}
       </div>
-
-      {state.error ? <p className="mt-3 text-xs text-slate-500">{state.error}</p> : null}
-      {state.lastUpdated ? (
-        <p className="mt-3 text-[11px] text-slate-600">
-          Updated{" "}
-          {new Date(state.lastUpdated).toLocaleTimeString("en-IN", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </p>
-      ) : null}
-    </SurfaceCard>
+      {state.error ? <p className="px-3 py-1 text-[11px] text-slate-500">{state.error}</p> : null}
+    </div>
   );
 });
