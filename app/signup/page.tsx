@@ -1,9 +1,9 @@
-import SignupForm from "@/components/SignupForm";
+import { redirect } from "next/navigation";
 
 export const metadata = {
-  title: "Create Account — Asraa Wealth",
+  title: "Signup Disabled — Asraa Wealth",
 };
 
 export default function SignupPage() {
-  return <SignupForm />;
+  redirect("/request-access");
 }

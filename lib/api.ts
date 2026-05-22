@@ -709,6 +709,41 @@ export function signup(payload: SignupPayload): Promise<void> {
   });
 }
 
+export interface ActivateInvitationPayload {
+  token: string;
+  password: string;
+  confirmPassword: string;
+}
+
+export function activateInvitation(
+  payload: ActivateInvitationPayload
+): Promise<void> {
+  return fetcher<void>("/api/v2/access/activate-invitation", {
+    method: "POST",
+    body: payload,
+    noRedirectOn401: true,
+  });
+}
+
+export interface RequestAdvisoryAccessPayload {
+  fullName: string;
+  email: string;
+  phone: string;
+  estimatedAum: string;
+  investmentInterests: string;
+  preferredContactMethod: string;
+}
+
+export function requestAdvisoryAccess(
+  payload: RequestAdvisoryAccessPayload
+): Promise<void> {
+  return fetcher<void>("/api/v2/access/request", {
+    method: "POST",
+    body: payload,
+    noRedirectOn401: true,
+  });
+}
+
 export interface ForgotPasswordPayload {
   email: string;
 }
