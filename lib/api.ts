@@ -731,7 +731,7 @@ export interface RequestAdvisoryAccessPayload {
   phone: string;
   estimatedAum: string;
   investmentInterests: string;
-  preferredContactMethod: string;
+  preferredContactMethod: "Phone" | "Email" | "WhatsApp" | "Video Call";
 }
 
 export function requestAdvisoryAccess(

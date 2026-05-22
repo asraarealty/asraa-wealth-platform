@@ -27,7 +27,7 @@ const TABS: Array<{ id: AccessTab; label: string; href: string }> = [
   },
 ];
 
-const CONTACT_METHODS = ["Phone", "Email", "WhatsApp", "Video Call"];
+const CONTACT_METHODS = ["Phone", "Email", "WhatsApp", "Video Call"] as const;
 
 const LIFECYCLE_STEPS: Array<{ key: "approval" | "invitation" | "activation" | "workspace"; label: string }> = [
   { key: "approval", label: "Advisor approval" },
@@ -152,12 +152,15 @@ export default function InstitutionalAccessPortal({
         password: invitationPassword,
         confirmPassword: invitationConfirmPassword,
       });
-      setSuccess("Invitation activated. Provisioning secure workspace access.");
       router.replace("/dashboard");
     } catch (err) {
-      if (err instanceof ApiError && (err.status === 404 || err.status === 409 || err.status === 410)) {
+      if (err instanceof ApiError && err.status === 404) {
         setInvitationPending(true);
-        setError("Invitation is pending, invalid, or already consumed. Contact your advisor to re-issue access.");
+        setError("Invitation not found yet. Your advisor may still be issuing access.");
+      } else if (err instanceof ApiError && err.status === 409) {
+        setError("This invitation has already been activated. Please sign in to continue.");
+      } else if (err instanceof ApiError && err.status === 410) {
+        setError("This invitation has expired. Ask your advisor to issue a new invitation.");
       } else if (err instanceof NetworkError) {
         setError("Unable to reach activation service. Try again.");
       } else {
@@ -309,7 +312,7 @@ export default function InstitutionalAccessPortal({
                     </button>
                     {invitationPending && (
                       <p className="rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                        Invitation pending state detected. Await advisor re-issuance or confirmation.
+                        Your invitation is still being processed. Please wait for advisor confirmation.
                       </p>
                     )}
                   </form>
@@ -317,7 +320,7 @@ export default function InstitutionalAccessPortal({
 
                 {activeTab === "request-access" && (
                   <form onSubmit={submitAccessRequest} className="space-y-4">
-                    <p className="text-sm text-slate-300">Request access to Asraa Private Wealth OS.</p>
+                    <p className="text-sm text-slate-300">Request access to Asraa Private Wealth Operating System.</p>
                     <input
                       type="text"
                       placeholder="Full name"
@@ -360,7 +363,13 @@ export default function InstitutionalAccessPortal({
                     />
                     <select
                       value={accessPayload.preferredContactMethod}
-                      onChange={(e) => setAccessPayload((prev) => ({ ...prev, preferredContactMethod: e.target.value }))}
+                      onChange={(e) =>
+                        setAccessPayload((prev) => ({
+                          ...prev,
+                          preferredContactMethod:
+                            e.target.value as RequestAdvisoryAccessPayload["preferredContactMethod"],
+                        }))
+                      }
                       className="w-full rounded-lg bg-[#020817]/50 border border-sky-400/20 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-sky-400"
                     >
                       {CONTACT_METHODS.map((method) => (
