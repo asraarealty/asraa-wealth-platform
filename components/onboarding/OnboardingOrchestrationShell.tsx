@@ -98,10 +98,10 @@ export function OnboardingOrchestrationShell() {
     const interval = setInterval(() => {
       setDraft((current) => {
         let changed = false;
-        const nextQueue = current.uploadQueue.map((item) => {
+        const nextQueue: UploadQueueItem[] = current.uploadQueue.map((item) => {
           if (item.status === "queued") {
             changed = true;
-            return { ...item, status: "uploading", progress: Math.max(item.progress, 8) };
+            return { ...item, status: "uploading" as const, progress: Math.max(item.progress, 8) };
           }
           if (item.status !== "uploading") return item;
           const nextProgress = Math.min(100, item.progress + 8 + Math.round(Math.random() * 14));
@@ -109,7 +109,7 @@ export function OnboardingOrchestrationShell() {
           return {
             ...item,
             progress: nextProgress,
-            status: nextProgress >= 100 ? "uploaded" : "uploading",
+            status: nextProgress >= 100 ? ("uploaded" as const) : ("uploading" as const),
           };
         });
 
