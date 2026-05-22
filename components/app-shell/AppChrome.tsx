@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useOperatingContext } from "@/context/OperatingContext";
 import { useMarketDomainGraph } from "@/domains/market";
 import { MarketSnapshotStrip } from "@/components/market/MarketSnapshotStrip";
+import { isOperationsRole } from "@/lib/authRouting";
 
 function IconDashboard() {
   return (
@@ -111,7 +112,7 @@ function IconUser() {
 
 const NAV = [
   { href: "/dashboard", label: "Portfolio", short: "Portfolio", Icon: IconDashboard },
-  { href: "/onboarding", label: "Client Access", short: "Access", Icon: IconOnboarding },
+  { href: "/onboarding/access", label: "Client Access", short: "Access", Icon: IconOnboarding },
   { href: "/stocks", label: "Stocks", short: "Stocks", Icon: IconMarket },
   { href: "/markets", label: "Markets", short: "Markets", Icon: IconMarket },
   { href: "/watchlist", label: "Watchlist", short: "Watchlist", Icon: IconWatchlist },
@@ -151,7 +152,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       router.replace("/login");
       return;
     }
-    if ((user.role ?? "").toLowerCase() === "admin") {
+    if (isOperationsRole(user.role)) {
       router.replace("/admin");
     }
   }, [authReady, authenticated, isRefreshing, router, user]);

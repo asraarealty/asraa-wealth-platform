@@ -3,7 +3,7 @@ import LoginForm from "@/components/LoginForm";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Sign in — Asraa Wealth",
+  title: "Client Access — Asraa Wealth",
 };
 
 export default function LoginPage() {
@@ -18,19 +18,18 @@ export default function LoginPage() {
           {/* LEFT PANEL */}
           <div className="flex flex-col justify-center px-8 py-16 lg:px-16 xl:px-24 lg:w-[55%]">
             <h1 className="text-4xl sm:text-5xl xl:text-6xl font-extrabold leading-tight tracking-tight mb-6 text-white">
-              For intelligent <br /> investors.
+              Private Wealth <br /> Operating System.
             </h1>
 
             <p className="text-gray-400 text-base sm:text-lg leading-relaxed max-w-md mb-10">
-              We combine institutional wealth strategy with AI to help you grow,
-              protect, and multiply your assets — smarter than the market.
+              Access is provisioned by your advisor after enrollment approval. Secure document ingestion and portfolio activation follow verification checkpoints.
             </p>
 
             <ul className="space-y-4 max-w-md">
-              <li className="text-gray-300 text-sm">✔ AI-driven portfolio insights</li>
-              <li className="text-gray-300 text-sm">✔ Curated wealth strategies</li>
-              <li className="text-gray-300 text-sm">✔ Bank-grade security</li>
-              <li className="text-gray-300 text-sm">✔ Dedicated advisor access</li>
+              <li className="text-gray-300 text-sm">✔ Advisor-managed onboarding governance</li>
+              <li className="text-gray-300 text-sm">✔ Secure document ingestion pipeline</li>
+              <li className="text-gray-300 text-sm">✔ Activation after KYC and verification</li>
+              <li className="text-gray-300 text-sm">✔ Dedicated advisor-led wealth relationship</li>
             </ul>
           </div>
 
@@ -39,10 +38,25 @@ export default function LoginPage() {
             <div className="w-full max-w-sm">
               <LoginForm />
 
+              <div className="mt-5 grid gap-2">
+                <Link href="/login" className="rounded-xl border border-sky-300/25 bg-sky-500/10 px-4 py-2.5 text-sm font-semibold text-sky-100 text-center">
+                  Existing Client Login
+                </Link>
+                <Link href="/activate-invitation" className="rounded-xl border border-white/15 bg-white/[0.05] px-4 py-2.5 text-sm font-semibold text-slate-100 text-center">
+                  Activate Client Invitation
+                </Link>
+                <Link href="/request-access" className="rounded-xl border border-white/15 bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-slate-100 text-center">
+                  Request Wealth Consultation
+                </Link>
+              </div>
+              <p className="mt-3 text-center text-xs text-slate-400">
+                Advisor/Admin login entry available with your institutional credentials.
+              </p>
+
               {/* WhatsApp CTA */}
               <div className="mt-5 text-center">
                 <p className="text-xs text-gray-500 mb-3">
-                  Need help getting started?
+                  Need onboarding assistance?
                 </p>
 
                 <Link

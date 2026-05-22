@@ -4,6 +4,7 @@ export const metadata = {
   title: "Request Advisory Access — Asraa Wealth",
 };
 
-export default function SignupPage() {
+export default function RequestAccessPage() {
   return <SignupForm />;
 }
+

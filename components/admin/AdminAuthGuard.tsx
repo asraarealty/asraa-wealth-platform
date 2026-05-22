@@ -4,6 +4,7 @@ import { useEffect, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Loader from "@/components/ui/Loader";
+import { isOperationsRole } from "@/lib/authRouting";
 
 interface Props {
   children: ReactNode;
@@ -21,8 +22,7 @@ export default function AdminAuthGuard({ children }: Props) {
       return;
     }
 
-    // Redirect non-admin authenticated users to the client dashboard
-    if ((user.role ?? "").toLowerCase() !== "admin") {
+    if (!isOperationsRole(user.role)) {
       router.replace("/dashboard");
     }
   }, [authReady, sessionHydrated, authenticated, isRefreshing, router, user]);
@@ -31,7 +31,7 @@ export default function AdminAuthGuard({ children }: Props) {
   if (!authReady || !sessionHydrated || isRefreshing) return <Loader />;
 
   // ⛔ Prevent rendering until role is confirmed
-  if (!user || (user.role ?? "").toLowerCase() !== "admin") return null;
+  if (!user || !isOperationsRole(user.role)) return null;
 
   // ✅ Authorized admin
   return <>{children}</>;

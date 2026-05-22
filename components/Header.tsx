@@ -65,14 +65,14 @@ export default function Header() {
           {/* CTA + Mobile toggle */}
           <div className="flex items-center gap-3">
             <Link
-              href="/signup"
+              href="/request-access"
               className="hidden md:inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg text-black transition-opacity duration-200 hover:opacity-90"
               style={{
                 background: "linear-gradient(90deg, #38bdf8, #3b82f6)",
                 boxShadow: "0 4px 16px rgba(56,189,248,0.28)",
               }}
             >
-              Get Free Plan
+              Request Advisory Access
             </Link>
 
             {/* Mobile menu button */}
@@ -130,14 +130,14 @@ export default function Header() {
 
               <div className="pt-2">
                 <Link
-                  href="/signup"
+                  href="/request-access"
                   onClick={() => requestClose("programmatic")}
                   className="block px-4 py-2.5 text-sm font-semibold text-center rounded-lg text-black"
                   style={{
                     background: "linear-gradient(90deg, #38bdf8, #3b82f6)",
                   }}
                 >
-                  Get Free Plan
+                  Request Advisory Access
                 </Link>
               </div>
             </div>

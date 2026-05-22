@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Loader from "@/components/ui/Loader";
 import { useAuth } from "@/context/AuthContext";
+import { isOperationsRole } from "@/lib/authRouting";
 
 export default function RootRoutePage() {
   const router = useRouter();
@@ -17,7 +18,7 @@ export default function RootRoutePage() {
       return;
     }
 
-    if ((user.role ?? "").toLowerCase() === "admin") {
+    if (isOperationsRole(user.role)) {
       router.replace("/admin");
       return;
     }

@@ -709,6 +709,47 @@ export function signup(payload: SignupPayload): Promise<void> {
   });
 }
 
+export interface AdvisoryAccessRequestPayload {
+  fullName: string;
+  email: string;
+  phone: string;
+  city: string;
+  estimatedNetWorth: string;
+  primaryInterest: string;
+  preferredContactMethod: string;
+  notes?: string;
+}
+
+export function requestAdvisoryAccess(payload: AdvisoryAccessRequestPayload): Promise<void> {
+  const request = resolveContractRequest("POST /clients", {
+    body: {
+      name: payload.fullName,
+      email: payload.email,
+      phone: payload.phone,
+      address: payload.city,
+      net_worth: Number(payload.estimatedNetWorth) || undefined,
+      investment_preference: payload.primaryInterest,
+      lead_source: "request_access",
+      campaign_segmentation: "advisor_managed_onboarding",
+      approval_status: "pending",
+      status: "lead",
+      canonical_status: "lead",
+      onboarding_status: "lead",
+      notes: [
+        `Preferred contact: ${payload.preferredContactMethod}`,
+        payload.notes?.trim() ? `Client notes: ${payload.notes.trim()}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    },
+  });
+  return fetcher<void>(request.path, {
+    method: request.method,
+    body: request.body,
+    noRedirectOn401: true,
+  });
+}
+
 export interface ForgotPasswordPayload {
   email: string;
 }
@@ -733,7 +774,41 @@ export function resetPassword(
   return fetcher<void>("/auth/reset-password", {
     method: "POST",
     body: payload,
+    noRedirectOn401: true,
   });
+}
+
+export interface InvitationPreviewResponse {
+  assignedAdvisor?: string;
+  onboardingStatus?: string;
+  requestedDocuments?: string[];
+  progressStep?: number;
+  progressTotal?: number;
+  advisorComment?: string;
+}
+
+export interface ActivateInvitationPayload {
+  token: string;
+  password: string;
+  acceptInvitation: boolean;
+}
+
+export function fetchInvitationPreview(token: string): Promise<InvitationPreviewResponse> {
+  return fetcher<InvitationPreviewResponse>(`/auth/invitations/preview?token=${encodeURIComponent(token)}`, {
+    noRedirectOn401: true,
+  });
+}
+
+export async function activateInvitation(payload: ActivateInvitationPayload): Promise<void> {
+  try {
+    await fetcher<void>("/auth/invitations/activate", {
+      method: "POST",
+      body: payload,
+      noRedirectOn401: true,
+    });
+  } catch {
+    await resetPassword({ token: payload.token, password: payload.password });
+  }
 }
 
 /* ── Safe fetch utility ─────────────────────────────────────────────── */

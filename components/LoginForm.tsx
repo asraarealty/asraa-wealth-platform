@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, NetworkError } from "@/lib/fetcher";
+import { isOperationsRole } from "@/lib/authRouting";
 
 export default function LoginForm() {
   const { login } = useAuth();
@@ -31,11 +32,7 @@ export default function LoginForm() {
         return;
       }
 
-      // 🔥 robust role handling
-      const role = (me.role || "").toString().trim().toLowerCase();
-
-      // 🔥 safe redirect (replace avoids back button going to login)
-      if (role === "admin") {
+      if (isOperationsRole(me.role)) {
         router.replace("/admin");
       } else {
         router.replace("/dashboard");
@@ -61,7 +58,8 @@ export default function LoginForm() {
 
   return (
     <div className="w-full rounded-2xl p-8 shadow-2xl bg-[#0b1a3a]/85 border border-sky-400/25 backdrop-blur-xl">
-      <h2 className="text-xl font-bold text-white mb-6">Welcome back</h2>
+      <h2 className="text-xl font-bold text-white mb-1">Welcome back</h2>
+      <p className="mb-5 text-xs text-slate-300">Existing Client Login</p>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Email */}
@@ -110,7 +108,16 @@ export default function LoginForm() {
         {/* Links */}
         <div className="flex justify-between text-sm text-gray-400">
           <Link href="/forgot-password">Forgot password?</Link>
-          <Link href="/signup">Create account</Link>
+          <Link href="/request-access">Request Advisory Access</Link>
+        </div>
+        <div className="pt-2 text-center">
+          <Link href="/activate-invitation" className="text-xs text-sky-300 hover:text-sky-200">
+            Activate Invitation
+          </Link>
+          <span className="mx-2 text-slate-600">•</span>
+          <Link href="/login" className="text-xs text-slate-300 hover:text-white">
+            Advisor/Admin Login
+          </Link>
         </div>
       </form>
     </div>
