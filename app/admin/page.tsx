@@ -54,7 +54,7 @@ export default function AdminOverviewPage() {
           eyebrow="Admin control center"
           title="Live wealth operating system"
           subtitle="Realtime client operations, market pulse, asset allocation, and approval oversight in one admin surface"
-          action={<Link href="/admin/clients" className="v2-link">Open client operations →</Link>}
+          action={<Link href="/admin/onboarding" className="v2-link">Open onboarding command center →</Link>}
         />
         {error ? (
           <div className="mt-4 rounded-xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">

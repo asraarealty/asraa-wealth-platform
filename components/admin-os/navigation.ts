@@ -19,6 +19,18 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     description: "Client Operations Center: lifecycle, approvals, and relationship command",
   },
   {
+    href: "/admin/client-operations",
+    label: "Enrollment Workflow",
+    shortLabel: "Enroll",
+    description: "Admin-operated client enrollment flow: create profile, assign advisor, documents, processing, and activation",
+  },
+  {
+    href: "/admin/onboarding",
+    label: "Onboarding Command Center",
+    shortLabel: "Onboarding",
+    description: "Onboarding pipeline monitor: pending queues, missing documents, activation readiness, and advisor ownership",
+  },
+  {
     href: "/admin/market",
     label: "Market Terminal",
     shortLabel: "Market",

@@ -7,6 +7,7 @@ import { ClientInventoryModal } from "@/components/admin/ClientInventoryModal";
 import { AssetCard } from "@/components/admin/platform/AssetCard";
 import { StatusBadge } from "@/components/admin/platform/StatusBadge";
 import { PlatformConfirmModal } from "@/components/admin/platform/PlatformModal";
+import { ClientOnboardingStatusCard } from "@/components/admin/onboarding/ClientOnboardingStatusCard";
 import {
   ActionBar,
   AllocationChart,
@@ -853,6 +854,10 @@ export function ClientDetailPanel({
 
               {workspaceMode === "operations" ? (
                 <div className="space-y-4">
+                  <IntelligencePanel title="Onboarding command center" sub="Progress, documents, processing status, advisor actions, and activation controls">
+                    <ClientOnboardingStatusCard client={workspaceClient} />
+                  </IntelligencePanel>
+
                   <IntelligencePanel title="Lifecycle controls" sub="Onboarding, KYC, approvals, and workflow transitions">
                     {!operationsReady ? (
                       <EmptyState title="Operations locked" detail="Complete onboarding and intelligence prerequisites to unlock lifecycle controls." />

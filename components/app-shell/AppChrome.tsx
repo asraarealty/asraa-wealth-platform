@@ -111,7 +111,7 @@ function IconUser() {
 
 const NAV = [
   { href: "/dashboard", label: "Portfolio", short: "Portfolio", Icon: IconDashboard },
-  { href: "/onboarding", label: "Onboarding", short: "Onboard", Icon: IconOnboarding },
+  { href: "/onboarding", label: "Client Access", short: "Access", Icon: IconOnboarding },
   { href: "/stocks", label: "Stocks", short: "Stocks", Icon: IconMarket },
   { href: "/markets", label: "Markets", short: "Markets", Icon: IconMarket },
   { href: "/watchlist", label: "Watchlist", short: "Watchlist", Icon: IconWatchlist },
