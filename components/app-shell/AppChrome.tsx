@@ -19,6 +19,15 @@ function IconDashboard() {
   );
 }
 
+function IconOnboarding() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
+      <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M5 8L7 10L11 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function IconMarket() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
@@ -102,6 +111,7 @@ function IconUser() {
 
 const NAV = [
   { href: "/dashboard", label: "Portfolio", short: "Portfolio", Icon: IconDashboard },
+  { href: "/onboarding", label: "Onboarding", short: "Onboard", Icon: IconOnboarding },
   { href: "/stocks", label: "Stocks", short: "Stocks", Icon: IconMarket },
   { href: "/markets", label: "Markets", short: "Markets", Icon: IconMarket },
   { href: "/watchlist", label: "Watchlist", short: "Watchlist", Icon: IconWatchlist },
