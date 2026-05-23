@@ -15,7 +15,7 @@ import { ADMIN_CLIENTS_QUERY_KEY, useAdminClients, type EnrichedClient } from "@
 import { adminQueryKeys } from "@/lib/queryKeys/admin";
 import { useAdminWorkspaceState } from "@/domains/admin";
 import { ALLOWED_TRANSITIONS } from "@/lib/services/clientService";
-import { toErrorMessage } from "@/lib/fetcher";
+import { toLifecycleErrorMessage } from "@/lib/services/clientLifecycleErrors";
 import { useAdminClientLifecycleMutation } from "@/domains/admin";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
@@ -221,15 +221,15 @@ export default function ClientsPage() {
       ]);
       setActionSuccess(
         action.type === "restore"
-          ? "Client restored successfully."
+          ? "Client restored successfully"
           : action.type === "delete"
-            ? "Client permanently deleted."
+            ? "Client permanently deleted"
             : "Client action completed successfully."
       );
       setDeleteConfirmationInput("");
       setPendingAction(null);
     } catch (value) {
-      setActionError(toErrorMessage(value));
+      setActionError(toLifecycleErrorMessage(value, action.type));
     } finally {
       setActionLoadingId(null);
     }
@@ -539,7 +539,7 @@ export default function ClientsPage() {
                                         description: "This permanently deletes the archived client and all runtime projections. This action cannot be undone.",
                                         confirmLabel: "Delete Permanently",
                                         tone: "danger" as const,
-                                        requireTypedConfirmation: "DELETE CLIENT",
+                                        requireTypedConfirmation: "DELETE",
                                       }),
                                     tone: "danger" as const,
                                   },
