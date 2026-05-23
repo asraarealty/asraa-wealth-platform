@@ -11,7 +11,8 @@ import {
 } from "@/lib/api";
 import { ApiError, NetworkError } from "@/lib/fetcher";
 
-type AccessTab = "existing-client" | "activate-invitation" | "request-access";
+type AccessTab = "existing-client" | "request-access";
+type AccessView = AccessTab | "activate-invitation";
 
 const TABS: Array<{ id: AccessTab; label: string; href: string }> = [
   { id: "existing-client", label: "Login", href: "/login" },
@@ -70,13 +71,13 @@ export default function InstitutionalAccessPortal({
   initialTab = "existing-client",
   initialInvitationToken = "",
 }: {
-  initialTab?: AccessTab;
+  initialTab?: AccessView;
   initialInvitationToken?: string;
 }) {
   const router = useRouter();
   const { login } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<AccessTab>(initialTab);
+  const [activeTab, setActiveTab] = useState<AccessView>(initialTab);
   const [tabLoading, setTabLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
