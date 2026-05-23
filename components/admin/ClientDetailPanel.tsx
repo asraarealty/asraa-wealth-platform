@@ -30,6 +30,7 @@ import { useClientDetail } from "@/lib/hooks/useClientDetail";
 import { createCanonicalAssetUniverse } from "@/lib/services/assets";
 import { mutateAdminInventory } from "@/lib/services/adminInventoryService";
 import { ALLOWED_TRANSITIONS } from "@/lib/services/clientService";
+import { toLifecycleErrorMessage } from "@/lib/services/clientLifecycleErrors";
 import { resolveLivePrices } from "@/lib/services/market";
 import { computePortfolioValuation } from "@/lib/services/portfolio";
 import { toErrorMessage } from "@/lib/fetcher";
@@ -71,10 +72,12 @@ export function ClientDetailPanel({
   client,
   onClose,
   initialMode = INITIAL_WORKSPACE_MODE,
+  onLifecycleSuccess,
 }: {
   client: EnrichedClient | null;
   onClose: () => void;
   initialMode?: WorkspaceMode;
+  onLifecycleSuccess?: (message: string) => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -670,22 +673,32 @@ export function ClientDetailPanel({
         queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientAssetPricing(workspaceClient.id) }),
       ]);
       if (pendingClientAction.action === "delete") {
+        const successMessage = "Client permanently deleted";
+        onLifecycleSuccess?.(successMessage);
         requestPanelClose("programmatic");
         return;
       }
       if (pendingClientAction.action === "restore") {
-        setLifecycleSuccess("Client restored successfully.");
+        const successMessage = "Client restored successfully";
+        setLifecycleSuccess(successMessage);
+        onLifecycleSuccess?.(successMessage);
       } else if (pendingClientAction.action === "archive") {
-        setLifecycleSuccess("Client archived successfully.");
+        const successMessage = "Client archived successfully";
+        setLifecycleSuccess(successMessage);
+        onLifecycleSuccess?.(successMessage);
       } else if (pendingClientAction.action === "approve") {
-        setLifecycleSuccess("Lead converted successfully.");
+        const successMessage = "Lead converted successfully";
+        setLifecycleSuccess(successMessage);
+        onLifecycleSuccess?.(successMessage);
       } else if (pendingClientAction.action === "suspend") {
-        setLifecycleSuccess("Client status updated successfully.");
+        const successMessage = "Client status updated successfully";
+        setLifecycleSuccess(successMessage);
+        onLifecycleSuccess?.(successMessage);
       }
       refreshWorkspaceData();
     } catch (value) {
       if (!lifecycle.isActive()) return;
-      setAssetError(toErrorMessage(value));
+      setAssetError(toLifecycleErrorMessage(value, pendingClientAction.action));
     }
   }
 
@@ -880,7 +893,7 @@ export function ClientDetailPanel({
                           </button>
                         ) : null}
                         {workspaceClient.canonicalStatus === "archived" ? (
-                          <button type="button" onClick={() => setPendingClientAction({ action: "delete", title: "Delete client permanently", description: "Permanently delete this archived client and all operational runtime links. This action cannot be undone.", confirmLabel: "Delete Permanently", tone: "danger", requireTypedConfirmation: "DELETE CLIENT" })} className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200">
+                          <button type="button" onClick={() => setPendingClientAction({ action: "delete", title: "Delete client permanently", description: "Permanently delete this archived client and all operational runtime links. This action cannot be undone.", confirmLabel: "Delete Permanently", tone: "danger", requireTypedConfirmation: "DELETE" })} className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-200">
                             Delete Permanently
                           </button>
                         ) : null}
