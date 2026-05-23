@@ -11,18 +11,14 @@ import {
 } from "@/lib/api";
 import { ApiError, NetworkError } from "@/lib/fetcher";
 
-type AccessTab = "existing-client" | "activate-invitation" | "request-access";
+type AccessTab = "login" | "request-access";
+type AccessView = AccessTab | "activate-invitation";
 
 const TABS: Array<{ id: AccessTab; label: string; href: string }> = [
-  { id: "existing-client", label: "Existing Client", href: "/login" },
-  {
-    id: "activate-invitation",
-    label: "Activate Invitation",
-    href: "/activate-invitation",
-  },
+  { id: "login", label: "Login", href: "/login" },
   {
     id: "request-access",
-    label: "Request Advisory Access",
+    label: "Request Access",
     href: "/request-access",
   },
 ];
@@ -72,14 +68,16 @@ function LifecycleRail({
 }
 
 export default function InstitutionalAccessPortal({
-  initialTab = "existing-client",
+  initialTab = "login",
+  initialInvitationToken = "",
 }: {
-  initialTab?: AccessTab;
+  initialTab?: AccessView;
+  initialInvitationToken?: string;
 }) {
   const router = useRouter();
   const { login } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<AccessTab>(initialTab);
+  const [activeTab, setActiveTab] = useState<AccessView>(initialTab);
   const [tabLoading, setTabLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -87,7 +85,7 @@ export default function InstitutionalAccessPortal({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [invitationToken, setInvitationToken] = useState("");
+  const [invitationToken, setInvitationToken] = useState(initialInvitationToken);
   const [invitationPassword, setInvitationPassword] = useState("");
   const [invitationConfirmPassword, setInvitationConfirmPassword] = useState("");
   const [invitationPending, setInvitationPending] = useState(false);
@@ -236,7 +234,7 @@ export default function InstitutionalAccessPortal({
               </div>
 
               <div className="mt-5">
-                {activeTab === "existing-client" && (
+                {activeTab === "login" && (
                   <form onSubmit={submitExistingClient} className="space-y-4">
                     <p className="text-sm text-slate-300">Access your activated wealth workspace.</p>
                     <input
