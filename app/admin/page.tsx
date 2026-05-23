@@ -47,7 +47,7 @@ export default function AdminOverviewPage() {
     (runtime.staleRuntime ? 1 : 0) +
     (marketError ? 1 : 0) +
     topLosers.filter((item) => item.changePercent <= -2).length;
-  const avgPerformance = safeClients.length ? safeClients.reduce((sum, client) => sum + client.unrealizedPnLPct, 0) / safeClients.length : 0;
+  const avgPerformance = safeClients.length ? safeClients.reduce((sum, client) => sum + (Number.isFinite(client.unrealizedPnLPct) ? client.unrealizedPnLPct : 0), 0) / safeClients.length : 0;
   const activeAlerts = riskAlerts + marketAlerts;
   const topClients = [...safeClients].sort((a, b) => b.totalNetWorth - a.totalNetWorth).slice(0, 8);
   const actionCards = [

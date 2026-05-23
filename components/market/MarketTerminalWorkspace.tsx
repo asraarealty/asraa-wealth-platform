@@ -262,6 +262,17 @@ export function MarketTerminalWorkspace() {
     }
   }, [watchlist.length]);
 
+  const [addingSymbols, setAddingSymbols] = useState<Set<string>>(new Set());
+  const [addedSymbols, setAddedSymbols] = useState<Set<string>>(new Set());
+  const addFeedbackTimers = useRef<Map<string, ReturnType<typeof setTimeout>[]>>(new Map());
+
+  // Clean up pending feedback timers on unmount
+  useEffect(() => {
+    return () => {
+      addFeedbackTimers.current.forEach((timers) => timers.forEach(clearTimeout));
+    };
+  }, []);
+
   const updatedLabel = fmtLastUpdated(lastUpdated);
 
   const watchlistByCategory = useMemo(() => {
@@ -275,10 +286,43 @@ export function MarketTerminalWorkspace() {
       ...(search.groups.mutualFunds ?? []),
       ...(search.groups.commodities ?? []),
     ]
+      // Reject numeric-only symbols and assets without a meaningful symbol/name
+      .filter((asset) => {
+        if (!asset.symbol || /^\d+$/.test(asset.symbol)) return false;
+        if (!asset.name) return false;
+        return true;
+      })
       .filter((asset, index, arr) => arr.findIndex((entry) => entry.id === asset.id) === index)
       .filter((asset) => !watchlist.some((tracked) => tracked.symbol === asset.symbol))
       .slice(0, 8);
   }, [search.groups.commodities, search.groups.etfs, search.groups.mutualFunds, search.groups.stocks, watchlist]);
+
+  const handleAddToWatchlist = (asset: MarketAsset) => {
+    const symbol = asset.symbol;
+    // Clear any existing timers for this symbol
+    addFeedbackTimers.current.get(symbol)?.forEach(clearTimeout);
+    setAddingSymbols((prev) => new Set(prev).add(symbol));
+    toggleWatchlist(symbol, asset);
+    // Show optimistic "Added ✓" feedback for 2 seconds
+    const t1 = setTimeout(() => {
+      setAddingSymbols((prev) => {
+        const next = new Set(prev);
+        next.delete(symbol);
+        return next;
+      });
+      setAddedSymbols((prev) => new Set(prev).add(symbol));
+      const t2 = setTimeout(() => {
+        setAddedSymbols((prev) => {
+          const next = new Set(prev);
+          next.delete(symbol);
+          return next;
+        });
+        addFeedbackTimers.current.delete(symbol);
+      }, 2000);
+      addFeedbackTimers.current.set(symbol, [t2]);
+    }, 300);
+    addFeedbackTimers.current.set(symbol, [t1]);
+  };
 
   const volumeLeaders = useMemo(() => {
     return [...assets]
@@ -463,22 +507,35 @@ export function MarketTerminalWorkspace() {
             {query.trim().length >= MARKET_SEARCH_MIN_QUERY_LENGTH ? (
               <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
                 <p className="text-xs font-semibold text-white">Search results</p>
-                <p className="mt-1 text-[11px] text-slate-500">Select assets to add into monitored watchlists.</p>
+                <p className="mt-1 text-[11px] text-slate-500">Click an asset to add it to your monitored watchlist.</p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  {searchableAssets.map((asset) => (
-                    <button
-                      key={asset.id}
-                      type="button"
-                      onClick={() => toggleWatchlist(asset.symbol)}
-                      className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-left transition-colors hover:bg-white/[0.05]"
-                    >
-                      <p className="text-xs font-semibold text-white">{asset.symbol}</p>
-                      <p className="mt-0.5 truncate text-[10px] text-slate-500">{asset.name}</p>
-                      <p className={`mt-1 text-[11px] font-semibold ${asset.changePercent >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                        {fmtPercent(asset.changePercent, true)}
-                      </p>
-                    </button>
-                  ))}
+                  {searchableAssets.map((asset) => {
+                    const isAdding = addingSymbols.has(asset.symbol);
+                    const isAdded = addedSymbols.has(asset.symbol);
+                    return (
+                      <button
+                        key={asset.id}
+                        type="button"
+                        disabled={isAdding || isAdded}
+                        onClick={() => handleAddToWatchlist(asset)}
+                        className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-left transition-colors hover:border-emerald-400/30 hover:bg-white/[0.05] disabled:opacity-70"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-white">{asset.symbol}</p>
+                            <p className="mt-0.5 truncate text-[10px] text-slate-500">{asset.name}</p>
+                          </div>
+                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold transition-colors ${isAdded ? "bg-emerald-500/20 text-emerald-300" : "bg-white/8 text-slate-400"}`}>
+                            {isAdding ? "Adding…" : isAdded ? "Added ✓" : "+ Watch"}
+                          </span>
+                        </div>
+                        <p className={`mt-1 text-[11px] font-semibold ${asset.changePercent >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                          {fmtPercent(asset.changePercent, true)}
+                          {asset.price > 0 ? <span className="ml-1.5 text-[10px] font-normal text-slate-500">{formatAssetPrice(asset)}</span> : null}
+                        </p>
+                      </button>
+                    );
+                  })}
                   {search.isSearching ? <p className="text-xs text-slate-500">Searching assets…</p> : null}
                   {!search.isSearching && searchableAssets.length === 0 ? (
                     <p className="text-xs text-slate-500">No matching assets available for watchlist addition.</p>
