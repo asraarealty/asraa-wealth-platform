@@ -5,5 +5,5 @@ export const metadata = {
 };
 
 export default function LoginPage() {
-  return <InstitutionalAccessPortal initialTab="existing-client" />;
+  return <InstitutionalAccessPortal initialTab="login" />;
 }

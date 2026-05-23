@@ -11,11 +11,11 @@ import {
 } from "@/lib/api";
 import { ApiError, NetworkError } from "@/lib/fetcher";
 
-type AccessTab = "existing-client" | "request-access";
+type AccessTab = "login" | "request-access";
 type AccessView = AccessTab | "activate-invitation";
 
 const TABS: Array<{ id: AccessTab; label: string; href: string }> = [
-  { id: "existing-client", label: "Login", href: "/login" },
+  { id: "login", label: "Login", href: "/login" },
   {
     id: "request-access",
     label: "Request Access",
@@ -68,7 +68,7 @@ function LifecycleRail({
 }
 
 export default function InstitutionalAccessPortal({
-  initialTab = "existing-client",
+  initialTab = "login",
   initialInvitationToken = "",
 }: {
   initialTab?: AccessView;
@@ -234,7 +234,7 @@ export default function InstitutionalAccessPortal({
               </div>
 
               <div className="mt-5">
-                {activeTab === "existing-client" && (
+                {activeTab === "login" && (
                   <form onSubmit={submitExistingClient} className="space-y-4">
                     <p className="text-sm text-slate-300">Access your activated wealth workspace.</p>
                     <input
