@@ -565,7 +565,14 @@ export default function ClientsPage() {
         </div>
       </SurfaceCard>
 
-      {selectedClient ? <ClientDetailPanel client={selectedClient} onClose={closeClientWorkspace} initialMode={selectedClientMode} /> : null}
+      {selectedClient ? (
+        <ClientDetailPanel
+          client={selectedClient}
+          onClose={closeClientWorkspace}
+          initialMode={selectedClientMode}
+          onLifecycleSuccess={setActionSuccess}
+        />
+      ) : null}
 
       {pendingAction ? (
         <PlatformConfirmModal

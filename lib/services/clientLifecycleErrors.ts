@@ -1,6 +1,6 @@
 import { ApiError, NetworkError, toErrorMessage } from "@/lib/fetcher";
 
-type LifecycleErrorAction = "approve" | "suspend" | "archive" | "restore" | "delete";
+export type LifecycleErrorAction = "approve" | "suspend" | "archive" | "restore" | "delete";
 
 const GENERIC_ERROR_PATTERN = /^(HTTP \d{3}|Request failed \(\d{3}\)|API error)$/i;
 

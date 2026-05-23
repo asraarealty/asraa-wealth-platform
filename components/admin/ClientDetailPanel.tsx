@@ -72,10 +72,12 @@ export function ClientDetailPanel({
   client,
   onClose,
   initialMode = INITIAL_WORKSPACE_MODE,
+  onLifecycleSuccess,
 }: {
   client: EnrichedClient | null;
   onClose: () => void;
   initialMode?: WorkspaceMode;
+  onLifecycleSuccess?: (message: string) => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -671,18 +673,22 @@ export function ClientDetailPanel({
         queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientAssetPricing(workspaceClient.id) }),
       ]);
       if (pendingClientAction.action === "delete") {
-        setLifecycleSuccess("Client permanently deleted");
-        refreshWorkspaceData();
+        onLifecycleSuccess?.("Client permanently deleted");
+        requestPanelClose("programmatic");
         return;
       }
       if (pendingClientAction.action === "restore") {
         setLifecycleSuccess("Client restored successfully");
+        onLifecycleSuccess?.("Client restored successfully");
       } else if (pendingClientAction.action === "archive") {
         setLifecycleSuccess("Client archived successfully.");
+        onLifecycleSuccess?.("Client archived successfully.");
       } else if (pendingClientAction.action === "approve") {
         setLifecycleSuccess("Lead converted successfully.");
+        onLifecycleSuccess?.("Lead converted successfully.");
       } else if (pendingClientAction.action === "suspend") {
         setLifecycleSuccess("Client status updated successfully.");
+        onLifecycleSuccess?.("Client status updated successfully.");
       }
       refreshWorkspaceData();
     } catch (value) {
