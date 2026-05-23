@@ -3,10 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { SearchCommandBar } from "@/components/v2/workspace";
 import { MetricTile, SectionHeader, SurfaceCard } from "@/components/v2/ui";
-import {
-  MARKET_SEARCH_MIN_QUERY_LENGTH,
-  useMarketDomainGraph as useMarketOrchestrator,
-} from "@/domains/market";
+import { useMarketDomainGraph as useMarketOrchestrator } from "@/domains/market";
+import { MARKET_SEARCH_MIN_QUERY_LENGTH } from "@/domains/market/search";
 import { fmtPercent } from "@/lib/formatters";
 
 function formatCurrency(value: number, currency: "INR" | "USD") {

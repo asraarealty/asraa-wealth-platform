@@ -128,7 +128,7 @@ export default function AdminOverviewPage() {
       <SurfaceCard className="p-4 sm:p-5">
         <SectionHeader
           eyebrow="Client Intelligence"
-          title="Client Intelligence"
+          title="Top Clients by AUM"
           subtitle="Current client books, risk posture, and operational status"
         />
         {loading ? (
@@ -162,8 +162,7 @@ export default function AdminOverviewPage() {
                     <td className="px-3 py-3 align-top text-white">{fmtCurrency(client.totalNetWorth)}</td>
                     <td className="px-3 py-3 align-top text-slate-300">{client.riskProfile || "—"}</td>
                     <td className="px-3 py-3 align-top text-xs text-slate-400">
-                      Eq {client.allocationMix.stock.toFixed(0)}% · MF {client.allocationMix.mf.toFixed(0)}% · RE{" "}
-                      {client.allocationMix.property.toFixed(0)}%
+                      {`Eq ${client.allocationMix.stock.toFixed(0)}% · MF ${client.allocationMix.mf.toFixed(0)}% · RE ${client.allocationMix.property.toFixed(0)}%`}
                     </td>
                     <td className="px-3 py-3 align-top text-slate-300">{fmtDate(client.lastActivity)}</td>
                     <td className="px-3 py-3 align-top">
