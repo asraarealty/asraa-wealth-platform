@@ -10,8 +10,7 @@ type ActivateInvitationPageProps = {
 
 export default async function ActivateInvitationPage({ searchParams }: ActivateInvitationPageProps) {
   const resolvedSearchParams = await searchParams;
-  const rawToken = typeof resolvedSearchParams.token === "string" ? resolvedSearchParams.token.trim() : "";
-  const token = rawToken.length <= 512 ? rawToken : "";
+  const token = typeof resolvedSearchParams.token === "string" ? resolvedSearchParams.token.trim() : "";
 
   return (
     <InstitutionalAccessPortal
