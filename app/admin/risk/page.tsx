@@ -15,7 +15,7 @@ function fmt(n: number) {
 export default function AdminRiskIntelligencePage() {
   const { clients, kpis, loading } = useAdminClients();
 
-  if (loading) return <LoadingBlock label="Loading risk intelligence..." />;
+  if (loading) return <LoadingBlock label="Loading risk operations..." />;
 
   const highRisk = clients.filter(
     (c) =>
@@ -53,7 +53,7 @@ export default function AdminRiskIntelligencePage() {
       {/* ── Risk KPIs ─────────────────────────────────────────────────────── */}
       <SurfaceCard className="p-4 sm:p-5">
         <SectionHeader
-          eyebrow="AI Risk Intelligence"
+          eyebrow="Risk Operations"
           title="Platform risk dashboard"
           subtitle="Cross-client concentration, exposure and rebalancing alerts"
         />
@@ -147,11 +147,11 @@ export default function AdminRiskIntelligencePage() {
         </SurfaceCard>
       </div>
 
-      {/* ── AI risk intelligence cards ───────────────────────────────────── */}
+      {/* ── Risk alert cards ─────────────────────────────────────────────── */}
       <SurfaceCard className="p-4 sm:p-5">
         <SectionHeader
-          eyebrow="AI Risk Signals"
-          title="Operational risk intelligence"
+          eyebrow="Risk Alerts"
+          title="Operational risk monitoring"
           subtitle="Algorithmically derived from live client portfolio data"
         />
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">

@@ -8,7 +8,7 @@ import { AdminHeader } from "@/components/admin-os/AdminHeader";
 import { ADMIN_NAV_ITEMS } from "@/components/admin-os/navigation";
 
 const MOBILE_DOCK = ADMIN_NAV_ITEMS.filter((item) =>
-  ["/admin", "/admin/clients", "/admin/market", "/admin/insights", "/admin/activity"].includes(item.href)
+  ["/admin", "/admin/clients", "/admin/onboarding", "/admin/transactions", "/admin/market"].includes(item.href)
 );
 
 export function AdminShell({ children }: { children: ReactNode }) {
