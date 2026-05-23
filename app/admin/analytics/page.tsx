@@ -22,7 +22,7 @@ export default function AdminAnalyticsPage() {
   const avgFunds = clients.length ? clients.reduce((sum, client) => sum + client.allocationMix.mf, 0) / clients.length : 0;
   const avgProperty = clients.length ? clients.reduce((sum, client) => sum + client.allocationMix.property, 0) / clients.length : 0;
   const avgCommodity = clients.length ? clients.reduce((sum, client) => sum + client.allocationMix.commodity, 0) / clients.length : 0;
-  const avgReturn = clients.length ? clients.reduce((sum, client) => sum + client.unrealizedPnLPct, 0) / clients.length : 0;
+  const avgReturn = clients.length ? clients.reduce((sum, client) => sum + (Number.isFinite(client.unrealizedPnLPct) ? client.unrealizedPnLPct : 0), 0) / clients.length : 0;
 
   return (
     <div className="space-y-5 animate-fade-in">

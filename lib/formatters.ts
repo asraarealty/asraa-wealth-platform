@@ -11,6 +11,7 @@ export function fmtCurrency(n: number): string {
 }
 
 export function fmtPercent(n: number, showSign = false): string {
+  if (!Number.isFinite(n)) return "—";
   const sign = showSign && n > 0 ? "+" : "";
   return `${sign}${n.toFixed(2)}%`;
 }

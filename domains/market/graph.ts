@@ -534,14 +534,23 @@ export async function searchMarket(query: string) {
   }
 }
 
-export function toggleWatchlist(symbol: string) {
+export function toggleWatchlist(symbol: string, asset?: MarketAsset) {
   const snapshot = getSnapshot();
   const nextSymbols = toggleWatchlistSymbol(symbol, getWatchlistSymbols());
-  const collections = deriveMarketCollections(snapshot.assets, {
+
+  // When adding an asset that came from search results (not in the loaded universe),
+  // inject it so it immediately appears in the watchlist table.
+  let assets = snapshot.assets;
+  const isAdding = nextSymbols.includes(symbol.toUpperCase());
+  if (isAdding && asset && !assets.some((a) => a.symbol.toUpperCase() === symbol.toUpperCase())) {
+    assets = [...assets, asset];
+  }
+
+  const collections = deriveMarketCollections(assets, {
     watchlistSymbols: nextSymbols,
     adminTickers: ADMIN_TICKERS,
   });
-  setMarketSnapshot({ ...collections });
+  setMarketSnapshot({ assets, ...collections });
 }
 
 export function subscribeMarket(listener: () => void) {
