@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Header from "@/components/Header";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
   activateInvitation,
@@ -14,15 +14,10 @@ import { ApiError, NetworkError } from "@/lib/fetcher";
 type AccessTab = "existing-client" | "activate-invitation" | "request-access";
 
 const TABS: Array<{ id: AccessTab; label: string; href: string }> = [
-  { id: "existing-client", label: "Existing Client", href: "/login" },
-  {
-    id: "activate-invitation",
-    label: "Activate Invitation",
-    href: "/activate-invitation",
-  },
+  { id: "existing-client", label: "Login", href: "/login" },
   {
     id: "request-access",
-    label: "Request Advisory Access",
+    label: "Request Access",
     href: "/request-access",
   },
 ];
@@ -73,10 +68,13 @@ function LifecycleRail({
 
 export default function InstitutionalAccessPortal({
   initialTab = "existing-client",
+  initialInvitationToken = "",
 }: {
   initialTab?: AccessTab;
+  initialInvitationToken?: string;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuth();
 
   const [activeTab, setActiveTab] = useState<AccessTab>(initialTab);
@@ -87,7 +85,7 @@ export default function InstitutionalAccessPortal({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [invitationToken, setInvitationToken] = useState("");
+  const [invitationToken, setInvitationToken] = useState(initialInvitationToken);
   const [invitationPassword, setInvitationPassword] = useState("");
   const [invitationConfirmPassword, setInvitationConfirmPassword] = useState("");
   const [invitationPending, setInvitationPending] = useState(false);
@@ -101,6 +99,14 @@ export default function InstitutionalAccessPortal({
     preferredContactMethod: CONTACT_METHODS[0],
   });
   const [accessSubmitted, setAccessSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== "activate-invitation" || invitationToken) return;
+    const tokenFromUrl = searchParams.get("token");
+    if (tokenFromUrl) {
+      setInvitationToken(tokenFromUrl);
+    }
+  }, [activeTab, invitationToken, searchParams]);
 
   function switchTab(id: AccessTab, href: string) {
     setActiveTab(id);

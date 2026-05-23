@@ -1,9 +1,9 @@
-import InstitutionalAccessPortal from "@/components/InstitutionalAccessPortal";
+import { redirect } from "next/navigation";
 
 export const metadata = {
-  title: "Activate Invitation — Asraa Wealth",
+  title: "Access Portal — Asraa Wealth",
 };
 
 export default function ActivateInvitationPage() {
-  return <InstitutionalAccessPortal initialTab="activate-invitation" />;
+  redirect("/login");
 }
