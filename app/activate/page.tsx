@@ -4,6 +4,18 @@ export const metadata = {
   title: "Activate Invitation — Asraa Wealth",
 };
 
-export default function ActivateInvitationPage() {
-  return <InstitutionalAccessPortal initialTab="activate-invitation" />;
+type ActivateInvitationPageProps = {
+  searchParams: Promise<{ token?: string }>;
+};
+
+export default async function ActivateInvitationPage({ searchParams }: ActivateInvitationPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const token = typeof resolvedSearchParams.token === "string" ? resolvedSearchParams.token : "";
+
+  return (
+    <InstitutionalAccessPortal
+      initialTab="activate-invitation"
+      initialInvitationToken={token}
+    />
+  );
 }

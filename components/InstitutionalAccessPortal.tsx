@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import Header from "@/components/Header";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
   activateInvitation,
@@ -74,7 +74,6 @@ export default function InstitutionalAccessPortal({
   initialInvitationToken?: string;
 }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { login } = useAuth();
 
   const [activeTab, setActiveTab] = useState<AccessTab>(initialTab);
@@ -99,14 +98,6 @@ export default function InstitutionalAccessPortal({
     preferredContactMethod: CONTACT_METHODS[0],
   });
   const [accessSubmitted, setAccessSubmitted] = useState(false);
-
-  useEffect(() => {
-    if (activeTab !== "activate-invitation" || invitationToken) return;
-    const tokenFromUrl = searchParams.get("token");
-    if (tokenFromUrl) {
-      setInvitationToken(tokenFromUrl);
-    }
-  }, [activeTab, invitationToken, searchParams]);
 
   function switchTab(id: AccessTab, href: string) {
     setActiveTab(id);
