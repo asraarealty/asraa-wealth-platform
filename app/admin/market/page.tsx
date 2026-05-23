@@ -1,7 +1,7 @@
 "use client";
 
-import { MarketRouteEntry } from "@/components/market/MarketRouteEntry";
+import { MarketTerminalWorkspace } from "@/components/market/MarketTerminalWorkspace";
 
 export default function AdminMarketPage() {
-  return <MarketRouteEntry mode="admin" initialSurface="market-overview" />;
+  return <MarketTerminalWorkspace />;
 }
