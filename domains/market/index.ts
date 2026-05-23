@@ -22,6 +22,7 @@ export {
   searchMarket as searchMarketPipeline,
   searchMarketDebounced,
   cancelDebouncedMarketSearch,
+  MARKET_SEARCH_MIN_QUERY_LENGTH,
 } from "./search";
 export * from "./watchlist";
 export * from "./breadth";
