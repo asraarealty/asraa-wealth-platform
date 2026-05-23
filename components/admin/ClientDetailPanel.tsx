@@ -683,15 +683,15 @@ export function ClientDetailPanel({
         setLifecycleSuccess(successMessage);
         onLifecycleSuccess?.(successMessage);
       } else if (pendingClientAction.action === "archive") {
-        const successMessage = "Client archived successfully.";
+        const successMessage = "Client archived successfully";
         setLifecycleSuccess(successMessage);
         onLifecycleSuccess?.(successMessage);
       } else if (pendingClientAction.action === "approve") {
-        const successMessage = "Lead converted successfully.";
+        const successMessage = "Lead converted successfully";
         setLifecycleSuccess(successMessage);
         onLifecycleSuccess?.(successMessage);
       } else if (pendingClientAction.action === "suspend") {
-        const successMessage = "Client status updated successfully.";
+        const successMessage = "Client status updated successfully";
         setLifecycleSuccess(successMessage);
         onLifecycleSuccess?.(successMessage);
       }

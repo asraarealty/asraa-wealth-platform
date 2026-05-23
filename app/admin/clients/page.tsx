@@ -224,7 +224,7 @@ export default function ClientsPage() {
           ? "Client restored successfully"
           : action.type === "delete"
             ? "Client permanently deleted"
-            : "Client action completed successfully."
+            : "Client action completed successfully"
       );
       setDeleteConfirmationInput("");
       setPendingAction(null);
