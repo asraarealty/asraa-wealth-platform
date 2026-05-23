@@ -673,22 +673,27 @@ export function ClientDetailPanel({
         queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientAssetPricing(workspaceClient.id) }),
       ]);
       if (pendingClientAction.action === "delete") {
-        onLifecycleSuccess?.("Client permanently deleted");
+        const successMessage = "Client permanently deleted";
+        onLifecycleSuccess?.(successMessage);
         requestPanelClose("programmatic");
         return;
       }
       if (pendingClientAction.action === "restore") {
-        setLifecycleSuccess("Client restored successfully");
-        onLifecycleSuccess?.("Client restored successfully");
+        const successMessage = "Client restored successfully";
+        setLifecycleSuccess(successMessage);
+        onLifecycleSuccess?.(successMessage);
       } else if (pendingClientAction.action === "archive") {
-        setLifecycleSuccess("Client archived successfully.");
-        onLifecycleSuccess?.("Client archived successfully.");
+        const successMessage = "Client archived successfully.";
+        setLifecycleSuccess(successMessage);
+        onLifecycleSuccess?.(successMessage);
       } else if (pendingClientAction.action === "approve") {
-        setLifecycleSuccess("Lead converted successfully.");
-        onLifecycleSuccess?.("Lead converted successfully.");
+        const successMessage = "Lead converted successfully.";
+        setLifecycleSuccess(successMessage);
+        onLifecycleSuccess?.(successMessage);
       } else if (pendingClientAction.action === "suspend") {
-        setLifecycleSuccess("Client status updated successfully.");
-        onLifecycleSuccess?.("Client status updated successfully.");
+        const successMessage = "Client status updated successfully.";
+        setLifecycleSuccess(successMessage);
+        onLifecycleSuccess?.(successMessage);
       }
       refreshWorkspaceData();
     } catch (value) {
