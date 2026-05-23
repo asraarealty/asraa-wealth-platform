@@ -2,23 +2,16 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { IntelligenceCard, LoadingBlock, MetricTile, SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
+import { LoadingBlock, MetricTile, SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
 import { useAdminClients } from "@/lib/hooks/useAdminClients";
 import { fmtCurrency, fmtPercent } from "@/lib/formatters";
+import { useMarketDomainGraph as useMarketOrchestrator } from "@/domains/market";
 
-const AllocationRing = dynamic(
-  () => import("@/components/admin/platform/AllocationRing").then((mod) => mod.AllocationRing),
+const AdminMarketMonitor = dynamic(
+  () => import("@/components/admin-os/AdminMarketMonitor").then((mod) => mod.AdminMarketMonitor),
   {
     ssr: false,
-    loading: () => <LoadingBlock label="Loading allocation chart..." />,
-  }
-);
-
-const AdminMarketPanel = dynamic(
-  () => import("@/components/admin-os/AdminMarketPanel").then((mod) => mod.AdminMarketPanel),
-  {
-    ssr: false,
-    loading: () => <LoadingBlock label="Loading market overlay..." />,
+    loading: () => <LoadingBlock label="Loading market monitor..." />,
   }
 );
 
@@ -30,30 +23,67 @@ function toneForStatus(value: string): "success" | "warn" | "danger" | "info" {
   return "info";
 }
 
+function fmtDate(value?: string) {
+  if (!value) return "—";
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return "—";
+  return new Date(timestamp).toLocaleDateString("en-IN");
+}
+
 export default function AdminOverviewPage() {
   const { clients, kpis, loading, error } = useAdminClients();
+  const { topLosers, error: marketError, isLoading: marketLoading, runtime } = useMarketOrchestrator();
   const safeClients = loading ? [] : clients;
 
   const totalAssets = safeClients.reduce((sum, client) => sum + client.assets.length, 0);
-  const pendingApprovals = safeClients.filter((client) => client.approvalStatus !== "approved");
-  const recentActivity = [...safeClients]
-    .filter((client) => client.lastActivity)
-    .sort((a, b) => new Date(String(b.lastActivity)).getTime() - new Date(String(a.lastActivity)).getTime())
-    .slice(0, 6);
-  const topClients = [...safeClients].sort((a, b) => b.totalNetWorth - a.totalNetWorth).slice(0, 6);
-  const avgEquity = safeClients.length ? safeClients.reduce((sum, client) => sum + client.allocationMix.stock, 0) / safeClients.length : 0;
-  const avgFunds = safeClients.length ? safeClients.reduce((sum, client) => sum + client.allocationMix.mf, 0) / safeClients.length : 0;
-  const avgProperty = safeClients.length ? safeClients.reduce((sum, client) => sum + client.allocationMix.property, 0) / safeClients.length : 0;
-  const avgCommodity = safeClients.length ? safeClients.reduce((sum, client) => sum + client.allocationMix.commodity, 0) / safeClients.length : 0;
+  const pendingApprovals = safeClients.filter((client) => client.approvalStatus === "pending");
+  const incompleteOnboarding = safeClients.filter((client) =>
+    ["lead", "onboarding", "pending_kyc", "approved"].includes(client.canonicalStatus)
+  );
+  const riskAlerts = safeClients.filter(
+    (client) => client.concentrationRisk.toLowerCase().includes("high") || client.equityExposurePct > 70
+  ).length;
+  const marketAlerts =
+    (runtime.staleRuntime ? 1 : 0) +
+    (marketError ? 1 : 0) +
+    topLosers.filter((item) => item.changePercent <= -2).length;
   const avgPerformance = safeClients.length ? safeClients.reduce((sum, client) => sum + client.unrealizedPnLPct, 0) / safeClients.length : 0;
+  const activeAlerts = riskAlerts + marketAlerts;
+  const topClients = [...safeClients].sort((a, b) => b.totalNetWorth - a.totalNetWorth).slice(0, 8);
+  const actionCards = [
+    {
+      title: "Pending approvals",
+      value: pendingApprovals.length,
+      detail: "Review onboarding and approval queue",
+      href: "/admin/transactions",
+    },
+    {
+      title: "Incomplete onboarding",
+      value: incompleteOnboarding.length,
+      detail: "Clients awaiting lifecycle progression",
+      href: "/admin/onboarding",
+    },
+    {
+      title: "Risk alerts",
+      value: riskAlerts,
+      detail: "Concentration or exposure thresholds breached",
+      href: "/admin/assets",
+    },
+    {
+      title: "Market alerts",
+      value: marketLoading ? null : marketAlerts,
+      detail: "Volatility and runtime health alerts",
+      href: "/admin/market",
+    },
+  ] as const;
 
   return (
     <div className="space-y-5 animate-fade-in">
       <SurfaceCard className="p-4 sm:p-5">
         <SectionHeader
           eyebrow="Admin control center"
-          title="Live wealth operating system"
-          subtitle="Realtime client operations, market pulse, asset allocation, and approval oversight in one admin surface"
+          title="Overview"
+          subtitle="What needs admin attention now"
           action={<Link href="/admin/onboarding" className="v2-link">Open onboarding command center →</Link>}
         />
         {error ? (
@@ -66,24 +96,60 @@ export default function AdminOverviewPage() {
           <MetricTile label="Total AUM" value={fmtCurrency(kpis.totalAUM)} />
           <MetricTile label="Tracked assets" value={String(totalAssets)} sub="Across all client books" />
           <MetricTile label="Avg performance" value={fmtPercent(avgPerformance, true)} positive={avgPerformance >= 0} sub="Unrealized return" />
-          {loading ? <LoadingBlock label="Loading admin metrics..." /> : null}
+          <MetricTile label="Pending approvals" value={String(pendingApprovals.length)} />
+          <MetricTile label="Active alerts" value={loading || marketLoading ? "..." : String(activeAlerts)} />
+        </div>
+        {loading ? <LoadingBlock label="Loading executive summary..." /> : null}
+      </SurfaceCard>
+
+      <SurfaceCard className="p-4 sm:p-5">
+        <SectionHeader
+          eyebrow="Operations"
+          title="Admin Action Center"
+          subtitle="Priority queues requiring immediate admin action"
+        />
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {actionCards.map((card) => (
+            <Link
+              key={card.title}
+              href={card.href}
+              className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3 transition-colors hover:bg-white/[0.06]"
+            >
+              <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">{card.title}</p>
+              <p className="mt-2 text-xl font-semibold text-white">{card.value === null ? "..." : card.value}</p>
+              <p className="mt-1 text-xs text-slate-400">{card.detail}</p>
+            </Link>
+          ))}
         </div>
       </SurfaceCard>
 
-      <AdminMarketPanel />
+      <AdminMarketMonitor />
 
-      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <SurfaceCard className="p-4 sm:p-5">
-          <SectionHeader eyebrow="Client table" title="Largest client books" subtitle="Top live portfolios from the admin backend" />
+      <SurfaceCard className="p-4 sm:p-5">
+        <SectionHeader
+          eyebrow="Client Intelligence"
+          title="Client Intelligence"
+          subtitle="Current client books, risk posture, and operational status"
+        />
+        {loading ? (
+          <div className="mt-4">
+            <LoadingBlock label="Loading client intelligence..." />
+          </div>
+        ) : topClients.length === 0 ? (
+          <div className="mt-4 rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-4 text-sm text-slate-400">
+            No client data available yet.
+          </div>
+        ) : (
           <div className="mt-4 overflow-x-auto">
             <table className="min-w-full text-left text-sm">
               <thead className="text-[11px] uppercase tracking-[0.14em] text-slate-500">
                 <tr>
                   <th className="px-3 py-2">Client</th>
-                  <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2">AUM</th>
-                  <th className="px-3 py-2">Performance</th>
+                  <th className="px-3 py-2">Risk Profile</th>
                   <th className="px-3 py-2">Allocation</th>
+                  <th className="px-3 py-2">Last Activity</th>
+                  <th className="px-3 py-2">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -93,101 +159,26 @@ export default function AdminOverviewPage() {
                       <p className="font-medium text-white">{client.name}</p>
                       <p className="text-xs text-slate-500">{client.email}</p>
                     </td>
+                    <td className="px-3 py-3 align-top text-white">{fmtCurrency(client.totalNetWorth)}</td>
+                    <td className="px-3 py-3 align-top text-slate-300">{client.riskProfile || "—"}</td>
+                    <td className="px-3 py-3 align-top text-xs text-slate-400">
+                      Eq {client.allocationMix.stock.toFixed(0)}% · MF {client.allocationMix.mf.toFixed(0)}% · RE{" "}
+                      {client.allocationMix.property.toFixed(0)}%
+                    </td>
+                    <td className="px-3 py-3 align-top text-slate-300">{fmtDate(client.lastActivity)}</td>
                     <td className="px-3 py-3 align-top">
                       <div className="flex flex-wrap gap-2">
                         <StatusPill label={client.status} tone={toneForStatus(client.status)} />
                         <StatusPill label={client.approvalStatus} tone={toneForStatus(client.approvalStatus)} />
                       </div>
                     </td>
-                    <td className="px-3 py-3 align-top text-white">{fmtCurrency(client.totalNetWorth)}</td>
-                    <td className="px-3 py-3 align-top">
-                      <span className={client.unrealizedPnLPct >= 0 ? "text-emerald-400" : "text-rose-400"}>
-                        {fmtPercent(client.unrealizedPnLPct, true)}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 align-top text-xs text-slate-400">
-                      Eq {client.allocationMix.stock.toFixed(0)}% · MF {client.allocationMix.mf.toFixed(0)}% · RE {client.allocationMix.property.toFixed(0)}%
-                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </SurfaceCard>
-
-        <SurfaceCard className="p-4 sm:p-5">
-          <SectionHeader eyebrow="Allocation overview" title="Average allocation mix" subtitle="Cross-client exposure composition" />
-          <div className="mt-4">
-            <AllocationRing
-              segments={[
-                { label: "Equity", value: avgEquity, color: "#38bdf8" },
-                { label: "Funds", value: avgFunds, color: "#818cf8" },
-                { label: "Property", value: avgProperty, color: "#22c55e" },
-                { label: "Commodity", value: avgCommodity, color: "#f59e0b" },
-              ]}
-            />
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
-            <IntelligenceCard title="Asset distribution" message={`Equity and funds account for ${(avgEquity + avgFunds).toFixed(1)}% of the average client mix, while alternatives hold ${(avgProperty + avgCommodity).toFixed(1)}%.`} tone="info" confidence={0.81} />
-            <IntelligenceCard title="Portfolio performance" message={`Average unrealized performance across the admin book is ${fmtPercent(avgPerformance, true)} with ${kpis.activeClients} active clients contributing to AUM.`} tone={avgPerformance >= 0 ? "success" : "warn"} confidence={0.77} />
-          </div>
-        </SurfaceCard>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-3">
-        <SurfaceCard className="p-4 sm:p-5 xl:col-span-1">
-          <SectionHeader eyebrow="Recent activity" title="Client activity stream" subtitle="Latest backend-backed engagement signals" />
-          <div className="mt-4 space-y-3">
-            {recentActivity.map((client) => (
-              <div key={client.id} className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-white">{client.name}</p>
-                  <p className="text-[11px] text-slate-500">{new Date(String(client.lastActivity)).toLocaleDateString("en-IN")}</p>
-                </div>
-                <p className="mt-1 text-xs text-slate-400">{client.activitySignal}</p>
-              </div>
-            ))}
-          </div>
-        </SurfaceCard>
-
-        <SurfaceCard className="p-4 sm:p-5 xl:col-span-1">
-          <SectionHeader eyebrow="Approval queue" title="Pending decisions" subtitle="Clients awaiting admin action" />
-          <div className="mt-4 space-y-3">
-            {pendingApprovals.length === 0 ? (
-              <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-3 text-sm text-emerald-100">
-                All client approvals are current.
-              </div>
-            ) : (
-              pendingApprovals.slice(0, 6).map((client) => (
-                <div key={client.id} className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-sm font-medium text-white">{client.name}</p>
-                    <StatusPill label={client.approvalStatus} tone={toneForStatus(client.approvalStatus)} />
-                  </div>
-                  <p className="mt-1 text-xs text-amber-100">Onboarding {client.onboardingStatus || "pending"} · {client.riskProfile || "Risk profile pending"}</p>
-                </div>
-              ))
-            )}
-          </div>
-        </SurfaceCard>
-
-        <SurfaceCard className="p-4 sm:p-5 xl:col-span-1">
-          <SectionHeader eyebrow="Portfolio performance" title="Performance leaders" subtitle="Highest unrealized return clients" />
-          <div className="mt-4 space-y-3">
-            {[...safeClients].sort((a, b) => b.unrealizedPnLPct - a.unrealizedPnLPct).slice(0, 6).map((client) => (
-              <div key={client.id} className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-white">{client.name}</p>
-                  <p className={client.unrealizedPnLPct >= 0 ? "text-xs text-emerald-400" : "text-xs text-rose-400"}>
-                    {fmtPercent(client.unrealizedPnLPct, true)}
-                  </p>
-                </div>
-                <p className="mt-1 text-xs text-slate-500">{fmtCurrency(client.totalNetWorth)} · {client.topHoldingName || "Diversified book"}</p>
-              </div>
-            ))}
-          </div>
-        </SurfaceCard>
-      </div>
+        )}
+      </SurfaceCard>
     </div>
   );
 }

@@ -29,11 +29,11 @@ interface MarketCommandCenterProps {
 const SURFACES: Array<{ key: WorkspaceSurface; label: string }> = [
   { key: "market-overview", label: "Market Overview" },
   { key: "asset-detail", label: "Asset Workspace" },
-  { key: "ai-analysis", label: "AI Analysis" },
+  { key: "ai-analysis", label: "Market Intelligence" },
   { key: "sector-rotation", label: "Sector Rotation" },
   { key: "top-movers", label: "Top Movers" },
   { key: "portfolio-exposure", label: "Portfolio Exposure" },
-  { key: "macro-intelligence", label: "Macro Intelligence" },
+  { key: "macro-intelligence", label: "Macro View" },
   { key: "market-breadth", label: "Market Breadth" },
 ];
 
@@ -437,7 +437,7 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
 
           {surface === "macro-intelligence" ? (
             <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-              <SectionHeader title="Macro Intelligence" subtitle="Institutional macro tape" />
+              <SectionHeader title="Macro View" subtitle="Institutional macro tape" />
               <p className="mt-3 text-sm leading-7 text-slate-300">{intelligence.macroSummary}</p>
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 {(intelligence.trendAnalysis.length > 0 ? intelligence.trendAnalysis : intelligence.opportunities)
@@ -465,7 +465,7 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
 
           {surface === "ai-analysis" ? (
             <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-              <SectionHeader title="AI Analysis" subtitle="Signals, opportunities, and conviction overlays" />
+              <SectionHeader title="Market Intelligence" subtitle="Signals, opportunities, and conviction overlays" />
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 {intelligence.aiInsights.slice(0, 4).map((insight) => (
                   <IntelligenceCard
@@ -514,7 +514,7 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
 
         <div className="space-y-4">
           <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-            <p className="text-[10px] uppercase tracking-[0.16em] text-blue-400/70">AI Signals</p>
+            <p className="text-[10px] uppercase tracking-[0.16em] text-blue-400/70">Market Intelligence</p>
             <div className="mt-2 space-y-2">
               {intelligence.proprietarySignals.slice(0, 4).map((signal) => (
                 <div key={signal.key} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
@@ -574,7 +574,7 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
           </div>
 
           <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-            <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Operational Intelligence</p>
+            <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Portfolio Intelligence</p>
             <div className="mt-2 space-y-2 max-h-40 overflow-y-auto">
               {(intelligence.portfolioIntelligence.length > 0 ? intelligence.portfolioIntelligence : intelligence.opportunities)
                 .slice(0, 4)
@@ -633,7 +633,7 @@ export function MarketCommandCenter({ mode, initialSurface = "market-overview", 
         </div>
 
         <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-          <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Stacked Intelligence Cards</p>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Market Intelligence Cards</p>
           <div className="mt-2 space-y-2">
             {intelligence.proprietarySignals.slice(0, 3).map((signal) => (
               <IntelligenceCard key={signal.key} title={signal.label} message={signal.value} tone={signal.tone} />
