@@ -44,6 +44,26 @@ const RESEARCH_DRAWERS = [
   "Macro Context",
 ] as const;
 type ResearchDrawer = (typeof RESEARCH_DRAWERS)[number];
+const RESEARCH_UNAVAILABLE_MESSAGE = "Research currently unavailable";
+
+function normalizeTickerSymbol(value?: string | null) {
+  if (!value) return "";
+  return value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .replace(/(NSE|BSE|NS|BO)$/g, "");
+}
+
+function symbolsMatch(left?: string | null, right?: string | null) {
+  const normalizedLeft = normalizeTickerSymbol(left);
+  const normalizedRight = normalizeTickerSymbol(right);
+  if (!normalizedLeft || !normalizedRight) return false;
+  return (
+    normalizedLeft === normalizedRight ||
+    normalizedLeft.startsWith(normalizedRight) ||
+    normalizedRight.startsWith(normalizedLeft)
+  );
+}
 
 function formatAssetType(kind: MarketAsset["kind"]) {
   switch (kind) {
@@ -573,14 +593,34 @@ export function StocksTerminal() {
 
   const riskLevel = selectedAsset ? riskFromAsset(selectedAsset, conviction) : "Moderate";
 
-  const summaryText = useMemo(() => {
-    const messages = intelligence.aiInsights
-      .slice(0, 3)
-      .map((item) => item.message)
-      .filter(Boolean);
-    if (messages.length > 0) return messages.join(" ");
-    return intelligence.macroSummary;
-  }, [intelligence.aiInsights, intelligence.macroSummary]);
+  const drawerResearch = useMemo(() => {
+    const cleanEntries = (entries: string[]) => [...new Set(entries.map((entry) => entry.trim()).filter(Boolean))];
+    const symbolResearch = selectedAsset
+      ? intelligence.research.bySymbol.find((entry) => symbolsMatch(entry.symbol, selectedAsset.symbol))
+      : undefined;
+    const sections = symbolResearch?.sections ?? intelligence.research.default;
+
+    return {
+      Financials: cleanEntries(sections.financials),
+      Ownership: cleanEntries(sections.ownership),
+      Filings: cleanEntries(sections.filings),
+      "AI Research": cleanEntries(
+        sections.aiResearch.length > 0 ? sections.aiResearch : intelligence.aiInsights.map((item) => item.message)
+      ),
+      Earnings: cleanEntries(intelligence.trendAnalysis),
+      Transcripts: cleanEntries(sections.aiResearch),
+      News: cleanEntries(sections.news),
+      "Macro Context": cleanEntries([intelligence.macroSummary, ...intelligence.riskAlerts]),
+    } satisfies Record<ResearchDrawer, string[]>;
+  }, [
+    intelligence.aiInsights,
+    intelligence.macroSummary,
+    intelligence.research.bySymbol,
+    intelligence.research.default,
+    intelligence.riskAlerts,
+    intelligence.trendAnalysis,
+    selectedAsset,
+  ]);
 
   const convictionEngine = useMemo(() => {
     if (!selectedAsset) return [] as Array<{ label: string; score: number; note: string }>;
@@ -987,6 +1027,13 @@ export function StocksTerminal() {
                       </button>
                       {openDrawers[drawer] ? (
                         <div className="space-y-2 border-t border-white/10 px-3 py-2.5 text-xs text-slate-300">
+                          {drawerResearch[drawer].length > 0 ? (
+                            <ul className="space-y-1">
+                              {drawerResearch[drawer].slice(0, 6).map((entry, index) => (
+                                <li key={`${drawer}-${entry}-${index}`}>• {entry}</li>
+                              ))}
+                            </ul>
+                          ) : null}
                           {drawer === "Financials" ? (
                             <>
                               <div className="mb-2 flex flex-wrap gap-2">
@@ -1008,7 +1055,9 @@ export function StocksTerminal() {
                                   </button>
                                 ))}
                               </div>
-                              {financialOpen ? (
+                              {drawerResearch.Financials.length > 0 ? (
+                                <p className="text-[11px] text-slate-400">Source-aligned research details loaded for the active symbol.</p>
+                              ) : financialOpen ? (
                                 <p>
                                   {financialTab === "Quarterly"
                                     ? "Quarterly trajectory remains aligned with trend and momentum."
@@ -1023,16 +1072,11 @@ export function StocksTerminal() {
                                     : "Institutional participation provides ownership context."}
                                 </p>
                               ) : (
-                                <p>Financial statements are collapsed by default. Select a section to open context.</p>
+                                <p>{RESEARCH_UNAVAILABLE_MESSAGE}</p>
                               )}
                             </>
                           ) : null}
-                          {drawer !== "Financials" ? (
-                            <>
-                              <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Brief</p>
-                              <p>{summaryText || "Research context is loading for the active symbol."}</p>
-                            </>
-                          ) : null}
+                          {drawer !== "Financials" && drawerResearch[drawer].length === 0 ? <p>{RESEARCH_UNAVAILABLE_MESSAGE}</p> : null}
                         </div>
                       ) : null}
                     </div>

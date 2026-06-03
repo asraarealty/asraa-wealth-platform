@@ -243,28 +243,19 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
               value={globalSearch}
               onChange={(event) => setGlobalSearch(event.target.value)}
               placeholder="Global search: symbol, company, sector, macro signal"
-              aria-label="Synchronized global search"
+              aria-label="Global market search"
               className="h-8 min-w-[16rem] flex-1 rounded-lg border border-white/10 bg-black/30 px-2.5 text-xs text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-300/50"
             />
-            <span className={`rounded-md border px-2 py-1 text-[10px] ${runtime.connected ? "border-emerald-400/40 text-emerald-300" : "border-rose-400/40 text-rose-300"}`}>
-              {runtime.connected ? "Socket connected" : "Socket disconnected"}
+            <span className={`rounded-md border px-2 py-1 text-[10px] ${runtime.connected ? "border-emerald-400/40 text-emerald-300" : "border-amber-300/40 text-amber-200"}`}>
+              Live Market
             </span>
-            <span className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-slate-300">
-              Seq {runtime.currentSequence}
-            </span>
-            <button type="button" onClick={() => router.push("/stocks")} className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-slate-300 hover:bg-white/[0.05]">
-              Stocks
-            </button>
-            <button type="button" onClick={() => router.push("/watchlist")} className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-slate-300 hover:bg-white/[0.05]">
-              Watchlist
-            </button>
-            <button type="button" onClick={() => router.push("/activity")} className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-slate-300 hover:bg-white/[0.05]">
-              Activity
-            </button>
             <button type="button" onClick={() => void refresh()} className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-slate-300 hover:bg-white/[0.05]">
-              Sync
+              Refresh
             </button>
-            {lastUpdated ? <span className="text-[10px] text-slate-500">Updated {new Date(lastUpdated).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span> : null}
+            <span className="text-[10px] text-slate-500">
+              Updated{" "}
+              {lastUpdated ? new Date(lastUpdated).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "—"}
+            </span>
           </div>
           {globalSearch.trim().length > 0 ? (
             <div className="mt-2 max-h-24 overflow-y-auto rounded-lg border border-white/10 bg-black/35 p-2 text-[11px]">
