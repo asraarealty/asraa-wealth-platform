@@ -50,6 +50,15 @@ function getMetric(record: Record<string, unknown>, keys: string[]) {
   return null;
 }
 
+function InlineEmptyState({ title, message }: { title: string; message: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-white/15 bg-white/[0.02] px-3 py-4 text-center">
+      <p className="text-xs font-semibold text-slate-200">{title}</p>
+      <p className="mt-1 text-[11px] text-slate-500">{message}</p>
+    </div>
+  );
+}
+
 const OPERATION_PANELS = [
   "Holdings",
   "Activity Feed",
@@ -107,19 +116,29 @@ export default function DashboardPage() {
     { label: "Allocation Drift", value: fmtMetric(allocationDrift, typeof allocationDrift === "number" ? "%" : "") },
     { label: "Cash Exposure", value: fmtMetric(cashExposure, typeof cashExposure === "number" ? "%" : "") },
   ];
+  const primaryExecutiveStrip = executiveStrip.slice(0, 4);
+  const secondaryExecutiveStrip = executiveStrip.slice(4);
+  const recommendationItems = data.recommendations.slice(0, 3).map((rec) => ({
+    title: rec.title,
+    message: rec.rationale,
+    tone: "info" as const,
+    confidence: rec.confidence,
+  }));
+  const alerts = (data.typedAlerts.length > 0 ? data.typedAlerts : data.priorityActions).slice(0, 8);
+  const riskEvents = data.priorityActions.slice(0, 8);
 
   const toggleCollapse = (panel: OperationPanel) => {
     setCollapsedPanels((prev) => (prev.includes(panel) ? prev.filter((item) => item !== panel) : [...prev, panel]));
   };
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <SurfaceCard className="p-3 sm:p-4">
+    <div className="space-y-5 animate-fade-in">
+      <SurfaceCard className="p-4 sm:p-5">
         <div className="mb-2 flex items-center justify-between gap-3">
           <SectionHeader
             eyebrow="Portfolio Command Center"
-            title="Runtime Executive Strip"
-            subtitle="Backend-authoritative portfolio state"
+            title="Executive Summary"
+            subtitle="Backend-authoritative outcomes and risk posture"
           />
           <button onClick={refetchAll} className="v2-action text-xs" type="button">
             Refresh
@@ -130,9 +149,17 @@ export default function DashboardPage() {
             {marketSyncNotice}
           </div>
         ) : null}
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 xl:grid-cols-8">
-          {executiveStrip.map((item) => (
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          {primaryExecutiveStrip.map((item) => (
             <div key={item.label} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+              <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">{item.label}</p>
+              <p className="mt-1 text-base font-semibold text-white tabular-nums">{item.value}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          {secondaryExecutiveStrip.map((item) => (
+            <div key={item.label} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
               <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">{item.label}</p>
               <p className="mt-1 text-sm font-semibold text-white tabular-nums">{item.value}</p>
             </div>
@@ -142,9 +169,9 @@ export default function DashboardPage() {
 
       <SurfaceCard className="p-4 sm:p-5">
         <SectionHeader
-          eyebrow="Allocation + Performance Workspace"
-          title="Synchronized Allocation Surface"
-          subtitle="Connected exposure, risk concentration, and drift context"
+          eyebrow="Allocation + Holdings"
+          title="Allocation Decision Surface"
+          subtitle="Exposure, concentration, and largest positions in one view"
         />
         <div className="mt-4 grid gap-4 xl:grid-cols-[1.3fr_1fr]">
           <div className="rounded-xl border border-white/10 bg-black/20 p-4">
@@ -186,7 +213,10 @@ export default function DashboardPage() {
             <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Largest Holdings</p>
             <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
               {largestHoldings.length === 0 ? (
-                <p className="text-xs text-slate-500">No holdings available.</p>
+                <InlineEmptyState
+                  title="No holdings available"
+                  message="Add or sync holdings to unlock concentration and sizing decisions."
+                />
               ) : (
                 largestHoldings.map((asset) => (
                   <div key={String(asset.id)} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
@@ -233,13 +263,20 @@ export default function DashboardPage() {
                 {!collapsed ? (
                   <div className="max-h-72 overflow-y-auto p-3">
                     {panel === "Holdings" ? (
-                      <ul className="space-y-2">
-                        {largestHoldings.map((asset) => (
-                          <li key={`holding-${asset.id}`} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-slate-200">
-                            {(asset.name ?? asset.symbol) as string}
-                          </li>
-                        ))}
-                      </ul>
+                      largestHoldings.length > 0 ? (
+                        <ul className="space-y-2">
+                          {largestHoldings.map((asset) => (
+                            <li key={`holding-${asset.id}`} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-slate-200">
+                              {(asset.name ?? asset.symbol) as string}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <InlineEmptyState
+                          title="No holdings in focus"
+                          message="This panel will populate once holdings are connected."
+                        />
+                      )
                     ) : null}
                     {panel === "Activity Feed" ? (
                       <RuntimeErrorBoundary scope="market-pulse-component">
@@ -250,12 +287,17 @@ export default function DashboardPage() {
                       <RuntimeErrorBoundary scope="intelligence-widget">
                         <PortfolioHealthSection
                           state={data.executive.riskState === "High" ? "Action Needed" : data.executive.riskState === "Medium" ? "Watch" : "Healthy"}
-                          recommendations={data.recommendations.slice(0, 3).map((rec) => ({
-                            title: rec.title,
-                            message: rec.rationale,
-                            tone: "info",
-                            confidence: rec.confidence,
-                          }))}
+                          recommendations={
+                            recommendationItems.length > 0
+                              ? recommendationItems
+                              : [
+                                  {
+                                    title: "No active recommendations",
+                                    message: "System recommendations will appear when new intelligence triggers.",
+                                    tone: "info",
+                                  },
+                                ]
+                          }
                         />
                       </RuntimeErrorBoundary>
                     ) : null}
@@ -270,22 +312,36 @@ export default function DashboardPage() {
                       </RuntimeErrorBoundary>
                     ) : null}
                     {panel === "Alerts" ? (
-                      <ul className="space-y-2">
-                        {(data.typedAlerts.length > 0 ? data.typedAlerts : data.priorityActions).slice(0, 8).map((item, index) => (
-                          <li key={`alert-${index}`} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-slate-200">
-                            {"title" in item ? item.title : "Alert"}
-                          </li>
-                        ))}
-                      </ul>
+                      alerts.length > 0 ? (
+                        <ul className="space-y-2">
+                          {alerts.map((item, index) => (
+                            <li key={`alert-${index}`} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-slate-200">
+                              {"title" in item ? item.title : "Alert"}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <InlineEmptyState
+                          title="No active alerts"
+                          message="Risk and operational alerts will appear here as conditions change."
+                        />
+                      )
                     ) : null}
                     {panel === "Risk Events" ? (
-                      <ul className="space-y-2">
-                        {data.priorityActions.slice(0, 8).map((action) => (
-                          <li key={action.id} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-slate-200">
-                            {action.title}
-                          </li>
-                        ))}
-                      </ul>
+                      riskEvents.length > 0 ? (
+                        <ul className="space-y-2">
+                          {riskEvents.map((action) => (
+                            <li key={action.id} className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-slate-200">
+                              {action.title}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <InlineEmptyState
+                          title="No risk events"
+                          message="Major risk actions will be listed here when intervention is required."
+                        />
+                      )
                     ) : null}
                   </div>
                 ) : null}
