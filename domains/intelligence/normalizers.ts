@@ -81,7 +81,7 @@ function unwrap(value: unknown): unknown {
 const asArray = <T,>(value: unknown) => (Array.isArray(value) ? (value as T[]) : []);
 const asText = (value: unknown, fallback = "") => (typeof value === "string" ? value : fallback);
 
-function normalizeSymbol(value: string) {
+function normalizeTickerSymbol(value: string) {
   return value
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "")
@@ -157,7 +157,7 @@ function extractSymbolResearch(source: Record<string, unknown>): IntelligenceSym
   if (fromObject) {
     return Object.entries(fromObject)
       .map(([symbol, value]) => ({ symbol, sections: buildResearchSections(safeRecord(value)) }))
-      .filter((entry) => normalizeSymbol(entry.symbol) && hasResearchContent(entry.sections));
+      .filter((entry) => normalizeTickerSymbol(entry.symbol) && hasResearchContent(entry.sections));
   }
 
   return asArray<Record<string, unknown>>(candidates)
@@ -165,7 +165,7 @@ function extractSymbolResearch(source: Record<string, unknown>): IntelligenceSym
       const symbol = asText(entry.symbol ?? entry.ticker ?? entry.assetSymbol ?? entry.asset_symbol).trim();
       return { symbol, sections: buildResearchSections(entry) };
     })
-    .filter((entry) => normalizeSymbol(entry.symbol) && hasResearchContent(entry.sections));
+    .filter((entry) => normalizeTickerSymbol(entry.symbol) && hasResearchContent(entry.sections));
 }
 
 export function normalizeIntelligencePayload(payload: unknown): IntelligencePipelineData {
@@ -189,7 +189,12 @@ export function normalizeIntelligencePayload(payload: unknown): IntelligencePipe
   const symbolResearch = [
     ...extractSymbolResearch(researchContainer),
     ...extractSymbolResearch(record),
-  ].filter((entry, index, list) => list.findIndex((current) => normalizeSymbol(current.symbol) === normalizeSymbol(entry.symbol)) === index);
+  ].filter(
+    (entry, index, list) =>
+      list.findIndex(
+        (current) => normalizeTickerSymbol(current.symbol) === normalizeTickerSymbol(entry.symbol)
+      ) === index
+  );
 
   return parseIntelligencePipelineDto({
     aiInsights: asArray<Record<string, unknown>>(record.ai_market_insights ?? record.aiInsights ?? record.insights).map(

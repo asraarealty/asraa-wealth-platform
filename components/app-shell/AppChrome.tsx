@@ -247,7 +247,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
               className="h-8 min-w-[16rem] flex-1 rounded-lg border border-white/10 bg-black/30 px-2.5 text-xs text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-300/50"
             />
             <span className={`rounded-md border px-2 py-1 text-[10px] ${runtime.connected ? "border-emerald-400/40 text-emerald-300" : "border-amber-300/40 text-amber-200"}`}>
-              Live Market
+              {runtime.connected ? "Live Market" : "Connecting"}
             </span>
             <button type="button" onClick={() => void refresh()} className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-slate-300 hover:bg-white/[0.05]">
               Refresh

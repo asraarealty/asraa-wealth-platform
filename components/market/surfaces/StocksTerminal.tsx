@@ -608,7 +608,7 @@ export function StocksTerminal() {
         sections.aiResearch.length > 0 ? sections.aiResearch : intelligence.aiInsights.map((item) => item.message)
       ),
       Earnings: cleanEntries(intelligence.trendAnalysis),
-      Transcripts: cleanEntries(sections.aiResearch),
+      Transcripts: [],
       News: cleanEntries(sections.news),
       "Macro Context": cleanEntries([intelligence.macroSummary, ...intelligence.riskAlerts]),
     } satisfies Record<ResearchDrawer, string[]>;
