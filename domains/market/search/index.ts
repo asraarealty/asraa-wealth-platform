@@ -51,6 +51,12 @@ function marketId(kind: MarketAssetKind, symbol: string) {
   return `${kind}:${symbol.toUpperCase()}`;
 }
 
+function normalizeMutualFundName(name: string, code: string) {
+  const normalized = name.replace(/\s+/g, " ").trim();
+  if (!normalized) return code;
+  return normalized;
+}
+
 function seedNumber(input: string) {
   return Array.from(input).reduce((sum, char, index) => sum + char.charCodeAt(0) * (index + 3), 0);
 }
@@ -147,12 +153,16 @@ function normalizeStockEntity(item: unknown): MarketAsset {
 function normalizeMutualFundEntity(item: unknown): MarketAsset {
   const record = safeRecord(item);
   const code = s(record.code, s(record.symbol));
+  const displayName = s(
+    record.schemeName ?? record.scheme_name ?? record.displayLabel ?? record.display_label ?? record.name,
+    code
+  );
   const nav = n(record.nav);
 
   return {
     id: marketId("mutual-fund", code),
     symbol: code,
-    name: s(record.name, code),
+    name: normalizeMutualFundName(displayName, code),
     kind: "mutual-fund",
     market: "Fund",
     sector: s(record.category, "Mutual Fund"),

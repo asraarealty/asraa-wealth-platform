@@ -20,6 +20,18 @@ function toNumber(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function normalizeFundLabel(name: string, symbol: string): string {
+  const normalized = name.replace(/\s+/g, " ").trim();
+  if (!normalized) return symbol;
+  return normalized;
+}
+
+function formatFundSearchValue(symbol: string, name: string): string {
+  const normalizedName = normalizeFundLabel(name, symbol);
+  if (symbol && normalizedName && normalizedName !== symbol) return `${symbol} · ${normalizedName}`;
+  return symbol || normalizedName;
+}
+
 export function MutualFundHoldingForm({
   mode,
   holding,
@@ -34,7 +46,9 @@ export function MutualFundHoldingForm({
   const [purchaseNav, setPurchaseNav] = useState(String(holding?.purchaseNav ?? holding?.purchasePrice ?? ""));
   const [purchaseDate, setPurchaseDate] = useState(holding?.purchaseDate ?? "");
   const [folioNumber, setFolioNumber] = useState(holding?.folioNumber ?? "");
-  const [query, setQuery] = useState(holding?.symbol ?? holding?.name ?? "");
+  const initialSymbol = holding?.symbol ?? "";
+  const initialName = holding?.name ?? initialSymbol;
+  const [query, setQuery] = useState(formatFundSearchValue(initialSymbol, initialName));
   const [searchResults, setSearchResults] = useState<SearchResultDTO[]>([]);
   const [selectedInstrument, setSelectedInstrument] = useState<SelectedInstrumentDTO | null>(
     holding?.symbol
@@ -93,7 +107,7 @@ export function MutualFundHoldingForm({
             (item): SearchResultDTO => ({
               id: item.id,
               symbol: item.symbol,
-              name: item.name,
+              name: normalizeFundLabel(item.name, item.symbol),
               kind: item.kind,
               market: item.market,
               category: item.category,
@@ -114,6 +128,8 @@ export function MutualFundHoldingForm({
   }, [query]);
 
   const currentNav = selectedInstrument?.price ?? holding?.valuation.currentPrice;
+  const selectedFundSymbol = selectedInstrument?.symbol ?? symbol;
+  const selectedFundLabel = normalizeFundLabel(selectedInstrument?.name ?? name, selectedFundSymbol);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -179,7 +195,7 @@ export function MutualFundHoldingForm({
                   setSelectedInstrument(selected);
                   setName(item.name);
                   setSymbol(item.symbol);
-                  setQuery(`${item.symbol} · ${item.name}`);
+                  setQuery(formatFundSearchValue(item.symbol, item.name));
                   setSearchResults([]);
                 }}
                 className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-xs text-slate-200 transition hover:bg-white/[0.08]"
@@ -225,7 +241,14 @@ export function MutualFundHoldingForm({
       </div>
 
       <div className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5 text-xs text-slate-300">
-        Selected Fund: <span className="font-semibold text-white">{(selectedInstrument?.symbol ?? symbol) || "—"}</span> · Units {formatQuantity(units)}
+        Selected Fund:{" "}
+        <span className="font-semibold text-white">
+          {selectedFundLabel || "—"}
+        </span>{" "}
+        {selectedFundSymbol && selectedFundLabel !== selectedFundSymbol ? (
+          <span className="text-slate-400">({selectedFundSymbol})</span>
+        ) : null}{" "}
+        · Units {formatQuantity(units)}
       </div>
 
       {(validationError || error) ? (
