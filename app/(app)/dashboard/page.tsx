@@ -253,7 +253,7 @@ export default function DashboardPage() {
           {OPERATION_PANELS.map((panel) => {
             const collapsed = collapsedPanels.includes(panel);
             return (
-              <section key={panel} className="rounded-xl border border-white/10 bg-black/20">
+              <section key={panel} className="sticky top-2 rounded-xl border border-white/10 bg-black/20">
                 <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
                   <p className="text-xs uppercase tracking-[0.12em] text-slate-400">{panel}</p>
                   <button type="button" className="text-[11px] text-slate-300" onClick={() => toggleCollapse(panel)}>
