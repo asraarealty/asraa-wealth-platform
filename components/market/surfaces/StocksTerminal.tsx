@@ -930,7 +930,7 @@ export function StocksTerminal() {
                   </div>
                 </div>
 
-                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                   <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
                     <p className="text-xs text-slate-400">AI Conviction</p>
                     <p className={`mt-1 text-lg font-semibold ${tone(conviction)}`}>
