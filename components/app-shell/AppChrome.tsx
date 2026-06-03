@@ -127,6 +127,12 @@ const NAV = [
 const MOBILE_DOCK = NAV.filter((n) =>
   ["/dashboard", "/stocks", "/watchlist", "/discover", "/activity"].includes(n.href)
 );
+const NAV_GROUPS: { title: string; hrefs: string[] }[] = [
+  { title: "Overview", hrefs: ["/dashboard", "/onboarding"] },
+  { title: "Markets", hrefs: ["/stocks", "/markets", "/watchlist", "/discover"] },
+  { title: "Portfolio", hrefs: ["/real-estate", "/assets", "/transactions"] },
+  { title: "Operations", hrefs: ["/notifications", "/activity", "/profile"] },
+];
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -287,24 +293,34 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
 
       <div className="flex">
         <aside className="hidden md:flex w-56 shrink-0 flex-col border-r border-white/[0.07] min-h-[calc(100vh-132px)] sticky top-[132px]">
-          <nav className="flex-1 p-3 space-y-0.5">
-            {NAV.map(({ href, label, Icon }) => {
-              const active = pathname === href || pathname.startsWith(`${href}/`);
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                    active
-                      ? "bg-blue-500/10 text-blue-300 border border-blue-500/20"
-                      : "text-slate-500 hover:text-slate-200 hover:bg-white/[0.04] border border-transparent"
-                  }`}
-                >
-                  <Icon />
-                  <span>{label}</span>
-                </Link>
-              );
-            })}
+          <nav className="flex-1 space-y-4 p-3.5">
+            {NAV_GROUPS.map((group) => (
+              <section key={group.title} className="space-y-1.5">
+                <p className="px-2 text-[10px] uppercase tracking-[0.16em] text-slate-500">{group.title}</p>
+                <div className="space-y-1">
+                  {group.hrefs.map((href) => {
+                    const nav = NAV.find((item) => item.href === href);
+                    if (!nav) return null;
+                    const active = pathname === href || pathname.startsWith(`${href}/`);
+                    const Icon = nav.Icon;
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
+                          active
+                            ? "border-sky-400/25 bg-sky-500/10 text-sky-200"
+                            : "border-transparent text-slate-400 hover:border-white/10 hover:bg-white/[0.04] hover:text-slate-200"
+                        }`}
+                      >
+                        <Icon />
+                        <span>{nav.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </nav>
         </aside>
 

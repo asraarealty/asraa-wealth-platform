@@ -769,8 +769,8 @@ export function StocksTerminal() {
       <div className="border-b border-white/10 bg-black/20 px-5 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.18em] text-sky-300/80">AI Equity Intelligence Workspace</p>
-            <p className="text-xs text-slate-400">Premium research view{updatedAt ? ` · ${updatedAt}` : ""}</p>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-sky-300/80">Stocks Intelligence Workspace</p>
+            <p className="text-xs text-slate-400">Decision-focused equity and market research{updatedAt ? ` · ${updatedAt}` : ""}</p>
           </div>
           <div className="flex items-center gap-2">
             {error ? <span className="text-xs text-rose-300">Feed error</span> : null}
@@ -785,18 +785,18 @@ export function StocksTerminal() {
         <RuntimeObservabilityBadges runtime={runtime} commodityUnavailable={search.commodityUnavailable} />
       </div>
 
-      <div className="grid min-h-[760px] xl:grid-cols-[minmax(300px,25%)_minmax(0,50%)_minmax(300px,25%)]">
+      <div className="grid min-h-[740px] xl:grid-cols-[minmax(300px,25%)_minmax(0,50%)_minmax(300px,25%)]">
         <aside className="border-r border-white/10 bg-black/20 p-3 sm:p-4">
           <div
             role="search"
             className="sticky top-0 z-10 -mx-1 rounded-2xl border border-white/10 bg-slate-950/95 p-3 backdrop-blur"
           >
-              <p className="text-[10px] uppercase tracking-[0.16em] text-sky-300/80">Cross-Asset Research Navigator</p>
+              <p className="text-[10px] uppercase tracking-[0.14em] text-sky-300/80">Market Navigator</p>
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={handleSearchNavigation}
-               placeholder="Search ticker, company, sector, macro theme, ETF, fund, or commodity"
+               placeholder="Search ticker, company, sector, ETF, fund, or commodity"
               className="mt-2 h-12 w-full rounded-xl border border-white/15 bg-black/35 px-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-sky-300/55 focus:ring-2 focus:ring-sky-300/30"
               role="combobox"
               aria-controls="stocks-discovery-listbox"
@@ -860,10 +860,11 @@ export function StocksTerminal() {
                 <p className="px-1 text-xs text-slate-500">Loading companies…</p>
               ) : null}
               {!isLoading && sidebarAssets.length === 0 ? (
-                 <p className="px-1 text-xs text-slate-500">
-                   No assets found. Try ticker, company, sector, macro theme, ETF, fund, or commodity.
-                 </p>
-               ) : null}
+               <div className="rounded-lg border border-dashed border-white/15 bg-white/[0.02] px-3 py-3 text-center">
+                 <p className="text-xs font-semibold text-slate-200">No assets found</p>
+                 <p className="mt-1 text-[11px] text-slate-500">Try ticker, company, sector, ETF, fund, or commodity.</p>
+               </div>
+              ) : null}
             </div>
           </div>
 
@@ -899,14 +900,14 @@ export function StocksTerminal() {
         <main className="border-r border-white/10 p-4 sm:p-5">
           {selectedAsset ? (
             <div className="space-y-4">
-              <section className="rounded-xl border border-white/10 bg-gradient-to-b from-slate-900/80 to-slate-950/80 p-4">
+              <section className="rounded-2xl border border-white/10 bg-gradient-to-b from-slate-900/85 to-slate-950/85 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.14em] text-slate-400">
                       {selectedAsset.market === "India" ? "NSE/BSE" : selectedAsset.market}
                     </p>
-                    <h1 className="mt-1 text-3xl font-semibold text-white">{selectedAsset.name}</h1>
-                    <p className="mt-1 text-sm text-slate-300">{selectedAsset.symbol}</p>
+                    <h1 className="mt-1 text-3xl font-semibold tracking-tight text-white">{selectedAsset.symbol}</h1>
+                    <p className="mt-1 text-sm text-slate-300">{selectedAsset.name}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-4xl font-semibold tracking-tight text-white">
@@ -919,10 +920,17 @@ export function StocksTerminal() {
                     >
                       {fmtPercent(selectedAsset.changePercent, true)}
                     </p>
+                    <button
+                      type="button"
+                      className="v2-action mt-2 text-xs"
+                      onClick={() => toggleWatchlist(selectedAsset.symbol)}
+                    >
+                      {watchlist.some((w) => w.symbol === selectedAsset.symbol) ? "Following" : "Follow / Watchlist"}
+                    </button>
                   </div>
                 </div>
 
-                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
                   <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
                     <p className="text-xs text-slate-400">AI Conviction</p>
                     <p className={`mt-1 text-lg font-semibold ${tone(conviction)}`}>
@@ -949,15 +957,6 @@ export function StocksTerminal() {
                       {formatMarketCap(selectedAsset.marketCap, selectedAsset.currency)}
                     </p>
                   </div>
-                  <div className="flex items-end justify-end rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                    <button
-                      type="button"
-                      className="v2-action text-sm"
-                      onClick={() => toggleWatchlist(selectedAsset.symbol)}
-                    >
-                      {watchlist.some((w) => w.symbol === selectedAsset.symbol) ? "Following" : "Follow / Watchlist"}
-                    </button>
-                  </div>
                 </div>
               </section>
 
@@ -977,17 +976,17 @@ export function StocksTerminal() {
                 <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Research Drawers</p>
                 <div className="mt-3 space-y-2">
                   {RESEARCH_DRAWERS.map((drawer) => (
-                    <div key={drawer} className="rounded-lg border border-white/10 bg-black/20">
+                    <div key={drawer} className="rounded-lg border border-white/10 bg-black/25">
                       <button
                         type="button"
                         onClick={() => toggleDrawer(drawer)}
-                        className="flex w-full items-center justify-between px-3 py-2 text-left text-xs text-slate-200"
+                        className="flex w-full items-center justify-between px-3 py-2.5 text-left text-[11px] text-slate-200"
                       >
                         <span className="uppercase tracking-[0.1em]">{drawer}</span>
                         <span>{openDrawers[drawer] ? "−" : "+"}</span>
                       </button>
                       {openDrawers[drawer] ? (
-                        <div className="border-t border-white/10 px-3 py-2 text-xs text-slate-300">
+                        <div className="space-y-2 border-t border-white/10 px-3 py-2.5 text-xs text-slate-300">
                           {drawer === "Financials" ? (
                             <>
                               <div className="mb-2 flex flex-wrap gap-2">
@@ -1024,12 +1023,15 @@ export function StocksTerminal() {
                                     : "Institutional participation provides ownership context."}
                                 </p>
                               ) : (
-                                <p>Financial statements are collapsed by default.</p>
+                                <p>Financial statements are collapsed by default. Select a section to open context.</p>
                               )}
                             </>
                           ) : null}
                           {drawer !== "Financials" ? (
-                            <p>{summaryText || "Research module is loading runtime context for the active symbol."}</p>
+                            <>
+                              <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">Brief</p>
+                              <p>{summaryText || "Research context is loading for the active symbol."}</p>
+                            </>
                           ) : null}
                         </div>
                       ) : null}
@@ -1050,7 +1052,7 @@ export function StocksTerminal() {
             {[
               {
                 key: "conviction",
-                title: "Conviction / Valuation / Risk",
+                title: "Conviction, Valuation, Risk",
                 content: (
                   <div className="space-y-2">
                     {convictionEngine.map((entry) => (
@@ -1067,7 +1069,7 @@ export function StocksTerminal() {
               },
               {
                 key: "positioning",
-                title: "Sector Positioning / Sentiment",
+                title: "Positioning & Sentiment",
                 content: (
                   <div className="grid gap-2">
                     {positioningStrip.map((item) => (
@@ -1081,7 +1083,7 @@ export function StocksTerminal() {
               },
               {
                 key: "peers",
-                title: "Peer Comparison / Institutional Activity",
+                title: "Peers & Institutional Activity",
                 content: (
                   <div className="space-y-2">
                     {(peerCandidates.length > 0 ? peerCandidates : topGainers.slice(0, 4)).map((peer) => (
@@ -1101,7 +1103,7 @@ export function StocksTerminal() {
               },
               {
                 key: "signals",
-                title: "Catalysts / Opportunity Radar / Decision Lens",
+                title: "Catalysts, Radar, Decision Lens",
                 content: (
                   <div className="space-y-2">
                     <div className="rounded-lg border border-emerald-300/20 bg-emerald-500/[0.06] px-3 py-2">
