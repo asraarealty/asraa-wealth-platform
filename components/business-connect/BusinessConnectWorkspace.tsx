@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, fetcher, toErrorMessage } from "@/lib/fetcher";
+import { ApiError, fetcher } from "@/lib/fetcher";
 import { EmptyBlock, SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
+import { toApiValidationErrorMessage } from "@/lib/apiValidationError";
 
 type BusinessProfile = {
   id: string | number | null;
@@ -323,6 +324,7 @@ async function createBusinessProfile(payload: BusinessProfile): Promise<Business
 
 async function updateBusinessProfile(payload: BusinessProfile): Promise<BusinessProfile> {
   const body = {
+    ...(payload.id != null ? { profile_id: payload.id } : {}),
     business_name: payload.businessName,
     owner_name: payload.ownerName,
     industry: payload.industry,
@@ -453,29 +455,6 @@ function TrendTile({
   );
 }
 
-function profileMutationError(error: unknown): string {
-  if (!(error instanceof ApiError)) return toErrorMessage(error);
-  const details = error.details;
-  if (!details) return toErrorMessage(error);
-
-  const messages = Array.isArray(details)
-    ? details
-        .map((entry) => {
-          const record = asRecord(entry);
-          if (typeof record.msg === "string" && record.msg.trim()) return record.msg.trim();
-          if (typeof record.message === "string" && record.message.trim()) return record.message.trim();
-          return null;
-        })
-        .filter((message): message is string => Boolean(message))
-    : Object.values(asRecord(details))
-        .flatMap((value) => (Array.isArray(value) ? value : [value]))
-        .map((value) => (typeof value === "string" ? value.trim() : ""))
-        .filter(Boolean);
-
-  if (messages.length > 0) return messages.join(" · ");
-  return toErrorMessage(error);
-}
-
 export function BusinessConnectWorkspace() {
   const queryClient = useQueryClient();
   const [profileDraft, setProfileDraft] = useState<BusinessProfile>(DEFAULT_PROFILE);
@@ -547,9 +526,9 @@ export function BusinessConnectWorkspace() {
     },
   });
 
-  const profileError = profileQuery.error ? toErrorMessage(profileQuery.error) : null;
-  const metricsError = metricsQuery.error ? toErrorMessage(metricsQuery.error) : null;
-  const summaryError = summaryQuery.error ? toErrorMessage(summaryQuery.error) : null;
+  const profileError = profileQuery.error ? toApiValidationErrorMessage(profileQuery.error) : null;
+  const metricsError = metricsQuery.error ? toApiValidationErrorMessage(metricsQuery.error) : null;
+  const summaryError = summaryQuery.error ? toApiValidationErrorMessage(summaryQuery.error) : null;
   const profileExists = Boolean(profileQuery.data);
   const hasMetrics = (metricsQuery.data?.length ?? 0) > 0;
 
@@ -800,7 +779,7 @@ export function BusinessConnectWorkspace() {
               {saveProfileMutation.isPending ? "Saving..." : profileExists ? "Update Profile" : "Create Profile"}
             </button>
             {saveProfileMutation.error ? (
-              <p className="text-xs text-rose-300">{profileMutationError(saveProfileMutation.error)}</p>
+              <p className="text-xs text-rose-300">{toApiValidationErrorMessage(saveProfileMutation.error)}</p>
             ) : null}
             {saveProfileMutation.isSuccess ? <p className="text-xs text-emerald-300">Profile saved.</p> : null}
           </div>
@@ -937,7 +916,7 @@ export function BusinessConnectWorkspace() {
                 </button>
               ) : null}
               {saveMetricMutation.error ? (
-                <p className="text-xs text-rose-300">{toErrorMessage(saveMetricMutation.error)}</p>
+                <p className="text-xs text-rose-300">{toApiValidationErrorMessage(saveMetricMutation.error)}</p>
               ) : null}
               {saveMetricMutation.isSuccess ? <p className="text-xs text-emerald-300">Metric saved.</p> : null}
             </div>
