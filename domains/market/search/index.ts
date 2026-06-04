@@ -32,6 +32,12 @@ function s(value: unknown, fallback = ""): string {
   return typeof value === "string" && value.trim() ? value : fallback;
 }
 
+function stringValue(value: unknown, fallback = ""): string {
+  if (typeof value === "string" && value.trim()) return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return fallback;
+}
+
 function safeRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -152,7 +158,10 @@ function normalizeStockEntity(item: unknown): MarketAsset {
 
 function normalizeMutualFundEntity(item: unknown): MarketAsset {
   const record = safeRecord(item);
-  const code = s(record.code, s(record.symbol));
+  const code = stringValue(
+    record.schemeCode ?? record.scheme_code ?? record.code ?? record.symbol ?? record.id,
+    ""
+  );
   const displayName = s(
     record.schemeName ?? record.scheme_name ?? record.displayLabel ?? record.display_label ?? record.name,
     code

@@ -28,8 +28,7 @@ function normalizeFundLabel(name: string, symbol: string): string {
 
 function formatFundSearchValue(symbol: string, name: string): string {
   const normalizedName = normalizeFundLabel(name, symbol);
-  if (symbol && normalizedName && normalizedName !== symbol) return `${symbol} · ${normalizedName}`;
-  return symbol || normalizedName;
+  return normalizedName || symbol;
 }
 
 export function MutualFundHoldingForm({
@@ -200,8 +199,7 @@ export function MutualFundHoldingForm({
                 }}
                 className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-xs text-slate-200 transition hover:bg-white/[0.08]"
               >
-                <p className="font-semibold text-white">{item.symbol}</p>
-                <p className="truncate text-slate-300">{item.name}</p>
+                <p className="truncate font-semibold text-white">{item.name}</p>
                 <p className="text-[10px] text-slate-500">{item.exchange || item.category}</p>
               </button>
             ))}
