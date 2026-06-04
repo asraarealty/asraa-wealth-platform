@@ -1,150 +1,350 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
-import { IntelligenceCard, SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ApiError, fetcher, toErrorMessage } from "@/lib/fetcher";
+import { EmptyBlock, SectionHeader, StatusPill, SurfaceCard } from "@/components/v2/ui";
 
-type Industry = "Restaurant" | "Real Estate" | "Manufacturing";
 type BusinessProfile = {
+  id: string | number | null;
   businessName: string;
-  industry: Industry;
-  monthlyRevenue: number;
-  monthlyExpenses: number;
-  employees: number;
-  customers: number;
+  industry: string;
   growthGoal: string;
 };
 
-const INDUSTRY_RECOMMENDATIONS: Record<Industry, string[]> = {
-  Restaurant: [
-    "Reduce food waste",
-    "Improve repeat customers",
-    "Optimize delivery margins",
-  ],
-  "Real Estate": [
-    "Improve lead conversion",
-    "Increase referral network",
-    "Strengthen CRM follow-up",
-  ],
-  Manufacturing: [
-    "Improve inventory turnover",
-    "Reduce machine downtime",
-    "Optimize working capital",
-  ],
+type MetricEntry = {
+  id: string | number;
+  reportingMonth: string;
+  revenue: number;
+  expense: number;
+  profit: number;
+  customerCount: number;
+  employeeCount: number;
 };
 
-const INDUSTRY_PARTNERS: Record<Industry, Array<{ title: string; detail: string }>> = {
-  Restaurant: [
-    { title: "Supplier", detail: "Secure inventory terms for fast-moving categories." },
-    { title: "Packaging Vendor", detail: "Lower unit packaging cost across takeout orders." },
-    { title: "Delivery Partner", detail: "Improve margin visibility across aggregator channels." },
-  ],
-  Manufacturing: [
-    { title: "Distributor", detail: "Expand market reach with regional channel coverage." },
-    { title: "Logistics Partner", detail: "Reduce delivery delays and secondary freight costs." },
-    { title: "Finance Partner", detail: "Support working-capital cycles and purchase planning." },
-  ],
-  "Real Estate": [
-    { title: "Home Loan Partner", detail: "Increase conversions with faster financing support." },
-    { title: "Legal Consultant", detail: "Accelerate documentation and compliance review." },
-    { title: "Interior Designer", detail: "Lift buyer confidence for premium inventory." },
-  ],
+type TrendPoint = {
+  label: string;
+  value: number;
 };
 
-const INDUSTRY_NOTES: Record<Industry, string> = {
-  Restaurant: "Mock recommendations prioritize unit economics, retention, and delivery efficiency.",
-  "Real Estate": "Mock recommendations prioritize pipeline conversion, referrals, and follow-up rigor.",
-  Manufacturing: "Mock recommendations prioritize throughput, uptime, and cash-cycle efficiency.",
+type MetricsSummary = {
+  revenue: TrendPoint[];
+  expense: TrendPoint[];
+  profit: TrendPoint[];
+  customers: TrendPoint[];
+  employees: TrendPoint[];
 };
 
-const GOAL_SIGNAL_FULL_THRESHOLD = 24;
-const GOAL_SIGNAL_PARTIAL_THRESHOLD = 8;
-const GOAL_SIGNAL_FULL_SCORE = 14;
-const GOAL_SIGNAL_PARTIAL_SCORE = 8;
-const GROWTH_CUSTOMER_DENSITY_MULTIPLIER = 3.5;
-const GROWTH_REVENUE_DIVISOR = 30000;
-const GROWTH_REVENUE_CAP = 42;
-const RISK_EXPENSE_WEIGHT = 62;
-const RISK_TEAM_SIZE_THRESHOLD = 40;
-const RISK_TEAM_SIZE_PENALTY = 0.7;
-const RISK_CUSTOMER_BUFFER_DIVISOR = 40;
-const RISK_CUSTOMER_BUFFER_CAP = 18;
-const ONBOARDING_STEP_THRESHOLDS = [30, 60, 90] as const;
+type MetricDraft = {
+  reportingMonth: string;
+  revenue: string;
+  expense: string;
+  profit: string;
+  customerCount: string;
+  employeeCount: string;
+};
+
+const PROFILE_QUERY_KEY = ["business", "profile"] as const;
+const METRICS_QUERY_KEY = ["business", "metrics"] as const;
+const SUMMARY_QUERY_KEY = ["business", "metrics", "summary"] as const;
 
 const DEFAULT_PROFILE: BusinessProfile = {
-  businessName: "Asraa Bistro",
-  industry: "Restaurant",
-  monthlyRevenue: 780000,
-  monthlyExpenses: 495000,
-  employees: 24,
-  customers: 1320,
-  growthGoal: "Increase repeat customers and expand catering revenue",
+  id: null,
+  businessName: "",
+  industry: "",
+  growthGoal: "",
 };
 
-function clamp(value: number, min = 0, max = 100) {
-  return Math.min(max, Math.max(min, Math.round(value)));
+const DEFAULT_METRIC_DRAFT: MetricDraft = {
+  reportingMonth: "",
+  revenue: "",
+  expense: "",
+  profit: "",
+  customerCount: "",
+  employeeCount: "",
+};
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
-function formatCurrency(value: number) {
+function unwrapPayload<T>(value: unknown): T {
+  const root = asRecord(value);
+  const nested = asRecord(root.data);
+  if (nested && "data" in nested) {
+    return nested.data as T;
+  }
+  if ("data" in root) {
+    return root.data as T;
+  }
+  return value as T;
+}
+
+function toNumber(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toMonthValue(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const match = trimmed.match(/^(\d{4})-(\d{2})/);
+  if (match) return `${match[1]}-${match[2]}`;
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const year = parsed.getUTCFullYear();
+  const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+function formatMonth(month: string): string {
+  if (!month) return "—";
+  const [year, monthPart] = month.split("-");
+  const date = new Date(Number(year), Number(monthPart) - 1, 1);
+  if (Number.isNaN(date.getTime())) return month;
+  return date.toLocaleDateString("en-IN", { month: "short", year: "numeric" });
+}
+
+function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-    notation: value >= 100000 ? "compact" : "standard",
+    notation: Math.abs(value) >= 100000 ? "compact" : "standard",
   }).format(value);
 }
 
-function getScoreTone(score: number) {
-  if (score >= 75) return "success" as const;
-  if (score >= 50) return "info" as const;
-  if (score >= 35) return "warn" as const;
-  return "danger" as const;
+function parseProfile(raw: unknown): BusinessProfile {
+  const record = asRecord(raw);
+  return {
+    id: (record.id as string | number | undefined) ?? (record.profile_id as string | number | undefined) ?? null,
+    businessName: String(record.business_name ?? record.businessName ?? record.name ?? "").trim(),
+    industry: String(record.industry ?? "").trim(),
+    growthGoal: String(record.growth_goal ?? record.growthGoal ?? record.goal ?? "").trim(),
+  };
 }
 
-function MetricBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
-      <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-white">{value}</p>
-    </div>
-  );
+function parseMetric(raw: unknown): MetricEntry | null {
+  const record = asRecord(raw);
+  const id = (record.id as string | number | undefined) ?? (record.metric_id as string | number | undefined);
+  if (id === undefined || id === null) return null;
+
+  return {
+    id,
+    reportingMonth: toMonthValue(record.reporting_month ?? record.reportingMonth ?? record.month),
+    revenue: toNumber(record.revenue),
+    expense: toNumber(record.expense),
+    profit: toNumber(record.profit),
+    customerCount: toNumber(record.customer_count ?? record.customerCount),
+    employeeCount: toNumber(record.employee_count ?? record.employeeCount),
+  };
 }
 
-function ScoreCard({
-  label,
-  score,
-  hint,
-}: {
-  label: string;
-  score: number;
-  hint: string;
-}) {
-  const tone = getScoreTone(score);
-  const barColor = {
-    success: "bg-emerald-400",
-    info: "bg-sky-400",
-    warn: "bg-amber-400",
-    danger: "bg-rose-400",
-  }[tone];
+function parseTrendCollection(raw: unknown): TrendPoint[] {
+  if (Array.isArray(raw)) {
+    return raw
+      .map((entry) => {
+        const record = asRecord(entry);
+        const label = toMonthValue(record.reporting_month ?? record.reportingMonth ?? record.month ?? record.label);
+        const value = toNumber(record.value ?? record.amount ?? record.total ?? record.count);
+        if (!label) return null;
+        return { label, value };
+      })
+      .filter((entry): entry is TrendPoint => Boolean(entry))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
 
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">{label}</p>
-          <p className="mt-2 text-2xl font-bold text-white">{score}</p>
-        </div>
-        <StatusPill
-          label={tone === "success" ? "Strong" : tone === "info" ? "Stable" : tone === "warn" ? "Watch" : "Risk"}
-          tone={tone}
-        />
-      </div>
-      <div className="mt-3 h-1.5 rounded-full bg-white/10">
-        <div className={`h-1.5 rounded-full ${barColor}`} style={{ width: `${score}%` }} />
-      </div>
-      <p className="mt-2 text-xs text-slate-400">{hint}</p>
-    </div>
-  );
+  const record = asRecord(raw);
+  const entries = Object.entries(record)
+    .map(([key, value]) => {
+      const label = toMonthValue(key);
+      if (!label) return null;
+      return { label, value: toNumber(value) };
+    })
+    .filter((entry): entry is TrendPoint => Boolean(entry))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  return entries;
+}
+
+function parseSummary(raw: unknown): MetricsSummary {
+  const record = asRecord(raw);
+  const rows = Array.isArray(record.rows) ? record.rows : Array.isArray(record.items) ? record.items : [];
+  const pickTrend = (primary: TrendPoint[], fallback: TrendPoint[]) => (primary.length > 0 ? primary : fallback);
+
+  const inferredFromRows = {
+    revenue: rows
+      .map((row) => {
+        const recordRow = asRecord(row);
+        const label = toMonthValue(recordRow.reporting_month ?? recordRow.reportingMonth ?? recordRow.month);
+        if (!label) return null;
+        return { label, value: toNumber(recordRow.revenue) };
+      })
+      .filter((entry): entry is TrendPoint => Boolean(entry)),
+    expense: rows
+      .map((row) => {
+        const recordRow = asRecord(row);
+        const label = toMonthValue(recordRow.reporting_month ?? recordRow.reportingMonth ?? recordRow.month);
+        if (!label) return null;
+        return { label, value: toNumber(recordRow.expense) };
+      })
+      .filter((entry): entry is TrendPoint => Boolean(entry)),
+    profit: rows
+      .map((row) => {
+        const recordRow = asRecord(row);
+        const label = toMonthValue(recordRow.reporting_month ?? recordRow.reportingMonth ?? recordRow.month);
+        if (!label) return null;
+        return { label, value: toNumber(recordRow.profit) };
+      })
+      .filter((entry): entry is TrendPoint => Boolean(entry)),
+    customers: rows
+      .map((row) => {
+        const recordRow = asRecord(row);
+        const label = toMonthValue(recordRow.reporting_month ?? recordRow.reportingMonth ?? recordRow.month);
+        if (!label) return null;
+        return { label, value: toNumber(recordRow.customer_count ?? recordRow.customerCount) };
+      })
+      .filter((entry): entry is TrendPoint => Boolean(entry)),
+    employees: rows
+      .map((row) => {
+        const recordRow = asRecord(row);
+        const label = toMonthValue(recordRow.reporting_month ?? recordRow.reportingMonth ?? recordRow.month);
+        if (!label) return null;
+        return { label, value: toNumber(recordRow.employee_count ?? recordRow.employeeCount) };
+      })
+      .filter((entry): entry is TrendPoint => Boolean(entry)),
+  };
+
+  return {
+    revenue: pickTrend(
+      parseTrendCollection(record.revenue_trend ?? record.revenueTrend ?? record.revenue),
+      inferredFromRows.revenue
+    ),
+    expense: pickTrend(
+      parseTrendCollection(record.expense_trend ?? record.expenseTrend ?? record.expense),
+      inferredFromRows.expense
+    ),
+    profit: pickTrend(
+      parseTrendCollection(record.profit_trend ?? record.profitTrend ?? record.profit),
+      inferredFromRows.profit
+    ),
+    customers: pickTrend(
+      parseTrendCollection(record.customer_trend ?? record.customerTrend ?? record.customers),
+      inferredFromRows.customers
+    ),
+    employees: pickTrend(
+      parseTrendCollection(record.employee_trend ?? record.employeeTrend ?? record.employees),
+      inferredFromRows.employees
+    ),
+  };
+}
+
+async function fetchBusinessProfile(signal?: AbortSignal): Promise<BusinessProfile | null> {
+  try {
+    const response = await fetcher<unknown>("/business/profile", { signal, raw: true, cache: "no-store" });
+    const parsed = parseProfile(unwrapPayload<unknown>(response));
+    if (!parsed.businessName && !parsed.industry && !parsed.growthGoal) {
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function createBusinessProfile(payload: BusinessProfile): Promise<BusinessProfile> {
+  const body = {
+    business_name: payload.businessName,
+    industry: payload.industry,
+    growth_goal: payload.growthGoal,
+  };
+  const response = await fetcher<unknown>("/business/profile", {
+    method: "POST",
+    body,
+    raw: true,
+    cache: "no-store",
+  });
+  return parseProfile(unwrapPayload<unknown>(response));
+}
+
+async function updateBusinessProfile(payload: BusinessProfile): Promise<BusinessProfile> {
+  const body = {
+    business_name: payload.businessName,
+    industry: payload.industry,
+    growth_goal: payload.growthGoal,
+  };
+  const response = await fetcher<unknown>("/business/profile", {
+    method: "PUT",
+    body,
+    raw: true,
+    cache: "no-store",
+  });
+  return parseProfile(unwrapPayload<unknown>(response));
+}
+
+async function fetchBusinessMetrics(signal?: AbortSignal): Promise<MetricEntry[]> {
+  const response = await fetcher<unknown>("/business/metrics", { signal, raw: true, cache: "no-store" });
+  const payload = unwrapPayload<unknown>(response);
+  const list = Array.isArray(payload) ? payload : [];
+  return list
+    .map((entry) => parseMetric(entry))
+    .filter((entry): entry is MetricEntry => Boolean(entry))
+    .sort((a, b) => b.reportingMonth.localeCompare(a.reportingMonth));
+}
+
+function buildMetricBody(draft: MetricDraft) {
+  return {
+    reporting_month: draft.reportingMonth,
+    revenue: toNumber(draft.revenue),
+    expense: toNumber(draft.expense),
+    profit: toNumber(draft.profit),
+    customer_count: toNumber(draft.customerCount),
+    employee_count: toNumber(draft.employeeCount),
+  };
+}
+
+async function createBusinessMetric(draft: MetricDraft): Promise<MetricEntry> {
+  const response = await fetcher<unknown>("/business/metrics", {
+    method: "POST",
+    body: buildMetricBody(draft),
+    raw: true,
+    cache: "no-store",
+  });
+  const metric = parseMetric(unwrapPayload<unknown>(response));
+  if (!metric) {
+    throw new Error("Unable to parse created metric");
+  }
+  return metric;
+}
+
+async function updateBusinessMetric(id: string | number, draft: MetricDraft): Promise<MetricEntry> {
+  const response = await fetcher<unknown>(`/business/metrics/${encodeURIComponent(String(id))}`, {
+    method: "PUT",
+    body: buildMetricBody(draft),
+    raw: true,
+    cache: "no-store",
+  });
+  const metric = parseMetric(unwrapPayload<unknown>(response));
+  if (!metric) {
+    throw new Error("Unable to parse updated metric");
+  }
+  return metric;
+}
+
+async function deleteBusinessMetric(id: string | number): Promise<void> {
+  await fetcher<void>(`/business/metrics/${encodeURIComponent(String(id))}`, {
+    method: "DELETE",
+    cache: "no-store",
+  });
+}
+
+async function fetchMetricsSummary(signal?: AbortSignal): Promise<MetricsSummary> {
+  const response = await fetcher<unknown>("/business/metrics/summary", { signal, raw: true, cache: "no-store" });
+  return parseSummary(unwrapPayload<unknown>(response));
 }
 
 function FormField({
@@ -164,265 +364,474 @@ function FormField({
   );
 }
 
+function TrendTile({
+  label,
+  points,
+  formatter,
+}: {
+  label: string;
+  points: TrendPoint[];
+  formatter: (value: number) => string;
+}) {
+  const latest = points[points.length - 1];
+  const previous = points[points.length - 2];
+  const delta = latest && previous ? latest.value - previous.value : null;
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+      <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="mt-2 text-lg font-semibold text-white">{latest ? formatter(latest.value) : "—"}</p>
+      <div className="mt-1 flex items-center gap-2 text-xs">
+        <span className="text-slate-400">{latest ? formatMonth(latest.label) : "No data"}</span>
+        {delta !== null ? (
+          <span className={delta >= 0 ? "text-emerald-300" : "text-rose-300"}>
+            {delta >= 0 ? "+" : ""}
+            {formatter(delta)}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function BusinessConnectWorkspace() {
-  const [profile, setProfile] = useState<BusinessProfile>(DEFAULT_PROFILE);
+  const queryClient = useQueryClient();
+  const [profileDraft, setProfileDraft] = useState<BusinessProfile>(DEFAULT_PROFILE);
+  const [metricDraft, setMetricDraft] = useState<MetricDraft>(DEFAULT_METRIC_DRAFT);
+  const [editingMetricId, setEditingMetricId] = useState<string | number | null>(null);
 
-  const completion = useMemo(() => {
-    const fields = [
-      profile.businessName,
-      profile.industry,
-      profile.monthlyRevenue > 0 ? "1" : "",
-      profile.monthlyExpenses > 0 ? "1" : "",
-      profile.employees > 0 ? "1" : "",
-      profile.customers > 0 ? "1" : "",
-      profile.growthGoal,
-    ];
+  const profileQuery = useQuery({
+    queryKey: PROFILE_QUERY_KEY,
+    queryFn: ({ signal }) => fetchBusinessProfile(signal),
+    staleTime: 1000 * 60,
+    refetchOnWindowFocus: false,
+  });
 
-    return Math.round((fields.filter(Boolean).length / fields.length) * 100);
-  }, [profile]);
+  const metricsQuery = useQuery({
+    queryKey: METRICS_QUERY_KEY,
+    queryFn: ({ signal }) => fetchBusinessMetrics(signal),
+    staleTime: 1000 * 30,
+    refetchOnWindowFocus: false,
+  });
 
-  const scores = useMemo(() => {
-    const revenue = Math.max(profile.monthlyRevenue, 1);
-    const expenseRatio = profile.monthlyExpenses / revenue;
-    const customerDensity = profile.customers / Math.max(profile.employees, 1);
-    const goalLength = profile.growthGoal.trim().length;
-    const goalSignal =
-      goalLength >= GOAL_SIGNAL_FULL_THRESHOLD
-        ? GOAL_SIGNAL_FULL_SCORE
-        : goalLength >= GOAL_SIGNAL_PARTIAL_THRESHOLD
-          ? GOAL_SIGNAL_PARTIAL_SCORE
-          : 0;
+  const summaryQuery = useQuery({
+    queryKey: SUMMARY_QUERY_KEY,
+    queryFn: ({ signal }) => fetchMetricsSummary(signal),
+    enabled: (metricsQuery.data?.length ?? 0) > 0,
+    staleTime: 1000 * 30,
+    refetchOnWindowFocus: false,
+  });
 
-    const profitability = clamp((1 - expenseRatio) * 100);
-    // Placeholder growth score: customer density rewards lean team leverage, revenue scale caps oversized
-    // businesses from dominating the score, and goal clarity adds a small planning premium until backend
-    // scoring replaces these temporary weights.
-    const growth = clamp(
-      (customerDensity * GROWTH_CUSTOMER_DENSITY_MULTIPLIER) +
-      Math.min(profile.monthlyRevenue / GROWTH_REVENUE_DIVISOR, GROWTH_REVENUE_CAP) +
-      goalSignal
+  useEffect(() => {
+    if (profileQuery.data) {
+      setProfileDraft(profileQuery.data);
+    } else {
+      setProfileDraft(DEFAULT_PROFILE);
+    }
+  }, [profileQuery.data]);
+
+  const saveProfileMutation = useMutation({
+    mutationFn: async () => {
+      if (profileQuery.data !== null) {
+        return updateBusinessProfile(profileDraft);
+      }
+      return createBusinessProfile(profileDraft);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY });
+    },
+  });
+
+  const saveMetricMutation = useMutation({
+    mutationFn: async () => {
+      if (editingMetricId !== null) {
+        return updateBusinessMetric(editingMetricId, metricDraft);
+      }
+      return createBusinessMetric(metricDraft);
+    },
+    onSuccess: () => {
+      setMetricDraft(DEFAULT_METRIC_DRAFT);
+      setEditingMetricId(null);
+      void queryClient.invalidateQueries({ queryKey: METRICS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: SUMMARY_QUERY_KEY });
+    },
+  });
+
+  const deleteMetricMutation = useMutation({
+    mutationFn: (id: string | number) => deleteBusinessMetric(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: METRICS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: SUMMARY_QUERY_KEY });
+    },
+  });
+
+  const profileError = profileQuery.error ? toErrorMessage(profileQuery.error) : null;
+  const metricsError = metricsQuery.error ? toErrorMessage(metricsQuery.error) : null;
+  const summaryError = summaryQuery.error ? toErrorMessage(summaryQuery.error) : null;
+  const profileExists = Boolean(profileQuery.data);
+  const hasMetrics = (metricsQuery.data?.length ?? 0) > 0;
+
+  const summary = useMemo<MetricsSummary>(() => {
+    return (
+      summaryQuery.data ?? {
+        revenue: [],
+        expense: [],
+        profit: [],
+        customers: [],
+        employees: [],
+      }
     );
-    const risk = clamp(
-      100 -
-      (expenseRatio * RISK_EXPENSE_WEIGHT) -
-      (Math.max(profile.employees - RISK_TEAM_SIZE_THRESHOLD, 0) * RISK_TEAM_SIZE_PENALTY) +
-      Math.min(profile.customers / RISK_CUSTOMER_BUFFER_DIVISOR, RISK_CUSTOMER_BUFFER_CAP)
-    );
-    const health = clamp((profitability * 0.45) + (growth * 0.3) + (risk * 0.25));
+  }, [summaryQuery.data]);
 
-    return {
-      health,
-      profitability,
-      growth,
-      risk,
-    };
-  }, [profile]);
-
-  const opportunities = INDUSTRY_RECOMMENDATIONS[profile.industry];
-  const partners = INDUSTRY_PARTNERS[profile.industry];
+  const isMetricDraftValid =
+    Boolean(metricDraft.reportingMonth) &&
+    metricDraft.revenue.trim() !== "" &&
+    metricDraft.expense.trim() !== "" &&
+    metricDraft.profit.trim() !== "" &&
+    metricDraft.customerCount.trim() !== "" &&
+    metricDraft.employeeCount.trim() !== "";
 
   return (
     <div className="space-y-5 animate-fade-in">
       <SurfaceCard className="p-4 sm:p-5">
         <SectionHeader
           eyebrow="Business Connect"
-          title="Business onboarding and operating snapshot"
-          subtitle="Frontend-only mock experience using the existing Wealth OS dark operating surface."
-          action={<StatusPill label="Mock Mode" tone="info" />}
+          title="Business profile and metrics"
+          subtitle="Connected to live backend Business Profile and Business Metrics APIs."
+          action={
+            profileExists ? (
+              <StatusPill label="Profile active" tone="success" />
+            ) : (
+              <StatusPill label="Profile setup" tone="warn" />
+            )
+          }
         />
-        <div className="mt-4 grid gap-3 lg:grid-cols-[1.3fr_0.7fr]">
-          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-            <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Onboarding Status</p>
-            <h2 className="mt-2 text-lg font-semibold text-white">Business profile readiness</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Complete the business profile to unlock placeholder health scoring, industry opportunities, and partner recommendations.
-            </p>
-            <div className="mt-4 h-2 rounded-full bg-white/10">
-              <div className="h-2 rounded-full bg-sky-400" style={{ width: `${completion}%` }} />
-            </div>
-            <div className="mt-4 grid gap-2 sm:grid-cols-3">
-              {[
-                { title: "Profile", detail: "Core business data captured" },
-                { title: "Scoring", detail: "Placeholder health signals generated" },
-                { title: "Partners", detail: "Industry-matched recommendations loaded" },
-              ].map((step, index) => (
-                <div key={step.title} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-white">{step.title}</p>
-                    <StatusPill
-                      label={completion >= ONBOARDING_STEP_THRESHOLDS[index] ? "Ready" : "Pending"}
-                      tone={completion >= ONBOARDING_STEP_THRESHOLDS[index] ? "success" : "warn"}
-                    />
-                  </div>
-                  <p className="mt-2 text-xs text-slate-400">{step.detail}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-sky-400/20 bg-sky-500/[0.06] p-4">
-            <p className="text-[10px] uppercase tracking-[0.14em] text-sky-200/70">Current Focus</p>
-            <p className="mt-2 text-base font-semibold text-white">{profile.businessName || "New business profile"}</p>
-            <p className="mt-1 text-sm text-slate-300">{profile.industry}</p>
-            <p className="mt-4 text-xs text-slate-300">Growth Goal</p>
-            <p className="mt-1 text-sm text-white">{profile.growthGoal || "Set a growth objective to tailor the dashboard."}</p>
-            <p className="mt-4 text-xs text-slate-400">{INDUSTRY_NOTES[profile.industry]}</p>
-          </div>
-        </div>
+        {profileError ? <p className="mt-3 text-sm text-rose-300">{profileError}</p> : null}
       </SurfaceCard>
-
-      <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-        <SurfaceCard className="p-4 sm:p-5">
-          <SectionHeader
-            eyebrow="Business Profile Form"
-            title="Capture core business inputs"
-            subtitle="All values are stored in local state until backend support is available."
-          />
-          <form className="mt-4 grid gap-4 sm:grid-cols-2" onSubmit={(event) => event.preventDefault()}>
-            <FormField label="Business Name">
-              <input
-                value={profile.businessName}
-                onChange={(event) => setProfile((current) => ({ ...current, businessName: event.target.value }))}
-                className="v2-input w-full"
-                placeholder="Enter business name"
-              />
-            </FormField>
-
-            <FormField label="Industry">
-              <select
-                value={profile.industry}
-                onChange={(event) => setProfile((current) => ({ ...current, industry: event.target.value as Industry }))}
-                className="v2-select w-full"
-              >
-                {Object.keys(INDUSTRY_RECOMMENDATIONS).map((industry) => (
-                  <option key={industry} value={industry}>{industry}</option>
-                ))}
-              </select>
-            </FormField>
-
-            <FormField label="Monthly Revenue">
-              <input
-                type="number"
-                min="0"
-                value={profile.monthlyRevenue}
-                onChange={(event) => setProfile((current) => ({ ...current, monthlyRevenue: Number(event.target.value) || 0 }))}
-                className="v2-input w-full"
-              />
-            </FormField>
-
-            <FormField label="Monthly Expenses">
-              <input
-                type="number"
-                min="0"
-                value={profile.monthlyExpenses}
-                onChange={(event) => setProfile((current) => ({ ...current, monthlyExpenses: Number(event.target.value) || 0 }))}
-                className="v2-input w-full"
-              />
-            </FormField>
-
-            <FormField label="Employees">
-              <input
-                type="number"
-                min="0"
-                value={profile.employees}
-                onChange={(event) => setProfile((current) => ({ ...current, employees: Number(event.target.value) || 0 }))}
-                className="v2-input w-full"
-              />
-            </FormField>
-
-            <FormField label="Customers">
-              <input
-                type="number"
-                min="0"
-                value={profile.customers}
-                onChange={(event) => setProfile((current) => ({ ...current, customers: Number(event.target.value) || 0 }))}
-                className="v2-input w-full"
-              />
-            </FormField>
-
-            <FormField label="Growth Goal" className="sm:col-span-2">
-              <textarea
-                value={profile.growthGoal}
-                onChange={(event) => setProfile((current) => ({ ...current, growthGoal: event.target.value }))}
-                className="min-h-28 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-500"
-                placeholder="Describe the next business growth objective"
-              />
-            </FormField>
-          </form>
-        </SurfaceCard>
-
-        <SurfaceCard className="p-4 sm:p-5">
-          <SectionHeader
-            eyebrow="Business Connect Dashboard"
-            title="Business operating snapshot"
-            subtitle="Business inputs reflected immediately in a lightweight dashboard."
-          />
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <MetricBlock label="Business Name" value={profile.businessName || "—"} />
-            <MetricBlock label="Industry" value={profile.industry} />
-            <MetricBlock label="Revenue" value={formatCurrency(profile.monthlyRevenue)} />
-            <MetricBlock label="Expenses" value={formatCurrency(profile.monthlyExpenses)} />
-            <MetricBlock label="Employees" value={profile.employees.toLocaleString("en-IN")} />
-            <MetricBlock label="Customers" value={profile.customers.toLocaleString("en-IN")} />
-            <div className="sm:col-span-2">
-              <MetricBlock label="Growth Goal" value={profile.growthGoal || "—"} />
-            </div>
-          </div>
-        </SurfaceCard>
-      </div>
 
       <SurfaceCard className="p-4 sm:p-5">
         <SectionHeader
-          eyebrow="Business Health Card"
-          title="Placeholder business scoring"
-          subtitle="Scores are frontend mock calculations and can later be replaced with backend-authoritative scoring."
+          eyebrow="Business Profile"
+          title={profileExists ? "Update business profile" : "Set up your business profile"}
+          subtitle={
+            profileExists
+              ? "Keep business details up to date for Business Connect."
+              : "No profile found. Complete onboarding to start tracking business metrics."
+          }
         />
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <ScoreCard label="Business Health Score" score={scores.health} hint="Weighted blend of profitability, growth readiness, and risk resilience." />
-          <ScoreCard label="Profitability Score" score={scores.profitability} hint="Higher score reflects stronger revenue retention after expenses." />
-          <ScoreCard label="Growth Score" score={scores.growth} hint="Based on customer scale, employee leverage, and growth-goal clarity." />
-          <ScoreCard label="Risk Score" score={scores.risk} hint="Higher score reflects better operating cushion and lower cost pressure." />
-        </div>
+        <form
+          className="mt-4 grid gap-4 sm:grid-cols-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void saveProfileMutation.mutateAsync();
+          }}
+        >
+          <FormField label="Business Name">
+            <input
+              value={profileDraft.businessName}
+              onChange={(event) =>
+                setProfileDraft((current) => ({
+                  ...current,
+                  businessName: event.target.value,
+                }))
+              }
+              className="v2-input w-full"
+              placeholder="Enter business name"
+              required
+            />
+          </FormField>
+
+          <FormField label="Industry">
+            <input
+              value={profileDraft.industry}
+              onChange={(event) =>
+                setProfileDraft((current) => ({
+                  ...current,
+                  industry: event.target.value,
+                }))
+              }
+              className="v2-input w-full"
+              placeholder="e.g. Real Estate"
+              required
+            />
+          </FormField>
+
+          <FormField label="Growth Goal" className="sm:col-span-2">
+            <textarea
+              value={profileDraft.growthGoal}
+              onChange={(event) =>
+                setProfileDraft((current) => ({
+                  ...current,
+                  growthGoal: event.target.value,
+                }))
+              }
+              className="min-h-28 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-500"
+              placeholder="Describe the current business growth objective"
+            />
+          </FormField>
+
+          <div className="sm:col-span-2 flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={saveProfileMutation.isPending}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {saveProfileMutation.isPending ? "Saving..." : profileExists ? "Update Profile" : "Create Profile"}
+            </button>
+            {saveProfileMutation.error ? (
+              <p className="text-xs text-rose-300">{toErrorMessage(saveProfileMutation.error)}</p>
+            ) : null}
+            {saveProfileMutation.isSuccess ? <p className="text-xs text-emerald-300">Profile saved.</p> : null}
+          </div>
+        </form>
       </SurfaceCard>
 
       <div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
         <SurfaceCard className="p-4 sm:p-5">
           <SectionHeader
-            eyebrow="Opportunity Section"
-            title="Top opportunities"
-            subtitle={`Top 3 recommendation set for ${profile.industry}.`}
+            eyebrow="Business Metrics"
+            title={editingMetricId !== null ? "Edit metric entry" : "Add metric entry"}
+            subtitle="Track monthly revenue, expense, profit, customers, and employees."
           />
-          <div className="mt-4 space-y-3">
-            {opportunities.map((item, index) => (
-              <IntelligenceCard
-                key={item}
-                title={`Recommendation ${index + 1}`}
-                message={item}
-                tone={index === 0 ? "success" : "info"}
+          <form
+            className="mt-4 grid gap-4 sm:grid-cols-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!isMetricDraftValid) return;
+              void saveMetricMutation.mutateAsync();
+            }}
+          >
+            <FormField label="Reporting Month">
+              <input
+                type="month"
+                value={metricDraft.reportingMonth}
+                onChange={(event) =>
+                  setMetricDraft((current) => ({
+                    ...current,
+                    reportingMonth: event.target.value,
+                  }))
+                }
+                className="v2-input w-full"
+                required
               />
-            ))}
-          </div>
+            </FormField>
+
+            <FormField label="Revenue">
+              <input
+                type="number"
+                min="0"
+                value={metricDraft.revenue}
+                onChange={(event) =>
+                  setMetricDraft((current) => ({
+                    ...current,
+                    revenue: event.target.value,
+                  }))
+                }
+                className="v2-input w-full"
+                required
+              />
+            </FormField>
+
+            <FormField label="Expense">
+              <input
+                type="number"
+                min="0"
+                value={metricDraft.expense}
+                onChange={(event) =>
+                  setMetricDraft((current) => ({
+                    ...current,
+                    expense: event.target.value,
+                  }))
+                }
+                className="v2-input w-full"
+                required
+              />
+            </FormField>
+
+            <FormField label="Profit">
+              <input
+                type="number"
+                value={metricDraft.profit}
+                onChange={(event) =>
+                  setMetricDraft((current) => ({
+                    ...current,
+                    profit: event.target.value,
+                  }))
+                }
+                className="v2-input w-full"
+                required
+              />
+            </FormField>
+
+            <FormField label="Customer Count">
+              <input
+                type="number"
+                min="0"
+                value={metricDraft.customerCount}
+                onChange={(event) =>
+                  setMetricDraft((current) => ({
+                    ...current,
+                    customerCount: event.target.value,
+                  }))
+                }
+                className="v2-input w-full"
+                required
+              />
+            </FormField>
+
+            <FormField label="Employee Count">
+              <input
+                type="number"
+                min="0"
+                value={metricDraft.employeeCount}
+                onChange={(event) =>
+                  setMetricDraft((current) => ({
+                    ...current,
+                    employeeCount: event.target.value,
+                  }))
+                }
+                className="v2-input w-full"
+                required
+              />
+            </FormField>
+
+            <div className="sm:col-span-2 flex flex-wrap items-center gap-3">
+              <button
+                type="submit"
+                disabled={saveMetricMutation.isPending || !isMetricDraftValid}
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {saveMetricMutation.isPending ? "Saving..." : editingMetricId !== null ? "Update Metric" : "Create Metric"}
+              </button>
+              {editingMetricId !== null ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingMetricId(null);
+                    setMetricDraft(DEFAULT_METRIC_DRAFT);
+                  }}
+                  className="rounded-xl border border-white/10 bg-black/20 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/10"
+                >
+                  Cancel Edit
+                </button>
+              ) : null}
+              {saveMetricMutation.error ? (
+                <p className="text-xs text-rose-300">{toErrorMessage(saveMetricMutation.error)}</p>
+              ) : null}
+              {saveMetricMutation.isSuccess ? <p className="text-xs text-emerald-300">Metric saved.</p> : null}
+            </div>
+          </form>
         </SurfaceCard>
 
         <SurfaceCard className="p-4 sm:p-5">
           <SectionHeader
-            eyebrow="Recommended Partners Section"
-            title="Industry-specific partners"
-            subtitle="Suggested partner categories aligned to the selected business model."
+            eyebrow="Metrics History"
+            title="Business metrics records"
+            subtitle="Create, edit, and delete monthly entries."
           />
-          <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-            {partners.map((partner) => (
-              <div key={partner.title} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-white">{partner.title}</p>
-                  <StatusPill label={profile.industry} tone="info" />
-                </div>
-                <p className="mt-2 text-xs leading-relaxed text-slate-400">{partner.detail}</p>
-              </div>
-            ))}
-          </div>
+          {metricsError ? <p className="mt-3 text-sm text-rose-300">{metricsError}</p> : null}
+          {!hasMetrics && !metricsQuery.isPending ? (
+            <div className="mt-4">
+              <EmptyBlock
+                title="No metrics yet"
+                message="Add your first metric entry to start building trend history."
+              />
+            </div>
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-white/10 text-xs uppercase tracking-[0.12em] text-slate-500">
+                    <th className="px-2 py-2">Month</th>
+                    <th className="px-2 py-2">Revenue</th>
+                    <th className="px-2 py-2">Expense</th>
+                    <th className="px-2 py-2">Profit</th>
+                    <th className="px-2 py-2">Customers</th>
+                    <th className="px-2 py-2">Employees</th>
+                    <th className="px-2 py-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(metricsQuery.data ?? []).map((metric) => (
+                    <tr key={String(metric.id)} className="border-b border-white/5 text-slate-200">
+                      <td className="px-2 py-3">{formatMonth(metric.reportingMonth)}</td>
+                      <td className="px-2 py-3">{formatCurrency(metric.revenue)}</td>
+                      <td className="px-2 py-3">{formatCurrency(metric.expense)}</td>
+                      <td className="px-2 py-3">{formatCurrency(metric.profit)}</td>
+                      <td className="px-2 py-3">{metric.customerCount.toLocaleString("en-IN")}</td>
+                      <td className="px-2 py-3">{metric.employeeCount.toLocaleString("en-IN")}</td>
+                      <td className="px-2 py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingMetricId(metric.id);
+                              setMetricDraft({
+                                reportingMonth: metric.reportingMonth,
+                                revenue: String(metric.revenue),
+                                expense: String(metric.expense),
+                                profit: String(metric.profit),
+                                customerCount: String(metric.customerCount),
+                                employeeCount: String(metric.employeeCount),
+                              });
+                            }}
+                            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-white/10"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void deleteMetricMutation.mutateAsync(metric.id);
+                            }}
+                            disabled={deleteMetricMutation.isPending}
+                            className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </SurfaceCard>
       </div>
+
+      <SurfaceCard className="p-4 sm:p-5">
+        <SectionHeader
+          eyebrow="Business Dashboard"
+          title="Operational trends"
+          subtitle="Revenue, expense, profit, customer, and employee trends from metrics summary."
+        />
+        {summaryError ? <p className="mt-3 text-sm text-rose-300">{summaryError}</p> : null}
+        {!hasMetrics ? (
+          <div className="mt-4">
+            <EmptyBlock
+              title="Dashboard is empty"
+              message="Add your first metric entry to populate trend cards on this dashboard."
+            />
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <TrendTile label="Revenue Trend" points={summary.revenue} formatter={(value) => formatCurrency(value)} />
+            <TrendTile label="Expense Trend" points={summary.expense} formatter={(value) => formatCurrency(value)} />
+            <TrendTile label="Profit Trend" points={summary.profit} formatter={(value) => formatCurrency(value)} />
+            <TrendTile
+              label="Customer Trend"
+              points={summary.customers}
+              formatter={(value) => Math.round(value).toLocaleString("en-IN")}
+            />
+            <TrendTile
+              label="Employee Trend"
+              points={summary.employees}
+              formatter={(value) => Math.round(value).toLocaleString("en-IN")}
+            />
+          </div>
+        )}
+      </SurfaceCard>
     </div>
   );
 }
