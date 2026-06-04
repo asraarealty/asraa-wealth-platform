@@ -1,7 +1,22 @@
 import { ApiError, toErrorMessage } from "@/lib/fetcher";
 
+const DETAIL_META_KEYS = new Set([
+  "msg",
+  "message",
+  "error",
+  "detail",
+  "details",
+  "errors",
+  "loc",
+  "path",
+  "field",
+  "param",
+  "type",
+  "ctx",
+]);
+
 function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
 function toFieldPath(value: unknown): string | null {
@@ -50,7 +65,7 @@ function collectValidationMessages(value: unknown, fieldHint?: string): string[]
   ];
 
   const extra = Object.entries(record).flatMap(([key, nestedValue]) => {
-    if (["msg", "message", "error", "detail", "details", "errors", "loc", "path", "field", "param", "type", "ctx"].includes(key)) {
+    if (DETAIL_META_KEYS.has(key)) {
       return [];
     }
     return collectValidationMessages(nestedValue, field ?? key);
