@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { ClientEditForm } from "@/components/admin/ClientEditForm";
-import { toErrorMessage } from "@/lib/fetcher";
+import { toApiValidationErrorMessage } from "@/lib/apiValidationError";
 import { ADMIN_CLIENTS_QUERY_KEY } from "@/lib/hooks/useAdminClients";
 import { archiveClient, createClient, updateClientStatus, type ClientOperationalStatus, type ClientUpdatePayload } from "@/lib/services/clientService";
 
@@ -23,7 +23,7 @@ export default function NewClientPage() {
         try {
           setSaving(true);
           setError(null);
-          const created = await createClient(payload);
+          const created = await createClient({ ...payload, status });
           if (status === "archived") {
             await archiveClient(created.id);
           } else if (status !== "active") {
@@ -32,7 +32,7 @@ export default function NewClientPage() {
           await queryClient.invalidateQueries({ queryKey: ADMIN_CLIENTS_QUERY_KEY });
           router.push("/admin/clients");
         } catch (value) {
-          setError(toErrorMessage(value));
+          setError(toApiValidationErrorMessage(value));
         } finally {
           setSaving(false);
         }

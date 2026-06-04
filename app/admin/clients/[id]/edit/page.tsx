@@ -8,6 +8,7 @@ import { LoadingBlock, SurfaceCard } from "@/components/v2/ui";
 import { toErrorMessage } from "@/lib/fetcher";
 import { ADMIN_CLIENTS_QUERY_KEY } from "@/lib/hooks/useAdminClients";
 import { adminQueryKeys } from "@/lib/queryKeys/admin";
+import { toApiValidationErrorMessage } from "@/lib/apiValidationError";
 import {
   archiveClient,
   fetchClientById,
@@ -64,7 +65,7 @@ export default function EditClientPage() {
           await queryClient.invalidateQueries({ queryKey: adminQueryKeys.clientEditDetail(clientId) });
           router.push("/admin/clients");
         } catch (value) {
-          setSaveError(toErrorMessage(value));
+          setSaveError(toApiValidationErrorMessage(value));
         } finally {
           setSaving(false);
         }
