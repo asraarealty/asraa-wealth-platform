@@ -309,7 +309,7 @@ async function createBusinessProfile(payload: BusinessProfile): Promise<Business
     monthly_expense: toNumber(payload.monthlyExpense),
     employee_count: toNumber(payload.employeeCount),
     customer_count: toNumber(payload.customerCount),
-    ...(payload.website.trim() ? { website: payload.website.trim() } : {}),
+    website: payload.website.trim(),
     growth_goal: payload.growthGoal,
   };
   const response = await fetcher<unknown>("/business/profile", {
@@ -333,7 +333,7 @@ async function updateBusinessProfile(payload: BusinessProfile): Promise<Business
     monthly_expense: toNumber(payload.monthlyExpense),
     employee_count: toNumber(payload.employeeCount),
     customer_count: toNumber(payload.customerCount),
-    ...(payload.website.trim() ? { website: payload.website.trim() } : {}),
+    website: payload.website.trim(),
     growth_goal: payload.growthGoal,
   };
   const response = await fetcher<unknown>("/business/profile", {
