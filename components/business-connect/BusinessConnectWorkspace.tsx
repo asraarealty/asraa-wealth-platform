@@ -8,7 +8,16 @@ import { EmptyBlock, SectionHeader, StatusPill, SurfaceCard } from "@/components
 type BusinessProfile = {
   id: string | number | null;
   businessName: string;
+  ownerName: string;
   industry: string;
+  city: string;
+  state: string;
+  country: string;
+  monthlyRevenue: string;
+  monthlyExpense: string;
+  employeeCount: string;
+  customerCount: string;
+  website: string;
   growthGoal: string;
 };
 
@@ -51,7 +60,16 @@ const SUMMARY_QUERY_KEY = ["business", "metrics", "summary"] as const;
 const DEFAULT_PROFILE: BusinessProfile = {
   id: null,
   businessName: "",
+  ownerName: "",
   industry: "",
+  city: "",
+  state: "",
+  country: "",
+  monthlyRevenue: "",
+  monthlyExpense: "",
+  employeeCount: "",
+  customerCount: "",
+  website: "",
   growthGoal: "",
 };
 
@@ -120,7 +138,16 @@ function parseProfile(raw: unknown): BusinessProfile {
   return {
     id: (record.id as string | number | undefined) ?? (record.profile_id as string | number | undefined) ?? null,
     businessName: String(record.business_name ?? record.businessName ?? record.name ?? "").trim(),
+    ownerName: String(record.owner_name ?? record.ownerName ?? "").trim(),
     industry: String(record.industry ?? "").trim(),
+    city: String(record.city ?? "").trim(),
+    state: String(record.state ?? "").trim(),
+    country: String(record.country ?? "").trim(),
+    monthlyRevenue: String(record.monthly_revenue ?? record.monthlyRevenue ?? "").trim(),
+    monthlyExpense: String(record.monthly_expense ?? record.monthlyExpense ?? "").trim(),
+    employeeCount: String(record.employee_count ?? record.employeeCount ?? "").trim(),
+    customerCount: String(record.customer_count ?? record.customerCount ?? "").trim(),
+    website: String(record.website ?? "").trim(),
     growthGoal: String(record.growth_goal ?? record.growthGoal ?? record.goal ?? "").trim(),
   };
 }
@@ -244,7 +271,21 @@ async function fetchBusinessProfile(signal?: AbortSignal): Promise<BusinessProfi
   try {
     const response = await fetcher<unknown>("/business/profile", { signal, raw: true, cache: "no-store" });
     const parsed = parseProfile(unwrapPayload<unknown>(response));
-    if (!parsed.businessName && !parsed.industry && !parsed.growthGoal) {
+    if (
+      !parsed.id &&
+      !parsed.businessName &&
+      !parsed.ownerName &&
+      !parsed.industry &&
+      !parsed.city &&
+      !parsed.state &&
+      !parsed.country &&
+      !parsed.monthlyRevenue &&
+      !parsed.monthlyExpense &&
+      !parsed.employeeCount &&
+      !parsed.customerCount &&
+      !parsed.website &&
+      !parsed.growthGoal
+    ) {
       return null;
     }
     return parsed;
@@ -259,7 +300,16 @@ async function fetchBusinessProfile(signal?: AbortSignal): Promise<BusinessProfi
 async function createBusinessProfile(payload: BusinessProfile): Promise<BusinessProfile> {
   const body = {
     business_name: payload.businessName,
+    owner_name: payload.ownerName,
     industry: payload.industry,
+    city: payload.city,
+    state: payload.state,
+    country: payload.country,
+    monthly_revenue: toNumber(payload.monthlyRevenue),
+    monthly_expense: toNumber(payload.monthlyExpense),
+    employee_count: toNumber(payload.employeeCount),
+    customer_count: toNumber(payload.customerCount),
+    ...(payload.website.trim() ? { website: payload.website.trim() } : {}),
     growth_goal: payload.growthGoal,
   };
   const response = await fetcher<unknown>("/business/profile", {
@@ -274,7 +324,16 @@ async function createBusinessProfile(payload: BusinessProfile): Promise<Business
 async function updateBusinessProfile(payload: BusinessProfile): Promise<BusinessProfile> {
   const body = {
     business_name: payload.businessName,
+    owner_name: payload.ownerName,
     industry: payload.industry,
+    city: payload.city,
+    state: payload.state,
+    country: payload.country,
+    monthly_revenue: toNumber(payload.monthlyRevenue),
+    monthly_expense: toNumber(payload.monthlyExpense),
+    employee_count: toNumber(payload.employeeCount),
+    customer_count: toNumber(payload.customerCount),
+    ...(payload.website.trim() ? { website: payload.website.trim() } : {}),
     growth_goal: payload.growthGoal,
   };
   const response = await fetcher<unknown>("/business/profile", {
@@ -392,6 +451,29 @@ function TrendTile({
       </div>
     </div>
   );
+}
+
+function profileMutationError(error: unknown): string {
+  if (!(error instanceof ApiError)) return toErrorMessage(error);
+  const details = error.details;
+  if (!details) return toErrorMessage(error);
+
+  const messages = Array.isArray(details)
+    ? details
+        .map((entry) => {
+          const record = asRecord(entry);
+          if (typeof record.msg === "string" && record.msg.trim()) return record.msg.trim();
+          if (typeof record.message === "string" && record.message.trim()) return record.message.trim();
+          return null;
+        })
+        .filter((message): message is string => Boolean(message))
+    : Object.values(asRecord(details))
+        .flatMap((value) => (Array.isArray(value) ? value : [value]))
+        .map((value) => (typeof value === "string" ? value.trim() : ""))
+        .filter(Boolean);
+
+  if (messages.length > 0) return messages.join(" · ");
+  return toErrorMessage(error);
 }
 
 export function BusinessConnectWorkspace() {
@@ -541,6 +623,21 @@ export function BusinessConnectWorkspace() {
             />
           </FormField>
 
+          <FormField label="Owner Name">
+            <input
+              value={profileDraft.ownerName}
+              onChange={(event) =>
+                setProfileDraft((current) => ({
+                  ...current,
+                  ownerName: event.target.value,
+                }))
+              }
+              className="v2-input w-full"
+              placeholder="Enter owner name"
+              required
+            />
+          </FormField>
+
           <FormField label="Industry">
             <input
               value={profileDraft.industry}
@@ -553,6 +650,130 @@ export function BusinessConnectWorkspace() {
               className="v2-input w-full"
               placeholder="e.g. Real Estate"
               required
+            />
+          </FormField>
+
+          <FormField label="City">
+            <input
+              value={profileDraft.city}
+              onChange={(event) =>
+                setProfileDraft((current) => ({
+                  ...current,
+                  city: event.target.value,
+                }))
+              }
+              className="v2-input w-full"
+              placeholder="Enter city"
+              required
+            />
+          </FormField>
+
+          <FormField label="State">
+            <input
+              value={profileDraft.state}
+              onChange={(event) =>
+                setProfileDraft((current) => ({
+                  ...current,
+                  state: event.target.value,
+                }))
+              }
+              className="v2-input w-full"
+              placeholder="Enter state"
+              required
+            />
+          </FormField>
+
+          <FormField label="Country">
+            <input
+              value={profileDraft.country}
+              onChange={(event) =>
+                setProfileDraft((current) => ({
+                  ...current,
+                  country: event.target.value,
+                }))
+              }
+              className="v2-input w-full"
+              placeholder="Enter country"
+              required
+            />
+          </FormField>
+
+          <FormField label="Monthly Revenue">
+            <input
+              type="number"
+              min="0"
+              value={profileDraft.monthlyRevenue}
+              onChange={(event) =>
+                setProfileDraft((current) => ({
+                  ...current,
+                  monthlyRevenue: event.target.value,
+                }))
+              }
+              className="v2-input w-full"
+              required
+            />
+          </FormField>
+
+          <FormField label="Monthly Expense">
+            <input
+              type="number"
+              min="0"
+              value={profileDraft.monthlyExpense}
+              onChange={(event) =>
+                setProfileDraft((current) => ({
+                  ...current,
+                  monthlyExpense: event.target.value,
+                }))
+              }
+              className="v2-input w-full"
+              required
+            />
+          </FormField>
+
+          <FormField label="Employee Count">
+            <input
+              type="number"
+              min="0"
+              value={profileDraft.employeeCount}
+              onChange={(event) =>
+                setProfileDraft((current) => ({
+                  ...current,
+                  employeeCount: event.target.value,
+                }))
+              }
+              className="v2-input w-full"
+              required
+            />
+          </FormField>
+
+          <FormField label="Customer Count">
+            <input
+              type="number"
+              min="0"
+              value={profileDraft.customerCount}
+              onChange={(event) =>
+                setProfileDraft((current) => ({
+                  ...current,
+                  customerCount: event.target.value,
+                }))
+              }
+              className="v2-input w-full"
+              required
+            />
+          </FormField>
+
+          <FormField label="Website (optional)" className="sm:col-span-2">
+            <input
+              type="url"
+              value={profileDraft.website}
+              onChange={(event) =>
+                setProfileDraft((current) => ({
+                  ...current,
+                  website: event.target.value,
+                }))
+              }
+              className="v2-input w-full"
+              placeholder="https://example.com"
             />
           </FormField>
 
@@ -579,7 +800,7 @@ export function BusinessConnectWorkspace() {
               {saveProfileMutation.isPending ? "Saving..." : profileExists ? "Update Profile" : "Create Profile"}
             </button>
             {saveProfileMutation.error ? (
-              <p className="text-xs text-rose-300">{toErrorMessage(saveProfileMutation.error)}</p>
+              <p className="text-xs text-rose-300">{profileMutationError(saveProfileMutation.error)}</p>
             ) : null}
             {saveProfileMutation.isSuccess ? <p className="text-xs text-emerald-300">Profile saved.</p> : null}
           </div>
