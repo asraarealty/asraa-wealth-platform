@@ -65,6 +65,15 @@ function IconBuilding() {
   );
 }
 
+function IconBusinessConnect() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
+      <rect x="1.75" y="3" width="12.5" height="10.5" rx="1.6" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M5 3V1.75M11 3V1.75M4.5 7.25H11.5M4.5 10H8.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function IconAssets() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
@@ -117,6 +126,7 @@ const NAV = [
   { href: "/watchlist", label: "Watchlist", short: "Watchlist", Icon: IconWatchlist },
   { href: "/discover", label: "Discover", short: "Discover", Icon: IconCompass },
   { href: "/real-estate", label: "Real Estate", short: "Property", Icon: IconBuilding },
+  { href: "/business-connect", label: "Business Connect", short: "Business", Icon: IconBusinessConnect },
   { href: "/assets", label: "Assets", short: "Assets", Icon: IconAssets },
   { href: "/transactions", label: "Transactions", short: "Deals", Icon: IconTransactions },
   { href: "/notifications", label: "Notifications", short: "Alerts", Icon: IconBell },
@@ -130,7 +140,7 @@ const MOBILE_DOCK = NAV.filter((n) =>
 const NAV_GROUPS: { title: string; hrefs: string[] }[] = [
   { title: "Overview", hrefs: ["/dashboard", "/onboarding"] },
   { title: "Markets", hrefs: ["/stocks", "/markets", "/watchlist", "/discover"] },
-  { title: "Portfolio", hrefs: ["/real-estate", "/assets", "/transactions"] },
+  { title: "Portfolio", hrefs: ["/real-estate", "/business-connect", "/assets", "/transactions"] },
   { title: "Operations", hrefs: ["/notifications", "/activity", "/profile"] },
 ];
 
