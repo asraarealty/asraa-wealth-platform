@@ -200,7 +200,6 @@ export function MutualFundHoldingForm({
                 className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-xs text-slate-200 transition hover:bg-white/[0.08]"
               >
                 <p className="truncate font-semibold text-white">{item.name}</p>
-                <p className="truncate text-slate-300">{item.symbol}</p>
                 <p className="text-[10px] text-slate-500">{item.exchange || item.category}</p>
               </button>
             ))}
