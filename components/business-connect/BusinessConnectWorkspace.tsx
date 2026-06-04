@@ -17,7 +17,7 @@ type BusinessProfile = {
 
 const INDUSTRY_RECOMMENDATIONS: Record<Industry, string[]> = {
   Restaurant: [
-    "Reduce food wastage",
+    "Reduce food waste",
     "Improve repeat customers",
     "Optimize delivery margins",
   ],
@@ -57,8 +57,22 @@ const INDUSTRY_NOTES: Record<Industry, string> = {
   Manufacturing: "Mock recommendations prioritize throughput, uptime, and cash-cycle efficiency.",
 };
 
+const GOAL_SIGNAL_FULL_THRESHOLD = 24;
+const GOAL_SIGNAL_PARTIAL_THRESHOLD = 8;
+const GOAL_SIGNAL_FULL_SCORE = 14;
+const GOAL_SIGNAL_PARTIAL_SCORE = 8;
+const GROWTH_CUSTOMER_DENSITY_MULTIPLIER = 3.5;
+const GROWTH_REVENUE_DIVISOR = 30000;
+const GROWTH_REVENUE_CAP = 42;
+const RISK_EXPENSE_WEIGHT = 62;
+const RISK_TEAM_SIZE_THRESHOLD = 40;
+const RISK_TEAM_SIZE_PENALTY = 0.7;
+const RISK_CUSTOMER_BUFFER_DIVISOR = 40;
+const RISK_CUSTOMER_BUFFER_CAP = 18;
+const ONBOARDING_STEP_THRESHOLDS = [30, 60, 90] as const;
+
 const DEFAULT_PROFILE: BusinessProfile = {
-  businessName: "Asraa Prime Bistro",
+  businessName: "Asraa Bistro",
   industry: "Restaurant",
   monthlyRevenue: 780000,
   monthlyExpenses: 495000,
@@ -158,7 +172,7 @@ export function BusinessConnectWorkspace() {
       profile.businessName,
       profile.industry,
       profile.monthlyRevenue > 0 ? "1" : "",
-      profile.monthlyExpenses >= 0 ? "1" : "",
+      profile.monthlyExpenses > 0 ? "1" : "",
       profile.employees > 0 ? "1" : "",
       profile.customers > 0 ? "1" : "",
       profile.growthGoal,
@@ -171,11 +185,29 @@ export function BusinessConnectWorkspace() {
     const revenue = Math.max(profile.monthlyRevenue, 1);
     const expenseRatio = profile.monthlyExpenses / revenue;
     const customerDensity = profile.customers / Math.max(profile.employees, 1);
-    const goalSignal = profile.growthGoal.trim().length >= 24 ? 14 : profile.growthGoal.trim().length >= 8 ? 8 : 0;
+    const goalLength = profile.growthGoal.trim().length;
+    const goalSignal =
+      goalLength >= GOAL_SIGNAL_FULL_THRESHOLD
+        ? GOAL_SIGNAL_FULL_SCORE
+        : goalLength >= GOAL_SIGNAL_PARTIAL_THRESHOLD
+          ? GOAL_SIGNAL_PARTIAL_SCORE
+          : 0;
 
     const profitability = clamp((1 - expenseRatio) * 100);
-    const growth = clamp((customerDensity * 3.5) + Math.min(profile.monthlyRevenue / 30000, 42) + goalSignal);
-    const risk = clamp(100 - (expenseRatio * 62) - Math.max(profile.employees - 40, 0) * 0.7 + Math.min(profile.customers / 40, 18));
+    // Placeholder growth score: customer density rewards lean team leverage, revenue scale caps oversized
+    // businesses from dominating the score, and goal clarity adds a small planning premium until backend
+    // scoring replaces these temporary weights.
+    const growth = clamp(
+      (customerDensity * GROWTH_CUSTOMER_DENSITY_MULTIPLIER) +
+      Math.min(profile.monthlyRevenue / GROWTH_REVENUE_DIVISOR, GROWTH_REVENUE_CAP) +
+      goalSignal
+    );
+    const risk = clamp(
+      100 -
+      (expenseRatio * RISK_EXPENSE_WEIGHT) -
+      (Math.max(profile.employees - RISK_TEAM_SIZE_THRESHOLD, 0) * RISK_TEAM_SIZE_PENALTY) +
+      Math.min(profile.customers / RISK_CUSTOMER_BUFFER_DIVISOR, RISK_CUSTOMER_BUFFER_CAP)
+    );
     const health = clamp((profitability * 0.45) + (growth * 0.3) + (risk * 0.25));
 
     return {
@@ -217,7 +249,10 @@ export function BusinessConnectWorkspace() {
                 <div key={step.title} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-semibold text-white">{step.title}</p>
-                    <StatusPill label={completion >= (index + 1) * 30 ? "Ready" : "Pending"} tone={completion >= (index + 1) * 30 ? "success" : "warn"} />
+                    <StatusPill
+                      label={completion >= ONBOARDING_STEP_THRESHOLDS[index] ? "Ready" : "Pending"}
+                      tone={completion >= ONBOARDING_STEP_THRESHOLDS[index] ? "success" : "warn"}
+                    />
                   </div>
                   <p className="mt-2 text-xs text-slate-400">{step.detail}</p>
                 </div>
