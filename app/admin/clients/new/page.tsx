@@ -23,7 +23,8 @@ export default function NewClientPage() {
         try {
           setSaving(true);
           setError(null);
-          const created = await createClient({ ...payload, status });
+          const createPayload = { ...payload, status };
+          const created = await createClient(createPayload);
           if (status === "archived") {
             await archiveClient(created.id);
           } else if (status !== "active") {

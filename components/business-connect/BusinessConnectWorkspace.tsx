@@ -324,9 +324,7 @@ async function createBusinessProfile(payload: BusinessProfile): Promise<Business
 
 async function updateBusinessProfile(payload: BusinessProfile): Promise<BusinessProfile> {
   const body = {
-    // Backend profile update handlers may validate either key depending on deployment version.
-    id: payload.id ?? undefined,
-    profile_id: payload.id ?? undefined,
+    ...(payload.id != null ? { profile_id: payload.id } : {}),
     business_name: payload.businessName,
     owner_name: payload.ownerName,
     industry: payload.industry,

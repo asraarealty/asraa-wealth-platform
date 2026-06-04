@@ -74,8 +74,6 @@ function collectValidationMessages(value: unknown, fieldHint?: string): string[]
   return [...direct, ...nested, ...extra];
 }
 
-const GENERIC_MESSAGE_PATTERN = /^(validation failed|http \d{3}|request failed \(\d{3}\)|api error)$/i;
-
 export function toApiValidationErrorMessage(error: unknown): string {
   if (!(error instanceof ApiError)) return toErrorMessage(error);
 
@@ -90,8 +88,15 @@ export function toApiValidationErrorMessage(error: unknown): string {
   if (messages.length > 0) return messages.join(" · ");
 
   const fallback = toErrorMessage(error).trim();
-  if (GENERIC_MESSAGE_PATTERN.test(fallback)) {
-    return `Request failed (${error.status})`;
+  const normalized = fallback.toLowerCase();
+  const genericFallback = `Request failed (${error.status})`;
+  if (
+    normalized === "validation failed" ||
+    normalized === "api error" ||
+    /^http \d{3}$/i.test(fallback) ||
+    /^request failed \(\d{3}\)$/i.test(fallback)
+  ) {
+    return genericFallback;
   }
-  return fallback || `Request failed (${error.status})`;
+  return fallback || genericFallback;
 }
