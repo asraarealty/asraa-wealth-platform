@@ -1,24 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { isProtectedRoute } from "@/lib/auth/routeProtection";
-
-const ACCESS_TOKEN_COOKIE = "access_token";
 
 export function middleware(request: NextRequest) {
-  const { pathname, search } = request.nextUrl;
-
-  if (!isProtectedRoute(pathname)) {
-    return NextResponse.next();
-  }
-
-  const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value.trim();
-  if (accessToken) {
-    return NextResponse.next();
-  }
-
-  const loginUrl = new URL("/login", request.url);
-  loginUrl.searchParams.set("next", `${pathname}${search}`);
-  return NextResponse.redirect(loginUrl);
+  return NextResponse.next();
 }
 
 export const config = {
