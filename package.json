@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:route-protection": "node --test tests/routeProtection.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.10",

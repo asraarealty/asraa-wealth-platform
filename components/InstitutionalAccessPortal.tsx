@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import Header from "@/components/Header";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { resolvePostLoginPath } from "@/lib/auth/routeProtection";
 import {
   activateInvitation,
   requestAdvisoryAccess,
@@ -70,9 +71,11 @@ function LifecycleRail({
 export default function InstitutionalAccessPortal({
   initialTab = "login",
   initialInvitationToken = "",
+  initialNextPath = "",
 }: {
   initialTab?: AccessView;
   initialInvitationToken?: string;
+  initialNextPath?: string;
 }) {
   const router = useRouter();
   const { login } = useAuth();
@@ -118,7 +121,7 @@ export default function InstitutionalAccessPortal({
     try {
       const me = await login(email, password);
       const role = (me.role || "").toString().trim().toLowerCase();
-      router.replace(role === "admin" ? "/admin" : "/dashboard");
+      router.replace(resolvePostLoginPath(initialNextPath, role));
     } catch (err) {
       if (err instanceof NetworkError) {
         setError("Server not reachable. Try again.");
